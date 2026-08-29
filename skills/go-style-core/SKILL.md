@@ -28,6 +28,22 @@ When writing readable Go code, apply these principles in order of importance:
 
 Run `gofmt` — no exceptions. There is **no rigid line length limit**, but Uber suggests a soft limit of 99 characters. Break by semantics, not length — refactor rather than just wrap.
 
+## Write Current Go
+
+> **Normative**: Match the toolchain, not the codebase's oldest habits. Code
+> written in a superseded idiom is a style defect even when it compiles.
+
+The toolchain decides, not taste: `go fix -diff ./...` must be empty. It flags
+the patterns Go has since replaced — `x := x` loop captures, three-clause
+counting loops, `sort.Slice`, `interface{}`, `wg.Add`/`Done` bookkeeping,
+`errors.As`, hand-written `min`/`max`. See
+[go-linting](../go-linting/SKILL.md) for the analyzer list and the full
+verification gate.
+
+The exception is consistency: in a file that is uniformly written in an older
+idiom, modernize the whole file or none of it. A diff that switches style
+halfway is worse than either end state.
+
 ---
 
 ## Reduce Nesting

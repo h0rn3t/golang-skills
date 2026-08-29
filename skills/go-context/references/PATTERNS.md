@@ -45,17 +45,25 @@ Use `context.Background()` only for functions that are **never request-specific*
 
 ```go
 func main() {
-    ctx := context.Background()
+    // Bind the process lifetime to signals here, not with a hand-rolled
+    // signal channel and goroutine.
+    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+    defer stop()
+
     if err := run(ctx); err != nil {
         log.Fatal(err)
     }
 }
-
-func startBackgroundWorker() {
-    ctx := context.Background()
-    go worker(ctx)
-}
 ```
+
+Two exceptions where a fresh root is correct rather than lazy:
+
+- **In tests**: use `t.Context()` (Go 1.24+), which is cancelled at test end.
+  `context.Background()` in a test leaks work past the test.
+- **Cleanup that must outlive cancellation**: shutdown, flush, and audit writes
+  need their own timeout, since the incoming context is already cancelled. Use
+  `context.WithoutCancel(ctx)` (Go 1.21+) to keep the values while dropping the
+  cancellation, or a fresh `context.WithTimeout(context.Background(), ...)`.
 
 **Default to passing a Context** even if you think you don't need to. Only use
 `context.Background()` directly if you have a good reason why passing a context

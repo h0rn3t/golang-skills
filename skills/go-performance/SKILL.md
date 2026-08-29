@@ -37,7 +37,7 @@ Convert a fixed string to `[]byte` once outside the loop:
 
 ```go
 data := []byte("Hello world")
-for b.Loop() { // Go 1.24+; use b.N loops only for older Go
+for b.Loop() { // Go 1.24+
     w.Write(data) // ~7x faster than []byte("...") each iteration
 }
 ```
@@ -117,7 +117,17 @@ Always measure before and after optimizing. Use Go's built-in benchmark framewor
 go test -bench=. -benchmem -count=10 ./...
 ```
 
-> **Validation**: After applying optimizations, run `bash scripts/bench-compare.sh` to measure the actual impact. Only keep optimizations with measurable improvement.
+> **Validation**: Run `bash scripts/bench-compare.sh` to measure the actual
+> impact, and **revert any optimization without a measurable win** — an
+> unmeasured optimization is a readability cost with no benefit. Report the
+> before/after numbers; do not describe a change as "faster" without them.
+
+### Before reaching for a faster library
+
+Check the standard library first — `encoding/json/v2` (Go 1.27+) and the
+`*Seq` iterator variants (`strings.SplitSeq`, `maps.Keys`) remove allocations
+without a new dependency. See
+[go-packages](../go-packages/SKILL.md) for the dependency ladder.
 
 ---
 

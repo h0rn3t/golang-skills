@@ -1,8 +1,8 @@
 # Agent Skills For Go
 
 AI [Agent Skills](https://agentskills.io/) for writing idiomatic,
-production-quality Go code. 20 modular skills teach AI coding assistants Go
-best practices derived from:
+production-quality **Go 1.27** code. 21 modular skills teach AI coding
+assistants Go best practices derived from:
 
 - [Google Go Style Guide](https://google.github.io/styleguide/go/)
 - [Effective Go](https://go.dev/doc/effective_go)
@@ -12,14 +12,15 @@ best practices derived from:
 Skills are tuned following
 [agentskills.io best practices](https://agentskills.io/skill-creation/best-practices):
 content the agent already knows is omitted, procedural decision trees guide
-multi-step tasks, 48 reference files load on demand via progressive disclosure,
-8 bundled scripts automate common checks, and 4 asset templates ensure
+multi-step tasks, 51 reference files load on demand via progressive disclosure,
+9 bundled scripts automate common checks, and 5 asset templates ensure
 consistent output.
 
 ## Skills Included
 
 | Skill | Description |
 |-------|-------------|
+| **go-code-refactor** | Behavior-preserving refactor of existing Go: audit, delete, restructure, modernize, verify |
 | **go-code-review** | Systematic checklist for reviewing Go code and PR submissions |
 | **go-concurrency** | Goroutine lifecycle, channels, mutexes, parallelization, thread-safety |
 | **go-context** | Context.Context placement, cancellation, deadlines, request-scoped data |
@@ -43,13 +44,14 @@ consistent output.
 
 ## Bundled Scripts
 
-8 scripts automate common Go checks. All support `--help`, `--json` for
+9 scripts automate common Go checks. All support `--help`, `--json` for
 structured output, and meaningful exit codes (0 = clean, 1 = issues found,
 2 = error). Analysis scripts support `--limit` to cap output size, and
 destructive scripts require `--force` to overwrite existing files.
 
 | Script | Skill | Purpose |
 |--------|-------|---------|
+| `verify-refactor.sh` | go-code-refactor | Record baseline/after check results and diff them to prove behavior held |
 | `pre-review.sh` | go-code-review | Run gofmt + go vet + golangci-lint before review |
 | `check-naming.sh` | go-naming | Detect SCREAMING_SNAKE, Get-prefixed getters, bad package names |
 | `check-docs.sh` | go-documentation | Find exported symbols missing doc comments |
@@ -96,14 +98,36 @@ which works across multiple AI coding tools. When you're writing Go code:
    (e.g., `go-naming` when you're writing a new function)
 2. **Procedural guidance**: Decision trees and step-by-step procedures for
    multi-step tasks like code review and error strategy selection
-3. **Progressive disclosure**: Core rules load immediately; 48 reference files
+3. **Progressive disclosure**: Core rules load immediately; 51 reference files
    load on demand when specific situations arise
-4. **Automation**: 8 bundled scripts handle repetitive checks so the agent
+4. **Automation**: 9 bundled scripts handle repetitive checks so the agent
    focuses on higher-level guidance
 5. **Conditional cross-references**: Skills link to each other with "when"
    conditions to avoid unnecessary context loading
 6. **Rule ownership**: `docs/RULE_OWNERSHIP.md` keeps duplicated guidance out
    of non-owner skills
+7. **Verification gate**: `go-linting` owns one checkable definition of "done"
+   — `gofmt`, `go vet`, `go test -race`, `go fix -diff`, `golangci-lint`,
+   `govulncheck` — that the other skills route to instead of inventing their own
+
+## Go 1.27
+
+Skills target Go 1.27 and say so where it matters. Notable guidance that
+changed with recent releases:
+
+| Guidance | Skill |
+|---|---|
+| Generic methods; `maphash.ComparableHasher` | go-generics |
+| `errors.AsType[T]` over `errors.As` | go-error-handling |
+| `httptest.NewTestServer`, `synctest`, `t.Context` | go-testing |
+| Stdlib `uuid` and `encoding/json/v2` on the dependency ladder | go-packages |
+| `go fix` modernizers as part of the gate | go-linting, go-style-core |
+| `slices.Clone`/`maps.Clone` and `os.Root` at boundaries | go-defensive |
+| `slog.NewMultiHandler`, `slog.GroupAttrs` | go-logging |
+| `new(expr)` for non-composite pointers | go-declarations |
+
+Version-sensitive claims are tracked in [COMPATIBILITY.md](COMPATIBILITY.md)
+and pinned by `TestGoVersionBaseline` in `evals/eval_test.go`.
 
 ## Project Structure
 
@@ -114,7 +138,7 @@ which works across multiple AI coding tools. When you're writing Go code:
 │       ├── SKILL.md      # Core rules (< 225 lines each)
 │       ├── references/   # Detailed guidance, loaded on demand
 │       ├── scripts/      # Automation scripts and helpers
-│       └── assets/       # Output templates (4 skills)
+│       └── assets/       # Output templates (5 skills)
 ├── evals/
 │   ├── evals.json        # Trigger and quality eval definitions
 │   ├── files/            # Sample Go files for quality evals
@@ -131,10 +155,11 @@ its own inline provenance header, and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTIC
 summarizes the source path, upstream project, URL, license, and copyright at the
 repository level.
 
-Go-version-sensitive guidance is tracked in [COMPATIBILITY.md](COMPATIBILITY.md).
-When a skill recommends a standard-library API that depends on a specific Go
-release, the guidance should name the minimum Go version and include an older
-fallback where that helps users on maintained but older toolchains.
+Go-version-sensitive guidance is tracked in [COMPATIBILITY.md](COMPATIBILITY.md),
+which also documents how to re-verify every claim against an installed
+toolchain. When a skill recommends a standard-library API tied to a specific Go
+release, the guidance names the minimum version — and names a fallback only
+when the API is newer than the oldest supported release (currently 1.26).
 
 ## License
 

@@ -49,6 +49,26 @@ short rules, routing trees, checklists, and small examples.
 - `go-other-skill` - Route when ...
 ```
 
+## Writing for a Capable Agent
+
+The reader already knows Go. Optimize for the decisions it gets wrong, not for
+the syntax it gets right.
+
+- **Cut what the model already knows.** No "goroutines are lightweight
+  threads". Every paragraph should change an output.
+- **Command, don't describe.** "Use `slices.Clone`" beats "you might consider
+  cloning". Ambiguity gets resolved as permission to skip.
+- **Make claims checkable.** Attach the command that proves it — `go vet ./...`,
+  `go fix -diff ./...`, `golangci-lint run` — instead of asserting a rule the
+  reader must take on faith. The verification gate lives in `go-linting`; route
+  to it rather than restating it.
+- **Say what "done" means.** A skill that produces work should end with the
+  check that fails when the work is wrong.
+- **Require honest reporting.** Where a skill tells the agent to run something,
+  it also says: report a skipped or failing step as skipped or failing.
+- **Name the Go version inline** for anything newer than 1.21, and route the
+  skill's `> Compatibility:` note to `COMPATIBILITY.md`.
+
 ## Required Conformance
 
 - Keep `SKILL.md` frontmatter to `name`, `description`, and runtime-required

@@ -5,7 +5,8 @@ description: Use when declaring or initializing Go variables, constants, structs
 
 # Go Declarations and Initialization
 
-> Compatibility: Examples may use `any`, which requires Go 1.18+.
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `new(expr)`
+> requires Go 1.26+; `any` Go 1.18+.
 
 ## Resource Routing
 
@@ -94,6 +95,23 @@ the `if`. Move constants into functions when only used there.
 - **Omit zero-value fields** — let Go set defaults.
 - **Use `var` for zero-value structs**: `var user User` not `user := User{}`
 - **Use `&T{}` over `new(T)`**: `sptr := &T{Name: "bar"}`
+
+### Pointers to Non-Struct Values
+
+`new(expr)` (Go 1.26+) allocates and initializes in one expression. It removes
+the temp-variable dance for optional fields and `*int`/`*string` API arguments:
+
+```go
+// Before
+n := computeLimit()
+cfg.Limit = &n
+
+// Go 1.26+
+cfg.Limit = new(computeLimit())
+```
+
+`go fix -newexpr ./...` applies this. `&T{...}` remains the form for composite
+literals.
 
 ---
 

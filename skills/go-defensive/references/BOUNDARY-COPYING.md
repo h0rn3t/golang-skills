@@ -1,106 +1,93 @@
 # Copying Slices and Maps at API Boundaries
 
-> **Source**: Uber Style Guide
+> Sources: source/uber-go-style/style.md; https://pkg.go.dev/slices, https://pkg.go.dev/maps
+> Authority: advisory
+> Minimum Go: `slices.Clone` / `maps.Clone` 1.21; `url.Values.Clone` 1.27
+> Last verified: 2026-08-29
 
 Slices and maps contain references to their underlying data. Copy them at API
-boundaries to prevent callers from mutating internal state (or vice versa).
+boundaries so callers cannot mutate internal state, or vice versa.
 
-## Receiving Slices and Maps
+## Use the stdlib clone functions
 
-When a function stores a slice or map passed by the caller, always make a
-defensive copy. The caller retains the original reference and can modify it
-after your function returns.
+`slices.Clone` and `maps.Clone` (Go 1.21+) replace every hand-written
+`make`+`copy` and `make`+`range` pair. Use them; a loop here is noise a reviewer
+has to verify.
 
-### Slices
+### Receiving
 
-**Bad**
 ```go
-func (d *Driver) SetTrips(trips []Trip) {
-  d.trips = trips  // caller can still modify d.trips
-}
+// Bad: caller keeps a live reference to d.trips
+func (d *Driver) SetTrips(trips []Trip) { d.trips = trips }
+
+// Good
+func (d *Driver) SetTrips(trips []Trip) { d.trips = slices.Clone(trips) }
 ```
 
-**Good**
 ```go
-func (d *Driver) SetTrips(trips []Trip) {
-  d.trips = make([]Trip, len(trips))
-  copy(d.trips, trips)
-}
+// Bad
+func (s *Server) SetConfig(cfg map[string]string) { s.config = cfg }
+
+// Good
+func (s *Server) SetConfig(cfg map[string]string) { s.config = maps.Clone(cfg) }
 ```
 
-### Maps
+### Returning
 
-**Bad**
 ```go
-func (s *Server) SetConfig(cfg map[string]string) {
-  s.config = cfg  // caller can still modify s.config
-}
+// Bad: exposes internal state
+func (q *Queue) Items() []Item { return q.items }
+
+// Good
+func (q *Queue) Items() []Item { return slices.Clone(q.items) }
 ```
 
-**Good**
 ```go
-func (s *Server) SetConfig(cfg map[string]string) {
-  s.config = make(map[string]string, len(cfg))
-  for k, v := range cfg {
-    s.config[k] = v
-  }
-}
-```
-
-## Returning Slices and Maps
-
-When returning internal slices or maps, return a copy to prevent callers from
-modifying your internal state.
-
-### Returning a Map
-
-**Bad**
-```go
+// Good: snapshot under the lock, clone before releasing it
 func (s *Stats) Snapshot() map[string]int {
   s.mu.Lock()
   defer s.mu.Unlock()
-  return s.counters  // exposes internal state!
+  return maps.Clone(s.counters)
 }
 ```
 
-**Good**
+Note the nil behavior: `slices.Clone(nil)` and `maps.Clone(nil)` return `nil`,
+not an empty container. That matches the nil-slice convention but changes JSON
+output from `[]` to `null` — see
+[go-data-structures](../../go-data-structures/SKILL.md).
+
+## Clone is shallow
+
+`Clone` copies one level. If the element type contains a reference, the copy
+still aliases it:
+
+| Type | `Clone` gives you | What you need |
+|---|---|---|
+| `[]int`, `map[string]int` | A real, independent copy | Nothing more |
+| `[]*Trip` | New slice, **same pointers** | Clone each element too |
+| `map[string][]string` | New map, **same slices** | Clone each value |
+| `url.Values` | — | `v.Clone()` (Go 1.27+), which deep-copies the value slices |
+| `*url.URL` | — | `u.Clone()` (Go 1.27+) |
+| `http.Header` | — | `h.Clone()` |
+
 ```go
-func (s *Stats) Snapshot() map[string]int {
-  s.mu.Lock()
-  defer s.mu.Unlock()
-  result := make(map[string]int, len(s.counters))
-  for k, v := range s.counters {
-    result[k] = v
-  }
-  return result
-}
+// Bad: the maps.Clone copy shares every []string with the caller
+params := maps.Clone(userParams)
+
+// Good
+params := userParams.Clone() // url.Values.Clone, Go 1.27+
 ```
 
-### Returning a Slice
+For a struct with reference fields, write an explicit `Clone` method rather
+than relying on assignment — struct assignment is shallow for the same reason.
 
-**Bad**
-```go
-func (q *Queue) Items() []Item {
-  return q.items  // caller can append, modify, or reslice
-}
-```
-
-**Good**
-```go
-func (q *Queue) Items() []Item {
-  result := make([]Item, len(q.items))
-  copy(result, q.items)
-  return result
-}
-```
-
-## When Copies Are Not Needed
+## When copies are not needed
 
 Defensive copies have a cost. Skip them when:
 
-- The data is **immutable by convention** and clearly documented
-- The slice/map is **created fresh** for the caller (not stored internally)
-- Performance profiling shows the copy is a bottleneck in a hot path
+- The data is **immutable by convention** and the doc comment says so
+- The slice/map is **created fresh** for the caller and never stored internally
+- Profiling shows the copy is a real hot-path cost (measure, do not assume)
 
-When in doubt, copy. The cost is usually negligible compared to the bugs that
+When in doubt, copy. The cost is almost always negligible next to the bugs
 shared references cause.

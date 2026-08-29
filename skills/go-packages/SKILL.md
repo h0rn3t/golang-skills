@@ -12,6 +12,39 @@ description: Use when creating Go packages, organizing imports, managing depende
 
 > **When this skill does NOT apply**: For naming individual identifiers within a package, see [go-naming](../go-naming/SKILL.md). For organizing functions within a single file, see [go-functions](../go-functions/SKILL.md). For configuring linters that enforce import rules, see [go-linting](../go-linting/SKILL.md).
 
+## Dependency Ladder
+
+> **Normative**: Before adding a module to `go.mod`, check the stdlib. Go 1.27
+> absorbed several of the most-added dependencies.
+
+Stop at the first rung that works:
+
+1. **Standard library** — check `go doc <pkg>` before assuming it is missing
+2. **`golang.org/x/...`** — same release process, no third-party trust
+3. **A module already in `go.mod`**
+4. **A new module** — only when the above cost materially more code
+
+Commonly added modules the standard library now covers:
+
+| Was | Use instead | Since |
+|---|---|---|
+| `github.com/google/uuid` | `uuid` — `New`, `NewV4`, `NewV7`, `Parse`, `MustParse` | 1.27 |
+| A faster JSON encoder | `encoding/json/v2` + `encoding/json/jsontext` | 1.27 |
+| `github.com/sirupsen/logrus`, `go.uber.org/zap` | `log/slog` (see [go-logging](../go-logging/SKILL.md)) | 1.21 |
+| `github.com/pkg/errors` | `fmt.Errorf` with `%w`, `errors.Is`, `errors.AsType` | 1.13 / 1.26 |
+| `golang.org/x/exp/slices`, `.../maps` | `slices`, `maps` | 1.21 |
+| A CSPRNG string helper | `crypto/rand.Text` | 1.24 |
+
+`encoding/json/v2` is not a drop-in replacement for `encoding/json`: it changes
+`omitempty`, case-matching, and error semantics. Keep v1 for existing wire
+formats; reach for v2 for new code or when you need `jsontext` streaming. Both
+ship in the toolchain — no build tag or `GOEXPERIMENT` needed on Go 1.27.
+
+`github.com/google/uuid` stays justified for the algorithms stdlib `uuid` does
+not have (v1, v3, v5, custom sources).
+
+---
+
 ## Package Organization
 
 ### Avoid Util Packages

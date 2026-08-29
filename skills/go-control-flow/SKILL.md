@@ -109,25 +109,31 @@ for {
     if done() { break }
 }
 
-// C-style three-component
-for i := 0; i < n; i++ { ... }
+// C-style three-component — only when the step is not 1
+for i := 0; i < n; i += stride { ... }
 ```
 
 ### Range
 
-`range` iterates over slices, maps, strings, and channels:
+`range` iterates over slices, maps, strings, channels, integers, and iterator
+functions:
 
 ```go
 for i, v := range slice { ... }   // index + value
 for k, v := range myMap { ... }   // key + value (non-deterministic order)
 for i, r := range "héllo" { ... } // byte index + rune (not byte)
 for v := range ch { ... }         // receives until channel closed
+for i := range n { ... }          // 0..n-1 (Go 1.22+); replaces i := 0; i < n; i++
+for v := range seq { ... }        // iter.Seq function (Go 1.23+)
 ```
 
 **Key rules:**
+- `for i := range n` replaces the three-clause counting loop — `go fix -rangeint ./...` rewrites it
+- Loop variables are **per-iteration** since Go 1.22; never write `v := v` to capture
 - Range over strings yields **runes**, not bytes — `i` is the byte offset
 - Range over maps has **non-deterministic order** — don't rely on it
 - Use `_` to discard the index or value: `for _, v := range slice`
+- Prefer the `*Seq` iterator variants (`strings.SplitSeq`, `maps.Keys`) over slice-building calls when you only iterate once
 
 ### Parallel Assignment
 

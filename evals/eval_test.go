@@ -800,7 +800,7 @@ func TestScriptFunctional(t *testing.T) {
 		runCommand(t, 0, golangciLint, "config", "verify", "--config", scriptPath("go-linting", "../assets/golangci.yml"))
 
 		jsonDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(jsonDir, "go.mod"), []byte("module setuplintjson\n\ngo 1.22\n"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(jsonDir, "go.mod"), []byte("module setuplintjson\n\ngo 1.27\n"), 0644); err != nil {
 			t.Fatalf("write setup-lint temp go.mod: %v", err)
 		}
 		if err := os.WriteFile(filepath.Join(jsonDir, "main.go"), []byte("package setuplintjson\n\n// Good returns a stable value.\nfunc Good() int { return 1 }\n"), 0644); err != nil {
@@ -1034,6 +1034,7 @@ func TestStructure(t *testing.T) {
 func TestFrontmatterDescriptionsInvariant(t *testing.T) {
 	t.Parallel()
 	want := map[string]string{
+		"go-code-refactor":      "Use when refactoring, cleaning up, simplifying, restructuring, or modernizing existing Go code while keeping observable behavior identical — reducing nesting, splitting long functions, deleting dead code, renaming for clarity, or adopting newer Go APIs. Also use when a user hands over a Go file or package and calls it messy, hard to follow, too long, bloated, over-engineered, or outdated, even if they never say \"refactor\". Does not cover writing new Go code or the style rules themselves (see go-style-core and the rule owners).",
 		"go-code-review":        "Use when reviewing Go code or checking code against community style standards. Also use proactively before submitting a Go PR or when reviewing any Go code changes, even if the user doesn't explicitly request a style review. Does not cover language-specific syntax — delegates to specialized skills.",
 		"go-concurrency":        "Use when writing concurrent Go code — goroutines, channels, mutexes, or thread-safety guarantees. Also use when parallelizing work, fixing data races, or protecting shared state, even if the user doesn't explicitly mention concurrency primitives. Does not cover context.Context patterns (see go-context).",
 		"go-context":            "Use when working with context.Context in Go — placement in signatures, propagating cancellation and deadlines, and storing values in context vs parameters. Also use when cancelling long-running operations, setting timeouts, or passing request-scoped data, even if they don't mention context.Context directly. Does not cover goroutine lifecycle or sync primitives (see go-concurrency).",
@@ -1332,6 +1333,101 @@ func TestKnownReferenceRegressions(t *testing.T) {
 	advancedConcurrency := read("skills/go-concurrency/references/ADVANCED-PATTERNS.md")
 	if !strings.Contains(advancedConcurrency, "wg.Go(") {
 		t.Fatal("ADVANCED-PATTERNS.md should use WaitGroup.Go in Go 1.25+ examples")
+	}
+
+	boundary := read("skills/go-defensive/references/BOUNDARY-COPYING.md")
+	if !strings.Contains(boundary, "slices.Clone") || !strings.Contains(boundary, "maps.Clone") {
+		t.Fatal("BOUNDARY-COPYING.md should use slices.Clone/maps.Clone, not hand-written copy loops")
+	}
+}
+
+// TestGoVersionBaseline pins the Go 1.27 guidance so a toolchain bump cannot
+// silently leave the skills describing an older language.
+func TestGoVersionBaseline(t *testing.T) {
+	t.Parallel()
+	root := repoRoot(t)
+	read := func(rel string) string {
+		t.Helper()
+		content, err := os.ReadFile(filepath.Join(root, rel))
+		if err != nil {
+			t.Fatalf("read %s: %v", rel, err)
+		}
+		return string(content)
+	}
+
+	compat := read("COMPATIBILITY.md")
+	for _, needle := range []string{
+		"Baseline for all skills in this repository: **Go 1.27**",
+		"Generic methods",
+		"errors.AsType",
+		"encoding/json/v2",
+		"httptest.NewTestServer",
+		"go tool fix help",
+	} {
+		if !strings.Contains(compat, needle) {
+			t.Errorf("COMPATIBILITY.md is missing %q", needle)
+		}
+	}
+
+	// Every skill that carries compatibility metadata must name the baseline,
+	// so a reader never has to guess which Go release the guidance assumes.
+	for _, dir := range findSkillDirs(t) {
+		rel := "skills/" + filepath.Base(dir) + "/SKILL.md"
+		body := read(rel)
+		if !strings.Contains(body, "> Compatibility:") {
+			continue
+		}
+		if !strings.Contains(body, "COMPATIBILITY.md") {
+			t.Errorf("%s has compatibility metadata but does not route to COMPATIBILITY.md", rel)
+		}
+	}
+
+	// Guidance that must exist somewhere, in its owning skill.
+	for rel, needles := range map[string][]string{
+		"skills/go-generics/SKILL.md":        {"Generic Methods (Go 1.27+)", "maphash.ComparableHasher"},
+		"skills/go-error-handling/SKILL.md":  {"errors.AsType[*fs.PathError]"},
+		"skills/go-testing/SKILL.md":         {"httptest.NewTestServer(t, h)", "synctest.Sleep", "t.Context()"},
+		"skills/go-linting/SKILL.md":         {"## Verification Gate", "go fix -diff ./...", "govulncheck"},
+		"skills/go-packages/SKILL.md":        {"## Dependency Ladder", "encoding/json/v2"},
+		"skills/go-declarations/SKILL.md":    {"new(computeLimit())"},
+		"skills/go-logging/SKILL.md":         {"slog.NewMultiHandler", "slog.GroupAttrs"},
+		"skills/go-defensive/SKILL.md":       {"os.OpenRoot", "slices.Clone"},
+		"skills/go-data-structures/SKILL.md": {"strings.CutLast"},
+	} {
+		body := read(rel)
+		for _, needle := range needles {
+			if !strings.Contains(body, needle) {
+				t.Errorf("%s is missing Go 1.27 guidance %q", rel, needle)
+			}
+		}
+	}
+
+	// Loop-variable capture was fixed in Go 1.22; the workaround must not be
+	// presented as live guidance anywhere.
+	// RE2 has no backreferences, so match "a := b" and compare the two names.
+	staleCapture := regexp.MustCompile(`(?m)^\s*([a-zA-Z_][a-zA-Z0-9_]*) := ([a-zA-Z_][a-zA-Z0-9_]*)\s*(//.*)?$`)
+	err := filepath.WalkDir(filepath.Join(root, "skills"), func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".md") {
+			return nil
+		}
+		content, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		for _, m := range staleCapture.FindAllStringSubmatch(string(content), -1) {
+			if m[1] != m[2] {
+				continue
+			}
+			rel, _ := filepath.Rel(root, path)
+			t.Errorf("%s keeps a pre-Go-1.22 loop-variable capture: %q", filepath.ToSlash(rel), strings.TrimSpace(m[0]))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk skills: %v", err)
 	}
 }
 

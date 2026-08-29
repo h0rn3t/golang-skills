@@ -5,7 +5,9 @@ description: Use when choosing a logging approach, configuring slog, writing str
 
 # Go Logging
 
-> Compatibility: `log/slog` requires Go 1.21+; `testing/slogtest` requires Go 1.22+.
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
+> `slog.NewMultiHandler` requires Go 1.26+; `slog.GroupAttrs` Go 1.25+;
+> `log/slog` itself Go 1.21+.
 
 ## Resource Routing
 
@@ -63,15 +65,32 @@ codebase: `user_id`, `request_id`, `elapsed_ms`.
 
 ### Typed Attributes
 
-For performance-critical paths, use typed constructors to avoid allocations:
+For performance-critical paths, use typed constructors to avoid allocations.
+Group related attributes with `slog.GroupAttrs` (Go 1.25+) — it takes `...Attr`
+rather than `slog.Group`'s `...any`, so the compiler checks the arguments:
 
 ```go
 slog.LogAttrs(ctx, slog.LevelInfo, "request handled",
     slog.String("method", r.Method),
     slog.Int("status", code),
     slog.Duration("elapsed", elapsed),
+    slog.GroupAttrs("client", slog.String("ip", ip), slog.String("ua", ua)),
 )
 ```
+
+### Fanning out to several sinks
+
+`slog.NewMultiHandler` (Go 1.26+) replaces hand-written fan-out handlers — e.g.
+JSON to stdout for the log pipeline plus text to stderr for a human:
+
+```go
+logger := slog.New(slog.NewMultiHandler(
+    slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
+    slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}),
+))
+```
+
+Each handler keeps its own level and format; `Enabled` is true if any child is.
 
 ---
 

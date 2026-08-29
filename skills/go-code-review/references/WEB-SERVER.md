@@ -16,6 +16,7 @@ import (
     "net/http"
     "os"
     "os/signal"
+    "syscall"
     "time"
 )
 
@@ -68,40 +69,59 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
     }
 
     w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(user)
+    // go-error-handling: never discard this — a half-written body is a real failure
+    if err := json.NewEncoder(w).Encode(user); err != nil {
+        slog.ErrorContext(ctx, "encode response failed", "id", id, "err", err)
+    }
 }
 
-// --- Graceful shutdown (go-concurrency, go-defensive) ---
+// --- Graceful shutdown (go-concurrency, go-defensive, go-packages) ---
 
 func main() {
+    if err := run(); err != nil {
+        slog.Error("server failed", "err", err)
+        os.Exit(1)  // go-packages: exit only from main
+    }
+}
+
+func run() error {
+    // go-context: signal handling owns the lifetime; no hand-rolled signal goroutine
+    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+    defer stop()
+
     store := NewDBStore(os.Getenv("DATABASE_URL"))
     srv := NewServer(store)
 
     httpSrv := &http.Server{
-        Addr:         ":8080",
-        Handler:      srv.router,
-        ReadTimeout:  5 * time.Second,   // go-defensive: use time.Duration
-        WriteTimeout: 10 * time.Second,
+        Addr: ":8080",
+        // go-defensive: origin check for state-changing requests (Go 1.25+)
+        Handler:           http.NewCrossOriginProtection().Handler(srv.router),
+        ReadHeaderTimeout: 5 * time.Second,  // go-defensive: use time.Duration
+        ReadTimeout:       10 * time.Second,
+        WriteTimeout:      10 * time.Second,
+        IdleTimeout:       120 * time.Second,
+        // MaxHeaderValueCount defaults to 500 (Go 1.27+); lower it for stricter APIs.
     }
 
-    // go-concurrency: goroutine lifetime is clear
+    // go-concurrency: buffered so this goroutine can never block on exit
+    errCh := make(chan error, 1)
     go func() {
-        sigCh := make(chan os.Signal, 1)  // go-concurrency: channel size 1
-        signal.Notify(sigCh, os.Interrupt)
-        <-sigCh
-
-        ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-        defer cancel()  // go-defensive: defer cleanup
-        if err := httpSrv.Shutdown(ctx); err != nil {
-            slog.Error("server shutdown failed", "err", err)
-        }
+        slog.Info("starting server", "addr", httpSrv.Addr)
+        errCh <- httpSrv.ListenAndServe()
     }()
 
-    slog.Info("starting server", "addr", httpSrv.Addr)
-    if err := httpSrv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-        slog.Error("server error", "err", err)
-        os.Exit(1)  // go-packages: exit only from main
+    select {
+    case err := <-errCh:
+        if errors.Is(err, http.ErrServerClosed) {
+            return nil
+        }
+        return err
+    case <-ctx.Done():
     }
+
+    shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()  // go-defensive: defer cleanup
+    return httpSrv.Shutdown(shutdownCtx)
 }
 ```
 

@@ -99,6 +99,17 @@ the correct type in each case branch. When a case lists multiple types
 
 ---
 
+## Generic Methods Cannot Satisfy Interfaces
+
+Go 1.27 lets a method declare its own type parameters, but interface methods
+still cannot. A type whose only implementation of `Do` is `Do[T any]()` does
+**not** satisfy `interface{ Do() }` — the compile-time assertion
+`var _ I = (*T)(nil)` is how you find out. When callers dispatch through an
+interface, keep a non-generic method (or a free generic function) as the entry
+point. See [go-generics](../go-generics/SKILL.md).
+
+---
+
 ## Embedding
 
 Avoid embedding types in public structs — the inner type's full method set

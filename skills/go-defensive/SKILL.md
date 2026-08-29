@@ -5,7 +5,9 @@ description: Use when hardening Go code at API boundaries — copying slices/map
 
 # Go Defensive Programming Patterns
 
-> Compatibility: Crypto examples may use `crypto/rand.Text`, which requires Go 1.24+.
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `url.URL.Clone` and
+> `url.Values.Clone` require Go 1.27+; `crypto/rand.Text` and `os.Root` Go
+> 1.24+; `slices.Clone`/`maps.Clone` Go 1.21+.
 
 ## Resource Routing
 
@@ -28,7 +30,8 @@ Reviewing an API boundary?
 ├─ 5. Interface checks   → Route compile-time assertions to go-interfaces
 ├─ 6. Time correctness   → Use time.Time and time.Duration, not int/float
 ├─ 7. Enum safety        → Start iota at 1 so zero-value is invalid
-└─ 8. Crypto safety      → crypto/rand for keys, never math/rand
+├─ 8. Crypto safety      → crypto/rand for keys, never math/rand
+└─ 9. Path safety        → os.Root for caller-supplied paths
 ```
 
 ---
@@ -37,7 +40,8 @@ Reviewing an API boundary?
 
 | Pattern | Rule | Details |
 |---------|------|---------|
-| Boundary copies | Copy slices/maps on receive and return | [BOUNDARY-COPYING.md](references/BOUNDARY-COPYING.md) |
+| Boundary copies | `slices.Clone` / `maps.Clone` on receive and return | [BOUNDARY-COPYING.md](references/BOUNDARY-COPYING.md) |
+| Untrusted paths | `os.Root`, never `filepath.Join` + `os.Open` | Below |
 | Defer cleanup | `defer f.Close()` right after `os.Open` | Below |
 | Interface check | Compile-time satisfaction assertion | See go-interfaces |
 | Time types | `time.Time` / `time.Duration`, never raw int | [TIME-ENUMS-TAGS.md](references/TIME-ENUMS-TAGS.md) |
@@ -57,17 +61,19 @@ owns when an assertion is appropriate and the exact assertion shape.
 
 ## Copy Slices and Maps at Boundaries
 
-Slices and maps contain pointers to underlying data. Copy at API boundaries to prevent unintended modifications.
+Slices and maps contain pointers to underlying data. Copy at API boundaries to
+prevent unintended modifications. Use the stdlib clones — never a hand-written
+`make`+`copy` loop:
 
 ```go
-// Receiving: copy incoming slice
-d.trips = make([]Trip, len(trips))
-copy(d.trips, trips)
-
-// Returning: copy map before returning
-result := make(map[string]int, len(s.counters))
-for k, v := range s.counters { result[k] = v }
+d.trips = slices.Clone(trips)      // receiving
+return maps.Clone(s.counters)      // returning
+return u.Clone()                   // *url.URL, Go 1.27+
+return params.Clone()              // url.Values, Go 1.27+ (deep-copies values)
 ```
+
+`Clone` is **shallow**: `[]*T` and `map[K][]V` copies still alias their
+elements. See [BOUNDARY-COPYING.md](references/BOUNDARY-COPYING.md).
 
 ## Defer to Clean Up
 
@@ -148,6 +154,23 @@ func Key() string { return rand.Text() }
 
 For text output, use `crypto/rand.Text` directly, or encode random bytes
 with `encoding/hex` or `encoding/base64`.
+
+## Confine Filesystem Access
+
+When a path comes from a caller, request, or config file, open it through
+`os.Root` (Go 1.24+) instead of `filepath.Join` + `os.Open`. `Root` resolves
+every component inside the directory, so `../../etc/passwd` and a symlink
+pointing out of the tree both fail instead of escaping.
+
+```go
+root, err := os.OpenRoot("/srv/uploads")
+if err != nil { return err }
+defer root.Close()
+
+f, err := root.Open(userSuppliedName) // cannot escape /srv/uploads
+```
+
+`filepath.Clean` is **not** a substitute — it does not resolve symlinks.
 
 ---
 

@@ -32,6 +32,28 @@ What do you need?
 
 ## Slices
 
+### Reach for `slices` and `maps` First
+
+The `slices` and `maps` packages (Go 1.21+) cover most hand-written loops.
+Writing the loop instead is a reviewable defect, not a style choice —
+`go fix ./...` rewrites many of them automatically.
+
+| Loop you were about to write | Use |
+|---|---|
+| Search for a value | `slices.Contains`, `slices.IndexFunc` |
+| Sort | `slices.Sort`, `slices.SortFunc` (not `sort.Slice`) |
+| Copy | `slices.Clone`, `maps.Clone` |
+| Compare | `slices.Equal`, `maps.Equal` |
+| Collect keys/values | `slices.Collect(maps.Keys(m))` |
+| Insert/delete in the middle | `slices.Insert`, `slices.Delete` |
+| Iterate in reverse | `slices.Backward` |
+| Split a string once, iterate | `strings.SplitSeq` (no slice allocated) |
+| Split off the last segment | `strings.CutLast` / `bytes.CutLast` (Go 1.27+) |
+
+```go
+dir, file, ok := strings.CutLast("a/b/c.txt", "/") // "a/b", "c.txt", true
+```
+
 ### The append Function
 
 **Always assign the result** — the underlying array may change:
@@ -136,7 +158,8 @@ func increment(sc *SafeCounter) {
 |-------|-----------|
 | Slices | Always assign `append` result; `nil` slice preferred over `[]T{}` |
 | Sets | `map[T]struct{}` for membership-only sets |
-| Copying | Don't copy `T` if methods are on `*T`; beware aliasing |
+| Copying | `slices.Clone` / `maps.Clone`; don't copy `T` if methods are on `*T` |
+| Loops | Check `slices`/`maps` before writing one; `go fix -diff ./...` to confirm |
 
 ## Related Skills
 

@@ -5,7 +5,9 @@ description: Use when writing concurrent Go code — goroutines, channels, mutex
 
 # Go Concurrency
 
-> Compatibility: Atomic examples may use standard-library typed atomics where available or `go.uber.org/atomic` where a project already depends on it.
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `sync.WaitGroup.Go`
+> and `testing/synctest` require Go 1.25+; typed atomics (`atomic.Bool`) are
+> stdlib since Go 1.19.
 
 ## Resource Routing
 
@@ -35,23 +37,31 @@ channel), data races, memory issues, and resource leaks.
    into synchronous functions
 
 ```go
-// Good: Clear lifetime with WaitGroup.Go (Go 1.25+)
+// Good: clear lifetime with WaitGroup.Go (Go 1.25+)
 var wg sync.WaitGroup
 for item := range queue {
-    item := item
     wg.Go(func() { process(ctx, item) })
 }
 wg.Wait()
 ```
 
 ```go
-// Bad: No way to stop or wait
+// Bad: no way to stop or wait
 go func() { for { flush(); time.Sleep(delay) } }()
 ```
 
-**Test for leaks** with [go.uber.org/goleak](https://pkg.go.dev/go.uber.org/goleak).
+No `item := item` capture line — loop variables are per-iteration since Go
+1.22, and `go fix -forvar ./...` deletes leftovers. `go fix -waitgroupgo ./...`
+rewrites `Add(1)`/`go`/`defer Done()` into `wg.Go`.
+
+**Test for leaks** with [go.uber.org/goleak](https://pkg.go.dev/go.uber.org/goleak),
+and test timing-dependent behavior with `testing/synctest` (fake clock, no real
+sleeps) — see [go-testing](../go-testing/SKILL.md).
 
 > **Principle**: Never start a goroutine without knowing how it will stop.
+> **Validation**: `go test -race ./...` and `go vet ./...` (the `waitgroup`,
+> `loopclosure`, and `testinggoroutine` analyzers) — see
+> [go-linting](../go-linting/SKILL.md).
 
 ---
 

@@ -6,7 +6,10 @@ allowed-tools: Bash(bash:*)
 
 # Go Testing
 
-> Compatibility: Diff examples may use `github.com/google/go-cmp`.
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
+> `httptest.NewTestServer` and `synctest.Sleep` require Go 1.27+;
+> `testing/synctest` Go 1.25+; `t.Context` Go 1.24+. Diff examples use
+> `github.com/google/go-cmp`.
 
 ## Resource Routing
 
@@ -29,6 +32,43 @@ allowed-tools: Bash(bash:*)
 | Subtests | Need filtering, parallel execution, or naming |
 | `t.Helper()` | Any test helper function (call as first statement) |
 | `t.Cleanup()` | Teardown in helpers instead of defer |
+| `t.Context()` | Any test that calls a ctx-taking API (Go 1.24+) |
+| `httptest.NewTestServer(t, h)` | Testing an HTTP handler or client (Go 1.27+) |
+| `synctest.Test` | Concurrency or timeout behavior (Go 1.25+) |
+
+---
+
+## Use the Toolchain's Test APIs
+
+> **Normative**: Prefer the standard-library helper over hand-rolled setup and
+> teardown. Each one below removes a class of flake.
+
+| Instead of | Use | Since |
+|---|---|---|
+| `context.Background()` in a test | `t.Context()` — cancelled at test end | 1.24 |
+| `httptest.NewServer` + `defer srv.Close()` | `httptest.NewTestServer(t, h)` — registers cleanup, in-memory transport | 1.27 |
+| `time.Sleep` to let goroutines settle | `synctest.Test` + `synctest.Wait` | 1.25 |
+| Real waits for timeout paths | `synctest.Sleep` inside a bubble (fake clock) | 1.27 |
+| `fmt.Println` in a test | `t.Output()` — interleaves correctly under `-parallel` | 1.25 |
+| Ad-hoc temp dir for output to keep | `t.ArtifactDir()` — survives the run | 1.26 |
+
+```go
+func TestFetch(t *testing.T) {
+    srv := httptest.NewTestServer(t, http.HandlerFunc(handle))
+    got, err := Fetch(t.Context(), srv.Client(), srv.URL)
+    if err != nil {
+        t.Fatalf("Fetch(%q) error = %v, want nil", srv.URL, err)
+    }
+    if diff := cmp.Diff(want, got); diff != "" {
+        t.Errorf("Fetch(%q) mismatch (-want +got):\n%s", srv.URL, diff)
+    }
+}
+```
+
+Inside a `synctest.Test` bubble the clock is fake and starts at 2000-01-01 UTC;
+time advances only when every goroutine in the bubble is durably blocked. That
+turns a two-second timeout test into a microsecond one, deterministically.
+`go fix -testingcontext ./...` rewrites the `context.WithCancel` form.
 
 ---
 
@@ -100,7 +140,10 @@ or multiple branches — write separate test functions instead.
 - Use field names when cases span many lines or have same-type adjacent fields
 - Include inputs in failure messages — never identify rows by index
 
-> **Validation**: After generating or modifying tests, run `go test -run TestXxx -v` to verify the tests compile and pass. Fix any compilation errors before proceeding.
+> **Validation**: Run `go test -run TestXxx -v` on the new tests, then
+> `go test -race ./...` for the package — the gate in
+> [go-linting](../go-linting/SKILL.md). Tests that pass without `-race` prove
+> nothing about concurrent code.
 
 ---
 

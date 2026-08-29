@@ -15,7 +15,7 @@ Use this checklist before tagging a release.
 Run the release validation commands from the repository root:
 
 ```bash
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.10.1
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.1
 
 for skill_dir in skills/*/; do
   npx --yes agentskills-validate@1.0.1 "$skill_dir"

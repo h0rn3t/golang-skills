@@ -3,73 +3,98 @@
   "trigger_evals": [
     {
       "query": "Write a Go function that processes items concurrently using goroutines and channels",
-      "should_trigger": ["go-concurrency"],
+      "should_trigger": [
+        "go-concurrency"
+      ],
       "notes": "Direct mention of goroutines and channels",
       "set": "train"
     },
     {
       "query": "I have a race condition in my Go service, can you help fix it?",
-      "should_trigger": ["go-concurrency"],
+      "should_trigger": [
+        "go-concurrency"
+      ],
       "notes": "Indirect - mentions race condition without naming primitives",
       "set": "train"
     },
     {
       "query": "Review this Go PR for me before I submit it",
-      "should_trigger": ["go-code-review"],
+      "should_trigger": [
+        "go-code-review"
+      ],
       "notes": "Direct trigger for code review",
       "set": "train"
     },
     {
       "query": "How should I name this Go package that handles user authentication?",
-      "should_trigger": ["go-naming", "go-packages"],
+      "should_trigger": [
+        "go-naming",
+        "go-packages"
+      ],
       "notes": "Package naming touches both skills",
       "set": "train"
     },
     {
       "query": "Write a test for this Go function that calculates shipping costs",
-      "should_trigger": ["go-testing"],
+      "should_trigger": [
+        "go-testing"
+      ],
       "notes": "Direct test writing request",
       "set": "train"
     },
     {
       "query": "This Go error handling feels messy, should I wrap errors or use sentinel values?",
-      "should_trigger": ["go-error-handling"],
+      "should_trigger": [
+        "go-error-handling"
+      ],
       "notes": "Error strategy decision",
       "set": "train"
     },
     {
       "query": "Set up linting for our new Go project",
-      "should_trigger": ["go-linting"],
+      "should_trigger": [
+        "go-linting"
+      ],
       "notes": "Direct linting setup request",
       "set": "train"
     },
     {
       "query": "My Go constructor has 8 optional parameters, what's the cleanest API?",
-      "should_trigger": ["go-functional-options"],
+      "should_trigger": [
+        "go-functional-options"
+      ],
       "notes": "Classic functional options trigger without naming the pattern",
       "set": "validation"
     },
     {
       "query": "Add proper doc comments to these exported Go types",
-      "should_trigger": ["go-documentation"],
+      "should_trigger": [
+        "go-documentation"
+      ],
       "notes": "Direct documentation request",
       "set": "train"
     },
     {
       "query": "This Go function is slow when concatenating strings in a loop",
-      "should_trigger": ["go-performance"],
+      "should_trigger": [
+        "go-performance"
+      ],
       "notes": "Performance issue with string concatenation",
       "set": "train"
     },
     {
       "query": "Should I use context.Background() or context.TODO() here?",
-      "should_trigger": ["go-context"],
+      "should_trigger": [
+        "go-context"
+      ],
       "notes": "Direct context question",
       "set": "validation"
     },
     {
       "query": "Refactor this Go code to use interfaces instead of concrete types for testability",
-      "should_trigger": ["go-interfaces"],
+      "should_trigger": [
+        "go-interfaces"
+      ],
       "notes": "Interface design for testing",
       "set": "train"
     },
@@ -105,13 +130,19 @@
     },
     {
       "query": "Write a Go function that reads config from environment variables and validates it at startup",
-      "should_trigger": ["go-error-handling", "go-defensive"],
+      "should_trigger": [
+        "go-error-handling",
+        "go-defensive"
+      ],
       "notes": "Config validation involves defensive coding and error handling",
       "set": "validation"
     },
     {
       "query": "Optimize our Go microservice that handles 10k requests per second",
-      "should_trigger": ["go-performance", "go-concurrency"],
+      "should_trigger": [
+        "go-performance",
+        "go-concurrency"
+      ],
       "notes": "Performance + concurrency overlap",
       "set": "train"
     },
@@ -123,151 +154,218 @@
     },
     {
       "query": "What's the idiomatic way to declare variables in Go — should I use var or := for each case?",
-      "should_trigger": ["go-declarations"],
+      "should_trigger": [
+        "go-declarations"
+      ],
       "notes": "Direct question about var vs short declaration syntax",
       "set": "train"
     },
     {
       "query": "How do I prevent callers from mutating a slice returned from my Go API?",
-      "should_trigger": ["go-defensive", "go-data-structures"],
+      "should_trigger": [
+        "go-defensive",
+        "go-data-structures"
+      ],
       "notes": "Defensive boundary copying pattern for slices",
       "set": "train"
     },
     {
       "query": "What's the best way to implement a set in Go using maps?",
-      "should_trigger": ["go-data-structures"],
+      "should_trigger": [
+        "go-data-structures"
+      ],
       "notes": "Direct data structures question — map-based set idiom",
       "set": "train"
     },
     {
       "query": "Write a generic Map function in Go that transforms a slice of any type into another type",
-      "should_trigger": ["go-generics"],
+      "should_trigger": [
+        "go-generics"
+      ],
       "notes": "Direct generics request — parameterized function",
       "set": "validation"
     },
     {
       "query": "Refactor this Go function that has 5 levels of nested if-else into guard clauses with early returns",
-      "should_trigger": ["go-control-flow", "go-style-core"],
+      "should_trigger": [
+        "go-control-flow",
+        "go-style-core"
+      ],
       "notes": "Nesting reduction via early returns — control flow + style",
       "set": "train"
     },
     {
       "query": "What's the recommended max line length in Go, and how should I break long function signatures?",
-      "should_trigger": ["go-style-core"],
+      "should_trigger": [
+        "go-style-core"
+      ],
       "notes": "Direct style/formatting question",
       "set": "validation"
     },
     {
       "query": "How should I organize the parameter list for a Go function with 6 arguments — should I group them into a struct?",
-      "should_trigger": ["go-functions", "go-declarations"],
+      "should_trigger": [
+        "go-functions",
+        "go-declarations"
+      ],
       "notes": "Function signature design and struct grouping",
       "set": "train"
     },
     {
       "query": "Should I use named return values in this Go function, or is that considered bad practice?",
-      "should_trigger": ["go-style-core", "go-functions"],
+      "should_trigger": [
+        "go-style-core",
+        "go-functions"
+      ],
       "notes": "Named returns are a style + function design question",
       "set": "validation"
     },
     {
       "query": "When should I use a type switch versus an if-else chain with type assertions in Go?",
-      "should_trigger": ["go-control-flow", "go-interfaces"],
+      "should_trigger": [
+        "go-control-flow",
+        "go-interfaces"
+      ],
       "notes": "Type switch is control flow; type assertions involve interfaces",
       "set": "train"
     },
     {
       "query": "Write a Go logging function that accepts Printf-style variadic format arguments",
-      "should_trigger": ["go-functions"],
+      "should_trigger": [
+        "go-functions"
+      ],
       "notes": "Variadic function design — Printf-style pattern",
       "set": "validation"
     },
     {
       "query": "Set up structured logging with slog in our Go microservice",
-      "should_trigger": ["go-logging"],
+      "should_trigger": [
+        "go-logging"
+      ],
       "notes": "Direct slog setup request",
       "set": "train"
     },
     {
       "query": "Should I use log.Printf or slog in this new Go project?",
-      "should_trigger": ["go-logging"],
+      "should_trigger": [
+        "go-logging"
+      ],
       "notes": "Logger choice question",
       "set": "train"
     },
     {
       "query": "Add request ID logging to our Go HTTP middleware so we can trace requests",
-      "should_trigger": ["go-logging", "go-context"],
+      "should_trigger": [
+        "go-logging",
+        "go-context"
+      ],
       "notes": "Request-scoped logging with context propagation",
       "set": "validation"
     },
     {
       "query": "My Go service logs the same error three times — once in the repository, once in the service layer, and once in the handler",
-      "should_trigger": ["go-logging", "go-error-handling"],
+      "should_trigger": [
+        "go-logging",
+        "go-error-handling"
+      ],
       "notes": "Log-and-return anti-pattern — logging + error handling overlap",
       "set": "train"
     },
     {
       "query": "What log level should I use for retry attempts that eventually succeed in Go?",
-      "should_trigger": ["go-logging"],
+      "should_trigger": [
+        "go-logging"
+      ],
       "notes": "Log level decision — Warn vs Info",
       "set": "validation"
     },
     {
       "query": "Migrate our Go codebase from log.Printf to structured logging",
-      "should_trigger": ["go-logging"],
+      "should_trigger": [
+        "go-logging"
+      ],
       "notes": "Migration from log to slog",
       "set": "train"
     },
     {
       "query": "I need to preallocate a large Go map — should I use make with a size hint, and how do I estimate capacity?",
-      "should_trigger": ["go-data-structures", "go-performance"],
+      "should_trigger": [
+        "go-data-structures",
+        "go-performance"
+      ],
       "notes": "Map preallocation is both data structure idiom and performance",
       "set": "train"
     },
     {
       "query": "How do I constrain a Go generic type parameter to types that implement both fmt.Stringer and encoding.TextMarshaler?",
-      "should_trigger": ["go-generics", "go-interfaces"],
+      "should_trigger": [
+        "go-generics",
+        "go-interfaces"
+      ],
       "notes": "Generic constraints using interface composition",
       "set": "train"
     },
     {
       "query": "Add compile-time interface compliance checks for my Go types — I want to make sure *Server implements Handler",
-      "should_trigger": ["go-defensive", "go-interfaces"],
+      "should_trigger": [
+        "go-defensive",
+        "go-interfaces"
+      ],
       "notes": "Compile-time var _ Interface = (*Type)(nil) pattern",
       "set": "validation"
     },
     {
       "query": "Review this Go code for style — it uses single-letter variables for everything and has inconsistent casing",
-      "should_trigger": ["go-style-core", "go-naming"],
+      "should_trigger": [
+        "go-style-core",
+        "go-naming"
+      ],
       "notes": "Style review with naming focus",
       "set": "train"
     },
     {
       "query": "How do I propagate cancellation and deadlines through a chain of Go HTTP middleware?",
-      "should_trigger": ["go-context", "go-concurrency"],
+      "should_trigger": [
+        "go-context",
+        "go-concurrency"
+      ],
       "notes": "Context propagation in middleware — context + concurrency",
       "set": "train"
     },
     {
       "query": "Write a test for a Go service that calls an external HTTP API — I need to mock the HTTP client",
-      "should_trigger": ["go-testing", "go-interfaces"],
+      "should_trigger": [
+        "go-testing",
+        "go-interfaces"
+      ],
       "notes": "Test doubles via interfaces — testing + interface design",
       "set": "validation"
     },
     {
       "query": "Write a Go struct with iota-based enum constants for order status (Pending, Confirmed, Shipped, Delivered)",
-      "should_trigger": ["go-declarations", "go-defensive"],
+      "should_trigger": [
+        "go-declarations",
+        "go-defensive"
+      ],
       "notes": "Iota declarations + start-at-one defensive pattern",
       "set": "train"
     },
     {
       "query": "How should I organize imports in my Go file — I have stdlib, internal, and third-party packages?",
-      "should_trigger": ["go-packages", "go-style-core"],
+      "should_trigger": [
+        "go-packages",
+        "go-style-core"
+      ],
       "notes": "Import grouping is packages + formatting style",
       "set": "validation"
     },
     {
       "query": "Write a Go function that retries HTTP requests with exponential backoff using context for timeout",
-      "should_trigger": ["go-functions", "go-context", "go-error-handling"],
+      "should_trigger": [
+        "go-functions",
+        "go-context",
+        "go-error-handling"
+      ],
       "notes": "Function design + context timeout + error propagation",
       "set": "train"
     },
@@ -306,6 +404,54 @@
       "should_trigger": [],
       "notes": "Near-miss negative: Go code but CGO/FFI debugging is not covered by any Go style skill",
       "set": "validation"
+    },
+    {
+      "query": "Refactor this Go file, it's 400 lines and nobody can follow it",
+      "should_trigger": [
+        "go-code-refactor"
+      ],
+      "notes": "Direct refactor request on existing code",
+      "set": "train"
+    },
+    {
+      "query": "Clean up this Go package without changing what it does",
+      "should_trigger": [
+        "go-code-refactor"
+      ],
+      "notes": "Behavior-preservation is the explicit constraint",
+      "set": "train"
+    },
+    {
+      "query": "This handler is a mess — can you make it readable?",
+      "should_trigger": [
+        "go-code-refactor"
+      ],
+      "notes": "Indirect: 'mess'/'readable' without the word refactor",
+      "set": "train"
+    },
+    {
+      "query": "Modernize this old Go service to use newer standard library APIs",
+      "should_trigger": [
+        "go-code-refactor"
+      ],
+      "notes": "Modernization of existing code, not new code",
+      "set": "validation"
+    },
+    {
+      "query": "Split this 200-line function into smaller ones",
+      "should_trigger": [
+        "go-code-refactor"
+      ],
+      "notes": "Extraction request on existing code",
+      "set": "validation"
+    },
+    {
+      "query": "Write a new Go function that parses a duration string",
+      "should_trigger": [
+        "go-functions"
+      ],
+      "notes": "Negative control: new code must not trigger the refactor skill",
+      "set": "validation"
     }
   ],
   "quality_evals": [
@@ -313,7 +459,11 @@
       "id": 1,
       "prompt": "Write a Go function `FetchAll` that takes a slice of URLs and fetches them concurrently, returning a map of URL to response body. Use proper error handling and context cancellation.",
       "expected_output": "A Go function using errgroup or WaitGroup with proper goroutine lifecycle, context propagation, mutex or channel for collecting results, and error wrapping.",
-      "target_skills": ["go-concurrency", "go-error-handling", "go-context"],
+      "target_skills": [
+        "go-concurrency",
+        "go-error-handling",
+        "go-context"
+      ],
       "assertions": [
         "Function accepts context.Context as first parameter",
         "Goroutine lifetimes are bounded (WaitGroup, errgroup, or done channel)",
@@ -327,7 +477,9 @@
       "id": 2,
       "prompt": "Write a table-driven test for a Go function `ParseDuration(s string) (time.Duration, error)` that parses human-readable durations like '5m', '2h30m', '1d'.",
       "expected_output": "A table-driven test with named struct fields, multiple test cases including edge cases, subtests via t.Run, and descriptive failure messages using got/want format.",
-      "target_skills": ["go-testing"],
+      "target_skills": [
+        "go-testing"
+      ],
       "assertions": [
         "Uses table-driven test pattern with []struct",
         "Struct fields have names (not positional)",
@@ -342,7 +494,11 @@
       "id": 3,
       "prompt": "Define a Go `Logger` interface and implement it for both stdout and file-based logging. Follow idiomatic interface design.",
       "expected_output": "A small interface defined at the consumer, concrete implementations returned from constructors, proper resource cleanup for file logger.",
-      "target_skills": ["go-interfaces", "go-naming", "go-defensive"],
+      "target_skills": [
+        "go-interfaces",
+        "go-naming",
+        "go-defensive"
+      ],
       "assertions": [
         "Interface is small (1-3 methods)",
         "Interface is defined in the consumer package, not with implementations",
@@ -356,7 +512,11 @@
       "id": 4,
       "prompt": "Create a Go config package with a `Config` struct that has 6 optional fields. Provide a clean constructor API.",
       "expected_output": "Functional options pattern with Option type, With* functions, and a New constructor that applies options.",
-      "target_skills": ["go-functional-options", "go-declarations", "go-documentation"],
+      "target_skills": [
+        "go-functional-options",
+        "go-declarations",
+        "go-documentation"
+      ],
       "assertions": [
         "Uses functional options pattern (not config struct with exported fields)",
         "Option type is opaque (unexported struct or function type)",
@@ -370,7 +530,10 @@
       "id": 5,
       "prompt": "Design a Go package structure for a REST API service that manages users, products, and orders. The service needs HTTP handlers, business logic, and PostgreSQL storage. Show me the directory layout, package names, and key type/function signatures for the user domain. Avoid generic names like 'util' or 'common'. The project module is github.com/acme/shop.",
       "expected_output": "A domain-oriented package layout with specific, descriptive package names. Each package has a clear responsibility. Types and functions use idiomatic Go names. No 'util', 'helpers', or 'common' packages.",
-      "target_skills": ["go-naming", "go-packages"],
+      "target_skills": [
+        "go-naming",
+        "go-packages"
+      ],
       "assertions": [
         "No packages named 'util', 'helpers', 'common', or 'shared'",
         "Package names are short, lowercase, single-word (or hyphenated for cmd/)",
@@ -385,7 +548,10 @@
       "id": 6,
       "prompt": "Write a Go `ServerConfig` struct for an HTTP server with fields: Host (string), Port (int), ReadTimeout (time.Duration), WriteTimeout (time.Duration), MaxHeaderBytes (int), TLSCertFile (string), TLSKeyFile (string), AllowedOrigins ([]string). Add a `Validate() error` method that checks required fields and returns descriptive errors. Use proper declaration style and defensive patterns.",
       "expected_output": "A struct with sensible zero values, a Validate method using early-return error checks, defensive copies of the AllowedOrigins slice, and proper use of time.Duration instead of raw integers for timeouts.",
-      "target_skills": ["go-declarations", "go-defensive"],
+      "target_skills": [
+        "go-declarations",
+        "go-defensive"
+      ],
       "assertions": [
         "Uses time.Duration for timeout fields (not int or float64)",
         "Validate returns early on first error (guard clause style, not nested if-else)",
@@ -400,7 +566,9 @@
       "id": 7,
       "prompt": "Write a Go package `currency` that provides a `Money` type for safe monetary calculations (avoiding floating-point errors). Include: a constructor `NewMoney(amount int64, currency string) Money`, methods `Add`, `Sub`, and `Format`, and a `ParseMoney(s string) (Money, error)` function. Write complete doc comments for the package, all exported types, and all exported functions.",
       "expected_output": "A well-documented package with a package-level doc comment explaining purpose and usage, doc comments on every exported symbol starting with the symbol name, and at least one example function.",
-      "target_skills": ["go-documentation"],
+      "target_skills": [
+        "go-documentation"
+      ],
       "assertions": [
         "Package has a package-level doc comment (// Package currency ...)",
         "Every exported type and function has a doc comment starting with its name",
@@ -415,7 +583,9 @@
       "id": 8,
       "prompt": "Optimize this Go function that builds a large report string:\n\n```go\nfunc BuildReport(records []Record) string {\n    result := \"\"\n    for _, r := range records {\n        result += fmt.Sprintf(\"ID: %d, Name: %s, Amount: $%.2f\\n\", r.ID, r.Name, r.Amount)\n    }\n    header := fmt.Sprintf(\"Report: %d records\\n\", len(records))\n    result = header + result + fmt.Sprintf(\"Total: $%.2f\\n\", sumAmounts(records))\n    return result\n}\n```\n\nThis function is called with 50,000+ records and takes over 2 seconds. Optimize it for performance.",
       "expected_output": "Rewrite using strings.Builder with preallocation, replacing fmt.Sprintf with strconv where possible, and avoiding repeated string concatenation.",
-      "target_skills": ["go-performance"],
+      "target_skills": [
+        "go-performance"
+      ],
       "assertions": [
         "Uses strings.Builder instead of string concatenation",
         "Calls Builder.Grow() with an estimated capacity before the loop",
@@ -429,7 +599,10 @@
       "id": 9,
       "prompt": "Refactor this deeply nested Go function to be more readable:\n\n```go\nfunc ProcessOrder(ctx context.Context, order *Order, db *sql.DB) error {\n    if order != nil {\n        if order.Status == \"pending\" {\n            if len(order.Items) > 0 {\n                total := 0.0\n                for _, item := range order.Items {\n                    if item.Price > 0 {\n                        if item.Quantity > 0 {\n                            total += item.Price * float64(item.Quantity)\n                        } else {\n                            return fmt.Errorf(\"invalid quantity for item %s\", item.Name)\n                        }\n                    } else {\n                        return fmt.Errorf(\"invalid price for item %s\", item.Name)\n                    }\n                }\n                if total > 0 {\n                    order.Total = total\n                    order.Status = \"confirmed\"\n                    _, err := db.ExecContext(ctx, \"UPDATE orders SET total=$1, status=$2 WHERE id=$3\", total, order.Status, order.ID)\n                    if err != nil {\n                        return fmt.Errorf(\"update order: %w\", err)\n                    }\n                    return nil\n                } else {\n                    return errors.New(\"order total must be positive\")\n                }\n            } else {\n                return errors.New(\"order has no items\")\n            }\n        } else {\n            return fmt.Errorf(\"order status is %s, expected pending\", order.Status)\n        }\n    } else {\n        return errors.New(\"order is nil\")\n    }\n}\n```\n\nApply Go style best practices: guard clauses, early returns, and reduced nesting.",
       "expected_output": "A flat function with guard clauses checking error conditions first and returning early, with the happy path at the lowest nesting level.",
-      "target_skills": ["go-control-flow", "go-style-core"],
+      "target_skills": [
+        "go-control-flow",
+        "go-style-core"
+      ],
       "assertions": [
         "Maximum nesting depth is 2 (function body + one level for loop/if)",
         "Nil check and status check are guard clauses at the top with early returns",
@@ -444,7 +617,10 @@
       "id": 10,
       "prompt": "Write a generic `Set[T comparable]` data structure in Go with the following operations: `New[T]() *Set[T]`, `Add(item T)`, `Remove(item T)`, `Contains(item T) bool`, `Len() int`, `Union(other *Set[T]) *Set[T]`, `Intersection(other *Set[T]) *Set[T]`, and `Values() []T`. Include doc comments and make it safe for use in non-concurrent contexts.",
       "expected_output": "A generic Set type backed by map[T]struct{}, with properly constrained type parameter, all required methods, and clear documentation about thread-safety guarantees.",
-      "target_skills": ["go-generics", "go-data-structures"],
+      "target_skills": [
+        "go-generics",
+        "go-data-structures"
+      ],
       "assertions": [
         "Type parameter uses 'comparable' constraint",
         "Underlying storage is map[T]struct{} (not map[T]bool)",
@@ -459,7 +635,10 @@
       "id": 11,
       "prompt": "Implement a thread-safe LRU cache in Go with the signature:\n\n```go\ntype LRUCache[K comparable, V any] struct { ... }\nfunc NewLRUCache[K comparable, V any](capacity int) *LRUCache[K, V]\nfunc (c *LRUCache[K, V]) Get(key K) (V, bool)\nfunc (c *LRUCache[K, V]) Put(key K, value V)\nfunc (c *LRUCache[K, V]) Len() int\n```\n\nThe cache should evict the least-recently-used entry when capacity is exceeded. It must be safe for concurrent access from multiple goroutines.",
       "expected_output": "A generic LRU cache using a doubly-linked list (container/list) and a map for O(1) lookups, protected by sync.RWMutex or sync.Mutex for thread safety.",
-      "target_skills": ["go-data-structures", "go-concurrency"],
+      "target_skills": [
+        "go-data-structures",
+        "go-concurrency"
+      ],
       "assertions": [
         "Uses container/list or custom doubly-linked list for O(1) eviction",
         "Uses map for O(1) key lookups into the list",
@@ -472,9 +651,11 @@
     },
     {
       "id": 12,
-      "prompt": "Set up a golangci-lint configuration for a Go microservice project (module: github.com/acme/ordersvc). The project uses Go 1.22, has HTTP handlers, PostgreSQL queries, and background goroutines. Create a .golangci.yml that enables appropriate linters, configures exclusions for test files, and sets timeout for CI. Explain why each linter was chosen.",
+      "prompt": "Set up a golangci-lint configuration for a Go microservice project (module: github.com/acme/ordersvc). The project uses Go 1.27, has HTTP handlers, PostgreSQL queries, and background goroutines. Create a .golangci.yml that enables appropriate linters, configures exclusions for test files, and sets timeout for CI. Explain why each linter was chosen.",
       "expected_output": "A .golangci.yml file with curated linters (not just defaults), appropriate configuration for each, test file exclusions, and CI-friendly settings.",
-      "target_skills": ["go-linting"],
+      "target_skills": [
+        "go-linting"
+      ],
       "assertions": [
         "Enables at minimum: errcheck, govet, staticcheck, goimports, and revive",
         "Includes at least one SQL or security-relevant linter (e.g., gosec, sqlclosecheck)",
@@ -488,9 +669,17 @@
     {
       "id": 13,
       "prompt": "Review the Go code in evals/files/counter_server.go for style and correctness issues. Focus on error handling, naming, and concurrency safety.",
-      "files": ["evals/files/counter_server.go"],
+      "files": [
+        "evals/files/counter_server.go"
+      ],
       "expected_output": "A structured code review identifying: GetCount should drop Get prefix (go-naming), Increment should use defer for mutex unlock (go-concurrency), should use slog instead of log (go-style-core), main should use run() pattern for testability (go-packages), missing error handling on w.Write (go-error-handling).",
-      "target_skills": ["go-code-review", "go-naming", "go-concurrency", "go-error-handling", "go-packages"],
+      "target_skills": [
+        "go-code-review",
+        "go-naming",
+        "go-concurrency",
+        "go-error-handling",
+        "go-packages"
+      ],
       "assertions": [
         "Review identifies the Get prefix on GetCount as a naming violation",
         "Review flags the non-deferred mutex unlock in Increment as a concurrency risk",
@@ -503,9 +692,15 @@
     {
       "id": 14,
       "prompt": "Review evals/files/pipeline.go. Implement proper error handling for this data processing pipeline that reads a config file, connects to a database, and processes records. Each step can fail independently.",
-      "files": ["evals/files/pipeline.go"],
+      "files": [
+        "evals/files/pipeline.go"
+      ],
       "expected_output": "Implementation using fmt.Errorf with %w for wrapping, custom error types for different failure modes, and errgroup for concurrent record processing with proper error propagation.",
-      "target_skills": ["go-error-handling", "go-concurrency", "go-context"],
+      "target_skills": [
+        "go-error-handling",
+        "go-concurrency",
+        "go-context"
+      ],
       "assertions": [
         "Uses fmt.Errorf with %w for error wrapping",
         "Defines or recommends sentinel or custom error types for different failure categories",
@@ -517,9 +712,13 @@
     },
     {
       "id": 15,
-      "prompt": "Set up structured logging for a Go HTTP API service. Configure slog for production (JSON output, Info level default), add request-scoped logging middleware that includes request ID and method, and show how handlers should log errors versus return them. The service runs on Go 1.22+.",
+      "prompt": "Set up structured logging for a Go HTTP API service. Configure slog for production (JSON output, Info level default), add request-scoped logging middleware that includes request ID and method, and show how handlers should log errors versus return them. The service runs on Go 1.27.",
       "expected_output": "A production slog setup with JSON handler, middleware that injects request_id into the logger via context, and handler examples demonstrating the log-or-return pattern.",
-      "target_skills": ["go-logging", "go-error-handling", "go-context"],
+      "target_skills": [
+        "go-logging",
+        "go-error-handling",
+        "go-context"
+      ],
       "assertions": [
         "Uses slog.NewJSONHandler for production output",
         "Sets slog.SetDefault with the configured logger",
@@ -529,6 +728,24 @@
         "Lower-level functions wrap and return errors, not log-and-return",
         "Log messages are static strings with dynamic data in key-value attributes",
         "Keys use snake_case convention"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 16,
+      "prompt": "This Go file has a 150-line HTTP handler that decodes a request, validates it, calls the database and writes the response, plus a few `tt := tt` lines in its table tests and a hand-written loop that collects and sorts map keys. Refactor it for readability without changing behavior.",
+      "expected_output": "A baseline captured before editing, dead pre-Go-1.22 captures removed, the handler split into named steps in the original side-effect order, the key-collection loop replaced with slices.Sorted(maps.Keys(m)), an empty verify diff, and a report that leads with deletions and lists unfixed bugs separately.",
+      "target_skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "assertions": [
+        "Captures a baseline with verify-refactor.sh (or an equivalent build/vet/test/race record) before editing",
+        "Removes the `tt := tt` captures as dead code rather than presenting them as a version fallback",
+        "Preserves the original order of side effects when extracting the handler steps",
+        "Does not fix bugs found during the audit; reports them separately",
+        "Does not edit tests to agree with the refactored code",
+        "Reports the verification result honestly, marking skipped checks as skipped"
       ],
       "set": "validation"
     }

@@ -6,98 +6,125 @@ allowed-tools: Bash(bash:*)
 
 # Go Linting
 
-## Core Principle
-
-More important than any "blessed" set of linters: **lint consistently across a codebase**.
-
-Consistent linting helps catch common issues and establishes a high bar for code quality without being unnecessarily prescriptive.
+More important than any "blessed" linter set: **lint consistently across a
+codebase**. This skill owns the repository's verification gate — the commands
+that decide whether Go work is finished.
 
 ## Resource Routing
 
 - `scripts/setup-lint.sh` - Run when generating a `.golangci.yml`, validating the first lint pass, or producing JSON metadata.
 - `assets/golangci.yml` - Use as the v2 golangci-lint baseline for established projects.
 
+## Verification Gate
+
+> **Normative**: Run this gate before reporting Go work as done. Do not claim a
+> check passed without having run it, and paste the failing output when one
+> fails.
+
+```bash
+gofmt -l .            # must print nothing
+go build ./...
+go vet ./...          # includes stdversion, printf, lostcancel, waitgroup
+go test -race ./...
+go fix -diff ./...    # must print nothing: no pending modernization
+golangci-lint run ./...
+govulncheck ./...     # dependency CVEs; run before release, not every edit
+```
+
+Gate rules:
+
+- A gate step that errors for an unrelated reason (no network, tool missing) is
+  reported as skipped, never as passed.
+- `-race` is not optional for anything that starts a goroutine.
+- Fix in category order: formatting, then vet, then modernizers, then linters.
+  Re-run the gate after each category rather than batching guesses.
+
+---
+
+## Modernization: `go fix`
+
+Go 1.27 ships the modernizers as `go fix` analyzers. `go fix -diff ./...`
+previews; `go fix ./...` applies. Run it on any file you touch — a clean diff
+is part of the gate above.
+
+`go tool fix help` lists the current set. The ones that change guidance:
+
+| Analyzer | Rewrites to |
+|---|---|
+| `waitgroupgo` | `wg.Go(f)` instead of `Add(1)`/`go`/`Done` (Go 1.25+) |
+| `errorsastype` | `errors.AsType[T]` instead of `errors.As` (Go 1.26+) |
+| `newexpr` | `new(expr)` instead of a temp variable (Go 1.26+) |
+| `testingcontext` | `t.Context()` instead of `context.WithCancel` in tests |
+| `forvar` | Deletes `x := x` loop captures (dead since Go 1.22) |
+| `rangeint`, `minmax`, `omitzero`, `any` | `for i := range n`, `min`/`max`, `omitzero` tags, `any` |
+| `slicessort`, `slicescontains`, `mapsloop`, `stringsseq`, `stditerators` | `slices`/`maps`/iterator APIs instead of hand-written loops |
+| `stringsbuilder`, `stringscut`, `stringscutprefix` | `strings.Builder`, `Cut`, `CutPrefix` |
+
+Select a subset with `go fix -waitgroupgo ./...`, or exclude with
+`-NAME=false`. Review the diff: these carry fixes, not just diagnostics, and a
+few change allocation behavior.
+
+---
+
 ## Setup Procedure
 
 1. Create `.golangci.yml` with `scripts/setup-lint.sh` or copy `assets/golangci.yml`
-2. Run `golangci-lint run ./...`
-3. If errors appear, fix them category by category (formatting first, then vet, then style)
-4. Re-run until clean
-
-After generating `.golangci.yml`, run `golangci-lint config verify --config .golangci.yml`
-to verify the configuration schema before relying on lint results.
+2. `golangci-lint config verify --config .golangci.yml` — validate the schema first
+3. `golangci-lint run ./...`
+4. Fix category by category (formatting, vet, style); re-run until clean
 
 ---
 
 ## Minimum Recommended Linters
 
-These linters catch the most common issues while maintaining a high quality bar:
-
 | Linter | Purpose |
 |--------|---------|
 | [errcheck](https://github.com/kisielk/errcheck) | Ensure errors are handled |
 | [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports) | Format code and manage imports |
-| [revive](https://github.com/mgechev/revive) | Common style mistakes (modern replacement for golint) |
+| [revive](https://github.com/mgechev/revive) | Common style mistakes (modern replacement for the deprecated golint) |
 | [govet](https://pkg.go.dev/cmd/vet) | Analyze code for common mistakes |
 | [staticcheck](https://staticcheck.dev) | Various static analysis checks |
 
-> **Note**: `revive` is the modern, faster successor to the now-deprecated `golint`.
-
----
-
-## Lint Runner: golangci-lint
-
-Use [golangci-lint](https://github.com/golangci/golangci-lint) as your lint runner. See the [example .golangci.yml](https://github.com/uber-go/guide/blob/master/.golangci.yml) from uber-go/guide.
-
----
-
-## Example Configuration
-
-Use `assets/golangci.yml` as the maintained example. It targets
-golangci-lint v2 (verified with 2.10.1 on 2026-06-19), keeps `goimports`
-under `formatters`, and enables the core linters plus common production
-additions.
-
-### Running
-
-```bash
-# Install the version this skill's config is verified against
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.10.1
-
-# Run all linters
-golangci-lint run
-
-# Run on specific paths
-golangci-lint run ./pkg/...
-```
-
----
-
 ## Additional Recommended Linters
-
-Beyond the minimum set, consider these for production projects:
 
 | Linter | Purpose | When to enable |
 |--------|---------|----------------|
 | [gosec](https://github.com/securego/gosec) | Security vulnerability detection | Always for services handling user input |
 | [ineffassign](https://github.com/gordonklaus/ineffassign) | Detect ineffectual assignments | Always — catches dead code |
-| [misspell](https://github.com/client9/misspell) | Correct common misspellings in comments/strings | Always |
+| [misspell](https://github.com/client9/misspell) | Correct common misspellings | Always |
 | [gocyclo](https://github.com/fzipp/gocyclo) | Cyclomatic complexity threshold | When functions exceed ~15 complexity |
 | [exhaustive](https://github.com/nishanths/exhaustive) | Ensure switch covers all enum values | When using iota enums |
 | [bodyclose](https://github.com/timakin/bodyclose) | Detect unclosed HTTP response bodies | Always for HTTP client code |
 
+`govulncheck` is not a golangci-lint linter — install and run it separately:
+`go install golang.org/x/vuln/cmd/govulncheck@latest`. It reports only
+vulnerabilities on reachable call paths, so its findings are actionable.
+
+---
+
+## Example Configuration
+
+`assets/golangci.yml` is the maintained example. It targets golangci-lint v2
+(verified with 2.13.1 on 2026-08-29), keeps `goimports` under `formatters`, and
+enables the core linters plus common production additions.
+
+```bash
+# Pin the version this skill is verified against
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.1
+
+golangci-lint run              # all linters
+golangci-lint run ./pkg/...    # specific paths
+```
+
 ---
 
 ## Nolint Directives
-
-When suppressing a lint finding, always explain why:
 
 ```go
 //nolint:errcheck // fire-and-forget logging; error is not actionable
 _ = logger.Sync()
 ```
 
-Rules:
 - Use `//nolint:lintername` — never bare `//nolint`
 - Place the comment on the same line as the finding
 - Include a justification after `//`
@@ -106,43 +133,29 @@ Rules:
 
 ## CI/CD Integration
 
-Run `golangci-lint run ./...` in CI after tests. Pin the golangci-lint version
-used by CI so local and release behavior do not drift.
-
-### Pre-commit Hook
+Run the verification gate in CI, pinning every tool version so local and
+release behavior do not drift. Use `golangci/golangci-lint-action` on GitHub
+Actions.
 
 ```bash
 #!/bin/sh
-# .git/hooks/pre-commit
+# .git/hooks/pre-commit — lint only changed code to keep the loop fast
 golangci-lint run --new-from-rev=HEAD~1
 ```
-
-Use `--new-from-rev` to lint only changed code, keeping the feedback loop fast.
 
 ---
 
 ## Quick Reference
 
-| Task | Command/Action |
-|------|----------------|
-| Install golangci-lint | `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.10.1` |
-| Run linters | `golangci-lint run` |
-| Run on path | `golangci-lint run ./pkg/...` |
-| Config file | `.golangci.yml` in project root |
-| CI integration | Run `golangci-lint run` in pipeline |
-| Nolint directives | `//nolint:name // reason` — never bare `//nolint` |
-| CI integration | Use `golangci/golangci-lint-action` for GitHub Actions |
-| Pre-commit | `golangci-lint run --new-from-rev=HEAD~1` |
-
-### Linter Selection Guidelines
-
-| When you need... | Use |
-|------------------|-----|
-| Error handling coverage | errcheck |
-| Import formatting | goimports |
-| Style consistency | revive |
-| Bug detection | govet, staticcheck |
-| All of the above | golangci-lint with config |
+| Task | Command |
+|------|---------|
+| Full gate | `gofmt -l . && go vet ./... && go test -race ./... && go fix -diff ./... && golangci-lint run ./...` |
+| Preview modernizations | `go fix -diff ./...` |
+| Apply modernizations | `go fix ./...` |
+| List modernizers | `go tool fix help` |
+| Validate config schema | `golangci-lint config verify --config .golangci.yml` |
+| Lint changed code only | `golangci-lint run --new-from-rev=HEAD~1` |
+| Dependency CVEs | `govulncheck ./...` |
 
 ---
 

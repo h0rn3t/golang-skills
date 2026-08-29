@@ -5,7 +5,9 @@ description: Use when deciding whether to use Go generics, writing generic funct
 
 # Go Generics and Type Parameters
 
-> Compatibility: Generics require Go 1.18+.
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Generic **methods**
+> and relaxed inference for partially instantiated functions require Go 1.27+;
+> generic type aliases require Go 1.24+; generics themselves, Go 1.18+.
 
 ## Resource Routing
 
@@ -15,54 +17,62 @@ description: Use when deciding whether to use Go generics, writing generic funct
 
 Start with concrete types. Generalize only when a second type appears.
 
-### Prefer Generics When
+```
+Do multiple types share identical logic?
+├─ No  → concrete types
+└─ Yes → Do they share a useful interface?
+         ├─ Yes → interface
+         └─ No  → generics
+```
 
-- Multiple types share identical logic (sorting, filtering, map/reduce)
-- You would otherwise rely on `any` and excessive type switching
-- You are building a reusable data structure (concurrent-safe set, ordered map)
+**Prefer generics when**: multiple types share identical logic (sort, filter,
+map/reduce); the alternative is `any` plus type switching; you are building a
+reusable container.
 
-### Avoid Generics When
-
-- Only one type is being instantiated in practice
-- Interfaces already model the shared behavior cleanly
-- The generic code is harder to read than the type-specific alternative
+**Avoid generics when**: only one type is ever instantiated; an interface
+already models the shared behavior; the generic version is harder to read.
 
 > "Write code, don't design types." — Robert Griesemer and Ian Lance Taylor
 
-### Decision Flow
+```go
+// Bad: premature — only ever called with int
+func Sum[T constraints.Integer | constraints.Float](vals []T) T { /* ... */ }
 
-```
-Do multiple types share identical logic?
-├─ No  → Use concrete types
-├─ Yes → Do they share a useful interface?
-│        ├─ Yes → Use an interface
-│        └─ No  → Use generics
+// Good
+func SumInts(vals []int) int { /* ... */ }
 ```
 
-**Bad:**
+---
+
+## Generic Methods (Go 1.27+)
+
+Methods may declare their own type parameters, independent of the receiver's.
+This removes the old workaround of a package-level generic function taking the
+receiver as its first argument.
 
 ```go
-// Premature generics: only ever called with int
-func Sum[T constraints.Integer | constraints.Float](vals []T) T {
-    var total T
-    for _, v := range vals {
-        total += v
-    }
-    return total
+type Store struct{ data map[string]any }
+
+// Go 1.27: the type parameter belongs to the method
+func (s *Store) Get[T any](key string) (T, bool) {
+    v, ok := s.data[key].(T)
+    return v, ok
 }
+
+n, ok := store.Get[int]("count")
 ```
 
-**Good:**
+Constraints:
 
-```go
-func SumInts(vals []int) int {
-    var total int
-    for _, v := range vals {
-        total += v
-    }
-    return total
-}
-```
+- A generic method cannot satisfy an interface — interface methods have no type
+  parameters. If callers dispatch through an interface, keep the free function.
+- The receiver's own type parameters stay on the receiver; do not redeclare them.
+- Same restraint as generic functions: add the parameter when a second type
+  actually appears, not in anticipation.
+
+Go 1.27 also relaxes inference for partially instantiated generic functions and
+allows a trailing comma in type parameter lists. Prefer inference; write
+explicit type arguments only where inference fails or the call site is unclear.
 
 ---
 
@@ -71,85 +81,83 @@ func SumInts(vals []int) int {
 | Name | Typical Use |
 |------|-------------|
 | `T` | General type parameter |
-| `K` | Map key type |
-| `V` | Map value type |
+| `K` / `V` | Map key / value type |
 | `E` | Element/item type |
 
-For complex constraints, a short descriptive name is acceptable:
+For complex constraints, a short descriptive name is fine:
+`func Marshal[Opts encoding.MarshalOptions](v any, opts Opts) ([]byte, error)`.
+
+---
+
+## Constraints
+
+Prefer standard-library constraints over hand-written ones:
+
+| Need | Use |
+|---|---|
+| `<`, `>` ordering | `cmp.Ordered` (Go 1.21+) — not `constraints.Ordered` |
+| `==` only | `comparable` |
+| Anything | `any` |
+| Numeric union | Write a local union; the `constraints` module is still `x/exp` |
 
 ```go
-func Marshal[Opts encoding.MarshalOptions](v any, opts Opts) ([]byte, error)
+type Numeric interface {
+    ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~float32 | ~float64
+}
+```
+
+Use `~` for underlying types so named types (`type Celsius float64`) satisfy the
+constraint, and `|` for unions.
+
+### Hashing generic keys
+
+For a generic container that needs its own hash table, use
+`hash/maphash.Hasher[T]` and `maphash.ComparableHasher[T]` (Go 1.27+) instead of
+hand-rolling a hash/equality pair:
+
+```go
+type table[K comparable, V any] struct {
+    hasher maphash.Hasher[K] // maphash.ComparableHasher[K]{}
+    seed   maphash.Seed
+}
 ```
 
 ---
 
 ## Type Aliases vs Type Definitions
 
-Type aliases (`type Old = new.Name`) are rare — use only for package migration
-or gradual API refactoring.
-
----
-
-## Constraint Composition
-
-Combine constraints with `~` (underlying type) and `|` (union):
-
-```go
-type Numeric interface {
-    ~int | ~int8 | ~int16 | ~int32 | ~int64 |
-    ~float32 | ~float64
-}
-
-func Sum[T Numeric](vals []T) T {
-    var total T
-    for _, v := range vals {
-        total += v
-    }
-    return total
-}
-```
-
-Use the `constraints` package or `cmp` package (Go 1.21+) for standard constraints
-like `cmp.Ordered` instead of writing your own.
+Type aliases (`type Old = new.Name`) are rare — use for package migration or
+gradual API refactoring. Generic type aliases (Go 1.24+) are legal
+(`type Set[T comparable] = map[T]struct{}`) and carry the same caution: an alias
+adds a name, not a type, so it buys nothing but a migration path.
 
 ---
 
 ## Common Pitfalls
 
-### Don't Wrap Standard Library Types
+**Don't wrap standard library types.** A single-use generic is indirection:
 
 ```go
-// Bad: generic wrapper adds complexity without value
-type Set[T comparable] struct {
-    m map[T]struct{}
-}
+// Bad
+type Set[T comparable] struct{ m map[T]struct{} }
 
-// Better: use map[T]struct{} directly when the usage is simple
+// Better
 seen := map[string]struct{}{}
 ```
 
-Generics justify their complexity when they eliminate duplication across
-**multiple call sites**. A single-use generic is just indirection.
-
-### Don't Use Generics for Interface Satisfaction
+**Don't use generics for interface satisfaction.** If `T` is only used to
+satisfy an interface, accept the interface:
 
 ```go
-// Bad: T is only used to satisfy an interface — just use the interface
-func Process[T io.Reader](r T) error { ... }
+// Bad
+func Process[T io.Reader](r T) error
 
-// Good: accept the interface directly
-func Process(r io.Reader) error { ... }
+// Good
+func Process(r io.Reader) error
 ```
 
-### Avoid Over-Constraining
-
-```go
-// Bad: constraint is more restrictive than needed
-func Contains[T interface{ ~int | ~string }](slice []T, target T) bool { ... }
-
-// Good: comparable is sufficient
-func Contains[T comparable](slice []T, target T) bool { ... }
-```
+**Don't over-constrain.** `comparable` beats `interface{ ~int | ~string }` when
+you only need `==`.
 
 ---
 
@@ -157,12 +165,14 @@ func Contains[T comparable](slice []T, target T) bool { ... }
 
 | Topic | Guidance |
 |-------|----------|
-| When to use generics | Only when multiple types share identical logic and interfaces don't suffice |
-| Starting point | Write concrete code first; generalize later |
-| Naming | Single uppercase letter (`T`, `K`, `V`, `E`) |
-| Type aliases | Same type, alternate name; use only for migration |
-| Constraint composition | Use `~` for underlying types, `|` for unions; prefer `cmp.Ordered` over custom |
-| Common pitfall | Don't genericize single-use code or when interfaces suffice |
+| When to use | Multiple types, identical logic, no adequate interface |
+| Starting point | Concrete first; generalize on the second type |
+| Naming | `T`, `K`, `V`, `E` |
+| Generic methods | Go 1.27+; cannot satisfy an interface |
+| Ordering constraint | `cmp.Ordered`, never a hand-written one |
+| Generic hashing | `maphash.ComparableHasher[T]` (Go 1.27+) |
+| Type aliases | Migration only |
+| Pitfall | Single-use generics, `T` used only as an interface |
 
 ---
 

@@ -16,7 +16,7 @@ naming, single-letter conventions, and avoiding type redundancy.
 
 ```go
 // Good - short scope, short name
-for i := 0; i < len(items); i++ {
+for i := range items {
     process(items[i])
 }
 

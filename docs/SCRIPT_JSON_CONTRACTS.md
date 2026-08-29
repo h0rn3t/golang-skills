@@ -66,6 +66,25 @@ No-Go-file targets are successful empty scans and include a status marker:
 {"func":"ParseConfig","package":"config","output_file":"","parallel":false,"written":false}
 ```
 
+`go-code-refactor/scripts/verify-refactor.sh` — one shape per mode.
+`baseline` and `after`:
+
+```json
+{"mode":"after","target":"./...","toolchain":"go1.27.0","go_directive":"1.27","gofmt":"pass","summary_path":".refactor-verify/after.summary","fix_pending_lines":"0","lint_findings":"0","passed":true}
+```
+
+`diff` (exit 1 when `identical` is false) and `leaks`:
+
+```json
+{"mode":"diff","identical":true,"diff":"","truncated":false}
+{"mode":"leaks","go_minor":27,"passed":true,"output":"ok\tscratch\t0.2s","truncated":false}
+```
+
+`fix_pending_lines` and `lint_findings` are `"n/a"` when the tool is absent;
+they are informational and deliberately excluded from the `baseline`/`after`
+summary that `diff` compares, because a refactor is expected to reduce them
+rather than hold them equal.
+
 ## Migration Note
 
 Keep shell wrappers as the public interface. Replace regex-heavy internals with

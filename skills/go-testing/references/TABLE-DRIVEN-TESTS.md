@@ -141,14 +141,14 @@ func TestTranslate(t *testing.T) {
 
 ## Parallel Tests
 
-When using `t.Parallel()` in table tests, be aware of loop variable capture:
+Loop variables are per-iteration since Go 1.22, so `t.Parallel()` in a table
+test needs no capture line. Delete any `tt := tt` you find — it is dead code,
+and `go fix -forvar ./...` removes it for you.
 
 ```go
 for _, tt := range tests {
     t.Run(tt.name, func(t *testing.T) {
         t.Parallel()
-        // Go 1.22+: tt is correctly captured per iteration
-        // Go 1.21-: add "tt := tt" here to capture the variable
         got := Process(tt.give)
         if got != tt.want {
             t.Errorf("Process(%q) = %q, want %q", tt.give, got, tt.want)

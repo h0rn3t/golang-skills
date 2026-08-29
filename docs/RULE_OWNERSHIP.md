@@ -21,6 +21,9 @@ owner with a short pointer instead of repeating a full explanation.
 | Benchmarks, profiling, hot-path changes | `go-performance` | `go-data-structures`, `go-functions` | Uber performance guidance; Go testing benchmark docs |
 | Table tests, helpers, integration tests | `go-testing` | `go-code-review`, `go-documentation` | Google testing best practices; Uber test tables |
 | Package structure, imports, main/run pattern | `go-packages` | `go-code-review`, `go-naming` | Go CodeReviewComments package names/imports; Uber exit-in-main guidance |
+| Dependency selection and the stdlib-first ladder | `go-packages` | `go-logging`, `go-error-handling`, `go-performance` | `COMPATIBILITY.md`; Go 1.27 standard library |
+| Verification gate (`gofmt`/`vet`/`test -race`/`go fix`/lint) | `go-linting` | `go-code-review`, `go-style-core`, `go-testing`, `go-concurrency`, `go-error-handling`, `go-code-refactor` | `go tool vet help`; `go tool fix help`; golangci-lint v2 |
+| Behavior-preserving refactor workflow and modernization tiers | `go-code-refactor` | `go-style-core`, `go-code-review` | Google readability hierarchy; `go tool fix help`; verified `api/go1.2*.txt` deltas |
 
 ## Maintenance Rules
 

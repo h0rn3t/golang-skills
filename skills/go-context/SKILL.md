@@ -5,7 +5,9 @@ description: Use when working with context.Context in Go — placement in signat
 
 # Go Context Usage
 
-> Compatibility: `context` has been in the standard library since Go 1.7.
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
+> `context.WithoutCancel` and `context.AfterFunc` require Go 1.21+;
+> `t.Context()` in tests, Go 1.24+.
 
 ## Resource Routing
 

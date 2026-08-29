@@ -13,7 +13,8 @@
 ## Writing Benchmarks
 
 Go benchmarks use the `testing.B` type and live in `_test.go` files. Function
-names must start with `Benchmark`. On Go 1.24+, prefer `b.Loop()`.
+names must start with `Benchmark`. Use `b.Loop()` (Go 1.24+): unlike `b.N`
+loops, it keeps the loop body from being optimized away.
 
 ```go
 func BenchmarkStrconv(b *testing.B) {
@@ -32,8 +33,8 @@ func BenchmarkFmtSprint(b *testing.B) {
 ```
 
 Key rules:
-- Use `b.Loop()` on Go 1.24+; use `for i := 0; i < b.N; i++` only when
-  maintaining older Go versions
+- Use `b.Loop()`. You will still meet `for i := 0; i < b.N; i++` in existing
+  benchmarks — read it, but do not write it in new code
 - Assign results to a variable (or `_`) to prevent the compiler from
   optimizing away the call
 - Use `b.ResetTimer()` after expensive setup that shouldn't be measured

@@ -52,9 +52,8 @@ system without a mutex in sight.
 > **Source**: Effective Go (modernized)
 
 When a computation can be broken into independent pieces, parallelize it across
-CPU cores using a `sync.WaitGroup` to wait for completion. On Go 1.25 and
-newer, use `WaitGroup.Go` so the add/done bookkeeping stays coupled to the
-goroutine:
+CPU cores using a `sync.WaitGroup` to wait for completion. Use `WaitGroup.Go`
+(Go 1.25+) so the add/done bookkeeping stays coupled to the goroutine:
 
 ```go
 type Vector []float64
@@ -66,10 +65,9 @@ func (v Vector) DoSome(i, n int, u Vector) {
 }
 
 func (v Vector) DoAll(u Vector) {
-    numCPU := runtime.NumCPU()
+    numCPU := runtime.GOMAXPROCS(0)
     var wg sync.WaitGroup
-    for i := 0; i < numCPU; i++ {
-        i := i
+    for i := range numCPU {
         wg.Go(func() {
             v.DoSome(i*len(v)/numCPU, (i+1)*len(v)/numCPU, u)
         })
@@ -78,9 +76,14 @@ func (v Vector) DoAll(u Vector) {
 }
 ```
 
-Use `runtime.NumCPU()` for hardware cores or `runtime.GOMAXPROCS(0)` to honor
-the user's resource configuration. For Go versions before 1.25, use
-`wg.Add(1)`, `go func`, and `defer wg.Done()` around each launched goroutine.
+Size the fan-out with `runtime.GOMAXPROCS(0)`, not `runtime.NumCPU()`:
+`NumCPU` reports hardware cores and ignores the cgroup CPU limit, so a
+container capped at 2 CPUs on a 64-core host spawns 64 workers that thrash.
+Since Go 1.25 the default `GOMAXPROCS` is cgroup-aware, and
+`runtime.SetDefaultGOMAXPROCS()` restores that default after a manual override.
+
+No `i := i` capture line — loop variables are per-iteration since Go 1.22, and
+`for i := range numCPU` replaces the three-clause loop.
 
 > **Important**: Don't confuse concurrency (structuring a program as
 > independently executing components) with parallelism (executing calculations

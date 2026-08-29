@@ -6,7 +6,9 @@ allowed-tools: Bash(bash:*)
 
 # Go Error Handling
 
-> Compatibility: `errors.Is`, `errors.As`, and `%w` wrapping require Go 1.13+; structured logging examples may use `log/slog` from Go 1.21+.
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `errors.AsType[T]`
+> requires Go 1.26+; `errors.Is`/`errors.As` and `%w` work on every supported
+> release.
 
 ## Resource Routing
 
@@ -149,7 +151,26 @@ Error encountered?
 | Yes | dynamic | custom `error` type |
 
 **Default**: Wrap with `fmt.Errorf("...: %w", err)`. Escalate to sentinels for
-`errors.Is()`, to custom types for `errors.As()`.
+`errors.Is()`, to custom types for `errors.AsType[T]()`.
+
+### Matching a typed error
+
+Use `errors.AsType[T]` (Go 1.26+) — it returns the value instead of writing
+through a pointer, so the target variable and the `if` collapse into one line:
+
+```go
+// Good (Go 1.26+)
+if pathErr, ok := errors.AsType[*fs.PathError](err); ok {
+    return pathErr.Path
+}
+
+// Older toolchains, or when T must be computed at runtime
+var pathErr *fs.PathError
+if errors.As(err, &pathErr) { /* ... */ }
+```
+
+`go fix -errorsastype ./...` rewrites the old form. Keep `errors.Is` for
+sentinel comparison — `AsType` replaces `As`, not `Is`.
 
 ---
 
@@ -163,7 +184,11 @@ Error encountered?
 **Key rules**: Place `%w` at the end. Add context callers don't have. If
 annotation adds nothing, return `err` directly.
 
-> **Validation**: After implementing error handling, run `bash scripts/check-errors.sh` to detect common anti-patterns. Then run `go vet ./...` to catch additional issues.
+> **Validation**: Run `bash scripts/check-errors.sh` to detect common
+> anti-patterns, then the verification gate in
+> [go-linting](../go-linting/SKILL.md) — `go vet` catches `errorsas` and
+> `lostcancel`, and `go fix -diff` flags `errors.As` calls that should be
+> `errors.AsType`.
 
 ---
 

@@ -140,7 +140,7 @@ headers := map[string]string{
 **Short closures** can stay on one line when used as arguments:
 
 ```go
-sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
+slices.SortFunc(items, func(a, b Item) int { return cmp.Compare(a.Name, b.Name) })
 ```
 
 **Multi-line closures** follow standard indentation:

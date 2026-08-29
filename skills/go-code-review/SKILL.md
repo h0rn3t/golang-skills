@@ -6,7 +6,9 @@ allowed-tools: Bash(bash:*)
 
 # Go Code Review Checklist
 
-> Compatibility: `references/WEB-SERVER.md` uses `log/slog` examples that require Go 1.21+.
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
+> `references/WEB-SERVER.md` uses `http.NewCrossOriginProtection` (Go 1.25+)
+> and notes `http.Server.MaxHeaderValueCount` (Go 1.27+).
 
 ## Resource Routing
 
@@ -18,13 +20,20 @@ allowed-tools: Bash(bash:*)
 
 > Use `assets/review-template.md` when formatting the output of a code review to ensure consistent structure with Must Fix / Should Fix / Nits severity grouping.
 
-1. Run `gofmt -d .` and `go vet ./...` to catch mechanical issues first
+1. Run the mechanical gate first — `bash scripts/pre-review.sh ./...` plus
+   `go fix -diff ./...`. Never spend review attention on what a tool reports.
 2. Read the diff file-by-file; for each file, check the categories below in order
 3. Flag issues with specific line references and the rule name
 4. After reviewing all files, re-read flagged items to verify they're genuine issues
 5. Summarize findings grouped by severity (must-fix, should-fix, nit)
 
-> **Validation**: After completing the review, re-read the diff once more to verify every flagged issue is real. Remove any finding you cannot justify with a specific line reference.
+> **Validation**: Re-read the diff once more and delete every finding you cannot
+> justify with a specific line reference. A review that reports a fabricated
+> issue costs more trust than one that misses a real one.
+
+**Report honestly**: name the checks you actually ran. If `golangci-lint` was
+not installed or the tests were not run, say so — do not present a partial
+review as a complete one.
 
 ---
 
@@ -151,7 +160,9 @@ allowed-tools: Bash(bash:*)
 - [ ] **Examples**: Include runnable `Example` functions or tests demonstrating usage → [go-documentation](../go-documentation/SKILL.md)
 - [ ] **Useful test failures**: Messages include what was wrong, inputs, got, and want; order is `got != want` → [go-testing](../go-testing/SKILL.md)
 - [ ] **TestMain**: Use only when all tests need common setup with teardown; prefer scoped helpers first → [go-testing](../go-testing/SKILL.md)
-- [ ] **Real transports**: Prefer `httptest.NewServer` + real client over mocking HTTP → [go-testing](../go-testing/SKILL.md)
+- [ ] **Real transports**: Prefer `httptest.NewTestServer(t, h)` + real client over mocking HTTP → [go-testing](../go-testing/SKILL.md)
+- [ ] **Test context**: Tests use `t.Context()`, not `context.Background()` → [go-testing](../go-testing/SKILL.md)
+- [ ] **No sleep-based waits**: Timing tests use `synctest`, not `time.Sleep` → [go-testing](../go-testing/SKILL.md)
 
 ---
 
@@ -160,13 +171,16 @@ allowed-tools: Bash(bash:*)
 Run automated pre-review checks:
 
 ```bash
-bash scripts/pre-review.sh ./...         # text output
+bash scripts/pre-review.sh ./...         # gofmt + go vet + golangci-lint
 bash scripts/pre-review.sh --json ./...  # structured JSON output
+go fix -diff ./...                       # pending modernizations
+go test -race ./...                      # required if the diff touches goroutines
 ```
 
-Or manually: `gofmt -l <path> && go vet ./... && golangci-lint run ./...`
-
-Fix any issues before proceeding to the checklist above. For linter setup and configuration, see [go-linting](../go-linting/SKILL.md).
+Fix everything these report before starting the checklist above — a human
+review of machine-detectable defects is wasted attention.
+[go-linting](../go-linting/SKILL.md) owns the full verification gate and linter
+configuration.
 
 ---
 

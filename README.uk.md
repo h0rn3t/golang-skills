@@ -1,0 +1,236 @@
+# Agent Skills для Go
+
+[English](README.md) | **Українська**
+
+AI [Agent Skills](https://agentskills.io/) для написання ідіоматичного
+**Go 1.27** рівня продакшену. 21 модульний скіл навчає AI-асистентів
+найкращим практикам Go, узятим із:
+
+- [Google Go Style Guide](https://google.github.io/styleguide/go/)
+- [Effective Go](https://go.dev/doc/effective_go)
+- [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
+- [Go Wiki CodeReviewComments](https://github.com/golang/go/wiki/CodeReviewComments)
+
+Скіли налаштовані за
+[найкращими практиками agentskills.io](https://agentskills.io/skill-creation/best-practices):
+те, що агент і так знає, — пропущено; процедурні дерева рішень ведуть через
+багатокрокові задачі; 51 довідковий файл завантажується на вимогу через
+прогресивне розкриття; 9 вбудованих скриптів автоматизують типові перевірки;
+5 шаблонів-ассетів забезпечують однаковий формат виводу.
+
+## Перелік скілів
+
+| Скіл | Опис |
+|------|------|
+| **go-code-refactor** | Рефакторинг наявного Go зі збереженням поведінки: аудит, видалення, реструктуризація, модернізація, перевірка |
+| **go-code-review** | Системний чекліст для рев'ю Go-коду та PR |
+| **go-concurrency** | Життєвий цикл горутин, канали, м'ютекси, паралелізація, потокобезпечність |
+| **go-context** | Розміщення context.Context, скасування, дедлайни, дані в межах запиту |
+| **go-control-flow** | Ідіоматичні умови, цикли, поведінка switch/break, guard-клаузи |
+| **go-data-structures** | Слайси, мапи, масиви — алокація через new vs make, append, копіювання |
+| **go-declarations** | Оголошення змінних/констант/типів, var vs :=, iota-енуми, затінення |
+| **go-defensive** | Захист меж API, defer-очищення, Must-функції, робота з часом |
+| **go-documentation** | Doc-коментарі, документація пакета, формат godoc, виконувані приклади |
+| **go-error-handling** | Стратегія помилок, обгортання (%v vs %w), sentinel-помилки, патерни логування |
+| **go-functional-options** | Патерн функціональних опцій для конструкторів з необов'язковою конфігурацією |
+| **go-functions** | Порядок функцій, форматування сигнатур, дієслова Printf, інтерфейс Stringer |
+| **go-generics** | Коли потрібні дженерики, обмеження, типові пастки, аліаси типів |
+| **go-interfaces** | Дизайн інтерфейсів, абстракції, вбудовування, «accept interfaces, return structs» |
+| **go-linting** | Лінтери, налаштування golangci-lint, директиви nolint, інтеграція з CI/CD |
+| **go-logging** | Структуроване логування через slog, рівні логів, контекст запиту, міграція |
+| **go-naming** | Дерево рішень для іменування пакетів, типів, функцій, змінних, ресиверів |
+| **go-packages** | Організація пакетів, імпорти, розмір пакета, патерни CLI/flag |
+| **go-performance** | Оптимізація рядків, підказки місткості, бенчмарки, strconv замість fmt |
+| **go-style-core** | Форматування, зменшення вкладеності, принципи стилю, базовий style guide |
+| **go-testing** | Табличні тести, підтести, тест-хелпери, асерти, організація тестів |
+
+## Вбудовані скрипти
+
+9 скриптів автоматизують типові перевірки Go. Усі підтримують `--help`,
+`--json` для структурованого виводу та осмислені коди виходу (0 = чисто,
+1 = знайдено проблеми, 2 = помилка). Аналітичні скрипти підтримують `--limit`
+для обмеження обсягу виводу, а скрипти, що перезаписують файли, вимагають
+`--force`.
+
+| Скрипт | Скіл | Призначення |
+|--------|------|-------------|
+| `verify-refactor.sh` | go-code-refactor | Зафіксувати результати перевірок до/після і порівняти їх, щоб довести незмінність поведінки |
+| `pre-review.sh` | go-code-review | Запустити gofmt + go vet + golangci-lint перед рев'ю |
+| `check-naming.sh` | go-naming | Виявити SCREAMING_SNAKE, гетери з префіксом Get, погані імена пакетів |
+| `check-docs.sh` | go-documentation | Знайти експортовані символи без doc-коментарів |
+| `check-errors.sh` | go-error-handling | Відловити голі return, порівняння помилок рядками, log-and-return |
+| `check-interface-compliance.sh` | go-interfaces | Знайти інтерфейси без перевірки на етапі компіляції |
+| `bench-compare.sh` | go-performance | Запустити бенчмарки з опційним порівнянням через benchstat |
+| `setup-lint.sh` | go-linting | Згенерувати .golangci.yml з рекомендованими лінтерами |
+| `gen-table-test.sh` | go-testing | Створити каркас файлу з табличним тестом |
+
+## Встановлення
+
+### Варіант 1. npx skills (рекомендовано)
+
+Найпростіший спосіб встановити в **будь-який** AI-агент. Підтримуються Cursor,
+Codex, OpenCode, Cline, GitHub Copilot, Windsurf, Roo Code та [25+ інших
+агентів](https://github.com/vercel-labs/skills#supported-agents).
+
+```bash
+# усі 21 скіл одразу
+npx skills add h0rn3t/golang-skills --all
+
+# або вибірково — лише потрібні скіли
+npx skills add h0rn3t/golang-skills go-error-handling go-testing
+```
+
+Команду запускають у корені проєкту: скіли ставляться в каталог поточного
+агента (наприклад, `.cursor/rules/`, `.github/copilot/skills/`).
+
+### Варіант 2. Claude Code (плагін)
+
+```bash
+# додати маркетплейс (один раз)
+/plugin marketplace add h0rn3t/golang-skills
+
+# встановити скіли
+/plugin install golang-skills@golang-skills
+```
+
+Перевірити встановлення: `/plugin` — плагін `golang-skills` має бути зі
+статусом enabled. Скіли підхоплюються автоматично, коли ви працюєте з Go-кодом.
+
+Оновлення та видалення:
+
+```bash
+/plugin marketplace update golang-skills
+/plugin uninstall golang-skills@golang-skills
+```
+
+### Варіант 3. Ручне встановлення (Claude Code / Agent Skills)
+
+Підходить, якщо потрібні лише окремі скіли або немає доступу до маркетплейсу.
+
+```bash
+git clone https://github.com/h0rn3t/golang-skills.git
+cd golang-skills
+
+# усі скіли, глобально для користувача
+cp -R skills/go-* ~/.claude/skills/
+
+# або лише для одного проєкту
+cp -R skills/go-* /шлях/до/проєкту/.claude/skills/
+
+# або один конкретний скіл
+cp -R skills/go-error-handling ~/.claude/skills/
+```
+
+Кожен скіл — це самодостатній каталог: `SKILL.md` плюс `references/`,
+`scripts/`, `assets/`. Копіюйте каталог цілком, інакше зламаються
+відносні посилання всередині `SKILL.md`.
+
+Скрипти мають бути виконуваними:
+
+```bash
+chmod +x ~/.claude/skills/go-*/scripts/*.sh
+```
+
+Перевірка: у Claude Code виконайте `/context` або попросіть агента
+«використай скіл go-naming» — скіл має знайтися. Видалення — просто
+`rm -rf ~/.claude/skills/go-*`.
+
+### Варіант 4. Cursor (нативне віддалене правило)
+
+1. Відкрийте **Cursor Settings** (Cmd+Shift+J на Mac, Ctrl+Shift+J на Windows/Linux)
+2. Перейдіть до **Rules** → **Add Rule** → **Remote Rule (Github)**
+3. Введіть: `https://github.com/h0rn3t/golang-skills`
+
+### Що потрібно мати встановленим
+
+Самі скіли — це Markdown, їм нічого не потрібно. Але вбудовані скрипти
+викликають стандартний Go-інструментарій:
+
+| Інструмент | Для чого | Встановлення |
+| --- | --- | --- |
+| Go 1.26+ (цільова версія 1.27) | `gofmt`, `go vet`, `go test`, `go fix` | [go.dev/dl](https://go.dev/dl/) |
+| `golangci-lint` | `pre-review.sh`, `setup-lint.sh` | `brew install golangci-lint` |
+| `govulncheck` | перевірка вразливостей | `go install golang.org/x/vuln/cmd/govulncheck@latest` |
+| `benchstat` (опційно) | порівняння в `bench-compare.sh` | `go install golang.org/x/perf/cmd/benchstat@latest` |
+
+## Як це працює
+
+Скіли відповідають [відкритому стандарту Agent Skills](https://agentskills.io/),
+який працює в різних AI-інструментах для роботи з кодом. Коли ви пишете
+Go-код:
+
+1. **Автоматична активація**: агент завантажує релевантні скіли за контекстом
+   (наприклад, `go-naming`, коли ви пишете нову функцію)
+2. **Процедурні підказки**: дерева рішень і покрокові процедури для
+   багатокрокових задач — рев'ю коду, вибір стратегії обробки помилок
+3. **Прогресивне розкриття**: базові правила завантажуються одразу; 51
+   довідковий файл — на вимогу, коли виникає конкретна ситуація
+4. **Автоматизація**: 9 вбудованих скриптів беруть на себе рутинні перевірки,
+   щоб агент займався змістовними рішеннями
+5. **Умовні перехресні посилання**: скіли посилаються один на одного з умовами
+   «коли», щоб не тягнути зайвий контекст
+6. **Володіння правилами**: `docs/RULE_OWNERSHIP.md` тримає дубльовані настанови
+   поза скілами, які ними не володіють
+7. **Гейт перевірки**: `go-linting` володіє єдиним придатним до перевірки
+   визначенням «готово» — `gofmt`, `go vet`, `go test -race`, `go fix -diff`,
+   `golangci-lint`, `govulncheck` — до якого звертаються решта скілів замість
+   власних вигаданих критеріїв
+
+## Go 1.27
+
+Скіли орієнтовані на Go 1.27 і прямо про це кажуть там, де це важливо.
+Настанови, що змінилися з останніми релізами:
+
+| Настанова | Скіл |
+|---|---|
+| Дженерик-методи; `maphash.ComparableHasher` | go-generics |
+| `errors.AsType[T]` замість `errors.As` | go-error-handling |
+| `httptest.NewTestServer`, `synctest`, `t.Context` | go-testing |
+| Стандартні `uuid` та `encoding/json/v2` у драбині залежностей | go-packages |
+| Модернізатори `go fix` як частина гейта | go-linting, go-style-core |
+| `slices.Clone`/`maps.Clone` та `os.Root` на межах | go-defensive |
+| `slog.NewMultiHandler`, `slog.GroupAttrs` | go-logging |
+| `new(expr)` для некомпозитних вказівників | go-declarations |
+
+Твердження, чутливі до версії, зафіксовані у [COMPATIBILITY.md](COMPATIBILITY.md)
+і закріплені тестом `TestGoVersionBaseline` в `evals/eval_test.go`.
+
+## Структура проєкту
+
+```
+.
+├── skills/
+│   └── go-*/
+│       ├── SKILL.md      # Базові правила (< 225 рядків кожен)
+│       ├── references/   # Детальні настанови, вантажаться на вимогу
+│       ├── scripts/      # Скрипти автоматизації та хелпери
+│       └── assets/       # Шаблони виводу (5 скілів)
+├── evals/
+│   ├── evals.json        # Визначення eval'ів на тригери та якість
+│   ├── files/            # Приклади Go-файлів для якісних eval'ів
+│   └── fixtures/         # Фікстури для покриття скриптів та eval'ів
+├── docs/                 # Нотатки з підтримки репозиторію
+├── .github/workflows/    # Валідація в CI
+└── source/               # Оригінальні джерела style guide'ів
+```
+
+## Походження та сумісність
+
+Знімки апстрим-джерел лежать у `source/`. Кожен файл-джерело має власний
+inline-заголовок про походження, а [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+підсумовує шлях, апстрим-проєкт, URL, ліцензію та копірайт на рівні
+репозиторію.
+
+Настанови, чутливі до версії Go, відстежуються в
+[COMPATIBILITY.md](COMPATIBILITY.md), де також описано, як перевірити кожне
+твердження на встановленому тулчейні. Якщо скіл рекомендує API зі стандартної
+бібліотеки, прив'язаний до конкретного релізу Go, настанова називає мінімальну
+версію — і називає запасний варіант лише тоді, коли API новіший за найстарший
+підтримуваний реліз (наразі 1.26).
+
+## Ліцензія
+
+Файли скілів, скрипти, ассети, документація та eval'и, створені в межах
+проєкту, ліцензовані за Apache License, Version 2.0. Деталі — у
+[LICENSE](LICENSE). Знімки апстрим-джерел у `source/` зберігають свої
+початкові ліцензії; див. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

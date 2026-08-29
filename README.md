@@ -1,5 +1,7 @@
 # Agent Skills For Go
 
+**English** | [Українська](README.uk.md)
+
 AI [Agent Skills](https://agentskills.io/) for writing idiomatic,
 production-quality **Go 1.27** code. 21 modular skills teach AI coding
 assistants Go best practices derived from:
@@ -61,33 +63,92 @@ destructive scripts require `--force` to overwrite existing files.
 | `setup-lint.sh` | go-linting | Generate .golangci.yml with recommended linters |
 | `gen-table-test.sh` | go-testing | Scaffold a table-driven test file |
 
-## Quick Install
+## Installation
 
-### Using npx skills (Recommended)
+### Option 1: npx skills (Recommended)
 
 The easiest way to install across **any** AI coding agent. Supports Cursor,
 Codex, OpenCode, Cline, GitHub Copilot, Windsurf, Roo Code, and [25+ more
 agents](https://github.com/vercel-labs/skills#supported-agents).
 
 ```bash
-npx skills add cxuu/golang-skills --all
+# all 21 skills
+npx skills add h0rn3t/golang-skills --all
+
+# or pick individual skills
+npx skills add h0rn3t/golang-skills go-error-handling go-testing
 ```
 
-### Claude Code
+Run it from your project root — skills land in the current agent's directory
+(e.g. `.cursor/rules/`, `.github/copilot/skills/`).
+
+### Option 2: Claude Code (plugin)
 
 ```bash
 # Add the marketplace (one time)
-/plugin marketplace add cxuu/golang-skills
+/plugin marketplace add h0rn3t/golang-skills
 
 # Install the skills
-/plugin install golang-skills@cxuu-golang-skills
+/plugin install golang-skills@golang-skills
 ```
 
-### Cursor (Native Remote Rule)
+Verify with `/plugin` — `golang-skills` should be listed as enabled. Skills
+activate automatically once you touch Go code.
+
+Update and remove:
+
+```bash
+/plugin marketplace update golang-skills
+/plugin uninstall golang-skills@golang-skills
+```
+
+### Option 3: Manual install (Claude Code / Agent Skills)
+
+Use this when you want only a few skills, or have no marketplace access.
+
+```bash
+git clone https://github.com/h0rn3t/golang-skills.git
+cd golang-skills
+
+# all skills, for your user
+cp -R skills/go-* ~/.claude/skills/
+
+# or scoped to one project
+cp -R skills/go-* /path/to/project/.claude/skills/
+
+# or a single skill
+cp -R skills/go-error-handling ~/.claude/skills/
+```
+
+Each skill is a self-contained directory: `SKILL.md` plus `references/`,
+`scripts/`, `assets/`. Copy the whole directory — relative links inside
+`SKILL.md` break otherwise.
+
+Make the scripts executable:
+
+```bash
+chmod +x ~/.claude/skills/go-*/scripts/*.sh
+```
+
+To uninstall: `rm -rf ~/.claude/skills/go-*`.
+
+### Option 4: Cursor (Native Remote Rule)
 
 1. Open **Cursor Settings** (Cmd+Shift+J on Mac, Ctrl+Shift+J on Windows/Linux)
 2. Navigate to **Rules** → **Add Rule** → **Remote Rule (Github)**
-3. Enter: `https://github.com/cxuu/golang-skills`
+3. Enter: `https://github.com/h0rn3t/golang-skills`
+
+### Prerequisites
+
+The skills themselves are Markdown and need nothing. The bundled scripts shell
+out to the standard Go toolchain:
+
+| Tool | Used by | Install |
+| --- | --- | --- |
+| Go 1.26+ (1.27 targeted) | `gofmt`, `go vet`, `go test`, `go fix` | [go.dev/dl](https://go.dev/dl/) |
+| `golangci-lint` | `pre-review.sh`, `setup-lint.sh` | `brew install golangci-lint` |
+| `govulncheck` | vulnerability gate | `go install golang.org/x/vuln/cmd/govulncheck@latest` |
+| `benchstat` (optional) | `bench-compare.sh` comparison | `go install golang.org/x/perf/cmd/benchstat@latest` |
 
 ## How It Works
 

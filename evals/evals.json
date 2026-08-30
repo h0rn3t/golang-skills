@@ -446,6 +446,31 @@
       "set": "validation"
     },
     {
+      "query": "Audit this Go repo for over-engineering — what can we delete?",
+      "should_trigger": [
+        "go-code-refactor"
+      ],
+      "notes": "Repo-wide cut list, not a rewrite: routes to the over-engineering audit",
+      "set": "train"
+    },
+    {
+      "query": "We have a UserRepository interface with one implementation and a util package — is this over-abstracted?",
+      "should_trigger": [
+        "go-code-refactor",
+        "go-interfaces"
+      ],
+      "notes": "Named Go bloat smells without the word refactor",
+      "set": "validation"
+    },
+    {
+      "query": "List the shortcuts we deliberately left in this codebase",
+      "should_trigger": [
+        "go-code-refactor"
+      ],
+      "notes": "Kept: marker ledger via check-debt.sh",
+      "set": "train"
+    },
+    {
       "query": "Write a new Go function that parses a duration string",
       "should_trigger": [
         "go-functions"

@@ -191,6 +191,13 @@ check_bad_receivers() {
     done < "$file"
 }
 
+# Checked here as well as in find_go_files: an exit from inside the process
+# substitution below would leave this shell running with an empty file list.
+if [[ ! -e "$TARGET" && ! -d "${TARGET%%/...}" ]]; then
+    echo "error: path not found: $TARGET" >&2
+    exit 2
+fi
+
 FILES=()
 while IFS= read -r f; do
     [[ -n "$f" ]] && FILES+=("$f")

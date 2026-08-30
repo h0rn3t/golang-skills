@@ -25,6 +25,14 @@ and `2` means usage/environment errors.
 {"findings":[{"file":"path","line":1,"rule":"rule-id","message":"text"}],"total":1,"truncated":false}
 ```
 
+`go-code-refactor/scripts/check-debt.sh` — exit 1 counts only `no-trigger`
+markers, since a marker naming a ceiling and a fix is tracked debt, not a
+finding:
+
+```json
+{"markers":[{"file":"path","line":1,"ceiling":true,"upgrade":true,"rule":"tracked","note":"text"}],"total":1,"no_trigger":0,"truncated":false}
+```
+
 `go-interfaces/scripts/check-interface-compliance.sh`:
 
 ```json
@@ -37,6 +45,7 @@ No-Go-file targets are successful empty scans and include a status marker:
 {"violations":[],"total":0,"truncated":false,"status":"no_go_files"}
 {"missing":[],"total":0,"truncated":false,"status":"no_go_files"}
 {"findings":[],"total":0,"truncated":false,"status":"no_go_files"}
+{"markers":[],"total":0,"no_trigger":0,"truncated":false,"status":"no_go_files"}
 {"interfaces":[],"missing":[],"count_interfaces":0,"count_missing":0,"truncated":false,"status":"no_go_files"}
 ```
 

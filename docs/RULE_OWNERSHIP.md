@@ -26,6 +26,7 @@ owner with a short pointer instead of repeating a full explanation.
 | Dependency selection and the stdlib-first ladder | `go-packages` | `go-logging`, `go-error-handling`, `go-performance` | `COMPATIBILITY.md`; Go 1.27 standard library |
 | Verification gate (`gofmt`/`vet`/`test -race`/`go fix`/lint) | `go-linting` | `go-code-review`, `go-style-core`, `go-testing`, `go-concurrency`, `go-error-handling`, `go-code-refactor` | `go tool vet help`; `go tool fix help`; golangci-lint v2 |
 | Behavior-preserving refactor workflow and modernization tiers | `go-code-refactor` | `go-style-core`, `go-code-review` | Google readability hierarchy; `go tool fix help`; verified `api/go1.2*.txt` deltas |
+| Over-engineering audit, cut tags, and the `Kept:` shortcut ledger | `go-code-refactor` | `go-code-review` | Go CodeReviewComments `Interfaces`; Uber `Avoid Embedding Types`; stdlib replacements in `COMPATIBILITY.md` |
 
 ## Maintenance Rules
 

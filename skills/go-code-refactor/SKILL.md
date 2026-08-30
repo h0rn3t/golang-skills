@@ -20,7 +20,9 @@ is the definition of the task, not a quality bar to aim at.
 - `references/BEHAVIOR-TRAPS.md` - Read before touching concurrency, `defer`, error handling, slices, interfaces, or struct layout.
 - `references/PLAYBOOK.md` - Read for the concrete transformations, ordered by payoff, with before/after Go.
 - `references/MODERNIZATION.md` - Read before adopting a newer API; sorts Go 1.21–1.27 features into safe, conditional, and report-only.
+- `references/OVER-ENGINEERING.md` - Read when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
 - `scripts/verify-refactor.sh` - Run to capture a baseline, re-check after each step, and diff the two.
+- `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no upgrade path.
 - `assets/refactor-report.md` - Use as the final report structure.
 
 ## Stop and Ask
@@ -76,8 +78,7 @@ rung that holds:
 5. Only then, the minimum that works.
 
 Delete only what is **provably** unreachable — "looks unused" is a finding, not
-a licence. Apply the shorter form only where the call site reads as well or
-better; when brevity costs clarity, the longer form stays. Never golf.
+a licence. Apply the shorter form only where it reads as well; never golf.
 
 **Never simplify away** input validation at trust boundaries, error handling
 that prevents data loss, or security checks. A "simplification" that drops a
@@ -113,6 +114,10 @@ Name what makes the code hard to follow *before* proposing fixes. The naming is
 what produces a real transformation; jumping to edits produces cosmetic churn —
 renamed variables, shuffled lines, same confusion. Record location, what is
 hard to read, and the intended transformation.
+
+When the ask is a cut list rather than a rewrite — "what can we delete", a repo
+handed over as bloated — the audit *is* the deliverable: use the tags and
+ranked format in `references/OVER-ENGINEERING.md` and stop there.
 
 You will notice actual bugs while auditing — races, ignored errors, leaks,
 off-by-ones. **Do not fix them.** A diff that mixes "reads better" with
@@ -169,26 +174,27 @@ invisible breakages compilation misses.
 ### 6. Report
 
 Use `assets/refactor-report.md`. Lead with what was deleted — it is the part of
-the diff that needed no design decision. Keep prose short; the table and the
-diff carry the information. Report skipped checks as skipped.
+the diff that needed no design decision. Keep prose short and report skipped
+checks as skipped; the table and the diff carry the information.
 
 ---
 
 ## Mark What You Deliberately Left Alone
 
 When you keep something ugly because changing it would change behavior, say so
-in the code, not only in the report — the next reader trips over it there:
+in the code, not only in the report. `Kept:` / `Ceiling:` / `Fix:` are fixed
+prefixes, so the markers stay greppable:
 
 ```go
 // Kept: defer stays inside the loop. Hoisting it into a helper would close
-// files one iteration earlier, which is observable. Ceiling: descriptors
-// accumulate for the worker's lifetime. Fix: close explicitly per iteration,
-// in its own commit.
+// files one iteration earlier, which is observable.
+// Ceiling: descriptors accumulate for the worker's lifetime.
+// Fix: close explicitly per iteration, in its own commit.
 defer f.Close()
 ```
 
-Name the ceiling and the upgrade path. That turns "I noticed this" into
-something a colleague can act on.
+A marker naming no ceiling and no upgrade path rots into "later means never".
+`bash scripts/check-debt.sh ./...` lists every marker and exits 1 on those.
 
 ---
 

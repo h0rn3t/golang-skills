@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -908,6 +909,85 @@ func TestScriptFunctional(t *testing.T) {
 		runCommand(t, 2, "bash", script, "-n", "nope", filepath.Join(fixturesDir, "bench"))
 	})
 
+	t.Run("CheckDebt", func(t *testing.T) {
+		t.Parallel()
+		script := scriptPath("go-code-refactor", "check-debt.sh")
+
+		type debtMarker struct {
+			File    string `json:"file"`
+			Line    int    `json:"line"`
+			Ceiling bool   `json:"ceiling"`
+			Upgrade bool   `json:"upgrade"`
+			Rule    string `json:"rule"`
+			Note    string `json:"note"`
+		}
+		parse := func(t *testing.T, out []byte) struct {
+			Markers   []debtMarker `json:"markers"`
+			Total     int          `json:"total"`
+			NoTrigger int          `json:"no_trigger"`
+			Truncated bool         `json:"truncated"`
+			Status    string       `json:"status"`
+		} {
+			t.Helper()
+			if !json.Valid(out) {
+				t.Fatalf("--json output is not valid JSON:\n%s", out)
+			}
+			var result struct {
+				Markers   []debtMarker `json:"markers"`
+				Total     int          `json:"total"`
+				NoTrigger int          `json:"no_trigger"`
+				Truncated bool         `json:"truncated"`
+				Status    string       `json:"status"`
+			}
+			if err := json.Unmarshal(out, &result); err != nil {
+				t.Fatalf("parse debt JSON: %v\n%s", err, out)
+			}
+			return result
+		}
+
+		// A marker naming Ceiling and Fix is tracked; one naming neither is
+		// the rot risk the script exists to surface, so it drives the exit code.
+		result := parse(t, runCommand(t, 1, "bash", script, "--json", filepath.Join(fixturesDir, "debt")))
+		if result.Total != 2 || result.NoTrigger != 1 {
+			t.Fatalf("expected 2 markers with 1 no-trigger, got total=%d no_trigger=%d\n%#v", result.Total, result.NoTrigger, result.Markers)
+		}
+		for _, want := range []debtMarker{
+			{Line: 8, Ceiling: true, Upgrade: true, Rule: "tracked"},
+			{Line: 17, Ceiling: false, Upgrade: false, Rule: "no-trigger"},
+		} {
+			found := false
+			for _, got := range result.Markers {
+				if !pathHasSuffix(got.File, "evals/fixtures/debt/markers.go") || got.Line != want.Line {
+					continue
+				}
+				found = true
+				if got.Ceiling != want.Ceiling || got.Upgrade != want.Upgrade || got.Rule != want.Rule {
+					t.Fatalf("marker at line %d = %#v, want ceiling=%v upgrade=%v rule=%s", want.Line, got, want.Ceiling, want.Upgrade, want.Rule)
+				}
+			}
+			if !found {
+				t.Fatalf("no marker reported at markers.go:%d in %#v", want.Line, result.Markers)
+			}
+		}
+
+		limited := parse(t, runCommand(t, 1, "bash", script, "--json", "--limit", "1", filepath.Join(fixturesDir, "debt")))
+		if len(limited.Markers) != 1 || !limited.Truncated || limited.Total != 2 {
+			t.Fatalf("--limit 1 should list 1 of 2 markers and set truncated, got %#v", limited)
+		}
+
+		clean := parse(t, runCommand(t, 0, "bash", script, "--json", filepath.Join(fixturesDir, "debt", "clean")))
+		if clean.Total != 0 {
+			t.Fatalf("clean debt fixture produced %d markers\n%#v", clean.Total, clean.Markers)
+		}
+
+		empty := parse(t, runCommand(t, 0, "bash", script, "--json", filepath.Join(fixturesDir, "no_go_files")))
+		if empty.Status != "no_go_files" || empty.Total != 0 {
+			t.Fatalf("no-Go-file target should report status no_go_files, got %#v", empty)
+		}
+
+		runCommand(t, 2, "bash", script, "--json", filepath.Join(fixturesDir, "does-not-exist"))
+	})
+
 	t.Run("InvalidLimitFlags", func(t *testing.T) {
 		t.Parallel()
 		cases := []struct {
@@ -915,6 +995,7 @@ func TestScriptFunctional(t *testing.T) {
 			name  string
 			args  []string
 		}{
+			{"go-code-refactor", "check-debt.sh", nil},
 			{"go-code-review", "pre-review.sh", []string{"--force"}},
 			{"go-documentation", "check-docs.sh", nil},
 			{"go-error-handling", "check-errors.sh", nil},
@@ -1729,4 +1810,124 @@ func TestCrossRefs(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// TestManifestCounts - the counts advertised in the READMEs and the plugin
+// manifests must match what is actually on disk, and the two manifests must
+// agree on the version. Every count appears in four files; without this they
+// drift the moment a skill, script, or reference is added.
+// ---------------------------------------------------------------------------
+
+func TestManifestCounts(t *testing.T) {
+	t.Parallel()
+	root := repoRoot(t)
+
+	countGlob := func(pattern string) int {
+		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(pattern)))
+		if err != nil {
+			t.Fatalf("glob %s: %v", pattern, err)
+		}
+		return len(matches)
+	}
+	skills := len(findSkillDirs(t))
+	references := countGlob("skills/*/references/*.md")
+	scripts := countGlob("skills/*/scripts/*.sh")
+	assets := countGlob("skills/*/assets/*")
+
+	for _, tc := range []struct {
+		file    string
+		pattern string
+		want    int
+	}{
+		{"README.md", `(\d+) modular skills`, skills},
+		{"README.md", `(\d+) reference files`, references},
+		{"README.md", `(\d+) bundled scripts`, scripts},
+		{"README.md", `(\d+) scripts automate`, scripts},
+		{"README.md", `(\d+) asset templates`, assets},
+		{"README.uk.md", `(\d+) модульн\S+ скіл`, skills},
+		{"README.uk.md", `(\d+) довідков\S+ файл\S*`, references},
+		{"README.uk.md", `(\d+) вбудованих скриптів`, scripts},
+		{"README.uk.md", `(\d+) скриптів автоматизують`, scripts},
+		{"README.uk.md", `(\d+) шаблонів-ассетів`, assets},
+		{".claude-plugin/plugin.json", `(\d+) modular skills`, skills},
+		{".claude-plugin/plugin.json", `(\d+) reference files`, references},
+		{".claude-plugin/plugin.json", `(\d+) automation scripts`, scripts},
+		{".claude-plugin/plugin.json", `(\d+) asset templates`, assets},
+		{".claude-plugin/marketplace.json", `(\d+) modular skills`, skills},
+		{".claude-plugin/marketplace.json", `(\d+) reference files`, references},
+		{".claude-plugin/marketplace.json", `(\d+) automation scripts`, scripts},
+		{".claude-plugin/marketplace.json", `(\d+) asset templates`, assets},
+	} {
+		tc := tc
+		t.Run(tc.file+"/"+tc.pattern, func(t *testing.T) {
+			t.Parallel()
+			content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(tc.file)))
+			if err != nil {
+				t.Fatalf("read %s: %v", tc.file, err)
+			}
+			matches := regexp.MustCompile(tc.pattern).FindAllStringSubmatch(string(content), -1)
+			if len(matches) == 0 {
+				t.Fatalf("%s no longer states a count matching %q", tc.file, tc.pattern)
+			}
+			for _, m := range matches {
+				if m[1] != strconv.Itoa(tc.want) {
+					t.Errorf("%s says %q, but the repository has %d", tc.file, m[0], tc.want)
+				}
+			}
+		})
+	}
+
+	t.Run("VersionsAgree", func(t *testing.T) {
+		t.Parallel()
+		var plugin struct {
+			Version string `json:"version"`
+		}
+		readJSON(t, filepath.Join(root, ".claude-plugin", "plugin.json"), &plugin)
+
+		var marketplace struct {
+			Metadata struct {
+				Version string `json:"version"`
+			} `json:"metadata"`
+			Plugins []struct {
+				Version string `json:"version"`
+			} `json:"plugins"`
+		}
+		readJSON(t, filepath.Join(root, ".claude-plugin", "marketplace.json"), &marketplace)
+
+		if plugin.Version == "" {
+			t.Fatal("plugin.json has no version")
+		}
+		if marketplace.Metadata.Version != plugin.Version {
+			t.Errorf("marketplace metadata version %q != plugin version %q", marketplace.Metadata.Version, plugin.Version)
+		}
+		for i, p := range marketplace.Plugins {
+			if p.Version != plugin.Version {
+				t.Errorf("marketplace plugins[%d] version %q != plugin version %q", i, p.Version, plugin.Version)
+			}
+		}
+		if !strings.Contains(readFile(t, filepath.Join(root, "CHANGELOG.md")), "["+plugin.Version+"]") {
+			t.Errorf("CHANGELOG.md has no [%s] section for the current plugin version", plugin.Version)
+		}
+	})
+}
+
+func readJSON(t *testing.T, path string, target any) {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if err := json.Unmarshal(content, target); err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+}
+
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(content)
 }

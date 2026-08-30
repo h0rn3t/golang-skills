@@ -4,6 +4,35 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- `go-code-refactor` gains `references/OVER-ENGINEERING.md`: the cut tags
+  (`delete:`, `stdlib:`, `dep:`, `yagni:`, `shrink:`), a Go-specific hunt list
+  (single-implementation interfaces, forwarding wrappers, `util` packages,
+  hand-rolled stdlib, dependencies Go now ships, flexibility nobody uses), the
+  ranked one-line audit output, and the prove-it-before-you-cut gate. Used when
+  the ask is "what can we delete" instead of "make this read better".
+  `go-code-review` routes to it for the bloat lane; correctness and security
+  stay with the review checklist.
+- `go-code-refactor` gains `scripts/check-debt.sh`: harvests the `Kept:`
+  markers a refactor leaves behind into a ledger. Markers naming neither
+  `Ceiling:` nor `Fix:` are tagged `no-trigger` and drive exit 1, so a
+  deliberate shortcut cannot quietly become permanent. Supports `--json` and
+  `--limit`; fixtures live in `evals/fixtures/debt/`.
+- Pinned the marker convention: `Kept:` / `Ceiling:` / `Fix:` are fixed
+  prefixes so the ledger can find them. The example in `SKILL.md` now uses one
+  prefix per line.
+- `TestManifestCounts` pins the advertised counts (skills, reference files,
+  scripts, asset templates) in `README.md`, `README.uk.md`, `plugin.json`, and
+  `marketplace.json` against what is on disk, and requires the plugin and
+  marketplace versions to agree and to have a `CHANGELOG.md` section.
+
+### Fixed
+
+- `check-naming.sh` exited 0 for a nonexistent path: its `exit 2` ran inside a
+  process substitution, so the caller continued with an empty file list and
+  reported a clean scan. The target is now validated in the main shell.
+
 ### Changed
 
 - Gave the nesting rule a single owner. "Reduce nesting / early returns /

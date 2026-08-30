@@ -14,8 +14,8 @@ assistants Go best practices derived from:
 Skills are tuned following
 [agentskills.io best practices](https://agentskills.io/skill-creation/best-practices):
 content the agent already knows is omitted, procedural decision trees guide
-multi-step tasks, 51 reference files load on demand via progressive disclosure,
-9 bundled scripts automate common checks, and 5 asset templates ensure
+multi-step tasks, 52 reference files load on demand via progressive disclosure,
+10 bundled scripts automate common checks, and 5 asset templates ensure
 consistent output.
 
 ## Skills Included
@@ -46,7 +46,7 @@ consistent output.
 
 ## Bundled Scripts
 
-9 scripts automate common Go checks. All support `--help`, `--json` for
+10 scripts automate common Go checks. All support `--help`, `--json` for
 structured output, and meaningful exit codes (0 = clean, 1 = issues found,
 2 = error). Analysis scripts support `--limit` to cap output size, and
 destructive scripts require `--force` to overwrite existing files.
@@ -54,6 +54,7 @@ destructive scripts require `--force` to overwrite existing files.
 | Script | Skill | Purpose |
 |--------|-------|---------|
 | `verify-refactor.sh` | go-code-refactor | Record baseline/after check results and diff them to prove behavior held |
+| `check-debt.sh` | go-code-refactor | Harvest `Kept:` shortcut markers into a ledger and flag those naming no upgrade path |
 | `pre-review.sh` | go-code-review | Run gofmt + go vet + golangci-lint before review |
 | `check-naming.sh` | go-naming | Detect SCREAMING_SNAKE, Get-prefixed getters, bad package names |
 | `check-docs.sh` | go-documentation | Find exported symbols missing doc comments |
@@ -159,9 +160,9 @@ which works across multiple AI coding tools. When you're writing Go code:
    (e.g., `go-naming` when you're writing a new function)
 2. **Procedural guidance**: Decision trees and step-by-step procedures for
    multi-step tasks like code review and error strategy selection
-3. **Progressive disclosure**: Core rules load immediately; 51 reference files
+3. **Progressive disclosure**: Core rules load immediately; 52 reference files
    load on demand when specific situations arise
-4. **Automation**: 9 bundled scripts handle repetitive checks so the agent
+4. **Automation**: 10 bundled scripts handle repetitive checks so the agent
    focuses on higher-level guidance
 5. **Conditional cross-references**: Skills link to each other with "when"
    conditions to avoid unnecessary context loading

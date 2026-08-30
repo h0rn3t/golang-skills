@@ -194,3 +194,4 @@ configuration.
 - **Concurrency safety**: See [go-concurrency](../go-concurrency/SKILL.md) when reviewing goroutine lifetimes, channel usage, or mutex placement
 - **Logging practices**: See [go-logging](../go-logging/SKILL.md) when reviewing log usage, structured logging, or slog configuration
 - **Acting on the findings**: See [go-code-refactor](../go-code-refactor/SKILL.md) when the review turns into restructuring existing code and behavior must be proven unchanged
+- **Reviewing for bloat instead of defects**: See [go-code-refactor](../go-code-refactor/SKILL.md) and its `references/OVER-ENGINEERING.md` when the ask is what to delete — single-implementation interfaces, hand-rolled stdlib, dependencies Go now ships

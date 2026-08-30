@@ -20,6 +20,10 @@ All notable changes to this repository are documented here.
   heading with its routing line, and dropped the stale "enum zero values"
   promise from the `TIME-ENUMS-TAGS.md` routing entry.
 - `docs/RULE_OWNERSHIP.md` gains rows for nesting and for iota enums.
+- `go-style-core` and `go-code-review` now route back to `go-code-refactor`,
+  the two consumers the refactor-workflow ownership row already named. The
+  link was one-way: `go-code-refactor` referenced 16 of the other 20 skills
+  and no skill referenced it.
 - `TestRuleOwnershipMap` now pins both rules: each needle must appear in its
   owner document and nowhere else under `skills/`.
 

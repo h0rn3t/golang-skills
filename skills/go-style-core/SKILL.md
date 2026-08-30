@@ -200,4 +200,5 @@ multiple statements on a single line.
 - **Documentation**: See [go-documentation](../go-documentation/SKILL.md) when writing doc comments, named return parameters, or package-level docs
 - **Linting enforcement**: See [go-linting](../go-linting/SKILL.md) when automating style checks with golangci-lint or configuring CI
 - **Code review**: See [go-code-review](../go-code-review/SKILL.md) when applying style principles during a systematic code review
+- **Applying these rules to existing code**: See [go-code-refactor](../go-code-refactor/SKILL.md) when the fix is a multi-step behavior-preserving refactor rather than a single style call
 - **Logging style**: See [go-logging](../go-logging/SKILL.md) when reviewing logging practices, choosing between log and slog, or structuring log output

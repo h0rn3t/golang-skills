@@ -15,6 +15,8 @@ owner with a short pointer instead of repeating a full explanation.
 | Naming, initialisms, receivers, packages | `go-naming` | `go-packages`, `go-interfaces`, `go-functions` | Effective Go naming; Go CodeReviewComments naming sections; Google naming decisions |
 | Pointers to interfaces | `go-functions` | `go-interfaces`, `go-code-review` | Uber `Pointers to Interfaces`; Go CodeReviewComments `Pass Values` |
 | Declarations, literals, initialization | `go-declarations` | `go-data-structures`, `go-style-core` | Google declarations decisions; Uber initialization guidance |
+| Nesting depth, early returns, unnecessary else | `go-style-core` | `go-control-flow`, `go-error-handling`, `go-code-refactor` | Uber `Reduce Nesting` / `Unnecessary Else`; Effective Go `if` |
+| iota enums and zero-value validity | `go-declarations` | `go-defensive` | Google constant decisions; Uber `Start Enums at One` |
 | Data structure selection | `go-data-structures` | `go-generics`, `go-performance` | Go CodeReviewComments slices/maps; Google style decisions |
 | Functional options vs config structs | `go-functional-options` | `go-functions`, `go-interfaces` | Uber functional options; Google option struct guidance |
 | Lint setup and static analysis | `go-linting` | `go-code-review`, `go-style-core` | Uber linting; golangci-lint v2 config schema |

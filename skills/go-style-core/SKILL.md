@@ -48,6 +48,9 @@ halfway is worse than either end state.
 
 ## Reduce Nesting
 
+> **Owner**: this skill owns nesting depth, early returns, and unnecessary
+> `else`. Other skills route here instead of restating the rule.
+
 Handle error cases and special conditions first. Return early or continue the loop to keep the "happy path" unindented.
 
 ```go
@@ -192,7 +195,8 @@ multiple statements on a single line.
 ## Related Skills
 
 - **Naming conventions**: See [go-naming](../go-naming/SKILL.md) when applying MixedCaps, choosing identifier names, or resolving naming debates
-- **Error flow**: See [go-error-handling](../go-error-handling/SKILL.md) when structuring error-first guard clauses or reducing nesting via early returns
+- **Error flow**: See [go-error-handling](../go-error-handling/SKILL.md) when choosing an error strategy, wrapping errors, or deciding log-vs-return
+- **Statement mechanics**: See [go-control-flow](../go-control-flow/SKILL.md) when writing `if`-init, `range` loops, switch, or type switches
 - **Documentation**: See [go-documentation](../go-documentation/SKILL.md) when writing doc comments, named return parameters, or package-level docs
 - **Linting enforcement**: See [go-linting](../go-linting/SKILL.md) when automating style checks with golangci-lint or configuring CI
 - **Code review**: See [go-code-review](../go-code-review/SKILL.md) when applying style principles during a systematic code review

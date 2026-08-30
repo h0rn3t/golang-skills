@@ -38,22 +38,12 @@ if err != nil {
 ## Indent Error Flow (Guard Clauses)
 
 When an `if` body ends with `break`, `continue`, `goto`, or `return`, omit the
-unnecessary `else`. Keep the success path unindented:
+unnecessary `else` and keep the success path unindented.
 
-```go
-f, err := os.Open(name)
-if err != nil {
-    return err
-}
-d, err := f.Stat()
-if err != nil {
-    f.Close()
-    return err
-}
-codeUsing(f, d)
-```
-
-Never bury normal flow inside an `else` when the `if` already returns.
+[go-style-core](../go-style-core/SKILL.md) owns this rule — nesting depth,
+early returns, and the default-plus-override form when both branches assign.
+Read it before restructuring a nested block; this skill covers only the
+statement mechanics below.
 
 ---
 
@@ -182,7 +172,7 @@ Route compile-time interface assertions to [go-interfaces](../go-interfaces/SKIL
 | Pattern | Go Idiom |
 |---------|----------|
 | If initialization | `if err := f(); err != nil { }` |
-| Early return | Omit `else` when if body returns |
+| Early return | Omit `else` when if body returns (go-style-core) |
 | Redeclaration | `:=` reassigns if same scope + new var |
 | Shadowing trap | `:=` in inner scope creates new variable |
 | Parallel assignment | `i, j = i+1, j-1` |
@@ -198,7 +188,7 @@ Route compile-time interface assertions to [go-interfaces](../go-interfaces/SKIL
 
 ## Related Skills
 
-- **Error flow**: See [go-error-handling](../go-error-handling/SKILL.md) when structuring guard clauses, early returns, or error-first patterns
+- **Error flow**: See [go-error-handling](../go-error-handling/SKILL.md) when choosing an error strategy, wrapping errors, or deciding log-vs-return
 - **Type switches**: See [go-interfaces](../go-interfaces/SKILL.md) when using type switches, the comma-ok idiom, or interface satisfaction checks
-- **Nesting reduction**: See [go-style-core](../go-style-core/SKILL.md) when reducing nesting depth or resolving formatting questions
+- **Nesting reduction**: See [go-style-core](../go-style-core/SKILL.md) — it owns nesting depth, early returns, and unnecessary `else`
 - **Variable scoping**: See [go-declarations](../go-declarations/SKILL.md) when using if-init, `:=` redeclaration, or reducing variable scope

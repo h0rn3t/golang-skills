@@ -131,8 +131,10 @@ with the opening line. Omit repeated type names in slice/map literals
 | Nil declaration | `var` | `var m map[string]int` |
 | Fixed entries at init | Literal | `m := map[string]int{"a": 1}` |
 
-`make()` visually distinguishes empty-but-initialized from nil. Use size hints
-when the count is known.
+`make()` visually distinguishes empty-but-initialized from nil. This skill owns
+the declaration form only: choosing map vs set vs slice belongs to
+[go-data-structures](../go-data-structures/SKILL.md), and size hints to
+[go-performance](../go-performance/SKILL.md).
 
 ---
 

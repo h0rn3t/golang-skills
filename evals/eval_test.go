@@ -1255,6 +1255,28 @@ func TestRuleOwnershipMap(t *testing.T) {
 	})
 	assertNoSkillDocContains(t, root, "var _ io.Writer = (*MyType)(nil)")
 
+	// Nesting, early returns, and unnecessary else belong to go-style-core;
+	// go-control-flow, go-error-handling, and go-code-refactor route to it.
+	// The iota enum form belongs to go-declarations; go-defensive routes to it.
+	for needle, owners := range map[string][]string{
+		"Reduce Nesting":   {"skills/go-style-core/SKILL.md"},
+		"Unnecessary Else": {"skills/go-style-core/SKILL.md"},
+		"iota + 1":         {"skills/go-declarations/SKILL.md", "skills/go-declarations/references/IOTA.md"},
+	} {
+		allowed := map[string]bool{}
+		for _, owner := range owners {
+			allowed[owner] = true
+			ownerDoc, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(owner)))
+			if err != nil {
+				t.Fatalf("read owner doc %s: %v", owner, err)
+			}
+			if !strings.Contains(string(ownerDoc), needle) {
+				t.Errorf("owner %s no longer documents %q", owner, needle)
+			}
+		}
+		assertOnlySkillDoc(t, root, needle, allowed)
+	}
+
 	interfacesSkill, err := os.ReadFile(filepath.Join(root, "skills", "go-interfaces", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("read go-interfaces SKILL.md: %v", err)

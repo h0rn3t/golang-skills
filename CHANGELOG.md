@@ -4,6 +4,25 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Gave the nesting rule a single owner. "Reduce nesting / early returns /
+  unnecessary else" now belongs to `go-style-core`; `go-control-flow` and
+  `go-error-handling` route to it instead of restating it. This also breaks
+  the three-way circular route (`go-style-core` → `go-error-handling` →
+  `go-control-flow` → `go-style-core`) that used to send readers in a loop.
+- Gave the `iota` enum rule a single owner. `go-defensive` no longer repeats
+  the "start enums at one" block and routes to `go-declarations`, which owns
+  the form and the zero-is-default exception.
+- `go-declarations` hands map/set selection to `go-data-structures` and size
+  hints to `go-performance` instead of implying it owns them.
+- `go-defensive`: filled in the empty "Time, Struct Tags, and Embedding"
+  heading with its routing line, and dropped the stale "enum zero values"
+  promise from the `TIME-ENUMS-TAGS.md` routing entry.
+- `docs/RULE_OWNERSHIP.md` gains rows for nesting and for iota enums.
+- `TestRuleOwnershipMap` now pins both rules: each needle must appear in its
+  owner document and nowhere else under `skills/`.
+
 ## [1.10.0] - 2026-08-29
 
 ### Added

@@ -3,7 +3,7 @@
 **English** | [Українська](README.uk.md)
 
 AI [Agent Skills](https://agentskills.io/) for writing idiomatic,
-production-quality **Go 1.27** code. 21 modular skills teach AI coding
+production-quality **Go 1.27** code. 22 modular skills teach AI coding
 assistants Go best practices derived from:
 
 - [Google Go Style Guide](https://google.github.io/styleguide/go/)
@@ -22,6 +22,7 @@ consistent output.
 
 | Skill | Description |
 |-------|-------------|
+| **go-code** | Router for a mixed Go task: loads the go-* skills it needs, closes with the gate |
 | **go-code-refactor** | Behavior-preserving refactor of existing Go: audit, delete, restructure, modernize, verify |
 | **go-code-review** | Systematic checklist for reviewing Go code and PR submissions |
 | **go-concurrency** | Goroutine lifecycle, channels, mutexes, parallelization, thread-safety |
@@ -73,7 +74,7 @@ Codex, OpenCode, Cline, GitHub Copilot, Windsurf, Roo Code, and [25+ more
 agents](https://github.com/vercel-labs/skills#supported-agents).
 
 ```bash
-# all 21 skills
+# all 22 skills
 npx skills add h0rn3t/golang-skills --all
 
 # or pick individual skills

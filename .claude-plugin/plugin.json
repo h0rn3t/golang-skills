@@ -1,6 +1,6 @@
 {
   "name": "golang-skills",
-  "description": "21 modular skills for idiomatic Go 1.27 — each under 225 lines, backed by 52 reference files, 10 automation scripts (all with --json, --limit, --force), and 5 asset templates. Covers behavior-preserving refactoring of existing code, generic methods, errors.AsType, synctest, the go fix modernizers, the stdlib-first dependency ladder, plus error handling, naming, testing, concurrency, interfaces, generics, documentation, logging, and performance. One shared verification gate (vet, test -race, go fix, lint, govulncheck) defines done. Activates automatically with progressive disclosure and conditional cross-references.",
+  "description": "22 modular skills for idiomatic Go 1.27 — each under 225 lines, backed by 52 reference files, 10 automation scripts (all with --json, --limit, --force), and 5 asset templates. Covers behavior-preserving refactoring of existing code, generic methods, errors.AsType, synctest, the go fix modernizers, the stdlib-first dependency ladder, plus error handling, naming, testing, concurrency, interfaces, generics, documentation, logging, and performance. One shared verification gate (vet, test -race, go fix, lint, govulncheck) defines done. Activates automatically with progressive disclosure and conditional cross-references.",
   "version": "1.10.0",
   "author": {
     "name": "cxuu"

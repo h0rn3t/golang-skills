@@ -6,6 +6,17 @@ All notable changes to this repository are documented here.
 
 ### Added
 
+- `go-code`: a routing skill for Go tasks that span several topics, and the
+  modifier form other workflows can carry (`/opsx:apply /go-code`) — when
+  passed as an argument it is explicitly not a change name or a file path.
+  Loads the restraint rules on every invocation (the
+  `go-code-refactor/references/OVER-ENGINEERING.md` cut tags and the normative
+  stdlib-before-dependency ladder in `go-packages`), applying them to code
+  being written rather than only to code being audited, then routes by topic
+  and closes with the `go-linting` gate. Owns no rules of its own; every rule
+  stays with its existing owner. README, `plugin.json`, and `marketplace.json`
+  now count 22 skills.
+
 - `go-code-refactor` gains `references/OVER-ENGINEERING.md`: the cut tags
   (`delete:`, `stdlib:`, `dep:`, `yagni:`, `shrink:`), a Go-specific hunt list
   (single-implementation interfaces, forwarding wrappers, `util` packages,

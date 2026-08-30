@@ -3,7 +3,7 @@
 [English](README.md) | **Українська**
 
 AI [Agent Skills](https://agentskills.io/) для написання ідіоматичного
-**Go 1.27** рівня продакшену. 21 модульний скіл навчає AI-асистентів
+**Go 1.27** рівня продакшену. 22 модульні скіли навчають AI-асистентів
 найкращим практикам Go, узятим із:
 
 - [Google Go Style Guide](https://google.github.io/styleguide/go/)
@@ -22,6 +22,7 @@ AI [Agent Skills](https://agentskills.io/) для написання ідіом�
 
 | Скіл | Опис |
 |------|------|
+| **go-code** | Маршрутизатор змішаної Go-задачі: підтягує потрібні go-* скіли й завершує гейтом |
 | **go-code-refactor** | Рефакторинг наявного Go зі збереженням поведінки: аудит, видалення, реструктуризація, модернізація, перевірка |
 | **go-code-review** | Системний чекліст для рев'ю Go-коду та PR |
 | **go-concurrency** | Життєвий цикл горутин, канали, м'ютекси, паралелізація, потокобезпечність |
@@ -74,7 +75,7 @@ Codex, OpenCode, Cline, GitHub Copilot, Windsurf, Roo Code та [25+ інших
 агентів](https://github.com/vercel-labs/skills#supported-agents).
 
 ```bash
-# усі 21 скіл одразу
+# усі 22 скіли одразу
 npx skills add h0rn3t/golang-skills --all
 
 # або вибірково — лише потрібні скіли

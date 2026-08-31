@@ -4,10 +4,52 @@ Read this when the task is "what can we delete" rather than "make this read
 better": a repo or package handed over as bloated, over-abstracted, or
 dependency-heavy, and the wanted output is a ranked cut list, not a diff.
 
+The ladder below also runs at write time — the cheapest over-engineering to
+remove is the kind never added. Everything after it is the audit lane.
+
 Scope is complexity only. Correctness bugs, races, and security holes found
 along the way are collected and handed back, never fixed in the same pass —
 route them to [go-code-review](../../go-code-review/SKILL.md). The audit
 reports; the refactor workflow in `SKILL.md` applies what the user picks.
+
+## The Restraint Ladder
+
+> **Normative**: The ladder runs *after* the problem is understood, not instead
+> of it. Read the code the change touches and trace the real flow end to end
+> first, then climb. It shortens the solution, never the reading — the smallest
+> diff in the wrong place is a second bug, not laziness.
+
+Before writing a new line — type, layer, interface, option, helper, import —
+stop at the first rung that holds:
+
+1. **Does this need to exist at all?** Speculative need → skip it and say so in
+   one line (YAGNI). On a refactor this rung usually holds: deletion beats
+   rewrite.
+2. **Already in this codebase?** A helper, type, or pattern two files over →
+   reuse it. Re-implementing what the repo already has is the most common slop;
+   look before you write.
+3. **Does the standard library ship it?** `go doc <pkg>` before assuming it is
+   missing.
+4. **Does a language or toolchain feature cover it?** `go:embed` over an asset
+   loader, struct tags over a hand-written marshaler, a DB constraint over an
+   app-side check, `t.Cleanup` over hand-rolled teardown, `testing/synctest`
+   over sleep-based waits, a build tag over a runtime switch.
+5. **A module already in `go.mod`?** Use it. Never add a new one for what a few
+   lines do — [go-packages](../../go-packages/SKILL.md) owns the module rungs
+   (stdlib → `golang.org/x/...` → existing module → new module).
+6. **Can it be one line?** One line.
+7. **Only then**: the minimum that works.
+
+Two rungs both work → take the higher one and move on.
+
+**Never on the chopping block**: input validation at trust boundaries, error
+handling that prevents data loss, security controls, accessibility basics in
+anything user-facing, and anything the user asked for explicitly. Lazy, not
+negligent — a "simplification" that drops a bounds check is a bug.
+
+A deliberate shortcut with a known ceiling is not a cut. Mark it with
+`Kept:` / `Ceiling:` / `Fix:` (see `SKILL.md`) so `check-debt.sh` harvests it
+instead of it rotting into "later means never".
 
 ## Tags
 

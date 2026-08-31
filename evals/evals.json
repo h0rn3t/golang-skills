@@ -773,6 +773,26 @@
         "Reports the verification result honestly, marking skipped checks as skipped"
       ],
       "set": "validation"
+    },
+    {
+      "id": 17,
+      "prompt": "In our Go service add a `ConfigProvider` interface with a `FileConfigProvider` implementation, a `NewConfigProviderFactory` constructor, and a small `contains(items []string, s string) bool` helper so we can look up allowed hosts. Internal package, one call site.",
+      "expected_output": "The restraint ladder applied before any code: the interface and factory skipped as YAGNI (one implementation, one call site), the helper replaced with slices.Contains, the concrete type returned, and the allowed-host check itself kept. A short note on what was skipped and when to add it, not an essay.",
+      "target_skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-interfaces",
+        "go-data-structures"
+      ],
+      "assertions": [
+        "Reads or asks for the existing call site before proposing code, rather than writing from the prompt alone",
+        "Skips the single-implementation interface and the factory, naming YAGNI in one line instead of building them",
+        "Replaces the contains helper with slices.Contains rather than writing a loop",
+        "Does not add a new module for what the stdlib covers",
+        "Keeps the allowed-host validation itself — restraint never cuts a trust-boundary check",
+        "Any deliberate shortcut left in the code carries a Kept:/Ceiling:/Fix: marker"
+      ],
+      "set": "validation"
     }
   ]
 }

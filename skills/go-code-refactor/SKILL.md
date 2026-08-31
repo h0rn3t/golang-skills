@@ -20,7 +20,7 @@ is the definition of the task, not a quality bar to aim at.
 - `references/BEHAVIOR-TRAPS.md` - Read before touching concurrency, `defer`, error handling, slices, interfaces, or struct layout.
 - `references/PLAYBOOK.md` - Read for the concrete transformations, ordered by payoff, with before/after Go.
 - `references/MODERNIZATION.md` - Read before adopting a newer API; sorts Go 1.21–1.27 features into safe, conditional, and report-only.
-- `references/OVER-ENGINEERING.md` - Read when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
+- `references/OVER-ENGINEERING.md` - Read before adding any line (it owns the restraint ladder), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
 - `scripts/verify-refactor.sh` - Run to capture a baseline, re-check after each step, and diff the two.
 - `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no upgrade path.
 - `assets/refactor-report.md` - Use as the final report structure.
@@ -67,15 +67,12 @@ game. That is where the readability gain lives.
 > **Normative**: Line count is the instrument; readability is the goal. The win
 > comes from code that stops existing, not code that gets rearranged.
 
-Before writing any new line — helper, wrapper, interface — stop at the first
-rung that holds:
-
-1. Does this need to exist at all? Deletion beats rewrite.
-2. Does the standard library already do it? (`slices.Contains`, `strings.Builder`,
-   `errors.Join` — see [go-data-structures](../go-data-structures/SKILL.md))
-3. Does the repo already have it? A helper two files over beats a second one.
-4. Can it be one line?
-5. Only then, the minimum that works.
+Before writing any new line — helper, wrapper, interface — climb the restraint
+ladder in `references/OVER-ENGINEERING.md` and stop at the first rung that
+holds. On a refactor the top rung usually holds: deletion beats rewrite, and
+rung 2 (the helper two files over) beats a second copy of it. Climb only after
+reading the code the change touches — the ladder shortens the diff, never the
+reading.
 
 Delete only what is **provably** unreachable — "looks unused" is a finding, not
 a licence. Apply the shorter form only where it reads as well; never golf.

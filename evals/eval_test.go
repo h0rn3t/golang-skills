@@ -1444,6 +1444,118 @@ func TestKnownReferenceRegressions(t *testing.T) {
 	}
 }
 
+// TestRestraintLadder pins the ladder that runs before any line is written: it
+// lives in exactly one file, keeps all seven rungs in order, says it runs after
+// the code is read, and is loaded by both skills that write Go.
+func TestRestraintLadder(t *testing.T) {
+	t.Parallel()
+	root := repoRoot(t)
+	const owner = "skills/go-code-refactor/references/OVER-ENGINEERING.md"
+
+	content, err := os.ReadFile(filepath.Join(root, owner))
+	if err != nil {
+		t.Fatalf("read %s: %v", owner, err)
+	}
+	ladder := string(content)
+	if !strings.Contains(ladder, "## The Restraint Ladder") {
+		t.Fatalf("%s must own the restraint ladder section", owner)
+	}
+
+	// Rungs in ponytail order: existence, reuse, stdlib, platform, existing
+	// module, one line, minimum that works.
+	rungs := []string{
+		"Does this need to exist at all?",
+		"Already in this codebase?",
+		"Does the standard library ship it?",
+		"Does a language or toolchain feature cover it?",
+		"A module already in `go.mod`?",
+		"Can it be one line?",
+		"the minimum that works",
+	}
+	prev := -1
+	for i, rung := range rungs {
+		at := strings.Index(ladder, rung)
+		if at < 0 {
+			t.Errorf("restraint ladder is missing rung %d: %q", i+1, rung)
+			continue
+		}
+		if at < prev {
+			t.Errorf("rung %d (%q) appears before rung %d", i+1, rung, i)
+		}
+		prev = at
+	}
+
+	// Understanding is never the thing the ladder shortens.
+	for _, phrase := range []string{
+		"the problem is understood",
+		"trace the real flow",
+		"shortens the solution, never the reading",
+	} {
+		if !strings.Contains(ladder, phrase) {
+			t.Errorf("restraint ladder must keep the read-first rule (%q missing)", phrase)
+		}
+	}
+
+	// Lazy, not negligent.
+	for _, guard := range []string{
+		"trust boundaries",
+		"prevents data loss",
+		"security controls",
+		"accessibility",
+	} {
+		if !strings.Contains(ladder, guard) {
+			t.Errorf("restraint ladder must keep %q off the chopping block", guard)
+		}
+	}
+
+	// One owner: the rung text must not be re-duplicated into a second,
+	// possibly differently ordered, ladder.
+	fingerprints := []string{"Can it be one line?", "Does this need to exist at all?"}
+	for _, dir := range findSkillDirs(t) {
+		docs, err := filepath.Glob(filepath.Join(dir, "*.md"))
+		if err != nil {
+			t.Fatalf("glob %s: %v", dir, err)
+		}
+		refs, err := filepath.Glob(filepath.Join(dir, "references", "*.md"))
+		if err != nil {
+			t.Fatalf("glob %s references: %v", dir, err)
+		}
+		for _, path := range append(docs, refs...) {
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				t.Fatalf("rel %s: %v", path, err)
+			}
+			if filepath.ToSlash(rel) == owner {
+				continue
+			}
+			body, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read %s: %v", rel, err)
+			}
+			for _, fingerprint := range fingerprints {
+				if strings.Contains(string(body), fingerprint) {
+					t.Errorf("%s copies ladder rung %q; route to %s instead", rel, fingerprint, owner)
+				}
+			}
+		}
+	}
+
+	// Both writing skills have to reach the ladder before the first edit.
+	for _, rel := range []string{"skills/go-code/SKILL.md", "skills/go-code-refactor/SKILL.md"} {
+		body, err := os.ReadFile(filepath.Join(root, rel))
+		if err != nil {
+			t.Fatalf("read %s: %v", rel, err)
+		}
+		text := string(body)
+		if !strings.Contains(text, "OVER-ENGINEERING.md") {
+			t.Errorf("%s must route to %s", rel, owner)
+		}
+		if !strings.Contains(text, "ladder") {
+			t.Errorf("%s must name the restraint ladder as something to climb before writing", rel)
+		}
+	}
+}
+
 // TestGoVersionBaseline pins the Go 1.27 guidance so a toolchain bump cannot
 // silently leave the skills describing an older language.
 func TestGoVersionBaseline(t *testing.T) {

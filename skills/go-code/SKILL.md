@@ -23,14 +23,16 @@ Two things load on every invocation, before any routing decision:
 
 1. **The restraint rules.** Read
    [go-code-refactor/references/OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md)
-   for the cut tags (`delete:`, `stdlib:`, `dep:`, `yagni:`, `shrink:`) and the
-   Go hunt list, plus the normative stdlib-before-dependency ladder in
-   [go-packages](../go-packages/SKILL.md). They apply to code being written,
-   not only to code being audited: the cheapest over-engineering to remove is
-   the kind never added. Before writing a new type, layer, interface, option,
-   or module import, answer in order — does it need to exist at all; does this
-   codebase already have it; does the stdlib ship it; does an already-required
-   module cover it; can it be one line. Stop at the first answer that holds.
+   — it owns the restraint ladder, the cut tags (`delete:`, `stdlib:`, `dep:`,
+   `yagni:`, `shrink:`), and the Go hunt list; the module rungs belong to
+   [go-packages](../go-packages/SKILL.md). Climb the ladder before writing a
+   new type, layer, interface, option, or import, and stop at the first rung
+   that holds: it applies to code being written, not only to code being
+   audited.
+
+   Climb it *after* reading the code the change touches and tracing the real
+   flow, never instead. The ladder shortens the solution, not the reading — a
+   small diff in the wrong place is a second bug.
 2. **The fallback style owner**, [go-style-core](../go-style-core/SKILL.md),
    which covers anything the routing table below does not.
 
@@ -38,8 +40,9 @@ A deliberate shortcut with a known ceiling gets a `Kept:` marker naming the
 ceiling and the upgrade path, so `check-debt.sh` can harvest it later.
 
 Restraint never cuts input validation at trust boundaries, error handling that
-prevents data loss, security controls, or anything the user asked for
-explicitly. Those are the code that has to exist.
+prevents data loss, security controls, accessibility basics in anything
+user-facing, or anything the user asked for explicitly. Those are the code that
+has to exist.
 
 > **Note**: Where the `ponytail` skill is installed, load it here too — it is
 > the general-purpose source these Go-specific rules were derived from.

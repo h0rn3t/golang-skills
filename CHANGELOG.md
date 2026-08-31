@@ -6,6 +6,23 @@ All notable changes to this repository are documented here.
 
 ### Added
 
+- `go-code-refactor/references/OVER-ENGINEERING.md` now owns the full restraint
+  ladder: the seven rungs (does it need to exist → already in this codebase →
+  stdlib → language/toolchain feature → module already in `go.mod` → one line →
+  the minimum that works), the rule that it runs *after* the code and flow are
+  read rather than instead, and the never-on-the-chopping-block list (trust
+  boundaries, data-loss handling, security, accessibility). `go-code` and
+  `go-code-refactor` route to it instead of carrying their own shorter,
+  differently ordered ladders.
+- `TestRestraintLadder` pins that ladder: seven rungs present and in order, the
+  read-first rule and the never-cut list intact, the rung text living in
+  exactly one file (a second copy anywhere under `skills/` fails), and both
+  `go-code` and `go-code-refactor` routing to the owner. `quality_evals` gains
+  id 17, the behavioral half: a prompt dangling a one-implementation interface,
+  a factory, and a hand-rolled `contains` helper, asserting the ladder skips
+  them, reaches for `slices.Contains`, and still keeps the trust-boundary
+  check.
+
 - `go-code`: a routing skill for Go tasks that span several topics, and the
   modifier form other workflows can carry (`/opsx:apply /go-code`) — when
   passed as an argument it is explicitly not a change name or a file path.

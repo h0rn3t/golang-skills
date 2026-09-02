@@ -82,49 +82,14 @@ if ! [[ "$LIMIT" =~ ^[0-9]+$ ]]; then
     exit 2
 fi
 
+ASSET="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/assets/golangci.yml"
+
 generate_config() {
-    cat <<'YAML'
-version: "2"
-linters:
-  enable:
-    # Minimum recommended
-    - errcheck
-    - govet
-    - revive
-    - staticcheck
-    # Additional recommended
-    - bodyclose
-    - gocyclo
-    - gosec
-    - ineffassign
-    - misspell
-  settings:
-    revive:
-      rules:
-        - name: exported
-    gocyclo:
-      min-complexity: 15
-  exclusions:
-    generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
-
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
-
-formatters:
-  enable:
-    - goimports
-  exclusions:
-    generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
-YAML
+    if [[ ! -f "$ASSET" ]]; then
+        echo "error: baseline config not found at $ASSET" >&2
+        exit 2
+    fi
+    cat "$ASSET"
 
     if [[ -n "$LOCAL_PREFIX" ]]; then
         cat <<YAML

@@ -1,6 +1,6 @@
 {
   "name": "golang-skills",
-  "description": "22 modular skills for idiomatic Go 1.27 — each under 225 lines, backed by 52 reference files, 10 automation scripts (all with --json, --limit, --force), and 5 asset templates. Covers behavior-preserving refactoring of existing code, generic methods, errors.AsType, synctest, the go fix modernizers, the stdlib-first dependency ladder, plus error handling, naming, testing, concurrency, interfaces, generics, documentation, logging, and performance. One shared verification gate (vet, test -race, go fix, lint, govulncheck) defines done. Activates automatically with progressive disclosure and conditional cross-references.",
+  "description": "24 modular skills for idiomatic Go 1.27 — each under 225 lines, backed by 53 reference files, 10 automation scripts (all with --json, --limit, --force), and 5 asset templates. Covers HTTP servers and clients, database/sql access, behavior-preserving refactoring of existing code, generic methods, errors.AsType, synctest, the go fix modernizers, the stdlib-first dependency ladder, plus error handling, naming, testing, concurrency, interfaces, generics, documentation, logging, and performance. One shared verification gate (vet, test -race, go fix, lint, govulncheck) defines done, and the bundled golangci-lint baseline enforces the skills' rules. Ships a go-verify subagent and a PostToolUse gofmt/vet hook. Activates automatically with progressive disclosure and conditional cross-references.",
   "version": "1.10.0",
   "author": {
     "name": "cxuu"
@@ -12,12 +12,15 @@
     "best-practices",
     "code-review-comments",
     "coding-standards",
+    "database-sql",
     "effective-go",
     "go",
     "golang",
+    "golangci-lint",
     "google-style-guide",
     "idiomatic-go",
     "modernization",
+    "net-http",
     "progressive-disclosure",
     "refactoring",
     "uber-style-guide"

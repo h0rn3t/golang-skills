@@ -89,8 +89,8 @@ bounds check is a bug, not laziness. These stay even when the diff gets uglier.
 
 Read enough of the package to know what idiomatic means *here*. A refactor that
 imports a house style the repo does not use creates a second dialect — worse
-than the original mess. A local `.golangci.yml` or `CONTRIBUTING.md` outranks
-any external guide.
+than the original mess. [go-style-core](../go-style-core/SKILL.md) owns the rule: a local
+`.golangci.yml`, `CONTRIBUTING.md`, or neighboring code outranks any skill here.
 
 Flag two file classes before editing: **generated** files (exclude silently
 when incidental, ask when they are the target) and **build-tagged** files for

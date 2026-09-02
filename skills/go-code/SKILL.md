@@ -1,12 +1,19 @@
 ---
 name: go-code
-description: Go coding profile — routes a task to the go-* skills it actually needs, then closes with the verification gate. Use when writing, fixing, or refactoring Go code without a single obvious topic, and whenever this skill is named as a modifier on another workflow (for example "/opsx:apply /go-code" or "/commit /go-code"). Passed as an argument to another command it is NOT a change name, a file path, or a topic — it means "run that workflow under the Go rules below". Does not carry rules of its own; every rule lives in the skill it routes to.
+description: Use when writing, fixing, or refactoring Go code without a single obvious topic, and whenever this skill is named as a modifier on another workflow (for example "/opsx:apply /go-code" or "/commit /go-code") — it routes the task to the go-* skills it actually needs, then closes with the verification gate. Passed as an argument to another command it is NOT a change name, a file path, or a topic — it means "run that workflow under the Go rules below". Does not carry rules of its own; every rule lives in the skill it routes to.
 ---
 
 # Go Code Profile
 
 Router. Owns no rules — it picks which `go-*` skills the task needs and
 enforces the gate at the end.
+
+## Resource Routing
+
+This skill bundles no files. Everything it loads belongs to another skill:
+
+- `../go-code-refactor/references/OVER-ENGINEERING.md` - Read on every invocation for the restraint ladder and cut tags.
+- `../go-style-core/SKILL.md` - Read on every invocation for house style and the fallback rules.
 
 ## Invocation
 
@@ -34,7 +41,10 @@ Two things load on every invocation, before any routing decision:
    flow, never instead. The ladder shortens the solution, not the reading — a
    small diff in the wrong place is a second bug.
 2. **The fallback style owner**, [go-style-core](../go-style-core/SKILL.md),
-   which covers anything the routing table below does not.
+   which covers anything the routing table below does not — and owns the
+   house-style rule: the repository's `.golangci.yml`, `CONTRIBUTING.md`, and
+   neighboring code outrank every rule these skills carry. Read the neighbors
+   before the first edit.
 
 A deliberate shortcut with a known ceiling gets a `Kept:` marker naming the
 ceiling and the upgrade path, so `check-debt.sh` can harvest it later.
@@ -71,6 +81,10 @@ Then load only the rows the task actually touches:
 | function ordering, signatures, `Printf` verbs | [go-functions](../go-functions/SKILL.md) |
 | restructuring or deleting existing code | [go-code-refactor](../go-code-refactor/SKILL.md) |
 | linter config, CI checks | [go-linting](../go-linting/SKILL.md) |
+| HTTP handlers, routing, middleware, servers, clients | [go-http](../go-http/SKILL.md) |
+| SQL queries, transactions, repositories, migrations | [go-database](../go-database/SKILL.md) |
+| JSON and other wire formats, struct tags | [go-defensive](../go-defensive/SKILL.md) (tags) + [go-packages](../go-packages/SKILL.md) (`json/v2` on the ladder) |
+| CLI entry point, flags, `main`/`run` | [go-packages](../go-packages/SKILL.md) |
 
 Load what the task needs and nothing else. Loading every row is noise, not
 thoroughness — the rules that do not apply crowd out the ones that do.
@@ -97,9 +111,12 @@ Under a host workflow with per-task checkpoints (such as an OpenSpec apply
 loop), run the gate before marking each Go-touching task complete, not once at
 the very end — a batched gate reports failures too late to attribute them.
 
-> **Note**: If the environment provides verification subagents (`go-verify`,
-> `go-db`, `go-concurrency`), delegate the gate to them; they run the same
-> commands and return only the failures.
+> **Note**: This plugin ships a `go-verify` subagent that runs the gate and
+> returns only the failures — delegate to it rather than pasting the full
+> output into the main thread. Delegate audits to any `go-db` or
+> `go-concurrency` agents the environment provides. The bundled PostToolUse
+> hook already runs `gofmt` and `go vet` on every edited `.go` file; its
+> report is the first gate step, not a substitute for the rest.
 
 ---
 

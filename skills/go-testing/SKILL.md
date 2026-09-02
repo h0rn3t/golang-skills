@@ -32,6 +32,7 @@ allowed-tools: Bash(bash:*)
 | Subtests | Need filtering, parallel execution, or naming |
 | `t.Helper()` | Any test helper function (call as first statement) |
 | `t.Cleanup()` | Teardown in helpers instead of defer |
+| `t.Parallel()` | Independent tests and subtests; never with shared globals, `t.Setenv`, or `t.Chdir` |
 | `t.Context()` | Any test that calls a ctx-taking API (Go 1.24+) |
 | `httptest.NewTestServer(t, h)` | Testing an HTTP handler or client (Go 1.27+) |
 | `synctest.Test` | Concurrency or timeout behavior (Go 1.25+) |
@@ -92,10 +93,13 @@ Always print got before want: `got %v, want %v` — never reversed.
 
 ---
 
-## No Assertion Libraries
+## Assertions: Match the Repository
 
-> **Normative**: Do not use assertion libraries. Use `cmp.Diff` for complex
-> comparisons.
+> **Project policy**: In a codebase without an assertion library, do not add
+> one — use `cmp.Diff` for structured comparisons. In a codebase that already
+> uses `testify` or similar, match it and enable `testifylint`; a second
+> assertion dialect is worse than either. [go-style-core](../go-style-core/SKILL.md)
+> owns the house-style rule.
 
 ```go
 if diff := cmp.Diff(want, got); diff != "" {

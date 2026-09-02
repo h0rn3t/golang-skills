@@ -96,7 +96,13 @@ rather than hold them equal.
 
 ## Migration Note
 
-Keep shell wrappers as the public interface. Replace regex-heavy internals with
-Go AST helpers incrementally, starting with checks that need package-aware
-analysis: documentation, interface compliance, declaration naming, and error
-return flow.
+Keep shell wrappers as the public interface. The findings scripts —
+documentation, interface compliance, naming, and error flow — are Go AST
+helpers behind a wrapper that builds them once into the user cache. The
+remaining regex-based scripts (`check-debt.sh`, `pre-review.sh`,
+`verify-refactor.sh`, `bench-compare.sh`, `setup-lint.sh`, `gen-table-test.sh`)
+orchestrate tools or match fixed markers, where regex is the right tool.
+
+A single `go/analysis` multichecker across skills was considered and rejected:
+each skill directory must stay installable on its own, so a shared module
+outside `skills/go-*/` would break single-skill installs.

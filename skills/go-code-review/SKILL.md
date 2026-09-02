@@ -6,15 +6,15 @@ allowed-tools: Bash(bash:*)
 
 # Go Code Review Checklist
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
-> `references/WEB-SERVER.md` uses `http.NewCrossOriginProtection` (Go 1.25+)
-> and notes `http.Server.MaxHeaderValueCount` (Go 1.27+).
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). The HTTP and
+> database rows below route to [go-http](../go-http/SKILL.md) and
+> [go-database](../go-database/SKILL.md), which carry their own version notes.
 
 ## Resource Routing
 
 - `assets/review-template.md` - Use when formatting review output with Must Fix, Should Fix, and Nits sections.
 - `scripts/pre-review.sh` - Run before manual review to collect gofmt, go vet, and golangci-lint results.
-- `references/WEB-SERVER.md` - Read when reviewing an HTTP server that combines concurrency, context, logging, error handling, and shutdown behavior.
+- `../go-http/references/WEB-SERVER.md` - Read when reviewing an HTTP server that combines concurrency, context, logging, error handling, and shutdown behavior.
 
 ## Review Procedure
 
@@ -139,6 +139,24 @@ review as a complete one.
 
 ---
 
+## HTTP
+
+- [ ] **Server timeouts**: `http.Server` with `ReadHeaderTimeout` set; no bare `http.ListenAndServe` → [go-http](../go-http/SKILL.md)
+- [ ] **Bounded bodies**: `http.MaxBytesReader` before decoding; `r.Context()` passed downstream → [go-http](../go-http/SKILL.md)
+- [ ] **Error mapping**: Sentinels map to status codes; 500 responses never carry `err.Error()` → [go-http](../go-http/SKILL.md)
+- [ ] **Clients**: Per-dependency `*http.Client` with `Timeout`; `NewRequestWithContext`; body closed on every path → [go-http](../go-http/SKILL.md)
+
+---
+
+## Database
+
+- [ ] **Context on queries**: `QueryContext`/`ExecContext`/`BeginTx`, never the ctx-less forms → [go-database](../go-database/SKILL.md)
+- [ ] **Rows lifecycle**: `defer rows.Close()` and `rows.Err()` checked after the loop → [go-database](../go-database/SKILL.md)
+- [ ] **Transactions**: `defer tx.Rollback()` right after `BeginTx`; `Commit` error checked; only `tx` used inside → [go-database](../go-database/SKILL.md)
+- [ ] **No query per row**: Batch with `ANY`/`IN` or a join; placeholders, never string-built SQL → [go-database](../go-database/SKILL.md)
+
+---
+
 ## Imports
 
 - [ ] **Import groups**: Standard library first, then blank line, then external packages → [go-packages](../go-packages/SKILL.md)
@@ -195,3 +213,5 @@ configuration.
 - **Logging practices**: See [go-logging](../go-logging/SKILL.md) when reviewing log usage, structured logging, or slog configuration
 - **Acting on the findings**: See [go-code-refactor](../go-code-refactor/SKILL.md) when the review turns into restructuring existing code and behavior must be proven unchanged
 - **Reviewing for bloat instead of defects**: See [go-code-refactor](../go-code-refactor/SKILL.md) and its `references/OVER-ENGINEERING.md` when the ask is what to delete — single-implementation interfaces, hand-rolled stdlib, dependencies Go now ships
+- **HTTP servers and clients**: See [go-http](../go-http/SKILL.md) and its `references/WEB-SERVER.md` when the diff is a handler, middleware, server setup, or client call
+- **SQL access**: See [go-database](../go-database/SKILL.md) when the diff is a repository, query, transaction, or migration

@@ -27,6 +27,10 @@ owner with a short pointer instead of repeating a full explanation.
 | Verification gate (`gofmt`/`vet`/`test -race`/`go fix`/lint) | `go-linting` | `go-code-review`, `go-style-core`, `go-testing`, `go-concurrency`, `go-error-handling`, `go-code-refactor` | `go tool vet help`; `go tool fix help`; golangci-lint v2 |
 | Behavior-preserving refactor workflow and modernization tiers | `go-code-refactor` | `go-style-core`, `go-code-review` | Google readability hierarchy; `go tool fix help`; verified `api/go1.2*.txt` deltas |
 | Restraint ladder, over-engineering audit, cut tags, and the `Kept:` shortcut ledger | `go-code-refactor` | `go-code`, `go-code-review` | Go CodeReviewComments `Interfaces`; Uber `Avoid Embedding Types`; stdlib replacements in `COMPATIBILITY.md` |
+| House style: repository conventions outrank the guide | `go-style-core` | `go-code`, `go-code-refactor`, `go-testing`, `go-naming`, `go-http`, `go-database` | Google `Consistency` principle; Effective Go |
+| HTTP handler shape, `ServeMux` routing, server timeouts, shutdown, clients, error-to-status mapping | `go-http` | `go-code`, `go-code-review`, `go-database` | `net/http` docs; Go 1.22 routing enhancements; Go 1.25 `CrossOriginProtection` |
+| SQL access: context on queries, rows lifecycle, transactions, placeholders, N+1, pool settings | `go-database` | `go-code`, `go-code-review`, `go-http` | `database/sql` docs; go.dev/doc/database |
+| Linters that enforce skill rules (`depguard`, `sloglint`, `errorlint`, `rowserrcheck`, ...) | `go-linting` | every skill whose rule has a linter | golangci-lint v2 linter catalogue |
 
 ## Maintenance Rules
 

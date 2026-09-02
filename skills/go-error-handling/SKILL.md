@@ -98,6 +98,14 @@ g.Go(func() error { return task2(ctx) })
 if err := g.Wait(); err != nil { return err }
 ```
 
+For independent failures that must all be reported — validating several
+fields, closing several resources — aggregate with `errors.Join`.
+`errors.Is` and `errors.AsType` see through the joined error:
+
+```go
+return errors.Join(closeErr, flushErr)
+```
+
 ### Avoid In-Band Errors
 
 Don't return `-1`, `nil`, or empty string to signal errors. Use multiple

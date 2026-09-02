@@ -9,6 +9,7 @@ allowed-tools: Bash(bash:*)
 ## Resource Routing
 
 - `scripts/check-naming.sh` - Run when checking SCREAMING_SNAKE_CASE constants, Get-prefixed getters, generic package names, or receivers named `this`/`self`.
+- `scripts/check-naming-ast.go` - Implementation helper invoked by `check-naming.sh`; patch this when changing what counts as a naming violation.
 - `references/IDENTIFIERS.md` - Read when choosing names for initialisms, exported identifiers, or package-level symbols.
 - `references/REPETITION.md` - Read when names repeat package, receiver, type, or local context.
 - `references/VARIABLES.md` - Read when choosing local variable names, receiver names, or loop identifiers.
@@ -130,13 +131,14 @@ Variable naming balances brevity with clarity. Key principles:
 - **Single-letter conventions**: Use familiar patterns (`i` for index,
   `r`/`w` for reader/writer)
 - **Avoid type in name**: Use `users` not `userSlice`, `name` not `nameString`
-- **Prefix unexported globals**: Use `_` prefix for package-level unexported
-  vars/consts to prevent shadowing
+- **`_` prefix on unexported globals** (Uber only; Google style does not use
+  it): follow the repository. Never introduce the prefix into a codebase that
+  lacks it — [go-style-core](../go-style-core/SKILL.md) owns the house-style rule
 
 ```go
 for i, v := range items { ... }           // small scope
 pendingOrders := filterPending(orders)    // larger scope
-const _defaultPort = 8080                 // unexported global
+const _defaultPort = 8080                 // Uber-style prefix — only where the repo already uses it
 ```
 
 ---

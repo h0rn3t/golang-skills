@@ -119,6 +119,29 @@ default:
 Contexts are immutable — it's safe to pass the same `ctx` to multiple
 concurrent calls that share the same deadline and cancellation signal.
 
+### Cancellation With a Reason
+
+`context.WithCancelCause` records *why* a context was cancelled: `ctx.Err()`
+still returns `Canceled`, and `context.Cause(ctx)` returns the reason. Use it
+when several paths can cancel and the caller must tell them apart:
+
+```go
+ctx, cancel := context.WithCancelCause(ctx)
+defer cancel(nil)
+// ...
+cancel(fmt.Errorf("upstream closed: %w", err))
+// later, in the caller
+if err := context.Cause(ctx); err != nil {
+    return err
+}
+```
+
+`context.AfterFunc(ctx, f)` runs `f` once `ctx` is done — the replacement for
+a goroutine that only waits on `ctx.Done()` to close or unblock something.
+`context.WithoutCancel(ctx)` keeps the values but drops cancellation; use it
+for work that must outlive the request (audit log, cleanup) and give that work
+its own timeout.
+
 ---
 
 ## Related Skills

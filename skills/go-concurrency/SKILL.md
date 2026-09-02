@@ -35,6 +35,8 @@ channel), data races, memory issues, and resource leaks.
    `Shutdown`) instead
 4. **Keep synchronization scoped** — constrain to function scope, factor logic
    into synchronous functions
+5. **Bound fan-out** — `errgroup.Group.SetLimit(n)` or a semaphore; never one
+   goroutine per element of an unbounded input
 
 ```go
 // Good: clear lifetime with WaitGroup.Go (Go 1.25+)
@@ -69,14 +71,21 @@ sleeps) — see [go-testing](../go-testing/SKILL.md).
 
 > "Do not communicate by sharing memory; instead, share memory by communicating."
 
-This is Go's foundational concurrency design principle. Use **channels** for
-ownership transfer and orchestration — when one goroutine produces a value and
-another consumes it. Use **mutexes** when multiple goroutines access shared
-state and channels would add unnecessary complexity.
+Pick the primitive by the shape of the problem, not by preference:
 
-**Default to channels.** Fall back to `sync.Mutex` / `sync.RWMutex` when the
-problem is naturally about protecting a shared data structure (e.g., a cache or
-counter) rather than passing data between goroutines.
+```
+Do you need a goroutine at all?
+├─ No — a return value or a synchronous call does it → no goroutine, no channel
+└─ Yes
+   ├─ Handing a value or ownership to another goroutine → channel
+   ├─ Protecting shared state (cache, counter, map)      → sync.Mutex / RWMutex; atomic.* for one word
+   ├─ Fan-out that must be bounded                       → errgroup.Group with SetLimit
+   └─ Both fit                                           → the one with fewer lines
+```
+
+A goroutine whose caller immediately waits for it is a function call with
+extra steps — it is on the hunt list in
+[go-code-refactor](../go-code-refactor/references/OVER-ENGINEERING.md).
 
 ---
 

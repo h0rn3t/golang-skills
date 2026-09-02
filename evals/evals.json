@@ -477,6 +477,79 @@
       ],
       "notes": "Negative control: new code must not trigger the refactor skill",
       "set": "validation"
+    },
+    {
+      "query": "Add a POST /orders endpoint to our Go service that decodes a JSON body and returns 201 with the created order",
+      "should_trigger": [
+        "go-http"
+      ],
+      "notes": "Endpoint work without naming net/http",
+      "set": "train"
+    },
+    {
+      "query": "Kubernetes kills our Go HTTP server before in-flight requests finish, how do I shut it down cleanly?",
+      "should_trigger": [
+        "go-http",
+        "go-context"
+      ],
+      "notes": "Graceful shutdown described as a symptom",
+      "set": "validation"
+    },
+    {
+      "query": "Write a Go client for the payments API with timeouts and retries",
+      "should_trigger": [
+        "go-http"
+      ],
+      "notes": "HTTP client side, no server",
+      "set": "train"
+    },
+    {
+      "query": "Add middleware to our Go API that attaches a request ID and logs every request",
+      "should_trigger": [
+        "go-http",
+        "go-logging"
+      ],
+      "notes": "Middleware plus request-scoped logging",
+      "set": "validation"
+    },
+    {
+      "query": "This Go handler runs a SELECT for every order in the list and it's slow",
+      "should_trigger": [
+        "go-database"
+      ],
+      "notes": "N+1 described as a symptom, no database keyword in the ask",
+      "set": "train"
+    },
+    {
+      "query": "Wrap these three inserts in a transaction in our Go repository",
+      "should_trigger": [
+        "go-database"
+      ],
+      "notes": "Direct transaction request",
+      "set": "validation"
+    },
+    {
+      "query": "Set up connection pooling for database/sql in our Go service",
+      "should_trigger": [
+        "go-database"
+      ],
+      "notes": "Pool configuration",
+      "set": "train"
+    },
+    {
+      "query": "Напиши репозиторій на Go для таблиці users через database/sql з методами Create та ByID",
+      "should_trigger": [
+        "go-database",
+        "go-error-handling"
+      ],
+      "notes": "Ukrainian prompt; repository with not-found mapping",
+      "set": "validation"
+    },
+    {
+      "query": "Write a Go function that parses a CSV file into structs",
+      "should_trigger": [],
+      "notes": "Negative control: no HTTP or database involved",
+      "set": "train"
     }
   ],
   "quality_evals": [
@@ -791,6 +864,44 @@
         "Does not add a new module for what the stdlib covers",
         "Keeps the allowed-host validation itself — restraint never cuts a trust-boundary check",
         "Any deliberate shortcut left in the code carries a Kept:/Ceiling:/Fix: marker"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 18,
+      "prompt": "Write a Go HTTP handler `handleCreateUser` for `POST /users` that decodes a JSON body {name, email}, validates that both fields are non-empty, stores the user through a `Store` interface, and returns 201 with the created user as JSON. Include the `http.Server` setup with sensible timeouts and route registration.",
+      "expected_output": "A handler using Go 1.22 method patterns on http.ServeMux, http.MaxBytesReader plus a json.Decoder with DisallowUnknownFields, 400 on validation failure before touching the store, r.Context() passed to the store, internal errors logged server-side with a generic 500 to the client, and an http.Server with ReadHeaderTimeout and no bare http.ListenAndServe.",
+      "target_skills": [
+        "go-http",
+        "go-error-handling",
+        "go-context"
+      ],
+      "assertions": [
+        "Route is registered with a method pattern (\"POST /users\") on http.ServeMux",
+        "Request body is bounded with http.MaxBytesReader and decoded with json.Decoder",
+        "Validation failure returns 400 and does not call the store",
+        "The store call receives r.Context()",
+        "Internal errors are logged server-side and the client receives a generic 500 message, not err.Error()",
+        "http.Server is constructed with ReadHeaderTimeout set; http.ListenAndServe is not used"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 19,
+      "prompt": "Using database/sql, write a Go repository with `OrdersByCustomer(ctx context.Context, customerID int64) ([]Order, error)` and `Transfer(ctx context.Context, from, to int64, cents int64) error` that moves balance between two accounts atomically. Map a missing account to a domain sentinel error.",
+      "expected_output": "QueryContext with placeholders, defer rows.Close, rows.Err checked after the loop, errors wrapped with %w, BeginTx with a deferred Rollback and a checked Commit, every statement inside the transaction using tx, sql.ErrNoRows mapped to an ErrNotFound sentinel via errors.Is.",
+      "target_skills": [
+        "go-database",
+        "go-error-handling",
+        "go-context"
+      ],
+      "assertions": [
+        "All queries use the Context variants (QueryContext, ExecContext, BeginTx)",
+        "rows.Close is deferred and rows.Err is checked after the loop",
+        "Values are passed as placeholders; no SQL string is built with fmt.Sprintf or concatenation",
+        "Transfer uses BeginTx, defers tx.Rollback, and checks the Commit error",
+        "Every statement inside Transfer uses tx, not db",
+        "sql.ErrNoRows is matched with errors.Is and mapped to a domain sentinel rather than leaked"
       ],
       "set": "validation"
     }

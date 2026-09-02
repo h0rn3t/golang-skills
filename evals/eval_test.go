@@ -1115,6 +1115,9 @@ func TestStructure(t *testing.T) {
 func TestFrontmatterDescriptionsInvariant(t *testing.T) {
 	t.Parallel()
 	want := map[string]string{
+		"go-code":               "Use when writing, fixing, or refactoring Go code without a single obvious topic, and whenever this skill is named as a modifier on another workflow (for example \"/opsx:apply /go-code\" or \"/commit /go-code\") — it routes the task to the go-* skills it actually needs, then closes with the verification gate. Passed as an argument to another command it is NOT a change name, a file path, or a topic — it means \"run that workflow under the Go rules below\". Does not carry rules of its own; every rule lives in the skill it routes to.",
+		"go-database":           "Use when writing or reviewing Go code that talks to a SQL database — database/sql or pgx queries, transactions, repositories, connection pools, migrations, or an ORM such as gorm. Also use when a handler is slow because of its queries, when a query sits inside a loop, or when mapping rows to structs, even if the user never says \"database\". Does not cover the HTTP handler around the query (see go-http) or context placement (see go-context).",
+		"go-http":               "Use when writing or reviewing Go HTTP code — handlers, routing with net/http ServeMux, middleware, request decoding and response encoding, server timeouts and graceful shutdown, or HTTP clients. Also use when building a REST or JSON API endpoint or calling an external HTTP service, even if the user names a framework instead of net/http. Does not cover the test server helpers (see go-testing) or request-scoped logging (see go-logging).",
 		"go-code-refactor":      "Use when refactoring, cleaning up, simplifying, restructuring, or modernizing existing Go code while keeping observable behavior identical — reducing nesting, splitting long functions, deleting dead code, renaming for clarity, or adopting newer Go APIs. Also use when a user hands over a Go file or package and calls it messy, hard to follow, too long, bloated, over-engineered, or outdated, even if they never say \"refactor\". Does not cover writing new Go code or the style rules themselves (see go-style-core and the rule owners).",
 		"go-code-review":        "Use when reviewing Go code or checking code against community style standards. Also use proactively before submitting a Go PR or when reviewing any Go code changes, even if the user doesn't explicitly request a style review. Does not cover language-specific syntax — delegates to specialized skills.",
 		"go-concurrency":        "Use when writing concurrent Go code — goroutines, channels, mutexes, or thread-safety guarantees. Also use when parallelizing work, fixing data races, or protecting shared state, even if the user doesn't explicitly mention concurrency primitives. Does not cover context.Context patterns (see go-context).",
@@ -1387,7 +1390,7 @@ func TestKnownReferenceRegressions(t *testing.T) {
 		return string(content)
 	}
 
-	webServer := read("skills/go-code-review/references/WEB-SERVER.md")
+	webServer := read("skills/go-http/references/WEB-SERVER.md")
 	if strings.Contains(webServer, "httpSrv.Shutdown(ctx)\n") {
 		t.Fatal("WEB-SERVER.md must handle Shutdown errors explicitly")
 	}

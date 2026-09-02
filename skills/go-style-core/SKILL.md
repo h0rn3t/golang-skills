@@ -24,6 +24,25 @@ When writing readable Go code, apply these principles in order of importance:
 
 ---
 
+## House Style Wins
+
+> **Owner**: this skill owns the consistency rule. Other skills route here
+> instead of restating it.
+
+Before applying any rule from these skills, read what the codebase already
+does: `.golangci.yml`, `CONTRIBUTING.md`, the neighboring package, the tests
+next to the code. Where they disagree with a skill, the codebase wins — a diff
+that imports a second dialect is worse than the local one.
+
+- Assertion style, error-wrapping style, logger, test layout, and the `_`
+  global prefix follow the nearest existing code, not the guide.
+- Introduce a convention the guide prefers only in new code with no neighbor
+  to match, or as a whole-package migration the user asked for.
+- A deviation that hides a bug (dropped error, data race, missing ctx) is not
+  house style — fix it regardless.
+
+---
+
 ## Formatting
 
 Run `gofmt` — no exceptions. There is **no rigid line length limit**, but Uber suggests a soft limit of 99 characters. Break by semantics, not length — refactor rather than just wrap.

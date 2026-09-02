@@ -6,6 +6,46 @@ All notable changes to this repository are documented here.
 
 ### Added
 
+- `go-http`: handler shape, Go 1.22 `ServeMux` method patterns, bounded request
+  bodies, error-to-status mapping, middleware, `http.Server` timeouts and
+  graceful shutdown, and client rules (per-dependency client with a timeout,
+  `NewRequestWithContext`, body closed on every path). `WEB-SERVER.md` moved
+  here from `go-code-review`, which now routes to it.
+- `go-database`: `database/sql` first, context on every query, `*sql.DB` as a
+  pool with limits, the rows loop with `rows.Err()`, transactions with a
+  deferred `Rollback` and a checked `Commit`, placeholders over string-built
+  SQL, queries-in-loops and keyset pagination, `sql.Null[T]`, embedded
+  migrations, and ORM rules for repositories that already have one.
+  `references/SQL-PATTERNS.md` carries the full code.
+- `go-code` routes HTTP, SQL, wire-format, and CLI tasks — the most common
+  service work had no row before.
+- The `go-linting` baseline `.golangci.yml` now enforces what the skills teach:
+  `depguard` (deny `pkg/errors`, `logrus`, `zap`, `x/exp/slices`, `x/exp/maps`,
+  `google/uuid`), `errname`, `errorlint` (with `errorf` off — `%v` at a
+  boundary is deliberate), `exhaustive`, `godot`, `noctx`, `perfsprint`,
+  `prealloc`, `rowserrcheck`, `sloglint` (`snake_case` keys), `sqlclosecheck`,
+  `usetesting`. Verified with golangci-lint 2.13.1.
+- `agents/go-verify.md`: a bundled subagent that runs the gate and returns only
+  failures. `hooks/go-vet-on-edit.sh`: a PostToolUse hook that runs `gofmt -l`
+  and `go vet` on the package of every edited `.go` file and hands findings
+  back via exit 2. Both install with the Claude Code plugin.
+- `evals/cmd/evalrun`: a headless runner for the trigger and quality evals
+  through `claude -p --plugin-dir --restricted`, each prompt in a scratch
+  directory with the tool set cut to `Skill`, with a model-graded checklist for
+  quality evals and a JSON report. The `Validate Skills` workflow gains an opt-in
+  `evals` job behind the `run_evals` dispatch input.
+- Trigger evals for `go-http` and `go-database` (including a Ukrainian prompt
+  and a CSV negative control) and quality evals 18 (HTTP handler) and 19
+  (repository with a transaction).
+- `go-style-core` owns the house-style rule: the repository's `.golangci.yml`,
+  `CONTRIBUTING.md`, and neighboring code outrank the guide. `go-code`,
+  `go-code-refactor`, `go-testing`, and `go-naming` route to it.
+- Gaps filled: `errors.Join` (go-error-handling); `context.WithCancelCause`,
+  `context.Cause`, `context.AfterFunc`, `context.WithoutCancel` (go-context);
+  `errgroup.SetLimit` and a goroutine-or-not decision tree (go-concurrency);
+  writing `iter.Seq` producers (go-control-flow); `t.Parallel()` in the testing
+  quick reference; `//go:build` and `//go:embed` (go-packages).
+
 - `go-code-refactor/references/OVER-ENGINEERING.md` now owns the full restraint
   ladder: the seven rungs (does it need to exist → already in this codebase →
   stdlib → language/toolchain feature → module already in `go.mod` → one line →
@@ -57,12 +97,32 @@ All notable changes to this repository are documented here.
 
 ### Fixed
 
+- `go-code` had no `## Resource Routing` section and no golden description, so
+  `TestSkillArchitecture` and `TestFrontmatterDescriptionsInvariant` failed on
+  `main`. Its description now starts with "Use when", as `TestStructure`
+  requires.
+- `README.uk.md` said 51 reference files in "Як це працює" while the rest of
+  the repository said 52.
 - `check-naming.sh` exited 0 for a nonexistent path: its `exit 2` ran inside a
   process substitution, so the caller continued with an empty file list and
   reported a clean scan. The target is now validated in the main shell.
 
 ### Changed
 
+- `check-naming.sh` is now a wrapper around `check-naming-ast.go`, matching the
+  other findings scripts: a SCREAMING_SNAKE word in a string or a comment is no
+  longer a violation, and the JSON contract is unchanged.
+- `setup-lint.sh` emits `assets/golangci.yml` verbatim instead of carrying a
+  second copy of the config.
+- `go-testing`: "No assertion libraries" is now project policy — none in a
+  repository without one; match `testify` and enable `testifylint` where it is
+  already used.
+- `go-naming`: the `_` prefix on unexported globals is labelled as Uber-only
+  (Google style omits it) and follows the repository.
+- `go-concurrency`: "Default to channels" replaced by a decision tree whose
+  first question is whether a goroutine is needed at all.
+- `docs/SCRIPT_JSON_CONTRACTS.md` records why a cross-skill `go/analysis`
+  multichecker was rejected: each skill directory must stay installable alone.
 - Gave the nesting rule a single owner. "Reduce nesting / early returns /
   unnecessary else" now belongs to `go-style-core`; `go-control-flow` and
   `go-error-handling` route to it instead of restating it. This also breaks

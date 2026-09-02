@@ -98,12 +98,16 @@ func Bar() {
 ```
 
 ```go
-// Good - clearly global
+// Good (Uber convention) - clearly global
 const (
     _defaultPort = 8080
     _defaultUser = "user"
 )
 ```
+
+> **Advisory**: The `_` prefix is Uber's convention; the Google style guide
+> does not use it and relies on scope-appropriate names instead. Match the
+> repository — do not introduce the prefix into a codebase that lacks it.
 
 **Exception**: Unexported error values use the `err` prefix without underscore:
 

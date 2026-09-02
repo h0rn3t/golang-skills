@@ -165,6 +165,23 @@ func main() {
 
 ---
 
+## Build Constraints and Embedded Files
+
+- Platform-specific code lives in `_linux.go` / `_windows.go` suffix files or
+  behind `//go:build linux`; a runtime `if runtime.GOOS == ...` switch is the
+  last resort. Every constrained file needs a fallback so the package still
+  compiles under `go vet ./...` on any GOOS.
+- Static assets (templates, SQL, schemas) ship via `//go:embed` in the package
+  that uses them — never by reading a relative path at runtime, which breaks
+  as soon as the binary runs from another directory.
+
+```go
+//go:embed schema/*.sql
+var schemaFS embed.FS
+```
+
+---
+
 ## Related Skills
 
 - **Package naming**: See [go-naming](../go-naming/SKILL.md) when choosing package names, avoiding stuttering, or naming exported symbols

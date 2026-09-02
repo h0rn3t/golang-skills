@@ -3,7 +3,7 @@
 **English** | [Українська](README.uk.md)
 
 AI [Agent Skills](https://agentskills.io/) for writing idiomatic,
-production-quality **Go 1.27** code. 22 modular skills teach AI coding
+production-quality **Go 1.27** code. 24 modular skills teach AI coding
 assistants Go best practices derived from:
 
 - [Google Go Style Guide](https://google.github.io/styleguide/go/)
@@ -14,9 +14,11 @@ assistants Go best practices derived from:
 Skills are tuned following
 [agentskills.io best practices](https://agentskills.io/skill-creation/best-practices):
 content the agent already knows is omitted, procedural decision trees guide
-multi-step tasks, 52 reference files load on demand via progressive disclosure,
+multi-step tasks, 53 reference files load on demand via progressive disclosure,
 10 bundled scripts automate common checks, and 5 asset templates ensure
-consistent output.
+consistent output. The Claude Code plugin also ships a `go-verify` subagent
+that runs the verification gate and a PostToolUse hook that runs `gofmt` and
+`go vet` on every edited `.go` file.
 
 ## Skills Included
 
@@ -29,6 +31,7 @@ consistent output.
 | **go-context** | Context.Context placement, cancellation, deadlines, request-scoped data |
 | **go-control-flow** | Idiomatic conditionals, loops, switch/break behavior, guard clauses |
 | **go-data-structures** | Slices, maps, arrays — allocation with new vs make, append, copying |
+| **go-database** | database/sql and ORMs — contexts on queries, rows lifecycle, transactions, N+1, pool settings |
 | **go-declarations** | Variable/const/type declarations, var vs :=, iota enums, shadowing |
 | **go-defensive** | API boundary hardening, defer cleanup, Must functions, time handling |
 | **go-documentation** | Doc comments, package docs, godoc formatting, runnable examples |
@@ -36,6 +39,7 @@ consistent output.
 | **go-functional-options** | Functional options pattern for constructors with optional config |
 | **go-functions** | Function ordering, signature formatting, Printf verbs, Stringer interface |
 | **go-generics** | When to use generics, constraints, common pitfalls, type aliases |
+| **go-http** | net/http handlers, ServeMux routing, middleware, server timeouts, shutdown, clients |
 | **go-interfaces** | Interface design, abstractions, embedding, "accept interfaces return structs" |
 | **go-linting** | Linters, golangci-lint setup, nolint directives, CI/CD integration |
 | **go-logging** | Structured logging with slog, log levels, request-scoped context, migration |
@@ -65,6 +69,16 @@ destructive scripts require `--force` to overwrite existing files.
 | `setup-lint.sh` | go-linting | Generate .golangci.yml with recommended linters |
 | `gen-table-test.sh` | go-testing | Scaffold a table-driven test file |
 
+## Bundled Agent and Hook
+
+Installed with the Claude Code plugin (Option 2 below); `npx skills` copies
+skills only.
+
+| File | What it does |
+|------|--------------|
+| `agents/go-verify.md` | Subagent that runs the verification gate (`build`, `gofmt`, `vet`, `go fix -diff`, `golangci-lint`, `test -race`, `govulncheck`) and returns only the failures, so the main thread never pastes a full test log |
+| `hooks/go-vet-on-edit.sh` | PostToolUse hook: after every `Edit`/`Write` of a `.go` file it runs `gofmt -l` and `go vet` on that package and hands the findings back to the agent. Silent when clean; never blocks the edit |
+
 ## Installation
 
 ### Option 1: npx skills (Recommended)
@@ -74,7 +88,7 @@ Codex, OpenCode, Cline, GitHub Copilot, Windsurf, Roo Code, and [25+ more
 agents](https://github.com/vercel-labs/skills#supported-agents).
 
 ```bash
-# all 22 skills
+# all 24 skills
 npx skills add h0rn3t/golang-skills --all
 
 # or pick individual skills
@@ -161,7 +175,7 @@ which works across multiple AI coding tools. When you're writing Go code:
    (e.g., `go-naming` when you're writing a new function)
 2. **Procedural guidance**: Decision trees and step-by-step procedures for
    multi-step tasks like code review and error strategy selection
-3. **Progressive disclosure**: Core rules load immediately; 52 reference files
+3. **Progressive disclosure**: Core rules load immediately; 53 reference files
    load on demand when specific situations arise
 4. **Automation**: 10 bundled scripts handle repetitive checks so the agent
    focuses on higher-level guidance
@@ -172,6 +186,32 @@ which works across multiple AI coding tools. When you're writing Go code:
 7. **Verification gate**: `go-linting` owns one checkable definition of "done"
    — `gofmt`, `go vet`, `go test -race`, `go fix -diff`, `golangci-lint`,
    `govulncheck` — that the other skills route to instead of inventing their own
+8. **Lint-enforced rules**: the `go-linting` baseline `.golangci.yml` enables
+   the linters that check what the skills teach — `depguard` for the dependency
+   ladder, `sloglint`, `errorlint`, `errname`, `noctx`, `rowserrcheck`,
+   `perfsprint`, `usetesting`, `godot` — so the gate catches drift instead of a
+   reviewer
+
+## Running the Evals
+
+`evals/evals.json` holds 69 trigger evals (does the right skill fire for this
+prompt?) and 19 quality evals (does the answer satisfy each assertion?). The Go
+tests in `evals/` validate their schema on every push; running them against a
+model is opt-in because it costs tokens:
+
+```bash
+cd evals
+go run ./cmd/evalrun -set validation -kind all -j 2 -out evals-results.json
+```
+
+The runner loads the checked-out skills with `claude --plugin-dir`, runs each
+prompt in an empty scratch directory with the tool set cut down to `Skill`
+(plus read-only tools for quality evals), records which `go-*` skills the model
+invokes for each trigger prompt, runs each quality prompt to completion, and
+has a second model grade the answer against the eval's assertions. A failing
+trigger eval means the model read the skill descriptions and chose not to load
+the expected one — the signal to tune that description. In CI, trigger the `Validate Skills` workflow manually
+with **run_evals** checked; it needs an `ANTHROPIC_API_KEY` secret.
 
 ## Go 1.27
 
@@ -188,6 +228,8 @@ changed with recent releases:
 | `slices.Clone`/`maps.Clone` and `os.Root` at boundaries | go-defensive |
 | `slog.NewMultiHandler`, `slog.GroupAttrs` | go-logging |
 | `new(expr)` for non-composite pointers | go-declarations |
+| `ServeMux` method patterns, `http.NewCrossOriginProtection`, `MaxHeaderValueCount` | go-http |
+| `sql.Null[T]` for nullable columns | go-database |
 
 Version-sensitive claims are tracked in [COMPATIBILITY.md](COMPATIBILITY.md)
 and pinned by `TestGoVersionBaseline` in `evals/eval_test.go`.
@@ -202,8 +244,11 @@ and pinned by `TestGoVersionBaseline` in `evals/eval_test.go`.
 │       ├── references/   # Detailed guidance, loaded on demand
 │       ├── scripts/      # Automation scripts and helpers
 │       └── assets/       # Output templates (5 skills)
+├── agents/               # go-verify subagent (Claude Code plugin)
+├── hooks/                # PostToolUse gofmt/vet hook (Claude Code plugin)
 ├── evals/
 │   ├── evals.json        # Trigger and quality eval definitions
+│   ├── cmd/evalrun/      # Opt-in headless eval runner (claude -p)
 │   ├── files/            # Sample Go files for quality evals
 │   └── fixtures/         # Test fixtures for script/eval coverage
 ├── docs/                 # Repository maintenance notes

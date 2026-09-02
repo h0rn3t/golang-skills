@@ -96,6 +96,28 @@ few change allocation behavior.
 | [exhaustive](https://github.com/nishanths/exhaustive) | Ensure switch covers all enum values | When using iota enums |
 | [bodyclose](https://github.com/timakin/bodyclose) | Detect unclosed HTTP response bodies | Always for HTTP client code |
 
+## Linters That Enforce the Skills
+
+The baseline config turns these on so the gate checks what the `go-*` skills
+teach instead of leaving it to review attention:
+
+| Linter | Enforces | Skill |
+|--------|----------|-------|
+| `depguard` | Deny list: `pkg/errors`, `logrus`, `zap`, `x/exp/slices`, `x/exp/maps`, `google/uuid` | [go-packages](../go-packages/SKILL.md) dependency ladder |
+| `errname`, `errorlint` | `ErrFoo`/`FooError` names; `errors.Is`/`AsType` over `==` and type assertions (`errorf` check off — `%v` at boundaries is deliberate) | [go-error-handling](../go-error-handling/SKILL.md) |
+| `sloglint` | Static message, key-value attrs, `snake_case` keys | [go-logging](../go-logging/SKILL.md) |
+| `noctx` | Outbound HTTP/SQL calls carry a context | [go-context](../go-context/SKILL.md), [go-http](../go-http/SKILL.md) |
+| `rowserrcheck`, `sqlclosecheck` | `rows.Err()` after the loop; rows and statements closed | [go-database](../go-database/SKILL.md) |
+| `perfsprint`, `prealloc` | `strconv` over `fmt.Sprint`; capacity hints | [go-performance](../go-performance/SKILL.md) |
+| `usetesting` | `t.Context`, `t.TempDir`, `t.Setenv` over hand-rolled forms | [go-testing](../go-testing/SKILL.md) |
+| `godot` | Doc comments end in a period | [go-documentation](../go-documentation/SKILL.md) |
+| `exhaustive` | `switch` covers every enum member (`default` counts) | [go-declarations](../go-declarations/SKILL.md) |
+
+Opt-in, not in the baseline: `contextcheck` (context lost mid-chain; noisy on
+deliberate breaks), `testifylint` (only in repositories that use testify),
+`modernize` (same rewrites as `go fix`, useful when the gate runs only in
+golangci-lint).
+
 `govulncheck` is not a golangci-lint linter — install and run it separately:
 `go install golang.org/x/vuln/cmd/govulncheck@latest`. It reports only
 vulnerabilities on reachable call paths, so its findings are actionable.
@@ -104,9 +126,10 @@ vulnerabilities on reachable call paths, so its findings are actionable.
 
 ## Example Configuration
 
-`assets/golangci.yml` is the maintained example. It targets golangci-lint v2
-(verified with 2.13.1 on 2026-08-29), keeps `goimports` under `formatters`, and
-enables the core linters plus common production additions.
+`assets/golangci.yml` is the maintained example and the only copy —
+`setup-lint.sh` emits it verbatim. It targets golangci-lint v2 (verified with
+2.13.1 on 2026-09-01), keeps `goimports` under `formatters`, and enables the
+core linters, the production additions, and the skill-enforcing set above.
 
 ```bash
 # Pin the version this skill is verified against

@@ -8,6 +8,21 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      run_evals:
+        description: Run the headless skill evals (needs ANTHROPIC_API_KEY secret)
+        type: boolean
+        default: false
+      eval_set:
+        description: Eval set to run
+        type: choice
+        options: [validation, train, all]
+        default: validation
+      eval_kind:
+        description: Eval kind to run
+        type: choice
+        options: [all, trigger, quality]
+        default: all
 
 env:
   AGENTSKILLS_VALIDATE_VERSION: 1.0.1
@@ -46,3 +61,42 @@ jobs:
 
       - name: Verify golangci-lint config
         run: golangci-lint config verify --config skills/go-linting/assets/golangci.yml
+
+      - name: Validate plugin hooks and agents
+        run: |
+          python3 -c "import json; json.load(open('hooks/hooks.json'))"
+          bash -n hooks/go-vet-on-edit.sh
+          test -f agents/go-verify.md
+
+  # Opt-in: runs the trigger and quality evals through the claude CLI. Costs
+  # API tokens, so it only runs on manual dispatch with run_evals checked.
+  evals:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_evals
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          cache: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run evals
+        working-directory: evals
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: go run ./cmd/evalrun -set "${{ inputs.eval_set }}" -kind "${{ inputs.eval_kind }}" -out evals-results.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evals-results
+          path: evals/evals-results.json

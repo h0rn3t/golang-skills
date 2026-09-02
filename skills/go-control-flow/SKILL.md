@@ -125,6 +125,28 @@ for v := range seq { ... }        // iter.Seq function (Go 1.23+)
 - Use `_` to discard the index or value: `for _, v := range slice`
 - Prefer the `*Seq` iterator variants (`strings.SplitSeq`, `maps.Keys`) over slice-building calls when you only iterate once
 
+### Writing Iterators
+
+Return `iter.Seq[T]` / `iter.Seq2[K, V]` (Go 1.23+) instead of building a
+slice the caller will range over once:
+
+```go
+func (l *List[T]) All() iter.Seq[T] {
+    return func(yield func(T) bool) {
+        for n := l.head; n != nil; n = n.next {
+            if !yield(n.val) {
+                return // the caller broke out — stop, never yield again
+            }
+        }
+    }
+}
+```
+
+Honor `yield`'s return value on every path; calling it after it returned
+`false` panics. Name the whole-collection method `All`; add `Keys`/`Values`
+only when both are needed. `iter.Pull` is for consuming two sequences in
+lockstep — it starts a coroutine, so it is not the default.
+
 ### Parallel Assignment
 
 Go has no comma operator. Use parallel assignment for multiple loop variables:

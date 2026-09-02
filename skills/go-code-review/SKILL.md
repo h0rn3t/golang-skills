@@ -97,6 +97,8 @@ review as a complete one.
 
 ## Security
 
+- [ ] **Trace untrusted input to its sink**: SQL, shell, template, file path, outbound URL, log line — each has a stdlib defense at the boundary → [go-security](../go-security/SKILL.md)
+- [ ] **Secrets**: constant-time compare, memory-hard password hash, no credential in a log or error, `InsecureSkipVerify` only in tests → [go-security](../go-security/SKILL.md)
 - [ ] **Crypto rand**: Use `crypto/rand` for keys, not `math/rand` → [go-defensive](../go-defensive/SKILL.md)
 - [ ] **Don't panic**: Use error returns for normal error handling; panic only for truly exceptional cases → [go-defensive](../go-defensive/SKILL.md)
 

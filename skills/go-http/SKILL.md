@@ -178,3 +178,4 @@ gets its own timeout. The full `run()` is in `references/WEB-SERVER.md`.
 - **Testing**: See [go-testing](../go-testing/SKILL.md) for `httptest.NewTestServer`, `httptest.NewRecorder`, and `synctest` for timeout paths
 - **Concurrency**: See [go-concurrency](../go-concurrency/SKILL.md) for the server goroutine, channel sizing, and shared state behind handlers
 - **Dependencies**: See [go-packages](../go-packages/SKILL.md) before adding a router, JSON, or client module the standard library already covers
+- **Security**: See [go-security](../go-security/SKILL.md) when a request value names a file, URL, or command, for cookie flags, SSRF checks, and what an error response may reveal

@@ -210,3 +210,4 @@ var tmpl = template.Must(template.ParseFiles("index.html"))
 - **Interface checks**: See [go-interfaces](../go-interfaces/SKILL.md) when adding compile-time interface satisfaction checks
 - **Data structure copying**: See [go-data-structures](../go-data-structures/SKILL.md) when working with slice/map internals or pointer aliasing
 - **Enum design**: See [go-declarations](../go-declarations/SKILL.md) when writing the `iota` block or choosing whether zero is a valid member
+- **Threat model**: See [go-security](../go-security/SKILL.md) when the caller-supplied value is untrusted — injection, SSRF, secrets, TLS; this skill owns the `os.Root` and `crypto/rand` forms it routes to

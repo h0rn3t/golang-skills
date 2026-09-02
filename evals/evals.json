@@ -550,6 +550,81 @@
       "should_trigger": [],
       "notes": "Negative control: no HTTP or database involved",
       "set": "train"
+    },
+    {
+      "query": "Add an endpoint to our Go service that downloads a file by the name the client passes in the query string",
+      "should_trigger": [
+        "go-http",
+        "go-security"
+      ],
+      "notes": "Path traversal trap: a client-supplied file name reaches the filesystem; 'security' never said",
+      "set": "train"
+    },
+    {
+      "query": "Write a Go helper that runs ffmpeg on an uploaded video with options the user chose in the form",
+      "should_trigger": [
+        "go-security"
+      ],
+      "notes": "Command injection trap: user-chosen arguments reach os/exec",
+      "set": "validation"
+    },
+    {
+      "query": "How should I store user passwords and verify API keys in Go?",
+      "should_trigger": [
+        "go-security"
+      ],
+      "notes": "Direct: password hashing and constant-time token comparison",
+      "set": "train"
+    },
+    {
+      "query": "Зроби на Go проксі-ручку, яка забирає картинку за URL, що передає клієнт, і повертає її",
+      "should_trigger": [
+        "go-http",
+        "go-security"
+      ],
+      "notes": "Ukrainian prompt; SSRF trap: server fetches a client-supplied URL",
+      "set": "validation"
+    },
+    {
+      "query": "Our Go service slowly climbs to 8 GB RSS over two days and gets OOM-killed. Heap profile looks flat. Where do I start?",
+      "should_trigger": [
+        "go-troubleshooting"
+      ],
+      "notes": "Unknown cause, memory growth; not an optimization request",
+      "set": "train"
+    },
+    {
+      "query": "This test passes locally but fails about one run in twenty on CI with -race. Here is the output: WARNING: DATA RACE ...",
+      "should_trigger": [
+        "go-troubleshooting",
+        "go-concurrency"
+      ],
+      "notes": "Flaky test with a race report pasted; diagnosis first, fix owned by concurrency",
+      "set": "validation"
+    },
+    {
+      "query": "Сервіс на Go перестає відповідати після кількох годин, CPU нульовий, логів немає. Як зрозуміти, що зависло?",
+      "should_trigger": [
+        "go-troubleshooting"
+      ],
+      "notes": "Ukrainian prompt; hang with unknown cause — goroutine dump before any fix",
+      "set": "train"
+    },
+    {
+      "query": "panic: runtime error: invalid memory address or nil pointer dereference — goroutine 42 [running]: main.(*Server).handle(0xc000010000, {0x0, 0x0}) — what does this mean?",
+      "should_trigger": [
+        "go-troubleshooting"
+      ],
+      "notes": "Pasted stack trace; reading a panic",
+      "set": "validation"
+    },
+    {
+      "query": "Make this Go JSON encoder allocate less; benchmark shows 40 allocs/op",
+      "should_trigger": [
+        "go-performance"
+      ],
+      "notes": "Negative control for troubleshooting: cause is known, task is optimization",
+      "set": "train"
     }
   ],
   "quality_evals": [

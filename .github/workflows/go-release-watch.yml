@@ -1,0 +1,99 @@
+name: Go release watch
+
+# Monthly check that the Go and golangci-lint versions this repository pins
+# still match the latest releases. Detection is plain shell — no tokens are
+# spent while the versions agree. Only when one is behind does the job hand
+# the update to Claude Code, which opens a PR for a human to review.
+
+on:
+  schedule:
+    - cron: '0 9 3 * *' # 3rd of every month, 09:00 UTC — after the Feb/Aug Go releases have settled
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      go_latest: ${{ steps.versions.outputs.go_latest }}
+      go_pinned: ${{ steps.versions.outputs.go_pinned }}
+      lint_latest: ${{ steps.versions.outputs.lint_latest }}
+      lint_pinned: ${{ steps.versions.outputs.lint_pinned }}
+      stale: ${{ steps.versions.outputs.stale }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare pinned versions with latest releases
+        id: versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # Latest stable Go minor, e.g. "1.27", from the official download index.
+          go_latest="$(curl -fsSL 'https://go.dev/dl/?mode=json' \
+            | python3 -c 'import json,sys; v=json.load(sys.stdin)[0]["version"]; print(".".join(v.removeprefix("go").split(".")[:2]))')"
+
+          # The baseline every skill claims, from COMPATIBILITY.md.
+          go_pinned="$(sed -nE 's/^Baseline for all skills in this repository: \*\*Go ([0-9]+\.[0-9]+)\*\*\.$/\1/p' COMPATIBILITY.md)"
+
+          # Latest golangci-lint tag and the version validate-skills.yml installs.
+          lint_latest="$(gh release view --repo golangci/golangci-lint --json tagName --jq .tagName)"
+          lint_pinned="$(sed -nE 's/^\s*GOLANGCI_LINT_VERSION:\s*(v[0-9.]+)\s*$/\1/p' .github/workflows/validate-skills.yml)"
+
+          test -n "$go_pinned" || { echo "could not read the Go baseline from COMPATIBILITY.md"; exit 1; }
+          test -n "$lint_pinned" || { echo "could not read GOLANGCI_LINT_VERSION from validate-skills.yml"; exit 1; }
+
+          stale=false
+          [ "$go_latest" != "$go_pinned" ] && stale=true
+          [ "$lint_latest" != "$lint_pinned" ] && stale=true
+
+          {
+            echo "go_latest=$go_latest"
+            echo "go_pinned=$go_pinned"
+            echo "lint_latest=$lint_latest"
+            echo "lint_pinned=$lint_pinned"
+            echo "stale=$stale"
+          } | tee -a "$GITHUB_OUTPUT"
+
+  update:
+    needs: detect
+    if: needs.detect.outputs.stale == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: |
+            You maintain this repository of Go agent skills. A scheduled check found a version drift:
+
+            - Go: repository baseline ${{ needs.detect.outputs.go_pinned }}, latest release ${{ needs.detect.outputs.go_latest }}
+            - golangci-lint: pinned ${{ needs.detect.outputs.lint_pinned }}, latest ${{ needs.detect.outputs.lint_latest }}
+
+            Work on a new branch named `chore/release-watch-<yyyy-mm>`; never commit to main. Open exactly one pull request per drifted tool, or a single PR when both drifted in a way that must land together. If a tool is not drifted, do not touch its files.
+
+            When Go is behind:
+            1. Read `COMPATIBILITY.md` and `docs/RELEASE_CHECKLIST.md` first; they define how a version claim is verified. Use the installed toolchain (`go version`, `go doc`, `go tool fix help`, `go tool vet help`, and `$(go env GOROOT)/api/go<version>.txt`) as the source of truth — never guess an API's version.
+            2. Update the baseline in `COMPATIBILITY.md` (the baseline sentence, the supported-releases sentence, and the per-version tables) with the language and stdlib changes that alter skill guidance.
+            3. Update `skills/go-code-refactor/references/MODERNIZATION.md` and the `go fix` analyzer table in `skills/go-linting/SKILL.md` with any new modernizers `go tool fix help` lists.
+            4. Update every `> Compatibility:` note and inline `(Go 1.xx+)` claim that the new baseline changes, the Go version in `README.md`, `README.uk.md`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and `go-version` in `.github/workflows/validate-skills.yml`.
+            5. Update `TestGoVersionBaseline` in `evals/eval_test.go` so it pins the new baseline, then run `cd evals && go test -count=1 ./...` and fix what fails.
+
+            When golangci-lint is behind:
+            1. Set `GOLANGCI_LINT_VERSION` in `.github/workflows/validate-skills.yml`, the pinned version in `skills/go-linting/SKILL.md`, and `docs/RELEASE_CHECKLIST.md`.
+            2. Install that version and run `golangci-lint config verify --config skills/go-linting/assets/golangci.yml`; adjust the config only if verification fails, and say what changed and why.
+
+            Add an entry under `## [Unreleased]` in `CHANGELOG.md`. Keep every `SKILL.md` at or below 225 lines and every reference at or below 300 lines. In the PR description list each file changed and the toolchain command that justified each version claim. Do not bump the plugin version; the maintainer does that at release time.
+          claude_args: |
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(go:*),Bash(golangci-lint:*),Bash(git:*),Bash(gh:*),Bash(curl:*),Bash(sed:*),Bash(grep:*),Bash(wc:*),Bash(cd:*),Bash(python3:*)"

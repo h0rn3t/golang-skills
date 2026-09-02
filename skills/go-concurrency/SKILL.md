@@ -202,6 +202,7 @@ buffer" pattern uses `select` with `default` for non-blocking operations.
 - **Error handling**: See [go-error-handling](../go-error-handling/SKILL.md) when propagating errors from goroutines or using errgroup
 - **Defensive hardening**: See [go-defensive](../go-defensive/SKILL.md) when protecting shared state at API boundaries or using defer for cleanup
 - **Interface design**: See [go-interfaces](../go-interfaces/SKILL.md) when choosing receiver types for types with sync primitives
+- **Finding the race or leak**: See [go-troubleshooting](../go-troubleshooting/SKILL.md) for goroutine dumps, race-report anatomy, and the symptom catalog when the cause is not yet known
 
 ### External Resources
 

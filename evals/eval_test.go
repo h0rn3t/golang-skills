@@ -1051,15 +1051,17 @@ func TestStructure(t *testing.T) {
 				t.Errorf("description is %d chars (max 1024)", len(desc))
 			}
 			versionSensitive := map[string]bool{
-				"go-code-review":    true,
-				"go-concurrency":    true,
-				"go-context":        true,
-				"go-declarations":   true,
-				"go-defensive":      true,
-				"go-error-handling": true,
-				"go-generics":       true,
-				"go-logging":        true,
-				"go-testing":        true,
+				"go-code-review":     true,
+				"go-concurrency":     true,
+				"go-context":         true,
+				"go-declarations":    true,
+				"go-defensive":       true,
+				"go-error-handling":  true,
+				"go-generics":        true,
+				"go-logging":         true,
+				"go-security":        true,
+				"go-testing":         true,
+				"go-troubleshooting": true,
 			}
 			if versionSensitive[dirName] && !strings.Contains(body, "> Compatibility:") {
 				t.Error("version-sensitive skill must preserve compatibility metadata in the body")
@@ -1137,6 +1139,8 @@ func TestFrontmatterDescriptionsInvariant(t *testing.T) {
 		"go-naming":             "Use when naming any Go identifier — packages, types, functions, methods, variables, constants, or receivers — to ensure idiomatic, clear names. Also use when a user is creating new types, packages, or exported APIs, even if they don't explicitly ask about naming conventions. Does not cover package organization (see go-packages).",
 		"go-packages":           "Use when creating Go packages, organizing imports, managing dependencies, or deciding how to structure Go code into packages. Also use when starting a new Go project or splitting a growing codebase into packages, even if the user doesn't explicitly ask about package organization. Does not cover naming individual identifiers (see go-naming).",
 		"go-performance":        "Use when optimizing Go code, investigating slow performance, or writing performance-critical sections. Also use when a user mentions slow Go code, string concatenation in loops, or asks about benchmarking, even if the user doesn't explicitly mention performance patterns. Does not cover concurrent performance patterns (see go-concurrency).",
+		"go-security":           "Use when writing or reviewing Go code that touches untrusted input, secrets, or credentials — SQL, shell, or template injection, path traversal, SSRF, cookies and security headers, password hashing, TLS settings, token comparison, or what may appear in a log line. Also use when a handler accepts a file name, URL, or command argument from a client, or when asked to find \"vulnerabilities\", even if the user never says \"security\". Does not cover the os.Root and crypto/rand mechanics (see go-defensive) or the dependency CVE scan in the gate (see go-linting).",
+		"go-troubleshooting":    "Use when a Go program misbehaves and the cause is unknown — a panic with an unclear trace, a hang or deadlock, a goroutine or memory leak, CPU or RSS that climbs over hours, a test that fails only under -race or only in CI, or a service that \"just stops responding\". Also use when the user pastes a stack trace, a pprof profile, or a GODEBUG line, even if they never say \"debug\". Does not cover speeding up code already known to be slow (see go-performance) or the fix once a race is identified (see go-concurrency).",
 		"go-style-core":         "Use when working with Go formatting, line length, nesting, naked returns, semicolons, or core style principles. Also use when a style question isn't covered by a more specific skill, even if the user doesn't reference a specific style rule. Does not cover domain-specific patterns like error handling, naming, or testing (see specialized skills). Acts as fallback when no more specific style skill applies.",
 		"go-testing":            "Use when writing, reviewing, or improving Go test code — including table-driven tests, subtests, parallel tests, test helpers, test doubles, and assertions with cmp.Diff. Also use when a user asks to write a test for a Go function, even if they don't mention specific patterns like table-driven tests or subtests. Does not cover benchmark performance testing (see go-performance).",
 	}

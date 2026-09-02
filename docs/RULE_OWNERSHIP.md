@@ -31,6 +31,10 @@ owner with a short pointer instead of repeating a full explanation.
 | HTTP handler shape, `ServeMux` routing, server timeouts, shutdown, clients, error-to-status mapping | `go-http` | `go-code`, `go-code-review`, `go-database` | `net/http` docs; Go 1.22 routing enhancements; Go 1.25 `CrossOriginProtection` |
 | SQL access: context on queries, rows lifecycle, transactions, placeholders, N+1, pool settings | `go-database` | `go-code`, `go-code-review`, `go-http` | `database/sql` docs; go.dev/doc/database |
 | Linters that enforce skill rules (`depguard`, `sloglint`, `errorlint`, `rowserrcheck`, ...) | `go-linting` | every skill whose rule has a linter | golangci-lint v2 linter catalogue |
+| Trust-boundary threat model: injection, SSRF, secrets, constant-time compare, password hashing, TLS and cookie settings, redaction, `gosec` findings | `go-security` | `go-code`, `go-code-review`, `go-http`, `go-database`, `go-logging`, `go-defensive` | OWASP Go-SCP; `crypto/*`, `html/template`, `net/netip` docs |
+| `os.Root` and `crypto/rand` mechanics (the form, not the threat) | `go-defensive` | `go-security` | `os`, `crypto/rand` docs (Go 1.24) |
+| Root-cause method, diagnostic capture (`pprof`, traces, goroutine dumps, `GODEBUG`, `dlv`), symptom-to-mechanism catalog | `go-troubleshooting` | `go-code`, `go-performance`, `go-concurrency`, `go-testing` | go.dev/doc/diagnostics; `runtime`, `runtime/pprof`, `runtime/trace` docs |
+| Semantic rename and extract via gopls during a refactor | `go-code-refactor` | `go-naming`, `go-code` | golang.org/x/tools/gopls docs |
 
 ## Maintenance Rules
 

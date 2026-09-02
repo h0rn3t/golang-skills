@@ -21,6 +21,7 @@ is the definition of the task, not a quality bar to aim at.
 - `references/PLAYBOOK.md` - Read for the concrete transformations, ordered by payoff, with before/after Go.
 - `references/MODERNIZATION.md` - Read before adopting a newer API; sorts Go 1.21–1.27 features into safe, conditional, and report-only.
 - `references/OVER-ENGINEERING.md` - Read before adding any line (it owns the restraint ladder), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
+- `references/GOPLS.md` - Read before renaming, extracting, or inlining anything with more than one caller: semantic references and safe rename via gopls instead of grep.
 - `scripts/verify-refactor.sh` - Run to capture a baseline, re-check after each step, and diff the two.
 - `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no upgrade path.
 - `assets/refactor-report.md` - Use as the final report structure.
@@ -143,7 +144,9 @@ trusted. Shared helpers get their own cycle first.
 `references/PLAYBOOK.md` has the transformations. The high-value ones: delete
 dead code, extract until each function has one job, flatten with early returns,
 name things after what they mean, name magic values, remove duplication that
-has a name.
+has a name. Renames and extractions go through gopls (`references/GOPLS.md`):
+find references semantically first, then let the safe rename refuse a change
+that would un-implement an interface — grep cannot see either.
 
 Avoid the failure mode where "cleaner" means "more layers". New interfaces,
 indirection, or generics the call sites do not need make code harder to follow.

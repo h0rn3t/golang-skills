@@ -112,6 +112,7 @@ teach instead of leaving it to review attention:
 | `usetesting` | `t.Context`, `t.TempDir`, `t.Setenv` over hand-rolled forms | [go-testing](../go-testing/SKILL.md) |
 | `godot` | Doc comments end in a period | [go-documentation](../go-documentation/SKILL.md) |
 | `exhaustive` | `switch` covers every enum member (`default` counts) | [go-declarations](../go-declarations/SKILL.md) |
+| `gosec` | String-built SQL, `sh -c`, `template.HTML` on input, weak hashes, `InsecureSkipVerify`, `math/rand` for secrets | [go-security](../go-security/SKILL.md) |
 
 Opt-in, not in the baseline: `contextcheck` (context lost mid-chain; noisy on
 deliberate breaks), `testifylint` (only in repositories that use testify),

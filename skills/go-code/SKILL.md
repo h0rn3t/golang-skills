@@ -59,38 +59,44 @@ has to exist.
 
 ## Route Before The First Edit
 
-Then load only the rows the task actually touches:
+Then load only the rows the task actually touches. The third column names the
+skill a row almost always drags in — load it in the same pass, not after the
+first draft exposes the gap:
 
-| Task touches | Skill |
-|---|---|
-| errors, wrapping, `errors.Is`/`errors.AsType` | [go-error-handling](../go-error-handling/SKILL.md) |
-| goroutines, channels, mutexes, races | [go-concurrency](../go-concurrency/SKILL.md) |
-| `context.Context`, timeouts, cancellation | [go-context](../go-context/SKILL.md) |
-| tests, table-driven cases, `synctest` | [go-testing](../go-testing/SKILL.md) |
-| new identifiers, new exported API | [go-naming](../go-naming/SKILL.md) + [go-documentation](../go-documentation/SKILL.md) |
-| interfaces, embedding, test doubles | [go-interfaces](../go-interfaces/SKILL.md) |
-| constructor with 3+ optional parameters | [go-functional-options](../go-functional-options/SKILL.md) |
-| slices, maps, arrays, sets | [go-data-structures](../go-data-structures/SKILL.md) |
-| `var`/`const` blocks, `iota`, composite literals | [go-declarations](../go-declarations/SKILL.md) |
-| `if`/`for`/`switch` mechanics, statement scoping | [go-control-flow](../go-control-flow/SKILL.md) |
-| type parameters, constraints, generic methods | [go-generics](../go-generics/SKILL.md) |
-| `slog`, log levels, request-scoped fields | [go-logging](../go-logging/SKILL.md) |
-| `defer` cleanup, boundary copies, mutable globals | [go-defensive](../go-defensive/SKILL.md) |
-| hot paths, allocations, benchmarks | [go-performance](../go-performance/SKILL.md) |
-| package layout, imports, dependencies | [go-packages](../go-packages/SKILL.md) |
-| function ordering, signatures, `Printf` verbs | [go-functions](../go-functions/SKILL.md) |
-| restructuring or deleting existing code | [go-code-refactor](../go-code-refactor/SKILL.md) |
-| linter config, CI checks | [go-linting](../go-linting/SKILL.md) |
-| HTTP handlers, routing, middleware, servers, clients | [go-http](../go-http/SKILL.md) |
-| SQL queries, transactions, repositories, migrations | [go-database](../go-database/SKILL.md) |
-| JSON and other wire formats, struct tags | [go-defensive](../go-defensive/SKILL.md) (tags) + [go-packages](../go-packages/SKILL.md) (`json/v2` on the ladder) |
-| CLI entry point, flags, `main`/`run` | [go-packages](../go-packages/SKILL.md) |
+| Task touches | Skill | Also load |
+|---|---|---|
+| errors, wrapping, `errors.Is`/`errors.AsType` | [go-error-handling](../go-error-handling/SKILL.md) | — |
+| goroutines, channels, mutexes, races | [go-concurrency](../go-concurrency/SKILL.md) | [go-context](../go-context/SKILL.md) if anything is cancelled |
+| `context.Context`, timeouts, cancellation | [go-context](../go-context/SKILL.md) | [go-concurrency](../go-concurrency/SKILL.md) if goroutines are started |
+| tests, table-driven cases, `synctest` | [go-testing](../go-testing/SKILL.md) | — |
+| new identifiers, new exported API | [go-naming](../go-naming/SKILL.md) | [go-documentation](../go-documentation/SKILL.md) |
+| interfaces, embedding, test doubles | [go-interfaces](../go-interfaces/SKILL.md) | — |
+| constructor with 3+ optional parameters | [go-functional-options](../go-functional-options/SKILL.md) | — |
+| slices, maps, arrays, sets | [go-data-structures](../go-data-structures/SKILL.md) | — |
+| `var`/`const` blocks, `iota`, composite literals | [go-declarations](../go-declarations/SKILL.md) | — |
+| `if`/`for`/`switch` mechanics, statement scoping | [go-control-flow](../go-control-flow/SKILL.md) | — |
+| type parameters, constraints, generic methods | [go-generics](../go-generics/SKILL.md) | — |
+| `slog`, log levels, request-scoped fields | [go-logging](../go-logging/SKILL.md) | [go-security](../go-security/SKILL.md) if a secret or PII could reach a log line |
+| `defer` cleanup, boundary copies, mutable globals | [go-defensive](../go-defensive/SKILL.md) | — |
+| hot paths, allocations, benchmarks | [go-performance](../go-performance/SKILL.md) | [go-troubleshooting](../go-troubleshooting/SKILL.md) if the cause of slowness is unknown |
+| package layout, imports, dependencies | [go-packages](../go-packages/SKILL.md) | — |
+| function ordering, signatures, `Printf` verbs | [go-functions](../go-functions/SKILL.md) | — |
+| restructuring or deleting existing code | [go-code-refactor](../go-code-refactor/SKILL.md) | — |
+| linter config, CI checks | [go-linting](../go-linting/SKILL.md) | — |
+| HTTP handlers, routing, middleware, servers, clients | [go-http](../go-http/SKILL.md) | [go-error-handling](../go-error-handling/SKILL.md); [go-security](../go-security/SKILL.md) if input reaches a file, shell, URL, or template |
+| SQL queries, transactions, repositories, migrations | [go-database](../go-database/SKILL.md) | [go-error-handling](../go-error-handling/SKILL.md); [go-security](../go-security/SKILL.md) if identifiers come from input |
+| untrusted input, secrets, tokens, TLS, cookies | [go-security](../go-security/SKILL.md) | [go-defensive](../go-defensive/SKILL.md) |
+| panic, hang, leak, flaky test, cause unknown | [go-troubleshooting](../go-troubleshooting/SKILL.md) | the owner of the mechanism once found |
+| JSON and other wire formats, struct tags | [go-defensive](../go-defensive/SKILL.md) (tags) | [go-packages](../go-packages/SKILL.md) (`json/v2` on the ladder) |
+| CLI entry point, flags, `main`/`run` | [go-packages](../go-packages/SKILL.md) | — |
 
 Load what the task needs and nothing else. Loading every row is noise, not
-thoroughness — the rules that do not apply crowd out the ones that do.
+thoroughness — the rules that do not apply crowd out the ones that do; the
+"also load" column is the ceiling, not a suggestion to keep adding.
 
-If exactly one row matches, invoke that skill directly and skip this one; a
-router in front of a single destination is overhead.
+If exactly one row matches and its third column is empty, invoke that skill
+directly and skip this one; a router in front of a single destination is
+overhead.
 
 ## Close With The Gate
 

@@ -6,6 +6,47 @@ All notable changes to this repository are documented here.
 
 ### Added
 
+- `go-security`: the trust-boundary threat model the repository had no owner
+  for — follow untrusted data to its sink (SQL, `os/exec`, `html/template`,
+  file path, outbound URL, log line, error response) and apply the stdlib
+  defense once at the boundary. Covers SSRF checks with `net/netip`,
+  constant-time comparison, argon2id/`crypto/pbkdf2` for passwords, AEAD-only
+  encryption, TLS and cookie settings, redaction, and a data-flow review mode.
+  `os.Root` and `crypto/rand` stay owned by `go-defensive`; `gosec` in the
+  baseline lint config is now listed as the enforcing linter. `go-code-review`,
+  `go-http`, `go-defensive`, `go-linting`, and the `go-code` router route to it.
+- `go-troubleshooting`: root-cause method for the cases where the cause is
+  unknown — reproduce, capture, read, hypothesize, confirm, fix once, pin with a
+  test. `references/DIAGNOSTIC-TOOLS.md` is the command reference for
+  `GOTRACEBACK`/`GODEBUG`, goroutine dumps, `pprof` capture and reading,
+  `go tool trace` and the Go 1.25 `FlightRecorder`, the race detector, Delve,
+  and the test flags that turn a flake into a reproduction rate.
+  `references/SYMPTOM-CATALOG.md` maps each runtime panic message, hang shape,
+  leak signature, wrong-result pattern, and CI-only failure to its mechanisms,
+  the command that confirms each, and the skill that owns the fix.
+  `go-performance` and `go-concurrency` route to it for the "why" before the
+  "how".
+- `go-code-refactor/references/GOPLS.md`: semantic references and safe rename
+  through gopls (MCP server, native LSP tool, or CLI) instead of grep — the
+  rename that would un-implement an interface is refused, and diagnostics run
+  after every edit before the next transformation. Step 4 of the workflow now
+  sends renames and extractions there.
+- `go-code` routing table gains an "also load" column naming the skill a row
+  almost always drags in (concurrency ↔ context, HTTP and SQL → error handling
+  and security, performance → troubleshooting when the cause is unknown), so
+  the pair loads in one pass instead of after the first draft exposes the gap.
+- `.github/workflows/go-release-watch.yml`: a monthly job that compares the
+  latest Go release and golangci-lint release against the versions this
+  repository pins (`COMPATIBILITY.md`, `validate-skills.yml`, the `go-linting`
+  baseline) and, only when one is behind, asks Claude Code to open a PR
+  updating `COMPATIBILITY.md`, `MODERNIZATION.md`, the `go fix` table, and
+  `TestGoVersionBaseline`. Nothing runs, and no tokens are spent, while the
+  versions match.
+- Trigger evals for `go-security` (path traversal, command injection, password
+  storage, a Ukrainian SSRF prompt) and `go-troubleshooting` (RSS growth,
+  a pasted race report, a Ukrainian hang prompt, a pasted panic trace, and a
+  known-cause negative control that must route to `go-performance` instead).
+
 - `go-http`: handler shape, Go 1.22 `ServeMux` method patterns, bounded request
   bodies, error-to-status mapping, middleware, `http.Server` timeouts and
   graceful shutdown, and client rules (per-dependency client with a timeout,

@@ -33,8 +33,19 @@ govulncheck ./...     # dependency CVEs; run before release, not every edit
 
 Gate rules:
 
+- The repository's own gate wins. Where `CLAUDE.md`, `CONTRIBUTING.md`, or the
+  CI config defines the commands, run those; the list above is the default only
+  when nothing local defines one. Run the union when in doubt, and say which
+  list you used.
 - A gate step that errors for an unrelated reason (no network, tool missing) is
-  reported as skipped, never as passed.
+  reported as `unavailable (reason)`, never as passed and never dropped in
+  silence. Do not report a result you did not observe.
+- `go fix -diff` is scoped to the packages the task touched — from the module
+  root, `go fix -diff $(git diff --name-only -- '*.go' | xargs -n1 dirname |
+  sort -u | sed 's|^|./|')`; the `./` prefix is required or `go` reads the
+  paths as import paths. Module-wide modernization is its own commit, not
+  payload smuggled into an unrelated fix — the rule the pack already applies
+  to papercuts.
 - `-race` is not optional for anything that starts a goroutine.
 - Fix in category order: formatting, then vet, then modernizers, then linters.
   Re-run the gate after each category rather than batching guesses.

@@ -40,6 +40,11 @@ Two things load on every invocation, before any routing decision:
    Climb it *after* reading the code the change touches and tracing the real
    flow, never instead. The ladder shortens the solution, not the reading — a
    small diff in the wrong place is a second bug.
+
+   The ladder runs per entity in the diff, not once per task. "The feature is
+   needed" does not carry over to the helpers, types, and methods written to
+   implement it — each gets its own climb. Check the final diff, not the
+   opening plan.
 2. **The fallback style owner**, [go-style-core](../go-style-core/SKILL.md),
    which covers anything the routing table below does not — and owns the
    house-style rule: the repository's `.golangci.yml`, `CONTRIBUTING.md`, and
@@ -89,6 +94,11 @@ first draft exposes the gap:
 | panic, hang, leak, flaky test, cause unknown | [go-troubleshooting](../go-troubleshooting/SKILL.md) | the owner of the mechanism once found |
 | JSON and other wire formats, struct tags | [go-defensive](../go-defensive/SKILL.md) (tags) | [go-packages](../go-packages/SKILL.md) (`json/v2` on the ladder) |
 | CLI entry point, flags, `main`/`run` | [go-packages](../go-packages/SKILL.md) | — |
+| a list of findings from a review or audit | the rows the findings name | per area, not per task |
+
+A task that is a package of fixes has no single row. Group the findings by
+area, take the row for each area, and work one area at a time — the "also
+load" ceiling counts per area, not per task.
 
 Load what the task needs and nothing else. Loading every row is noise, not
 thoroughness — the rules that do not apply crowd out the ones that do; the
@@ -104,6 +114,11 @@ Run the verification gate from [go-linting](../go-linting/SKILL.md) —
 `go vet`, `go fix -diff`, `golangci-lint run`, `go test -race`, and
 `govulncheck` before release. Fix what it reports; a task is not done because
 the code compiles.
+
+Where the repository defines its own gate (`CLAUDE.md`, `CONTRIBUTING.md`, CI
+config), that gate wins and this list is only the default in its absence —
+go-linting owns both rules, including how to report a tool that is not
+installed and how far `go fix -diff` reaches outside the diff.
 
 Topic-specific checks stack on top of the gate, not instead of it:
 

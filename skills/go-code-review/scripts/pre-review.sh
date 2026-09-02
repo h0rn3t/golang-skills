@@ -16,13 +16,18 @@ DESCRIPTION
     reports any findings. Use before manual code review to catch
     mechanical issues early.
 
+    A missing golangci-lint is reported as skipped; gofmt and go vet still
+    run. Use --strict where the linter is guaranteed (CI) to make its
+    absence an error.
+
     Exits 0 if all checks pass, 1 if issues found, 2 on error.
 
 OPTIONS
     -h, --help       Show this help message
     -v, --version    Show version
     --json           Output results as JSON
-    --force          Run even if golangci-lint is not installed (skip it)
+    --strict         Fail if golangci-lint is not installed
+    --force          Accepted and ignored (skipping is now the default)
     --limit N        Max items reported per section (0 = unlimited, default: 0)
 
 ARGUMENTS
@@ -32,7 +37,7 @@ EXAMPLES
     bash $SCRIPT_NAME
     bash $SCRIPT_NAME ./pkg/...
     bash $SCRIPT_NAME --json ./cmd/server/...
-    bash $SCRIPT_NAME --force ./...
+    bash $SCRIPT_NAME --strict ./...
     bash $SCRIPT_NAME --json --limit 10 ./...
 EOF
 }
@@ -48,7 +53,7 @@ json_escape() {
 }
 
 JSON_OUTPUT=false
-FORCE=false
+STRICT=false
 LIMIT=0
 TARGET=""
 
@@ -57,7 +62,8 @@ while [[ $# -gt 0 ]]; do
         -h|--help)    usage; exit 0 ;;
         -v|--version) echo "$SCRIPT_NAME v$VERSION"; exit 0 ;;
         --json)       JSON_OUTPUT=true; shift ;;
-        --force)      FORCE=true; shift ;;
+        --strict)     STRICT=true; shift ;;
+        --force)      shift ;;  # kept for compatibility: skipping is the default
         --limit)
             if [[ $# -lt 2 ]]; then
                 echo "error: --limit requires a number" >&2
@@ -92,7 +98,7 @@ GOFMT_STATUS="pass"
 GOFMT_FINDINGS=()
 GOFMT_DIR="${TARGET%%/...}"
 GOFMT_DIR="${GOFMT_DIR:-.}"
-UNFORMATTED=$(gofmt -l "$GOFMT_DIR" 2>&1) || true
+UNFORMATTED=$(gofmt -l "$GOFMT_DIR" 2>&1 | grep -v -e '^vendor/' -e '/vendor/') || true
 if [[ -n "$UNFORMATTED" ]]; then
     GOFMT_STATUS="fail"
     while IFS= read -r f; do
@@ -113,8 +119,8 @@ if command -v golangci-lint &>/dev/null; then
     if ! LINT_OUTPUT=$(golangci-lint run "$TARGET" 2>&1); then
         LINT_STATUS="fail"
     fi
-elif ! $FORCE; then
-    echo "error: golangci-lint not installed (use --force to skip)" >&2
+elif $STRICT; then
+    echo "error: golangci-lint not installed (--strict)" >&2
     exit 2
 fi
 

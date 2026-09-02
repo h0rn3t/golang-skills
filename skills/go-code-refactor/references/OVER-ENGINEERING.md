@@ -1,16 +1,21 @@
 # Over-Engineering Audit
 
-Read this when the task is "what can we delete" rather than "make this read
-better": a repo or package handed over as bloated, over-abstracted, or
+Two lanes, and the scope note below belongs to only one of them.
+
+**The restraint ladder** (next section) is normative whenever Go code is
+written, on any task — the cheapest over-engineering to remove is the kind
+never added. It does not restrict what the task may fix.
+
+**The audit lane** (everything after the ladder — tags, output format, hunt
+list) applies when the task is "what can we delete" rather than "make this
+read better": a repo or package handed over as bloated, over-abstracted, or
 dependency-heavy, and the wanted output is a ranked cut list, not a diff.
-
-The ladder below also runs at write time — the cheapest over-engineering to
-remove is the kind never added. Everything after it is the audit lane.
-
-Scope is complexity only. Correctness bugs, races, and security holes found
-along the way are collected and handed back, never fixed in the same pass —
-route them to [go-code-review](../../go-code-review/SKILL.md). The audit
-reports; the refactor workflow in `SKILL.md` applies what the user picks.
+In that lane the scope is complexity only — correctness bugs, races, and
+security holes found along the way are collected and handed back, never fixed
+in the same pass; route them to
+[go-code-review](../../go-code-review/SKILL.md). The audit reports; the
+refactor workflow in `SKILL.md` applies what the user picks. On a write-mode
+task the audit scope does not apply: fix what the task asked for.
 
 ## The Restraint Ladder
 
@@ -40,12 +45,20 @@ stop at the first rung that holds:
 6. **Can it be one line?** One line.
 7. **Only then**: the minimum that works.
 
-Two rungs both work → take the higher one and move on.
+Two rungs both work → take the higher one and move on. But if the higher rung
+makes the **call site** read worse, take the lower one: the ladder minimizes
+concepts, not clarity. [go-style-core](../../go-style-core/SKILL.md) owns the
+order — Clarity > Simplicity > Concision — and it outranks every rung here.
+
+Check the result at the call site, not the declaration count. A helper that
+exists only to be undone where it is called has not removed complexity; it
+moved it one line down and added a name to learn.
 
 **Never on the chopping block**: input validation at trust boundaries, error
 handling that prevents data loss, security controls, accessibility basics in
-anything user-facing, and anything the user asked for explicitly. Lazy, not
-negligent — a "simplification" that drops a bounds check is a bug.
+anything user-facing, clarity at the call site, and anything the user asked
+for explicitly. Lazy, not negligent — a "simplification" that drops a bounds
+check is a bug.
 
 A deliberate shortcut with a known ceiling is not a cut. Mark it with
 `Kept:` / `Ceiling:` / `Fix:` (see `SKILL.md`) so `check-debt.sh` harvests it
@@ -123,6 +136,7 @@ Ordered by how much usually comes out.
 | Hand-written fan-out `slog.Handler` | `slog.NewMultiHandler` (Go 1.26+) |
 | Path-traversal guards around `filepath.Join` | `os.Root` |
 | Test HTTP mocks for a real client path | `httptest.NewTestServer(t, h)` |
+| Struct boxing `(T, error)` plus an `unwrap`/`get` method | Return the two values — Go has multiple returns; box only where one value is required, such as a map value, and unbox at that boundary |
 | `time.Sleep` waits in concurrency tests | `testing/synctest` → [go-testing](../../go-testing/SKILL.md) |
 
 Dependencies to check against the stdlib before anything else: `pkg/errors`

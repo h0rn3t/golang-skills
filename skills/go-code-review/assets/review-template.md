@@ -5,11 +5,18 @@
 
 ## Findings
 
+Every finding carries how it was established: `verified` names the run that
+proved it, `plausible` admits it was only read.
+
 ### Must Fix
 - [ ] [file:line] Description of critical issue
+      Evidence: verified (how) | plausible (not proven)
+      Fix: the concrete action
 
 ### Should Fix
 - [ ] [file:line] Description of recommended improvement
+      Evidence: verified (how) | plausible (not proven)
+      Fix: the concrete action
 
 ### Nits
 - [ ] [file:line] Description of minor suggestion
@@ -19,5 +26,8 @@
 - [ ] `go vet ./...` — clean
 - [ ] `golangci-lint run` — clean
 
-## Skills Applied
-[List of go-* skills referenced during review]
+Report a check that could not run as `unavailable (reason)`, not as clean.
+
+## Not Reviewed
+What stayed outside the review and why — tool unavailable, needs a human
+decision, needs an external contract.

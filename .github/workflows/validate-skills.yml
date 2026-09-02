@@ -68,6 +68,24 @@ jobs:
           bash -n hooks/go-vet-on-edit.sh
           test -f agents/go-verify.md
 
+      # Every relative markdown link resolves. A dead path is worse than no
+      # path: it sends the model looking for a file that is not there.
+      - name: Check relative links
+        run: |
+          python3 - <<'PY'
+          import glob, os, re, sys
+          dead = []
+          files = glob.glob('skills/**/*.md', recursive=True) + glob.glob('docs/*.md') + glob.glob('agents/*.md') + glob.glob('*.md')
+          for f in files:
+              text = re.sub(r'`[^`]*`', '', re.sub(r'```.*?```', '', open(f).read(), flags=re.S))
+              for target in re.findall(r'\]\((?!https?:|mailto:|#)([^)\s]+)\)', text):
+                  path = os.path.normpath(os.path.join(os.path.dirname(f), target.split('#')[0]))
+                  if not os.path.exists(path):
+                      dead.append(f'{f} -> {target}')
+          print('\n'.join(dead) or 'all relative links resolve')
+          sys.exit(1 if dead else 0)
+          PY
+
   # Opt-in: runs the trigger and quality evals through the claude CLI. Costs
   # API tokens, so it only runs on manual dispatch with run_evals checked.
   evals:

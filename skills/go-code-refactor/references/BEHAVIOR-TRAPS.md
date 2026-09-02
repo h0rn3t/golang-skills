@@ -216,7 +216,7 @@ bite most often:
 | `runtime.SetFinalizer` → `runtime.AddCleanup` | Changes when cleanup runs and how cycles behave |
 | Bumping the `go` directive | New vet diagnostics **and** new semantics — its own change |
 
-`references/MODERNIZATION.md` has the full catalog, including toolchain
+[`MODERNIZATION.md`](MODERNIZATION.md) (next to this file) has the full catalog, including toolchain
 releases that break green tests with no diff from you.
 
 ---

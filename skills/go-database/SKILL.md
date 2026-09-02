@@ -163,7 +163,8 @@ database decides whether an index or a rewrite is the fix.
 Integration tests run against a real database (a container or a CI service),
 not a mocked driver — a mock proves the code calls the mock. Unit-test only the
 row-to-struct mapping. [go-testing](../go-testing/SKILL.md) owns the
-integration harness in its `references/INTEGRATION.md`.
+integration harness in
+[`go-testing/references/INTEGRATION.md`](../go-testing/references/INTEGRATION.md).
 
 > **Validation**: `golangci-lint run` with `rowserrcheck`, `sqlclosecheck`,
 > `noctx`, and `gosec` from the [go-linting](../go-linting/SKILL.md) baseline,

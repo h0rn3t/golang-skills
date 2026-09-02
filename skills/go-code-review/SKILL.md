@@ -13,21 +13,30 @@ allowed-tools: Bash(bash:*)
 ## Resource Routing
 
 - `assets/review-template.md` - Use when formatting review output with Must Fix, Should Fix, and Nits sections.
-- `scripts/pre-review.sh` - Run before manual review to collect gofmt, go vet, and golangci-lint results.
+- `scripts/pre-review.sh` - Run before manual review to collect gofmt, go vet, and golangci-lint results; a missing linter is reported as skipped, `--strict` makes it an error.
 - `../go-http/references/WEB-SERVER.md` - Read when reviewing an HTTP server that combines concurrency, context, logging, error handling, and shutdown behavior.
 
 ## Review Procedure
 
 > Use `assets/review-template.md` when formatting the output of a code review to ensure consistent structure with Must Fix / Should Fix / Nits severity grouping.
 
-1. Run the mechanical gate first — `bash scripts/pre-review.sh ./...` plus
-   `go fix -diff ./...`. Never spend review attention on what a tool reports.
-2. Read the diff file-by-file; for each file, check the categories below in order
-3. Flag issues with specific line references and the rule name
-4. After reviewing all files, re-read flagged items to verify they're genuine issues
-5. Summarize findings grouped by severity (must-fix, should-fix, nit)
+1. **Settle the scope.** A diff (`git diff`, a PR, named files) is the scope.
+   No diff → ask, or default to non-test code, riskiest packages first, read in
+   risk order — Security → HTTP → Database → Concurrency → the rest. The flat
+   checklist below is for a diff, not for a whole package.
+2. **Read the project's conventions before the first finding**: `CLAUDE.md`,
+   `CONTRIBUTING.md`, `.golangci.yml`, the neighbors. They fix the report
+   language, error style, and test style, and they outrank every rule here —
+   [go-style-core](../go-style-core/SKILL.md) "House Style Wins".
+3. Run the mechanical gate — `bash scripts/pre-review.sh ./...` plus
+   `go fix -diff` over the packages in scope. Never spend review attention on
+   what a tool reports.
+4. Read the scope file-by-file; for each file, check the categories below in order
+5. Flag issues with specific line references and the rule name
+6. After reviewing all files, re-read flagged items to verify they're genuine issues
+7. Summarize findings grouped by severity (must-fix, should-fix, nit)
 
-> **Validation**: Re-read the diff once more and delete every finding you cannot
+> **Validation**: Re-read the scope once more and delete every finding you cannot
 > justify with a specific line reference. A review that reports a fabricated
 > issue costs more trust than one that misses a real one.
 
@@ -208,12 +217,8 @@ configuration.
 
 - **Style foundations**: See [go-style-core](../go-style-core/SKILL.md) when resolving formatting debates or applying the clarity > simplicity > concision priority
 - **Linting setup**: See [go-linting](../go-linting/SKILL.md) when configuring golangci-lint or adding automated checks to CI
-- **Error strategy**: See [go-error-handling](../go-error-handling/SKILL.md) when reviewing error wrapping, sentinel errors, or the handle-once pattern
-- **Naming conventions**: See [go-naming](../go-naming/SKILL.md) when evaluating identifier names, receiver names, or package-symbol stuttering
-- **Testing patterns**: See [go-testing](../go-testing/SKILL.md) when reviewing test code for table-driven structure, failure messages, or helper usage
-- **Concurrency safety**: See [go-concurrency](../go-concurrency/SKILL.md) when reviewing goroutine lifetimes, channel usage, or mutex placement
-- **Logging practices**: See [go-logging](../go-logging/SKILL.md) when reviewing log usage, structured logging, or slog configuration
+- **Per-category owners**: every checklist row above links its own skill — go-error-handling, go-naming, go-testing, go-concurrency, go-logging and the rest
 - **Acting on the findings**: See [go-code-refactor](../go-code-refactor/SKILL.md) when the review turns into restructuring existing code and behavior must be proven unchanged
-- **Reviewing for bloat instead of defects**: See [go-code-refactor](../go-code-refactor/SKILL.md) and its `references/OVER-ENGINEERING.md` when the ask is what to delete — single-implementation interfaces, hand-rolled stdlib, dependencies Go now ships
-- **HTTP servers and clients**: See [go-http](../go-http/SKILL.md) and its `references/WEB-SERVER.md` when the diff is a handler, middleware, server setup, or client call
+- **Reviewing for bloat instead of defects**: See [go-code-refactor](../go-code-refactor/SKILL.md) and its [`references/OVER-ENGINEERING.md`](../go-code-refactor/references/OVER-ENGINEERING.md) when the ask is what to delete — single-implementation interfaces, hand-rolled stdlib, dependencies Go now ships
+- **HTTP servers and clients**: See [go-http](../go-http/SKILL.md) and its [`references/WEB-SERVER.md`](../go-http/references/WEB-SERVER.md) when the diff is a handler, middleware, server setup, or client call
 - **SQL access**: See [go-database](../go-database/SKILL.md) when the diff is a repository, query, transaction, or migration

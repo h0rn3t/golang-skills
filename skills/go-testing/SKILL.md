@@ -144,10 +144,10 @@ or multiple branches — write separate test functions instead.
 - Use field names when cases span many lines or have same-type adjacent fields
 - Include inputs in failure messages — never identify rows by index
 
-> **Validation**: Run `go test -run TestXxx -v` on the new tests, then
-> `go test -race ./...` for the package — the gate in
-> [go-linting](../go-linting/SKILL.md). Tests that pass without `-race` prove
-> nothing about concurrent code.
+> **Validation**: Run `go test -run TestXxx -v` on the new tests, with `-race`
+> when the code under test starts a goroutine — tests that pass without it
+> prove nothing about concurrent code. The full package run belongs to the
+> [go-linting](../go-linting/SKILL.md) gate, once, at the end of the task.
 
 ---
 

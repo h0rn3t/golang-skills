@@ -64,6 +64,16 @@ the syntax it gets right.
   to it rather than restating it.
 - **Say what "done" means.** A skill that produces work should end with the
   check that fails when the work is wrong.
+- **Do not ask it to double-check.** The model verifies and corrects its own
+  work; "re-check", "verify before answering", or "use a subagent to confirm"
+  stack on top of that and cost tokens without improving the result. State
+  what "done" means once — the gate in `go-linting` — and route to it.
+- **Say how much to say once.** Narration cadence, report length, and
+  delegation live in `go-style-core` "How Much To Say"; a procedural skill
+  routes there instead of restating it.
+- **Report, do not filter.** "Only high severity" or "skip minor" is followed
+  literally and hides findings; ask for everything with a marker and let the
+  reader filter.
 - **Require honest reporting.** Where a skill tells the agent to run something,
   it also says: report a skipped or failing step as skipped or failing.
 - **Name the Go version inline** for anything newer than 1.21, and route the

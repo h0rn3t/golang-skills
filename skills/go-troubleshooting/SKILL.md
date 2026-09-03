@@ -172,6 +172,8 @@ Once the mechanism is named, the fix belongs to its owner: races and leaks to
 > **Validation**: The regression test from step 7 fails against the
 > pre-fix commit (`git stash` / `git worktree` to prove it) and passes after.
 > Report the reproduction rate before and after (`-count=N`), not "seems fixed".
+> Lead the report with the mechanism and the output that confirmed it;
+> [go-style-core](../go-style-core/SKILL.md#how-much-to-say) owns the length.
 
 ---
 

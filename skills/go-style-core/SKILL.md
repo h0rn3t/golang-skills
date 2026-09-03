@@ -179,38 +179,33 @@ See **go-documentation** for guidance on Named Result Parameters.
 
 ## Semicolons
 
-Go's lexer automatically inserts semicolons after any line whose last token is
-an identifier, literal, or one of: `break continue fallthrough return ++ -- ) }`.
-
-This means **opening braces must be on the same line** as the control structure:
-
-```go
-// Good: brace on same line
-if i < f() {
-    g()
-}
-
-// Bad: brace on next line — lexer inserts semicolon after f()
-if i < f()  // wrong!
-{           // wrong!
-    g()
-}
-```
-
-Idiomatic Go only has explicit semicolons in `for` loop clauses and to separate
-multiple statements on a single line.
+The lexer inserts a semicolon after any line ending in an identifier, literal,
+`return`, `)`, or `}`, so an opening brace on its own line is a syntax error,
+not a style choice — `gofmt` settles the rest. Explicit semicolons belong only
+in `for` clauses.
 
 ---
 
-## Quick Reference
+## How Much To Say
 
-| Principle | Key Question |
-|-----------|--------------|
-| Clarity | Can a reader understand what and why? |
-| Simplicity | Is this the simplest approach? |
-| Concision | Is the signal-to-noise ratio high? |
-| Maintainability | Can this be safely modified later? |
-| Consistency | Does this match surrounding code? |
+> **Owner**: this skill owns how the agent talks while it works, how long its
+> written output is, and when it delegates. Other skills route here.
+
+Before the first tool call, say in one sentence what you are about to do. While
+working, speak up only when something changes the plan — a failing check, a bug
+the task did not ask about, a decision the rules do not settle; do not announce
+each file read or each rule loaded. Close by leading with the outcome — what
+changed and whether the checks are green — with detail after it.
+
+Size anything written to disk — a report, a review, a design note — to what the
+task needs. The `assets/` templates are the shape; filler sections, restated
+summaries, and boilerplate are noise, and an empty section is one line.
+
+Delegate to a subagent only for a wide, read-only investigation across many
+packages that is independent of the edit in hand. Never delegate the gate, the
+review, or the verification of your own diff — a review "file by file" or a
+refactor "one package per cycle" is a reading order, not a fan-out. When one
+subagent suffices, use one.
 
 ## Related Skills
 

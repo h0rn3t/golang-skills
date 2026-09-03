@@ -78,8 +78,15 @@ skills only.
 
 | File | What it does |
 |------|--------------|
-| `agents/go-verify.md` | Opt-in subagent that runs the verification gate (`build`, `gofmt`, `vet`, `go fix -diff`, `golangci-lint`, `test -race`, `govulncheck`) and returns only the failures. Invoke it when you want the gate run without a full test log in the transcript; the skills run the gate inline and never delegate it |
+| `agents/go-verify.md` | Opt-in subagent that runs the verification gate (`build`, `gofmt`, `vet`, `go fix -diff`, `golangci-lint`, `test -race`, `govulncheck`) and returns only the failures. It triggers only on an explicit request ("run the gate", "прогони гейти"); the skills run the gate inline, never delegate it, and never spawn this agent to re-check their own work |
 | `hooks/go-vet-on-edit.sh` | PostToolUse hook: after every `Edit`/`Write` of a `.go` file it runs `gofmt -l` and `go vet` on that package and hands the findings back to the agent. Silent when clean; never blocks the edit |
+
+The skills carry their own guidance on narration, report length, and when to
+delegate (`go-style-core`, "How Much To Say"), following Anthropic's
+[prompting guide for Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5):
+the model verifies its own work, so no skill asks it to re-check or to spawn a
+verifier. For a hard cap on delegation, Claude Code 2.1.217+ honors
+`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` and `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`.
 
 ## Installation
 

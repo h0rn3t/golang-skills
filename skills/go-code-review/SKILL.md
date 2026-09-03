@@ -6,9 +6,8 @@ allowed-tools: Bash(bash:*)
 
 # Go Code Review Checklist
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). The HTTP and
-> database rows below route to [go-http](../go-http/SKILL.md) and
-> [go-database](../go-database/SKILL.md), which carry their own version notes.
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`); the HTTP and
+> database rows route to skills that carry their own version notes.
 
 ## Resource Routing
 
@@ -32,20 +31,18 @@ allowed-tools: Bash(bash:*)
 4. **Subtract first**: before any style row, ask of each added block what could
    stop existing — the Less Code section below. Unneeded growth is a Should Fix.
 5. Read the scope file-by-file; for each file, check the categories below in order
-6. Flag issues with specific line references and the rule name
-7. Report every finding, at every severity — one you could not prove is
+6. Report every finding, at every severity — one you could not prove is
    `plausible`, never dropped; filtering is the reader's pass, not yours
-8. Summarize findings grouped by severity (must-fix, should-fix, nit)
+7. Report through `assets/review-template.md`, grouped by severity; findings
+   carry the information, prose stays short ([go-style-core](../go-style-core/SKILL.md#how-much-to-say))
 
 > **Validation**: Every finding names a file and line, and carries its
-> `verified` / `plausible` marker. A guess dressed as `verified` costs trust.
-
+> `verified` / `plausible` marker — a guess dressed as `verified` costs trust.
+> Name the checks you actually ran; a linter that was not installed or tests
+> that did not run are `unavailable`, never presented as clean.
+>
 > **Depth**: a fast pass over the whole diff, then a deep pass over the
 > risk-ordered files — the fast pass does not need a high reasoning-effort setting.
-
-**Report honestly**: name the checks you actually ran. If `golangci-lint` was
-not installed or the tests were not run, say so — do not present a partial
-review as a complete one.
 
 ---
 
@@ -53,6 +50,14 @@ review as a complete one.
 
 - [ ] **Subtract first**: for each added block, what can stop existing? Name the cut tag and show the shorter form; the hunt list and the reach-for table live with the owner → [go-code-refactor](../go-code-refactor/SKILL.md#delete-before-you-restructure)
 - [ ] **Shorter only where it reads as well**: never golf; validation at trust boundaries, data-loss error handling, and security checks are never "simplified" away, nor are the tests that fail when the logic breaks → [go-code-refactor](../go-code-refactor/references/OVER-ENGINEERING.md)
+
+---
+
+## Correctness
+
+- [ ] **Does it do what it claims?** Trace each changed function from inputs to outputs on the happy path and at the edges — empty, nil, zero, max, concurrent. A wrong result or silent data loss is a Must Fix even when every style row passes
+- [ ] **Invariants**: what the surrounding code assumes — ordering, non-nil, lock held, ctx alive — still holds after the change; name the assumption in the finding
+- [ ] **Failure paths**: every error branch, timeout, and partial write leaves state a caller can recover from — read each with the failing call moved one line earlier
 
 ---
 
@@ -202,10 +207,9 @@ review as a complete one.
 ## Automated Checks
 
 ```bash
-bash scripts/pre-review.sh ./...         # gofmt + go vet + golangci-lint
-bash scripts/pre-review.sh --json ./...  # structured JSON output
-go fix -diff ./...                       # pending modernizations
-go test -race ./...                      # required if the diff touches goroutines
+bash scripts/pre-review.sh ./...   # gofmt + go vet + golangci-lint (--json for structured output)
+go fix -diff ./...                 # pending modernizations
+go test -race ./...                # required if the diff touches goroutines
 ```
 
 Fix everything these report before the checklist — a human review of
@@ -215,10 +219,6 @@ machine-detectable defects (`gofmt` included) is wasted attention.
 
 ## Related Skills
 
-- **Style foundations**: See [go-style-core](../go-style-core/SKILL.md) when resolving formatting debates or applying the clarity > simplicity > concision priority
-- **Linting setup**: See [go-linting](../go-linting/SKILL.md) when configuring golangci-lint or adding automated checks to CI
-- **Per-category owners**: every checklist row above links its own skill — go-error-handling, go-naming, go-testing, go-concurrency, go-logging and the rest
-- **Acting on the findings**: See [go-code-refactor](../go-code-refactor/SKILL.md) when the review turns into restructuring existing code and behavior must be proven unchanged
-- **Reviewing for bloat instead of defects**: See [go-code-refactor](../go-code-refactor/SKILL.md) and its [`references/OVER-ENGINEERING.md`](../go-code-refactor/references/OVER-ENGINEERING.md) when the ask is what to delete — single-implementation interfaces, hand-rolled stdlib, dependencies Go now ships
-- **HTTP servers and clients**: See [go-http](../go-http/SKILL.md) and its [`references/WEB-SERVER.md`](../go-http/references/WEB-SERVER.md) when the diff is a handler, middleware, server setup, or client call
-- **SQL access**: See [go-database](../go-database/SKILL.md) when the diff is a repository, query, transaction, or migration
+- **Style foundations and lint setup**: See [go-style-core](../go-style-core/SKILL.md) for the clarity > simplicity > concision priority and how much to say; [go-linting](../go-linting/SKILL.md) when configuring golangci-lint or CI checks
+- **Acting on the findings, or reviewing for bloat**: See [go-code-refactor](../go-code-refactor/SKILL.md) when the review turns into a behavior-preserving restructure, and its [`references/OVER-ENGINEERING.md`](../go-code-refactor/references/OVER-ENGINEERING.md) when the ask is what to delete — single-implementation interfaces, hand-rolled stdlib, dependencies Go now ships
+- **HTTP and SQL**: See [go-http](../go-http/SKILL.md) and its [`references/WEB-SERVER.md`](../go-http/references/WEB-SERVER.md) when the diff is a handler, middleware, server setup, or client call; [go-database](../go-database/SKILL.md) when it is a repository, query, transaction, or migration

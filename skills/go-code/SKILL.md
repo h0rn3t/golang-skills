@@ -26,15 +26,10 @@ This skill bundles no files. Everything it loads belongs to another skill:
 
 ## How Much To Say
 
-Before the first tool call, say in one sentence what you are about to do. While
-working, speak up when something changes the plan — a failing gate step, a bug
-the task did not ask about, a decision the routing table does not settle. Do
-not announce each file read or each rule loaded.
-
-Close by leading with the outcome: what changed and whether the gate is green,
-detail after it. Match anything written to disk — a refactor report, a review,
-a design note — to what the task needs; the `assets/` templates are the shape,
-and padding them with filler sections is noise.
+[go-style-core](../go-style-core/SKILL.md#how-much-to-say) owns this and loads
+on every invocation: one sentence before the first tool call, an update only
+when the plan changes, the outcome first at the end, written output sized to
+the task, and no subagent for the gate or for re-checking your own work.
 
 ## Always Loaded
 
@@ -130,10 +125,11 @@ overhead.
 
 ## Close With The Gate
 
-Run the verification gate from [go-linting](../go-linting/SKILL.md) —
-`go vet`, `go fix -diff`, `golangci-lint run`, `go test -race`, and
-`govulncheck` before release. Fix what it reports; a task is not done because
-the code compiles.
+Run the verification gate from [go-linting](../go-linting/SKILL.md) once,
+when the code is done — `go vet`, `go fix -diff`, `golangci-lint run`,
+`go test -race`, and `govulncheck` before release. Not after each rule applied
+and not after each file: the hook covers edits, the gate covers the task. Fix
+what it reports; a task is not done because the code compiles.
 
 Where the repository defines its own gate (`CLAUDE.md`, `CONTRIBUTING.md`, CI
 config), that gate wins and this list is only the default in its absence —
@@ -154,7 +150,8 @@ the very end — a batched gate reports failures too late to attribute them.
 
 > **Note**: Run the gate yourself. It is a handful of commands, and a subagent
 > spawned to run it — or to re-check work you have already done — costs more
-> than it saves. The bundled PostToolUse hook already runs `gofmt` and `go vet`
+> than it saves; the bundled `go-verify` agent is for the user to invoke, not
+> for you to reach for. The PostToolUse hook already runs `gofmt` and `go vet`
 > on every edited `.go` file; its report is the first gate step, not a
 > substitute for the rest.
 

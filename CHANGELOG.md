@@ -150,6 +150,19 @@ All notable changes to this repository are documented here.
 
 ### Changed
 
+- Aligned the procedural skills with Anthropic's prompting guide for Claude
+  Opus 5. `go-style-core` now owns "How Much To Say" — narration cadence,
+  written-output length, and when a subagent is justified — and `go-code`,
+  `go-code-review`, `go-code-refactor`, and `go-troubleshooting` route to it,
+  so a skill invoked without the router still carries the rule. The
+  verification gate is stated once (`go-linting`) and run once, at the end;
+  the `go-error-handling` and `go-testing` validation notes no longer
+  re-invoke it. `agents/go-verify.md` triggers only on an explicit request,
+  never as a post-edit self-check — its old description invited exactly the
+  redundant verification the guide says to remove. `go-code-review` gains a
+  Correctness section ahead of the style rows, and `go-security` review mode
+  reports unreachable issues as `not reachable` instead of skipping them,
+  since the model follows "report less" literally.
 - Less code and readability are now the stated priority of the three skills
   that write, reshape, or judge Go. `go-code-refactor` owns the rule — "Delete
   Before You Restructure": line count is the instrument, readability the goal,

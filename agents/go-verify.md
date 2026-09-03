@@ -1,6 +1,6 @@
 ---
 name: go-verify
-description: Runs the Go verification gate (build, vet, go fix -diff, golangci-lint, test -race, govulncheck) and returns only what failed. Use after editing Go code, before opening a PR or MR, or when the user asks to "run the tests", "check it builds", "run the gate", "прогони гейти", "перевір". Do NOT use to fix the failures — it reports, the main thread fixes.
+description: Runs the Go verification gate (build, vet, go fix -diff, golangci-lint, test -race, govulncheck) and returns only what failed. Use only when the user explicitly asks for it — "run the tests", "check it builds", "run the gate", "прогони гейти", "перевір" — or names this agent. Do not spawn it to verify your own edits: the go-* skills run the gate inline and never delegate it. Do NOT use to fix the failures — it reports, the main thread fixes.
 tools: Bash, Read, Grep, Glob
 model: sonnet
 ---

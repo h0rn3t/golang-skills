@@ -137,8 +137,9 @@ When asked to audit, trace **data flow**, not files: start at every input
 forward to the first sensitive sink. Report each finding as
 *input → sink → missing defense → severity*. Severity by blast radius: remote
 code execution and credential theft first, data exposure second, denial of
-service third. Skip theoretical issues with no reachable input — a `sh -c` on
-a constant string is ugly, not a vulnerability.
+service third. An issue with no reachable input is reported as `not reachable`,
+not dropped — a `sh -c` on a constant string is ugly, not a vulnerability, and
+the reader decides whether it stays.
 
 > **Validation**: `golangci-lint run --enable-only gosec ./...` for the
 > mechanical findings, `govulncheck ./...` for dependencies, and `go test

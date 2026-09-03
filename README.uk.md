@@ -79,8 +79,15 @@ PostToolUse-хук, що запускає `gofmt` та `go vet` після ко�
 
 | Файл | Що робить |
 |------|-----------|
-| `agents/go-verify.md` | Сабагент, що проганяє гейт перевірки (`build`, `gofmt`, `vet`, `go fix -diff`, `golangci-lint`, `test -race`, `govulncheck`) і повертає лише збої, щоб основний тред не вставляв повний лог тестів |
+| `agents/go-verify.md` | Сабагент, що проганяє гейт перевірки (`build`, `gofmt`, `vet`, `go fix -diff`, `golangci-lint`, `test -race`, `govulncheck`) і повертає лише збої. Спрацьовує лише на явний запит («run the gate», «прогони гейти»); скіли проганяють гейт самі, ніколи його не делегують і не запускають цього агента для перевірки власної роботи |
 | `hooks/go-vet-on-edit.sh` | PostToolUse-хук: після кожного `Edit`/`Write` `.go`-файлу запускає `gofmt -l` і `go vet` для його пакета й віддає знахідки агентові. Мовчить, коли все чисто; ніколи не блокує правку |
+
+Скіли самі задають, скільки говорити під час роботи, якої довжини має бути звіт
+і коли делегувати (`go-style-core`, «How Much To Say»), за
+[гайдом Anthropic для Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5):
+модель перевіряє власну роботу сама, тому жоден скіл не просить її перепровіряти
+чи запускати верифікатора. Жорсткий ліміт делегування в Claude Code 2.1.217+
+задають `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` і `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`.
 
 ## Встановлення
 

@@ -193,10 +193,10 @@ sentinel comparison — `AsType` replaces `As`, not `Is`.
 annotation adds nothing, return `err` directly.
 
 > **Validation**: Run `bash scripts/check-errors.sh` to detect common
-> anti-patterns, then the verification gate in
-> [go-linting](../go-linting/SKILL.md) — `go vet` catches `errorsas` and
-> `lostcancel`, and `go fix -diff` flags `errors.As` calls that should be
-> `errors.AsType`.
+> anti-patterns. The [go-linting](../go-linting/SKILL.md) gate covers the
+> rest — `go vet` catches `errorsas` and `lostcancel`, and `go fix -diff`
+> flags `errors.As` calls that should be `errors.AsType` — and runs once, at
+> the end of the task, not again here.
 
 ---
 

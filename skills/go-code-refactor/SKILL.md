@@ -141,9 +141,10 @@ than trusting it. Then apply the Tier 1 hand edits from
 ### 4. Refactor in verifiable steps
 
 One named transformation at a time, verified before the next begins. For
-multi-package work: **one package per cycle** — audit, edit, verify. A
-repo-wide diff produced in one sitting cannot be bisected and will not be
-trusted. Shared helpers get their own cycle first.
+multi-package work: **one package per cycle** — audit, edit, verify — in
+sequence and in this thread, not one subagent per package. A repo-wide diff
+produced in one sitting cannot be bisected and will not be trusted. Shared
+helpers get their own cycle first.
 
 `references/PLAYBOOK.md` has the transformations. The high-value ones: delete
 dead code, extract until each function has one job, flatten with early returns,
@@ -174,7 +175,8 @@ invisible breakages compilation misses.
 ### 6. Report
 
 Use `assets/refactor-report.md`. Lead with what was deleted and the net line
-count — the part of the diff that needed no design decision. Keep prose short;
+count — the part of the diff that needed no design decision. Keep prose short
+([go-style-core](../go-style-core/SKILL.md#how-much-to-say) owns the length);
 report skipped checks as skipped; the table and the diff carry the information.
 
 ---
@@ -215,10 +217,8 @@ finish the refactor as asked, and let the user decide about the bigger change.
 ## Related Skills
 
 - **Style rules being applied**: See [go-style-core](../go-style-core/SKILL.md) when deciding nesting, naked returns, or the clarity > simplicity > concision order
-- **Verification gate**: See [go-linting](../go-linting/SKILL.md) for what `vet`, `go fix`, `-race`, and `golangci-lint` each prove
 - **Renaming**: See [go-naming](../go-naming/SKILL.md) when improving identifier, receiver, or package names
 - **Error-flow rewrites**: See [go-error-handling](../go-error-handling/SKILL.md) when restructuring wrapping, sentinels, or the handle-once pattern
 - **Concurrency rewrites**: See [go-concurrency](../go-concurrency/SKILL.md) when goroutine lifetimes, channels, or locks are in the diff
 - **Splitting packages**: See [go-packages](../go-packages/SKILL.md) when the refactor crosses package boundaries
 - **Reviewing the result**: See [go-code-review](../go-code-review/SKILL.md) when checking the finished diff against the full checklist
-- **Writing new code instead**: See [go-functions](../go-functions/SKILL.md) and [go-interfaces](../go-interfaces/SKILL.md) when the task is designing something new rather than reshaping what exists

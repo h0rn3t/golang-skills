@@ -1,3 +1,4 @@
 .DS_Store
 .refactor-verify/
 evals/evals-results*.json
+CLAUDE.md

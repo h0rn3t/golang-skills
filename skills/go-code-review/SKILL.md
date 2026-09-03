@@ -18,8 +18,6 @@ allowed-tools: Bash(bash:*)
 
 ## Review Procedure
 
-> Use `assets/review-template.md` when formatting the output of a code review to ensure consistent structure with Must Fix / Should Fix / Nits severity grouping.
-
 1. **Settle the scope.** A diff (`git diff`, a PR, named files) is the scope.
    No diff → ask, or default to non-test code, riskiest packages first, read in
    risk order — Security → HTTP → Database → Concurrency → the rest. The flat
@@ -31,10 +29,12 @@ allowed-tools: Bash(bash:*)
 3. Run the mechanical gate — `bash scripts/pre-review.sh ./...` plus
    `go fix -diff` over the packages in scope. Never spend review attention on
    what a tool reports.
-4. Read the scope file-by-file; for each file, check the categories below in order
-5. Flag issues with specific line references and the rule name
-6. After reviewing all files, re-read flagged items to verify they're genuine issues
-7. Summarize findings grouped by severity (must-fix, should-fix, nit)
+4. **Subtract first**: before any style row, ask of each added block what could
+   stop existing — the Less Code section below. Unneeded growth is a Should Fix.
+5. Read the scope file-by-file; for each file, check the categories below in order
+6. Flag issues with specific line references and the rule name
+7. After reviewing all files, re-read flagged items to verify they're genuine issues
+8. Summarize findings grouped by severity (must-fix, should-fix, nit)
 
 > **Validation**: Re-read the scope once more and delete every finding you cannot
 > justify with a specific line reference. A review that reports a fabricated
@@ -46,9 +46,10 @@ review as a complete one.
 
 ---
 
-## Formatting
+## Less Code
 
-- [ ] **gofmt**: Code is formatted with `gofmt` or `goimports` → [go-linting](../go-linting/SKILL.md)
+- [ ] **Subtract first**: for each added block, what can stop existing? Name the cut tag and show the shorter form; the hunt list and the reach-for table live with the owner → [go-code-refactor](../go-code-refactor/SKILL.md#delete-before-you-restructure)
+- [ ] **Shorter only where it reads as well**: never golf; validation at trust boundaries, data-loss error handling, and security checks are never "simplified" away, nor are the tests that fail when the logic breaks → [go-code-refactor](../go-code-refactor/references/OVER-ENGINEERING.md)
 
 ---
 
@@ -206,10 +207,9 @@ go fix -diff ./...                       # pending modernizations
 go test -race ./...                      # required if the diff touches goroutines
 ```
 
-Fix everything these report before starting the checklist above — a human
-review of machine-detectable defects is wasted attention.
-[go-linting](../go-linting/SKILL.md) owns the full verification gate and linter
-configuration.
+Fix everything these report before the checklist — a human review of
+machine-detectable defects (`gofmt` included) is wasted attention.
+[go-linting](../go-linting/SKILL.md) owns the full gate and linter configuration.
 
 ---
 

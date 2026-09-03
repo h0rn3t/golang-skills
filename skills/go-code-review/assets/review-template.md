@@ -2,6 +2,7 @@
 
 ## Summary
 [Brief description of the changes]
+Net lines: +A / -B. Growth the change did not need is a finding below, not a footnote.
 
 ## Findings
 
@@ -17,6 +18,8 @@ proved it, `plausible` admits it was only read.
 - [ ] [file:line] Description of recommended improvement
       Evidence: verified (how) | plausible (not proven)
       Fix: the concrete action
+- [ ] [file:line] delete: | yagni: | stdlib: | dep: | shrink: what can stop existing
+      Fix: the shorter form
 
 ### Nits
 - [ ] [file:line] Description of minor suggestion

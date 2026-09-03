@@ -979,6 +979,49 @@
         "sql.ErrNoRows is matched with errors.Is and mapped to a domain sentinel rather than leaked"
       ],
       "set": "validation"
+    },
+    {
+      "id": 20,
+      "prompt": "Review evals/files/notifier/notifier.go before I open the PR — the whole file is new in this diff. It adds a `NotifierService` struct wrapping a `Notifier` interface with one implementation, a `NewNotifierServiceFactory`, a `containsString(xs []string, s string) bool` helper, and the actual change: a check that the recipient is on the allow-list before sending.",
+      "files": [
+        "evals/files/notifier/notifier.go"
+      ],
+      "expected_output": "A review that opens with what can stop existing — yagni: the single-implementation interface and the factory, stdlib: the helper replaced by slices.Contains — each as a Should Fix showing the shorter form, a net line count in the summary, and the allow-list check itself left alone.",
+      "target_skills": [
+        "go-code-review",
+        "go-code-refactor",
+        "go-interfaces"
+      ],
+      "assertions": [
+        "The first Should Fix finding is a yagni: or stdlib: cut, before any naming or style finding",
+        "Flags the single-implementation interface and the factory as YAGNI and names the concrete type to return instead",
+        "Replaces the containsString helper with slices.Contains rather than reviewing its loop",
+        "Ranks unneeded growth as Should Fix, not as a nit",
+        "Keeps the allow-list check — never proposes simplifying away a trust-boundary validation",
+        "States the net line count of the diff in the summary"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 21,
+      "prompt": "Our module's go.mod says `go 1.24` (the toolchain is 1.27). Write: a function returning the keys of a map[string]int sorted; a check whether a []string contains a value; a function that runs a list of validators and returns all their errors; and a loop that starts one goroutine per item and waits for all of them. Put them in a shared `util` package so other services can import them.",
+      "expected_output": "slices.Sorted(maps.Keys(m)) in one line, slices.Contains at the call site instead of a wrapper, errors.Join over the validator results, a WaitGroup fan-out that respects the go 1.24 directive (wg.Add/Done or errgroup, with wg.Go named as what a directive bump would unlock), the util package declined in one line with the functions kept beside their caller, the gate run and reported, and code first with at most a few lines on what was skipped.",
+      "target_skills": [
+        "go-code",
+        "go-data-structures",
+        "go-concurrency",
+        "go-packages"
+      ],
+      "assertions": [
+        "Sorted keys come from slices.Sorted(maps.Keys(m)), not a collect loop plus a sort",
+        "Membership uses slices.Contains rather than a hand-written loop or a wrapper function around it",
+        "Validator errors are combined with errors.Join, not string concatenation or a custom multi-error type",
+        "The fan-out does not use wg.Go (Go 1.25) under the go 1.24 directive; it uses wg.Add/Done or errgroup and names wg.Go as what a directive bump would unlock",
+        "Declines the shared util package in one line (YAGNI / no util package) and keeps the functions beside their caller; no new module is added",
+        "Runs the verification gate (go vet, go fix -diff) on the code and reports the result honestly",
+        "Output is code first, then the gate result, then at most a few lines on what was skipped"
+      ],
+      "set": "validation"
     }
   ]
 }

@@ -10,6 +10,11 @@ this file, check yours the same way — `COMPATIBILITY.md` documents how. An
 unverified modernization claim is worse than none, because it rides into a diff
 that promised not to change behavior.
 
+This file is for code that already exists: each entry says what a swap may
+change. Code written fresh has nothing to preserve — there the reach-for table
+in [OVER-ENGINEERING.md](OVER-ENGINEERING.md#reach-for-what-go-ships) is the
+checklist and the shorter form simply wins.
+
 ## Contents
 
 - [Start with `go fix`](#start-with-go-fix)
@@ -183,7 +188,7 @@ name := cmp.Or(input, defaultName)
 `cmp.Or` evaluates all arguments — not for expensive or side-effecting
 fallbacks.
 
-### `errors.Join` — Go 1.21
+### `errors.Join` — Go 1.20
 
 Replaces accumulating errors into a string. It **changes the error's text**, so
 this is Tier 1 only when the aggregate error is newly constructed or its text

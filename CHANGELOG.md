@@ -150,6 +150,49 @@ All notable changes to this repository are documented here.
 
 ### Changed
 
+- Less code and readability are now the stated priority of the three skills
+  that write, reshape, or judge Go. `go-code-refactor` owns the rule — "Delete
+  Before You Restructure": line count is the instrument, readability the goal,
+  and the order of work is delete, then shorten, then restructure; a step that
+  adds net lines needs a reason in the report, whose summary now ends with
+  `net: -<N> lines`. `go-code` states the priority before any routing decision
+  and reads the final diff's net line count alongside the per-entity ladder
+  climb. `go-code-review` opens its checklist with a "Less Code" section and
+  subtracts before it styles — unneeded growth is a Should Fix, not a nit; the
+  review template carries a net-lines line and a cut-tag example. The `gofmt`
+  checklist row is gone: `pre-review.sh` already runs it, and a human finding
+  for a tool's job was the checklist's own bit of bloat. `docs/RULE_OWNERSHIP.md`
+  gains the row, `TestDeleteFirstRule` pins the owner and both routes, and a
+  quality eval checks that a review leads with what can stop existing.
+- `go-code-refactor/references/OVER-ENGINEERING.md` carries the rest of what
+  `ponytail` says about writing less code and the Go skills did not: a bug fix
+  lands once, in the function every caller routes through; two options on one
+  rung go to the one correct on edge cases; a request bigger than its need
+  ships the rung that holds and questions the rest in the same reply, never
+  stalling on an answer that has a default; a write is reported code first
+  with at most three lines after it (`skipped: <X>, add when <Y>`); the user's
+  insistence ends the argument; non-trivial logic leaves one runnable check,
+  trivial one-liners none, and that one check is never a cut; the minimum that
+  works lives in the fewest files. The `stdlib:` tag now covers language and
+  toolchain features (`go:embed`, struct tags, `synctest`). Ponytail's
+  intensity levels are deliberately not carried: the Go skills always run at
+  `full`, and the audit lane is the `ultra`. `go-code` points to the write
+  rules next to the ladder; `TestRestraintLadder` pins them in the owner.
+- `OVER-ENGINEERING.md` gains "Reach For What Go Ships": rungs 3 and 4 as a
+  four-part table (language; collections and strings; errors, concurrency,
+  context; I/O, HTTP, tests, logging) — instead of this hand-written block,
+  this language or stdlib feature, with the minimum Go version and the owner
+  skill, every version checked against `api/go1.NN.txt`. The hunt list's
+  stdlib table now points there; `go-style-core` "Write Current Go" routes to
+  it for what `go fix` has no modernizer for; `MODERNIZATION.md` names it as
+  the checklist for new code, keeps the swap caveats for existing code, and
+  dates `errors.Join` to Go 1.20. `COMPATIBILITY.md` gains the 1.22, 1.23,
+  and 1.24 APIs the table recommends and the `tool` directive. The file now
+  carries a provenance header and moves the per-entity ladder rule in from
+  `go-code`, which keeps pointers. `TestRestraintLadder` pins the table and
+  the `go-style-core` route; quality eval 21 checks that a write under a
+  `go 1.24` directive reaches for the stdlib, respects the directive, and
+  declines a `util` package.
 - `check-naming.sh` is now a wrapper around `check-naming-ast.go`, matching the
   other findings scripts: a SCREAMING_SNAKE word in a string or a comment is no
   longer a violation, and the JSON contract is unchanged.

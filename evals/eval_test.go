@@ -1503,12 +1503,54 @@ func TestRestraintLadder(t *testing.T) {
 		}
 	}
 
+	// The ponytail rules that shape a write, not only an audit.
+	for _, phrase := range []string{
+		"correct on edge cases",
+		"root-cause fix",
+		"Never stall on an answer you can default",
+		"skipped: <X>, add when <Y>",
+		"YAGNI applies to tests too",
+		"no re-arguing",
+	} {
+		if !strings.Contains(ladder, phrase) {
+			t.Errorf("restraint rules must keep the ponytail write rule (%q missing)", phrase)
+		}
+	}
+
+	// Rungs 3 and 4 made concrete: the table of Go features that replace a
+	// hand-written block. Loaded on every write; the style owner routes to it.
+	if !strings.Contains(ladder, "## Reach For What Go Ships") {
+		t.Errorf("%s must own the reach-for table", owner)
+	}
+	for _, row := range []string{
+		"slices.Sorted(maps.Keys(m))",
+		"for i := range n",
+		"iter.Seq",
+		"errors.AsType[T]",
+		"wg.Go",
+		"//go:embed",
+		"cmp.Or",
+		"//go:generate go tool stringer",
+	} {
+		if !strings.Contains(ladder, row) {
+			t.Errorf("reach-for table is missing %q", row)
+		}
+	}
+	styleCore, err := os.ReadFile(filepath.Join(root, "skills", "go-style-core", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("read go-style-core SKILL.md: %v", err)
+	}
+	if !strings.Contains(string(styleCore), "OVER-ENGINEERING.md#reach-for-what-go-ships") {
+		t.Error("go-style-core Write Current Go must route to the reach-for table")
+	}
+
 	// Lazy, not negligent.
 	for _, guard := range []string{
 		"trust boundaries",
 		"prevents data loss",
 		"security controls",
 		"accessibility",
+		"tests that fail when the",
 	} {
 		if !strings.Contains(ladder, guard) {
 			t.Errorf("restraint ladder must keep %q off the chopping block", guard)
@@ -1560,6 +1602,55 @@ func TestRestraintLadder(t *testing.T) {
 		if !strings.Contains(text, "ladder") {
 			t.Errorf("%s must name the restraint ladder as something to climb before writing", rel)
 		}
+	}
+}
+
+// TestDeleteFirstRule pins the priority shared by the three skills that write,
+// reshape, or judge Go: fewer lines as the instrument, readability as the goal,
+// deletion before restructuring. The rule has one owner; the router and the
+// review checklist route to it, and the checklist opens with it.
+func TestDeleteFirstRule(t *testing.T) {
+	t.Parallel()
+	root := repoRoot(t)
+	const owner = "skills/go-code-refactor/SKILL.md"
+
+	content, err := os.ReadFile(filepath.Join(root, owner))
+	if err != nil {
+		t.Fatalf("read %s: %v", owner, err)
+	}
+	for _, phrase := range []string{
+		"## Delete Before You Restructure",
+		"Line count is the instrument; readability is the goal",
+		"code that stops existing",
+		"delete, then shorten, then restructure",
+		"never golf",
+	} {
+		if !strings.Contains(string(content), phrase) {
+			t.Errorf("%s must keep the delete-first rule (%q missing)", owner, phrase)
+		}
+	}
+	assertOnlySkillDoc(t, root, "Delete Before You Restructure", map[string]bool{owner: true})
+
+	const anchor = "../go-code-refactor/SKILL.md#delete-before-you-restructure"
+	for _, rel := range []string{"skills/go-code/SKILL.md", "skills/go-code-review/SKILL.md"} {
+		body, err := os.ReadFile(filepath.Join(root, rel))
+		if err != nil {
+			t.Fatalf("read %s: %v", rel, err)
+		}
+		if !strings.Contains(string(body), anchor) {
+			t.Errorf("%s must route to %s", rel, anchor)
+		}
+	}
+
+	// Resource Routing, Review Procedure, then the checklist — Less Code first.
+	var sections []string
+	for _, line := range readLines(t, filepath.Join(root, "skills", "go-code-review", "SKILL.md")) {
+		if strings.HasPrefix(line, "## ") {
+			sections = append(sections, strings.TrimPrefix(line, "## "))
+		}
+	}
+	if len(sections) < 3 || sections[2] != "Less Code" {
+		t.Errorf("go-code-review checklist must open with Less Code, got sections %v", sections)
 	}
 }
 

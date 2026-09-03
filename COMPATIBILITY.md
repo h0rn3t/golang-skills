@@ -36,6 +36,7 @@ mechanism — set `go 1.27` in `go.mod` and let vet catch the rest.
 | Trailing comma in type parameter lists | 1.27 | `[T any,]` |
 | `new(expr)` — allocate and initialize in one expression | 1.26 | `p := new(compute())`; `go fix` analyzer `newexpr` |
 | Generic type aliases | 1.24 | `type Set[T comparable] = map[T]struct{}` |
+| `tool` directive in `go.mod`, run with `go tool <name>` | 1.24 | Tracked tool dependencies; replaces a `tools.go` of blank imports |
 | Per-iteration loop variables | 1.22 | The `x := x` capture line is dead code; `go fix` analyzer `forvar` removes it |
 | `range` over integer and over function iterators | 1.22 / 1.23 | `for i := range n`, `for v := range seq` |
 | `min`, `max`, `clear` builtins | 1.21 | `go fix` analyzer `minmax` |
@@ -90,12 +91,19 @@ scope for this repository.
 | `t.Context()` | `context.Background()` in tests; `go fix` analyzer `testingcontext` |
 | `crypto/rand.Text()` | Manual random-string generation |
 | `os.Root`, `os.OpenRoot` | Path-traversal-prone `filepath.Join` + `os.Open` |
+| `strings.SplitSeq`, `FieldsSeq`, `Lines` (and `bytes`) | `Split` followed by a `range` over the slice |
+| `omitzero` struct tag option | `omitempty` plus a custom `IsZero` |
+| `slog.DiscardHandler` | Hand-written no-op handlers |
+| `t.Chdir()` | `os.Chdir` plus a restore in cleanup |
 
 ### Go 1.21–1.23
 
 `log/slog` (1.21), `cmp.Ordered` (1.21), `slices` and `maps` packages (1.21),
-`testing/slogtest` (1.22), `iter.Seq` and the `*Seq` iterator variants across
-`slices`, `maps`, and `strings` (1.23).
+`cmp.Or` (1.22), `slices.Concat` (1.22), `sql.Null[T]` (1.22), `http.ServeMux`
+method and wildcard patterns with `r.PathValue` (1.22), `http.ServeFileFS` and
+`http.FileServerFS` (1.22), `testing/slogtest` (1.22), `iter.Seq` with the
+iterator forms in `slices` (`All`, `Values`, `Collect`, `Sorted`) and `maps`
+(`All`, `Keys`, `Values`, `Collect`) (1.23) — the `strings` `*Seq` forms are 1.24.
 
 ## Fallback policy
 

@@ -10,7 +10,8 @@ paragraph restating them is noise.
 ## Summary
 
 One paragraph: what scope was covered, and what the code now reads like that it
-did not before. No feature tour.
+did not before. No feature tour. End with the instrument: `net: -<N> lines`
+(and `-<M> deps` if any). A positive number needs a sentence of justification.
 
 ## Deleted
 

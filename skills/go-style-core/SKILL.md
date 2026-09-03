@@ -55,9 +55,10 @@ Run `gofmt` — no exceptions. There is **no rigid line length limit**, but Uber
 The toolchain decides, not taste: `go fix -diff ./...` must be empty. It flags
 the patterns Go has since replaced — `x := x` loop captures, three-clause
 counting loops, `sort.Slice`, `interface{}`, `wg.Add`/`Done` bookkeeping,
-`errors.As`, hand-written `min`/`max`. See
-[go-linting](../go-linting/SKILL.md) for the analyzer list and the full
-verification gate.
+`errors.As`, hand-written `min`/`max`; [go-linting](../go-linting/SKILL.md)
+lists the analyzers and owns the gate. `go fix` catches only what has a
+modernizer; for the rest, reach for the feature that replaces the block before
+writing it — [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships) is the checklist.
 
 The exception is consistency: in a file that is uniformly written in an older
 idiom, modernize the whole file or none of it. A diff that switches style

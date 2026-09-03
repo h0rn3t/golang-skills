@@ -20,7 +20,7 @@ is the definition of the task, not a quality bar to aim at.
 - `references/BEHAVIOR-TRAPS.md` - Read before touching concurrency, `defer`, error handling, slices, interfaces, or struct layout.
 - `references/PLAYBOOK.md` - Read for the concrete transformations, ordered by payoff, with before/after Go.
 - `references/MODERNIZATION.md` - Read before adopting a newer API; sorts Go 1.21–1.27 features into safe, conditional, and report-only.
-- `references/OVER-ENGINEERING.md` - Read before adding any line (it owns the restraint ladder), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
+- `references/OVER-ENGINEERING.md` - Read before adding any line (it owns the restraint ladder, the reach-for table, and the ship-then-question write rules), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
 - `references/GOPLS.md` - Read before renaming, extracting, or inlining anything with more than one caller: semantic references and safe rename via gopls instead of grep.
 - `scripts/verify-refactor.sh` - Run to capture a baseline, re-check after each step, and diff the two.
 - `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no upgrade path.
@@ -28,8 +28,7 @@ is the definition of the task, not a quality bar to aim at.
 
 ## Stop and Ask
 
-Four situations end the turn with a question instead of an edit. Everything
-else is a judgment call you make yourself.
+Four situations end the turn with a question instead of an edit; the rest is your call.
 
 1. **The baseline is red** — build broken or tests failing before you touched
    anything. You cannot sign a promise you cannot verify.
@@ -67,6 +66,11 @@ game. That is where the readability gain lives.
 
 > **Normative**: Line count is the instrument; readability is the goal. The win
 > comes from code that stops existing, not code that gets rearranged.
+
+Work in that order — delete, then shorten, then restructure — and read the net
+line count after each step. Growth is a new declaration, layer, indirection,
+file, or dependency, and it needs a reason in the report; a guard clause, a
+named constant, or a one-job extraction is a name, not growth.
 
 Before writing any new line — helper, wrapper, interface — climb the restraint
 ladder in `references/OVER-ENGINEERING.md` and stop at the first rung that
@@ -148,10 +152,6 @@ has a name. Renames and extractions go through gopls (`references/GOPLS.md`):
 find references semantically first, then let the safe rename refuse a change
 that would un-implement an interface — grep cannot see either.
 
-Avoid the failure mode where "cleaner" means "more layers". New interfaces,
-indirection, or generics the call sites do not need make code harder to follow.
-Add abstraction only when it removes more complexity than it introduces.
-
 ### 5. Verify
 
 ```bash
@@ -173,9 +173,9 @@ invisible breakages compilation misses.
 
 ### 6. Report
 
-Use `assets/refactor-report.md`. Lead with what was deleted — it is the part of
-the diff that needed no design decision. Keep prose short and report skipped
-checks as skipped; the table and the diff carry the information.
+Use `assets/refactor-report.md`. Lead with what was deleted and the net line
+count — the part of the diff that needed no design decision. Keep prose short;
+report skipped checks as skipped; the table and the diff carry the information.
 
 ---
 

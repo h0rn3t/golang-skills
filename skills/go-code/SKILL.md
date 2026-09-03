@@ -26,12 +26,16 @@ This skill bundles no files. Everything it loads belongs to another skill:
 
 ## Always Loaded
 
-Two things load on every invocation, before any routing decision:
+The standing priority on every task is the delete-first rule
+[go-code-refactor](../go-code-refactor/SKILL.md#delete-before-you-restructure)
+owns: fewer lines are the instrument, readability the goal, never golfed. Two
+things enforce it and load on every invocation, before any routing decision:
 
 1. **The restraint rules.** Read
    [go-code-refactor/references/OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md)
-   — it owns the restraint ladder, the cut tags (`delete:`, `stdlib:`, `dep:`,
-   `yagni:`, `shrink:`), and the Go hunt list; the module rungs belong to
+   — it owns the restraint ladder, the reach-for table (which Go feature
+   replaces which hand-written block), the cut tags (`delete:`, `stdlib:`,
+   `dep:`, `yagni:`, `shrink:`), and the Go hunt list; the module rungs belong to
    [go-packages](../go-packages/SKILL.md). Climb the ladder before writing a
    new type, layer, interface, option, or import, and stop at the first rung
    that holds: it applies to code being written, not only to code being
@@ -41,10 +45,13 @@ Two things load on every invocation, before any routing decision:
    flow, never instead. The ladder shortens the solution, not the reading — a
    small diff in the wrong place is a second bug.
 
-   The ladder runs per entity in the diff, not once per task. "The feature is
-   needed" does not carry over to the helpers, types, and methods written to
-   implement it — each gets its own climb. Check the final diff, not the
-   opening plan.
+   It runs per entity in the final diff, not once per task; growth the task
+   did not need — a declaration, layer, or import, not a guard or a name — is
+   the first thing to cut before the gate runs.
+
+   The same file owns the write rules that follow the ladder: how new code is
+   reported, when to ship a default instead of asking, where a bug fix lands,
+   and the one check non-trivial logic leaves behind.
 2. **The fallback style owner**, [go-style-core](../go-style-core/SKILL.md),
    which covers anything the routing table below does not — and owns the
    house-style rule: the repository's `.golangci.yml`, `CONTRIBUTING.md`, and
@@ -54,13 +61,14 @@ Two things load on every invocation, before any routing decision:
 A deliberate shortcut with a known ceiling gets a `Kept:` marker naming the
 ceiling and the upgrade path, so `check-debt.sh` can harvest it later.
 
-Restraint never cuts input validation at trust boundaries, error handling that
-prevents data loss, security controls, accessibility basics in anything
-user-facing, or anything the user asked for explicitly. Those are the code that
-has to exist.
+What restraint never cuts is listed there too — trust-boundary validation,
+data-loss error handling, security controls, accessibility basics, the tests
+that fail when the logic breaks, and anything the user asked for.
 
 > **Note**: Where the `ponytail` skill is installed, load it here too — it is
-> the general-purpose source these Go-specific rules were derived from.
+> the general-purpose source these Go-specific rules were derived from. Its
+> intensity levels are not carried over: these skills always run at `full`,
+> and the audit lane in OVER-ENGINEERING.md is the `ultra`.
 
 ## Route Before The First Edit
 
@@ -145,6 +153,6 @@ the very end — a batched gate reports failures too late to attribute them.
 
 - **Style fallback**: See [go-style-core](../go-style-core/SKILL.md) — it owns formatting, nesting, and every rule with no more specific owner
 - **Review**: See [go-code-review](../go-code-review/SKILL.md) for the pre-submission checklist; it reviews finished code, this skill routes code being written
-- **Refactoring**: See [go-code-refactor](../go-code-refactor/SKILL.md) when the task is restructuring existing code rather than adding to it
+- **Refactoring**: See [go-code-refactor](../go-code-refactor/SKILL.md) when the task is restructuring existing code rather than adding to it; it also owns the delete-first rule loaded above
 - **Gate definition**: See [go-linting](../go-linting/SKILL.md) — it owns the verification commands this skill defers to
 - **Dependency ladder**: See [go-packages](../go-packages/SKILL.md) — it owns the normative stdlib-before-module rule this skill enforces on every write

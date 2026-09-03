@@ -33,12 +33,15 @@ allowed-tools: Bash(bash:*)
    stop existing — the Less Code section below. Unneeded growth is a Should Fix.
 5. Read the scope file-by-file; for each file, check the categories below in order
 6. Flag issues with specific line references and the rule name
-7. After reviewing all files, re-read flagged items to verify they're genuine issues
+7. Report every finding, at every severity — one you could not prove is
+   `plausible`, never dropped; filtering is the reader's pass, not yours
 8. Summarize findings grouped by severity (must-fix, should-fix, nit)
 
-> **Validation**: Re-read the scope once more and delete every finding you cannot
-> justify with a specific line reference. A review that reports a fabricated
-> issue costs more trust than one that misses a real one.
+> **Validation**: Every finding names a file and line, and carries its
+> `verified` / `plausible` marker. A guess dressed as `verified` costs trust.
+
+> **Depth**: a fast pass over the whole diff, then a deep pass over the
+> risk-ordered files — the fast pass does not need a high reasoning-effort setting.
 
 **Report honestly**: name the checks you actually ran. If `golangci-lint` was
 not installed or the tests were not run, say so — do not present a partial
@@ -198,8 +201,6 @@ review as a complete one.
 
 ## Automated Checks
 
-Run automated pre-review checks:
-
 ```bash
 bash scripts/pre-review.sh ./...         # gofmt + go vet + golangci-lint
 bash scripts/pre-review.sh --json ./...  # structured JSON output
@@ -209,7 +210,6 @@ go test -race ./...                      # required if the diff touches goroutin
 
 Fix everything these report before the checklist — a human review of
 machine-detectable defects (`gofmt` included) is wasted attention.
-[go-linting](../go-linting/SKILL.md) owns the full gate and linter configuration.
 
 ---
 

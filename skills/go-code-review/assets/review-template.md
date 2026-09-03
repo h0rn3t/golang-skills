@@ -1,5 +1,9 @@
 # Code Review: [PR Title]
 
+Keep the prose short: the findings carry the information, and a paragraph
+restating them is noise. No section is padded to look complete — an empty
+severity is one line saying it is empty.
+
 ## Summary
 [Brief description of the changes]
 Net lines: +A / -B. Growth the change did not need is a finding below, not a footnote.

@@ -24,6 +24,18 @@ This skill bundles no files. Everything it loads belongs to another skill:
   command's arguments before parsing them — it is never a change name or a
   file path.
 
+## How Much To Say
+
+Before the first tool call, say in one sentence what you are about to do. While
+working, speak up when something changes the plan — a failing gate step, a bug
+the task did not ask about, a decision the routing table does not settle. Do
+not announce each file read or each rule loaded.
+
+Close by leading with the outcome: what changed and whether the gate is green,
+detail after it. Match anything written to disk — a refactor report, a review,
+a design note — to what the task needs; the `assets/` templates are the shape,
+and padding them with filler sections is noise.
+
 ## Always Loaded
 
 The standing priority on every task is the delete-first rule
@@ -140,12 +152,11 @@ Under a host workflow with per-task checkpoints (such as an OpenSpec apply
 loop), run the gate before marking each Go-touching task complete, not once at
 the very end — a batched gate reports failures too late to attribute them.
 
-> **Note**: This plugin ships a `go-verify` subagent that runs the gate and
-> returns only the failures — delegate to it rather than pasting the full
-> output into the main thread. Delegate audits to any `go-db` or
-> `go-concurrency` agents the environment provides. The bundled PostToolUse
-> hook already runs `gofmt` and `go vet` on every edited `.go` file; its
-> report is the first gate step, not a substitute for the rest.
+> **Note**: Run the gate yourself. It is a handful of commands, and a subagent
+> spawned to run it — or to re-check work you have already done — costs more
+> than it saves. The bundled PostToolUse hook already runs `gofmt` and `go vet`
+> on every edited `.go` file; its report is the first gate step, not a
+> substitute for the rest.
 
 ---
 

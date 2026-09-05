@@ -1,9 +1,9 @@
 # Functional Options vs Config Structs
 
-> Sources: source/google-go-styleguide/best-practices.md; source/uber-go-style/style.md
+> Sources: source/google-go-styleguide/best-practices.md; source/uber-go-style/style.md; [Go comparison rules](https://go.dev/ref/spec#Comparison_operators); [Go compatibility](https://go.dev/doc/go1compat)
 > Authority: project policy
 > Minimum Go: any supported Go version
-> Last verified: 2026-06-19
+> Last verified: 2026-09-05
 
 Both functional options and config structs solve the same problem — optional
 configuration for constructors — but they have different trade-offs. Choose
@@ -11,8 +11,9 @@ based on API audience, extensibility needs, and complexity budget.
 
 Project policy: use Google guidance to decide whether optional configuration is
 worth the complexity; when functional options are chosen, prefer Uber's
-interface-with-unexported-method implementation over closure-only options for
-debuggability and testability.
+interface-with-unexported-method implementation where no repository convention
+exists. Existing closure-based APIs remain valid. Test constructor behavior;
+an interface does not make all concrete option values comparable.
 
 ## Contents
 
@@ -31,15 +32,17 @@ debuggability and testability.
 Need optional configuration?
 ├─ Internal or test-only API?
 │   └─ Config struct (simpler, less boilerplate)
-├─ Public API with 3+ options?
-│   └─ Functional options (extensible, backward-compatible)
-├─ Options need validation or interdependencies?
-│   └─ Functional options (validate in apply or constructor)
 ├─ All options usually specified together?
 │   └─ Config struct (one literal, no With* ceremony)
-└─ Options likely to grow over time?
-    └─ Functional options (add With* without breaking callers)
+├─ Public API with independently optional, growing settings?
+│   └─ Consider functional options if they improve call sites
+└─ Validation or interdependencies?
+    └─ Either form; validate the final configuration in the constructor
 ```
+
+Keep required inputs separate. An option count is a prompt to examine caller
+needs, not a threshold that mandates a pattern. Support unset versus explicit
+zero intentionally, and validate after defaults and overrides are combined.
 
 ## Config Struct Pattern
 
@@ -94,13 +97,13 @@ type Config struct {
 | Aspect | Functional Options | Config Struct |
 |--------|-------------------|---------------|
 | **Boilerplate** | High (type + apply + With* per option) | Low (one struct) |
-| **Extensibility** | Add `With*` — no breaking changes | Add field — no breaking changes |
-| **Backward compat** | Excellent for public APIs | Good (new fields get zero values) |
+| **Extensibility** | Add `With*`; preserve existing defaults and behavior | Adding fields preserves keyed literals; unkeyed callers can break |
+| **Backward compat** | Preserve required parameters and option semantics | Preserve zero-value meaning and constructor semantics |
 | **Defaults** | Built into constructor | Zero values or `DefaultConfig()` |
 | **Validation** | In `apply` or constructor loop | In constructor after struct received |
 | **Discoverability** | `With*` functions appear in godoc | All fields visible in one struct |
-| **Testability** | Compare options or test constructor output | Compare struct literals |
-| **Caller experience** | Only specify what differs from defaults | Must construct struct literal |
+| **Testability** | Assert configured behavior; compare only known comparable values | Assert fields/behavior; slices and maps also prevent `==` |
+| **Caller experience** | Only specify what differs from defaults | Keyed literals can omit fields and be shared as data |
 | **Zero-value ambiguity** | None — unset options not applied | May need pointer fields |
 
 ## When to Prefer Config Structs
@@ -108,7 +111,7 @@ type Config struct {
 - **Internal APIs** — less ceremony, easier to read at call sites
 - **Few options (1-3)** — functional options overhead not justified
 - **All options typically set together** — no benefit to variadic style
-- **No validation needed** — simple field assignment suffices
+- **Validation is straightforward** — the constructor can validate a config struct too
 - **Options are data, not behavior** — struct fields map naturally
 
 ```go
@@ -122,7 +125,7 @@ srv := NewServer(Config{
 ## When to Prefer Functional Options
 
 - **Public/library APIs** — callers shouldn't track internal config evolution
-- **3+ options** that are individually optional
+- **Several settings** that are independently optional at call sites
 - **Complex defaults** — default computation depends on other options
 - **Validation per option** — reject bad values at apply time
 - **Options may grow** — new `With*` functions are purely additive
@@ -160,8 +163,12 @@ conn, err := db.Open(
 
 ## Functional Options Implementation
 
-Use an exported `Option` interface with an unexported `apply` method when
-options should be comparable, mockable, or able to implement extra interfaces:
+The pack's default implementation uses an exported `Option` interface with an
+unexported `apply` method and concrete option values. Keep required inputs
+separate, apply options over defaults, and validate their combined result before
+allocating external resources. Document how repeated options behave.
+
+The following excerpt shows the option application mechanics:
 
 ```go
 package db
@@ -213,14 +220,16 @@ func Open(addr string, opts ...Option) (*Connection, error) {
 }
 ```
 
-Avoid closure-only options by default:
+An existing API may instead use closure-based options:
 
 ```go
 type Option func(*options)
 ```
 
-Closure options are concise, but they are harder to compare in tests, harder to
-describe in logs, and cannot implement additional interfaces.
+Function values cannot be compared to each other with `==`; interface values
+also panic on equality when their matching dynamic type is not comparable.
+Named function types can have methods and implement interfaces. Choose by API
+needs and repository convention, and test observable configured behavior.
 
 ## Hybrid Approach
 

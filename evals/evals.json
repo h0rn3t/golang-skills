@@ -61,9 +61,9 @@
     {
       "query": "My Go constructor has 8 optional parameters, what's the cleanest API?",
       "should_trigger": [
-        "go-functional-options"
+        "go-functions"
       ],
-      "notes": "Classic functional options trigger without naming the pattern",
+      "notes": "Constructor configuration belongs to function API design; pattern choice depends on callers",
       "set": "validation"
     },
     {
@@ -155,7 +155,7 @@
     {
       "query": "What's the idiomatic way to declare variables in Go — should I use var or := for each case?",
       "should_trigger": [
-        "go-declarations"
+        "go-style-core"
       ],
       "notes": "Direct question about var vs short declaration syntax",
       "set": "train"
@@ -188,10 +188,9 @@
     {
       "query": "Refactor this Go function that has 5 levels of nested if-else into guard clauses with early returns",
       "should_trigger": [
-        "go-control-flow",
-        "go-style-core"
+        "go-code-refactor"
       ],
-      "notes": "Nesting reduction via early returns — control flow + style",
+      "notes": "Behavior-preserving restructuring selects the refactor workflow, which routes to style rules",
       "set": "train"
     },
     {
@@ -205,28 +204,25 @@
     {
       "query": "How should I organize the parameter list for a Go function with 6 arguments — should I group them into a struct?",
       "should_trigger": [
-        "go-functions",
-        "go-declarations"
+        "go-functions"
       ],
-      "notes": "Function signature design and struct grouping",
+      "notes": "Grouping function parameters is API design; declaration syntax is conditional detail",
       "set": "train"
     },
     {
       "query": "Should I use named return values in this Go function, or is that considered bad practice?",
       "should_trigger": [
-        "go-style-core",
         "go-functions"
       ],
-      "notes": "Named returns are a style + function design question",
+      "notes": "Named return values are a function API design question; style guidance is a related resource",
       "set": "validation"
     },
     {
       "query": "When should I use a type switch versus an if-else chain with type assertions in Go?",
       "should_trigger": [
-        "go-control-flow",
         "go-interfaces"
       ],
-      "notes": "Type switch is control flow; type assertions involve interfaces",
+      "notes": "Choosing type assertions versus a type switch belongs to the interface owner",
       "set": "train"
     },
     {
@@ -344,10 +340,9 @@
     {
       "query": "Write a Go struct with iota-based enum constants for order status (Pending, Confirmed, Shipped, Delivered)",
       "should_trigger": [
-        "go-declarations",
-        "go-defensive"
+        "go-style-core"
       ],
-      "notes": "Iota declarations + start-at-one defensive pattern",
+      "notes": "The style owner handles enum declarations and whether zero is a valid default",
       "set": "train"
     },
     {
@@ -362,11 +357,11 @@
     {
       "query": "Write a Go function that retries HTTP requests with exponential backoff using context for timeout",
       "should_trigger": [
-        "go-functions",
+        "go-resilience",
         "go-context",
         "go-error-handling"
       ],
-      "notes": "Function design + context timeout + error propagation",
+      "notes": "Retries require resilience policy, cancellation, and error propagation; a function-body task alone does not require API design",
       "set": "train"
     },
     {
@@ -473,9 +468,9 @@
     {
       "query": "Write a new Go function that parses a duration string",
       "should_trigger": [
-        "go-functions"
+        "go-code"
       ],
-      "notes": "Negative control: new code must not trigger the refactor skill",
+      "notes": "New Go code with no focused topic uses the router; not a refactor or a function API design request",
       "set": "validation"
     },
     {
@@ -713,6 +708,20 @@
       "should_trigger": [],
       "notes": "Copy editing does not request a resilience policy",
       "set": "train"
+    },
+    {
+      "query": "Translate only into Ukrainian: \"Go constructors, functional options, and variable shadowing\".",
+      "should_trigger": [],
+      "notes": "Merged skill terminology inside a translation request must not activate Go skills",
+      "set": "validation"
+    },
+    {
+      "query": "In Go, why does := inside my if block leave the outer err unchanged, and how do I assign to that outer variable?",
+      "should_trigger": [
+        "go-style-core"
+      ],
+      "notes": "Variable-scope mechanics remain discoverable after declaration and control-flow consolidation",
+      "set": "validation"
     }
   ],
   "quality_evals": [
@@ -772,18 +781,19 @@
     {
       "id": 4,
       "prompt": "Create a Go config package with a `Config` struct that has 6 optional fields. Provide a clean constructor API.",
-      "expected_output": "Functional options pattern with Option type, With* functions, and a New constructor that applies options.",
+      "expected_output": "A coherent config-struct or functional-options constructor API with documented defaults, overrides, and final validation. The choice reflects caller needs rather than the number of fields alone.",
       "target_skills": [
-        "go-functional-options",
-        "go-declarations",
+        "go-functions",
         "go-documentation"
       ],
       "assertions": [
-        "Uses functional options pattern (not config struct with exported fields)",
-        "Option type is opaque (unexported struct or function type)",
-        "Each option is a With* function returning Option",
-        "Constructor applies defaults then options",
-        "Exported types and functions have doc comments"
+        "Provides a Config struct with six optional settings and a usable constructor API",
+        "Chooses a config struct or functional options with a caller-focused justification; does not mandate functional options solely because there are six fields",
+        "The constructor applies defaults and preserves explicitly provided values, including valid zero values where they differ from unset",
+        "Validates constraints on the final combined configuration and returns descriptive errors when invalid",
+        "Exported types and functions have doc comments",
+        "If functional options are used, With* functions return Option values; tests or explanation do not assume arbitrary interface option values are comparable",
+        "Implementation matches its documented zero/nil and repeated-option behavior; known contradictions are fixed rather than left as caveats"
       ],
       "set": "train"
     },
@@ -810,7 +820,7 @@
       "prompt": "Write a Go `ServerConfig` struct for an HTTP server with fields: Host (string), Port (int), ReadTimeout (time.Duration), WriteTimeout (time.Duration), MaxHeaderBytes (int), TLSCertFile (string), TLSKeyFile (string), AllowedOrigins ([]string). Add a `Validate() error` method that checks required fields and returns descriptive errors. Use proper declaration style and defensive patterns.",
       "expected_output": "A struct with sensible zero values, a Validate method using early-return error checks, defensive copies of the AllowedOrigins slice, and proper use of time.Duration instead of raw integers for timeouts.",
       "target_skills": [
-        "go-declarations",
+        "go-style-core",
         "go-defensive"
       ],
       "assertions": [
@@ -861,16 +871,16 @@
       "prompt": "Refactor this deeply nested Go function to be more readable:\n\n```go\nfunc ProcessOrder(ctx context.Context, order *Order, db *sql.DB) error {\n    if order != nil {\n        if order.Status == \"pending\" {\n            if len(order.Items) > 0 {\n                total := 0.0\n                for _, item := range order.Items {\n                    if item.Price > 0 {\n                        if item.Quantity > 0 {\n                            total += item.Price * float64(item.Quantity)\n                        } else {\n                            return fmt.Errorf(\"invalid quantity for item %s\", item.Name)\n                        }\n                    } else {\n                        return fmt.Errorf(\"invalid price for item %s\", item.Name)\n                    }\n                }\n                if total > 0 {\n                    order.Total = total\n                    order.Status = \"confirmed\"\n                    _, err := db.ExecContext(ctx, \"UPDATE orders SET total=$1, status=$2 WHERE id=$3\", total, order.Status, order.ID)\n                    if err != nil {\n                        return fmt.Errorf(\"update order: %w\", err)\n                    }\n                    return nil\n                } else {\n                    return errors.New(\"order total must be positive\")\n                }\n            } else {\n                return errors.New(\"order has no items\")\n            }\n        } else {\n            return fmt.Errorf(\"order status is %s, expected pending\", order.Status)\n        }\n    } else {\n        return errors.New(\"order is nil\")\n    }\n}\n```\n\nApply Go style best practices: guard clauses, early returns, and reduced nesting.",
       "expected_output": "A flat function with guard clauses checking error conditions first and returning early, with the happy path at the lowest nesting level.",
       "target_skills": [
-        "go-control-flow",
         "go-style-core"
       ],
       "assertions": [
-        "Maximum nesting depth is 2 (function body + one level for loop/if)",
+        "No nested if/else pyramid; at most loop-plus-guard nesting within a function",
         "Nil check and status check are guard clauses at the top with early returns",
         "Validation errors for items use continue or early return inside the loop, not nested else",
         "Happy path (calculate total, update DB) is at the outermost nesting level",
         "Error messages are preserved with the same information as the original",
-        "Function reads top-to-bottom without needing to track else branches"
+        "Function reads top-to-bottom without needing to track else branches",
+        "Preserves the original rejection of NaN item prices without assuming unspecified external input validation"
       ],
       "set": "validation"
     },
@@ -1389,6 +1399,37 @@
         "Rejects cross-tenant or expired allow fallback and does not turn unknown authorization into success; degradation must preserve security and caller-visible semantics",
         "Distinguishes circuit breaking from concurrency/rate limiting and prevents retries from bypassing the open breaker",
         "Proposes deterministic transition/concurrency/fallback tests and reports no actual execution"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 40,
+      "prompt": "Design a small internal Go constructor for a worker. Callers always supply Queue and Parallelism together; Parallelism must be positive. Our repository uses config structs. Show the constructor and one call site, keeping that convention. Do not build the worker runtime.",
+      "expected_output": "A small config-struct constructor that validates the supplied configuration, with no unnecessary Option abstraction or runtime implementation.",
+      "target_skills": [
+        "go-functions"
+      ],
+      "assertions": [
+        "Keeps a config struct API and supplies a constructor plus a call site",
+        "Rejects nonpositive Parallelism with a descriptive error",
+        "Does not introduce an Option interface, variadic option API, or With* helpers",
+        "Does not add a worker runtime, dependencies, or unrelated infrastructure"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 41,
+      "prompt": "Write a Go 1.23 iterator func Positive(values []int) iter.Seq[int] that yields positive values in input order. Show a caller that stops after the first result and explain what the producer must do at that point. Keep this to the iterator and example.",
+      "expected_output": "A direct iter.Seq producer that filters in order and immediately returns when yield is false, with a caller exiting after the first result and no auxiliary goroutines or materialized result collection.",
+      "target_skills": [
+        "go-style-core"
+      ],
+      "assertions": [
+        "Returns an iter.Seq[int] using APIs supported by Go 1.23",
+        "Yields only strictly positive values in input order",
+        "Checks every yield return and returns immediately on false, never yielding again",
+        "Shows a range caller that exits after the first result, using break or return",
+        "Does not introduce goroutines, channels, or an intermediate slice of results"
       ],
       "set": "validation"
     }

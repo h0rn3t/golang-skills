@@ -29,7 +29,7 @@ Reviewing an API boundary?
 ├─ 4. Resource cleanup   → Use defer for Close/Unlock/Cancel
 ├─ 5. Interface checks   → Route compile-time assertions to go-interfaces
 ├─ 6. Time correctness   → Use time.Time and time.Duration, not int/float
-├─ 7. Enum safety        → Zero value must mean unset (see go-declarations)
+├─ 7. Enum safety        → Zero value must mean unset (see go-style-core)
 ├─ 8. Crypto safety      → crypto/rand for keys, never math/rand
 └─ 9. Path safety        → os.Root for caller-supplied paths
 ```
@@ -45,7 +45,7 @@ Reviewing an API boundary?
 | Defer cleanup | `defer f.Close()` right after `os.Open` | Below |
 | Interface check | Compile-time satisfaction assertion | See go-interfaces |
 | Time types | `time.Time` / `time.Duration`, never raw int | [TIME-ENUMS-TAGS.md](references/TIME-ENUMS-TAGS.md) |
-| Enum start | Zero value must mean "unset" | See go-declarations |
+| Enum start | Zero value must mean "unset" | See go-style-core |
 | Crypto rand | `crypto/rand` for keys, never `math/rand` | Below |
 | Must functions | Only at init; panic on failure | [MUST-FUNCTIONS.md](references/MUST-FUNCTIONS.md) |
 | Panic/recover | Never expose panics across packages | [PANIC-RECOVER.md](references/PANIC-RECOVER.md) |
@@ -113,7 +113,7 @@ the public API for any type that crosses a serialization boundary.
 ## Start Enums at One
 
 An enum's zero value must not pass for a valid member — an unset field then
-reads as a real state at the boundary. [go-declarations](../go-declarations/SKILL.md)
+reads as a real state at the boundary. [go-style-core](../go-style-core/SKILL.md)
 owns the `iota` form and the exception where zero is the sensible default.
 
 ## Time, Struct Tags, and Embedding
@@ -209,5 +209,5 @@ var tmpl = template.Must(template.ParseFiles("index.html"))
 - **Concurrency safety**: See [go-concurrency](../go-concurrency/SKILL.md) when protecting shared state with mutexes, atomics, or channels
 - **Interface checks**: See [go-interfaces](../go-interfaces/SKILL.md) when adding compile-time interface satisfaction checks
 - **Data structure copying**: See [go-data-structures](../go-data-structures/SKILL.md) when working with slice/map internals or pointer aliasing
-- **Enum design**: See [go-declarations](../go-declarations/SKILL.md) when writing the `iota` block or choosing whether zero is a valid member
+- **Enum design**: See [go-style-core](../go-style-core/SKILL.md) when writing the `iota` block or choosing whether zero is a valid member
 - **Threat model**: See [go-security](../go-security/SKILL.md) when the caller-supplied value is untrusted — injection, SSRF, secrets, TLS; this skill owns the `os.Root` and `crypto/rand` forms it routes to

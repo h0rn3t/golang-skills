@@ -5,8 +5,8 @@ owner with a short pointer instead of repeating a full explanation.
 
 | Rule area | Canonical owner | Route from | Source basis |
 |---|---|---|---|
-| Interface placement and shape | `go-interfaces` | `go-code-review`, `go-control-flow`, `go-defensive` | Go CodeReviewComments `Interfaces`; Effective Go interface names |
-| Compile-time interface assertions | `go-interfaces` | `go-defensive`, `go-control-flow` | Uber `Verify Interface Compliance`; Effective Go blank identifier |
+| Interface placement and shape | `go-interfaces` | `go-code-review`, `go-style-core`, `go-defensive` | Go CodeReviewComments `Interfaces`; Effective Go interface names |
+| Compile-time interface assertions | `go-interfaces` | `go-defensive`, `go-style-core` | Uber `Verify Interface Compliance`; Effective Go blank identifier |
 | Context parameter placement and values | `go-context` | `go-concurrency`, `go-code-review`, `go-logging`, `go-testing` | Go CodeReviewComments `Contexts`; Google documentation conventions |
 | Goroutine lifetime and synchronization | `go-concurrency` | `go-context`, `go-code-review`, `go-testing` | Go CodeReviewComments `Goroutine Lifetimes`; Uber goroutine guidance |
 | Error matching, wrapping, and ownership | `go-error-handling` | `go-code-review`, `go-logging`, `go-defensive` | Uber `Errors`; Go CodeReviewComments `Handle Errors` |
@@ -14,11 +14,12 @@ owner with a short pointer instead of repeating a full explanation.
 | Documentation comments and examples | `go-documentation` | all skills that add exported APIs | Google doc comments; Go CodeReviewComments `Doc Comments` |
 | Naming, initialisms, receivers, packages | `go-naming` | `go-packages`, `go-interfaces`, `go-functions` | Effective Go naming; Go CodeReviewComments naming sections; Google naming decisions |
 | Pointers to interfaces | `go-functions` | `go-interfaces`, `go-code-review` | Uber `Pointers to Interfaces`; Go CodeReviewComments `Pass Values` |
-| Declarations, literals, initialization | `go-declarations` | `go-data-structures`, `go-style-core` | Google declarations decisions; Uber initialization guidance |
-| Nesting depth, early returns, unnecessary else | `go-style-core` | `go-control-flow`, `go-error-handling`, `go-code-refactor` | Uber `Reduce Nesting` / `Unnecessary Else`; Effective Go `if` |
-| iota enums and zero-value validity | `go-declarations` | `go-defensive` | Google constant decisions; Uber `Start Enums at One` |
+| Declarations, literals, initialization | `go-style-core` | `go-data-structures`, `go-code-review` | Google declarations decisions; Uber initialization guidance |
+| Statement scope, shadowing, loop/range mechanics, switch exits, and blank identifiers | `go-style-core` | `go-code`, `go-data-structures`, `go-naming` | Go specification; Effective Go control statements |
+| Nesting depth, early returns, unnecessary else | `go-style-core` | `go-error-handling`, `go-code-refactor` | Uber `Reduce Nesting` / `Unnecessary Else`; Effective Go `if` |
+| iota enums and zero-value validity | `go-style-core` | `go-defensive` | Google constant decisions; Uber `Start Enums at One` |
 | Data structure selection | `go-data-structures` | `go-generics`, `go-performance` | Go CodeReviewComments slices/maps; Google style decisions |
-| Functional options vs config structs | `go-functional-options` | `go-functions`, `go-interfaces` | Uber functional options; Google option struct guidance |
+| Function signatures, constructor configuration, functional options vs config structs | `go-functions` | `go-code`, `go-interfaces` | Uber functional options; Google option struct guidance |
 | Lint setup and static analysis | `go-linting` | `go-code-review`, `go-style-core` | Uber linting; golangci-lint v2 config schema |
 | Benchmarks, profiling, hot-path changes | `go-performance` | `go-data-structures`, `go-functions` | Uber performance guidance; Go testing benchmark docs |
 | Table tests, helpers, integration tests | `go-testing` | `go-code-review`, `go-documentation` | Google testing best practices; Uber test tables |

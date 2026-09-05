@@ -28,7 +28,7 @@ type Store interface {
     GetUser(ctx context.Context, id string) (*User, error)
 }
 
-// --- Types and constructors (go-naming, go-declarations) ---
+// --- Types and constructors (go-naming, go-style-core) ---
 
 // Server handles HTTP requests for the user API.
 type Server struct {
@@ -50,7 +50,7 @@ func NewServer(store Store) *Server {
 // Domain errors as sentinels — checked with errors.Is.
 var ErrNotFound = errors.New("not found")
 
-// --- HTTP handler (go-control-flow, go-context, go-error-handling) ---
+// --- HTTP handler (go-style-core, go-context, go-error-handling) ---
 
 func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
     ctx := r.Context()  // go-context: derive from request
@@ -60,7 +60,7 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
     if err != nil {
         if errors.Is(err, ErrNotFound) {  // go-error-handling: errors.Is
             http.Error(w, "user not found", http.StatusNotFound)
-            return  // go-control-flow: early return
+            return  // go-style-core: early return
         }
         // HTTP handlers are an exception to "log OR return": log detail server-side, return sanitized error to client.
         slog.Error("GetUser failed", "id", id, "err", err)
@@ -133,7 +133,7 @@ func run() error {
 | Naming | [go-naming](../../go-naming/SKILL.md) | MixedCaps, receiver abbreviation, clear func names |
 | Error handling | [go-error-handling](../../go-error-handling/SKILL.md) | Sentinels, `errors.Is`, log-or-return |
 | Context | [go-context](../../go-context/SKILL.md) | Derived from request, passed through |
-| Control flow | [go-control-flow](../../go-control-flow/SKILL.md) | Early returns for error cases |
+| Control flow | [go-style-core](../../go-style-core/SKILL.md) | Early returns for error cases |
 | Concurrency | [go-concurrency](../../go-concurrency/SKILL.md) | Clear goroutine lifetime, channel sizing |
 | Defensive | [go-defensive](../../go-defensive/SKILL.md) | `defer cancel()`, `time.Duration`, graceful shutdown |
 | Packages | [go-packages](../../go-packages/SKILL.md) | Exit only in `main()` |

@@ -120,7 +120,7 @@ func printInfo(name string, region Region, status Status)
 |----------|------|
 | C-style comments | Quick fix; few call sites; third-party API you can't change |
 | Custom types | Multiple call sites; public API; more than one bool/int parameter |
-| Functional options | 3+ optional parameters; see [go-functional-options](../../go-functional-options/SKILL.md) |
+| Config structs or functional options | Optional constructor settings; choose by caller needs using [OPTIONS-VS-STRUCTS.md](OPTIONS-VS-STRUCTS.md) |
 
 ---
 

@@ -158,8 +158,8 @@ Go names should not feel repetitive when used. Consider the full context:
 Never shadow Go's predeclared identifiers (`error`, `string`, `len`, `cap`,
 `append`, `copy`, `new`, `make`, etc.) as variable, parameter, or type names.
 
-**For detailed guidance**: See `go-declarations` — "Avoid Using Built-In Names"
-section.
+**For scope mechanics and detection**: See
+[SHADOWING.md](../go-style-core/references/SHADOWING.md).
 
 ---
 
@@ -174,7 +174,7 @@ section.
 | Constant | MixedCaps, never ALL_CAPS | `const MaxSize = 100` |
 | Initialism | consistent case | `userID`, `XMLAPI` |
 | Variable | length ~ scope size | `i` (small), `userCount` (large) |
-| Built-in names | Never shadow predeclared identifiers | See `go-declarations` |
+| Built-in names | Never shadow predeclared identifiers | See `go-style-core` |
 
 > **Validation**: After renaming identifiers, run `bash scripts/check-naming.sh` to verify no naming anti-patterns remain. Then run `go build ./...` to confirm the rename didn't break anything.
 
@@ -183,5 +183,5 @@ section.
 - **Interface naming**: See [go-interfaces](../go-interfaces/SKILL.md) when naming interfaces with the `-er` suffix or choosing receiver types
 - **Package naming**: See [go-packages](../go-packages/SKILL.md) when naming packages, avoiding `util`/`common`, or resolving import collisions
 - **Error naming**: See [go-error-handling](../go-error-handling/SKILL.md) when naming sentinel errors (`ErrFoo`) or custom error types
-- **Declaration scope**: See [go-declarations](../go-declarations/SKILL.md) when variable name length depends on scope or when avoiding built-in shadowing
+- **Declaration scope**: See [go-style-core](../go-style-core/SKILL.md) when variable name length depends on scope or when avoiding built-in shadowing
 - **Style principles**: See [go-style-core](../go-style-core/SKILL.md) when balancing clarity vs concision in identifier names

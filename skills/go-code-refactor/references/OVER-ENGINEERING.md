@@ -104,16 +104,16 @@ code a swap may be observable; `MODERNIZATION.md` says what each can change.
 
 | Instead of writing | Reach for |
 |---|---|
-| A three-clause loop over an index only | `for i := range n` (Go 1.22) → [go-control-flow](../../go-control-flow/SKILL.md) |
-| A walker taking a callback, a channel-fed generator, a slice built only to be ranged | A function returning `iter.Seq[T]` / `iter.Seq2[K, V]`, consumed with `for v := range seq` (Go 1.23) → [go-control-flow](../../go-control-flow/SKILL.md) |
+| A three-clause loop over an index only | `for i := range n` (Go 1.22) → [go-style-core](../../go-style-core/SKILL.md) |
+| A walker taking a callback, a channel-fed generator, a slice built only to be ranged | A function returning `iter.Seq[T]` / `iter.Seq2[K, V]`, consumed with `for v := range seq` (Go 1.23) → [go-style-core](../../go-style-core/SKILL.md) |
 | `x := x` before a closure or goroutine in a loop | Nothing — per-iteration loop variables (Go 1.22) |
 | Hand-written `min`/`max`; a loop deleting every key | `min`, `max`, `clear` builtins |
-| A temporary declared only to take its address | `new(expr)` (Go 1.26) → [go-declarations](../../go-declarations/SKILL.md) |
+| A temporary declared only to take its address | `new(expr)` (Go 1.26) → [go-style-core](../../go-style-core/SKILL.md) |
 | An `if`/`else` chain of fallbacks | `cmp.Or(a, b, c)` (Go 1.22) — it evaluates every argument |
 | Copies of one function that differ only in a type | One generic function, or a generic method (Go 1.27) — [go-generics](../../go-generics/SKILL.md) owns the threshold; two rhyming copies can be cheaper than a type parameter |
 | A struct with one method plus a constructor, to satisfy a one-method interface | A function type carrying the method, `http.HandlerFunc` style → [go-interfaces](../../go-interfaces/references/EMBEDDING.md) |
 | Forwarding methods that all call the same field | Embed the type — [go-interfaces](../../go-interfaces/SKILL.md) owns the exported-struct caveat |
-| A hand-written `String()` switch for an enum | `//go:generate go tool stringer -type=T` — `golang.org/x/tools`, tracked by a `tool` directive in `go.mod` (Go 1.24) instead of a `tools.go` of blank imports → [go-declarations](../../go-declarations/SKILL.md) |
+| A hand-written `String()` switch for an enum | `//go:generate go tool stringer -type=T` — `golang.org/x/tools`, tracked by a `tool` directive in `go.mod` (Go 1.24) instead of a `tools.go` of blank imports → [go-style-core](../../go-style-core/SKILL.md) |
 | A hand-written marshaler or field mapper | Struct tags; `omitzero` in new code (Go 1.24) → [go-defensive](../../go-defensive/SKILL.md) |
 | An asset loader, a file read at start-up, a static-file handler | `//go:embed` with `embed.FS`; `http.FileServerFS` (Go 1.22) → [go-packages](../../go-packages/SKILL.md) |
 | A runtime `GOOS`/`GOARCH` switch | A build tag |
@@ -236,7 +236,7 @@ Ordered by how much usually comes out.
   arguments. Call the inner type.
 - `Manager`, `Service`, `Handler` layer with one caller and no state.
 - Functional options constructor with one option, or options nobody passes →
-  [go-functional-options](../../go-functional-options/SKILL.md).
+  [go-functions](../../go-functions/SKILL.md).
 - Generic function instantiated at exactly one type →
   [go-generics](../../go-generics/SKILL.md).
 - `util`, `common`, `helpers`, `base` packages: move each function next to its

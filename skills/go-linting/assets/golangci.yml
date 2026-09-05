@@ -16,7 +16,7 @@ linters:
     - depguard      # go-packages: stdlib-first dependency ladder
     - errname       # go-naming: ErrFoo sentinels, FooError types
     - errorlint     # go-error-handling: errors.Is/AsType, never == or a type assertion
-    - exhaustive    # go-declarations: switch covers every iota enum member
+    - exhaustive    # go-style-core: switch covers every iota enum member
     - godot         # go-documentation: doc comments are full sentences
     - noctx         # go-context / go-http: outbound calls carry a context
     - perfsprint    # go-performance: strconv over fmt.Sprint

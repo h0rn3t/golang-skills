@@ -148,7 +148,7 @@ without a new dependency. See
 ## Related Skills
 
 - **Data structures**: See [go-data-structures](../go-data-structures/SKILL.md) when choosing between slices, maps, and arrays, or understanding allocation semantics
-- **Declaration patterns**: See [go-declarations](../go-declarations/SKILL.md) when using `make` with capacity hints or initializing maps and slices
+- **Declaration patterns**: See [go-style-core](../go-style-core/SKILL.md) when using `make` with capacity hints or initializing maps and slices
 - **Concurrency**: See [go-concurrency](../go-concurrency/SKILL.md) when parallelizing work across goroutines or using sync.Pool for buffer reuse
 - **Style principles**: See [go-style-core](../go-style-core/SKILL.md) when deciding whether an optimization is worth the readability cost
 - **Unknown cause**: See [go-troubleshooting](../go-troubleshooting/SKILL.md) when the program is slow, leaking, or hanging and nobody yet knows why — profile capture and the symptom catalog live there; this skill starts once the hot path is named

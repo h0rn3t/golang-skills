@@ -1,33 +1,35 @@
 ---
 name: go-style-core
-description: Use when working with Go formatting, line length, nesting, naked returns, semicolons, or core style principles. Also use when a style question isn't covered by a more specific skill, even if the user doesn't reference a specific style rule. Does not cover domain-specific patterns like error handling, naming, or testing (see specialized skills). Acts as fallback when no more specific style skill applies.
+description: Use when resolving Go style or language-mechanics questions about formatting, nesting, declarations, initialization, variable scope, shadowing, loops, switches, or enum zero values. Provides the baseline for go-code and the fallback for style questions without a specialized owner. Function API design, naming, error strategy, and testing belong to their specialized skills.
 ---
 
-# Go Style Core Principles
+# Go Style and Language Mechanics
+
+Apply the baseline below; read detailed syntax guidance only for the decision
+the task requires. An ordinary function edit does not require every reference.
+
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Respect the target
+> module's language version; references name version-sensitive features inline.
 
 ## Resource Routing
 
-- `references/PRINCIPLES.md` - Read when resolving conflicts between clarity, simplicity, concision, maintainability, and consistency.
-- `references/FORMATTING.md` - Read when handling gofmt, line breaks, whitespace, comments, or semicolons.
+- `references/PRINCIPLES.md` - Read when resolving a tradeoff between clarity, simplicity, concision, maintainability, and consistency.
+- `references/FORMATTING.md` - Read for line breaks, whitespace, comments, and semicolon mechanics.
+- `references/SCOPE.md` - Read for `var` vs `:=`, grouping declarations, if-init, and reassignment across scopes.
+- `references/SHADOWING.md` - Read when an inner declaration hides an outer variable or a predeclared identifier.
+- `references/IOTA.md` - Read when designing enum defaults, bitmasks, or grouped constants.
+- `references/INITIALIZATION.md` - Read for struct/map initialization, keyed literals, zero values, and pointers to optional values.
+- `references/CONTROL-FLOW.md` - Read when choosing loop/range forms, writing iterators, or preserving iteration behavior.
+- `references/SWITCH-PATTERNS.md` - Read for expression switches, fallthrough, and labeled breaks; route interface semantics to go-interfaces.
+- `references/BLANK-IDENTIFIER.md` - Read for intentional discards and side-effect imports; route interface assertions to go-interfaces.
 
-## Style Principles (Priority Order)
+## Style Principles
 
-When writing readable Go code, apply these principles in order of importance:
-
-### Priority Order
-
-1. **Clarity** — Can a reader understand the code without extra context?
-2. **Simplicity** — Is this the simplest way to accomplish the goal?
-3. **Concision** — Does every line earn its place?
-4. **Maintainability** — Will this be easy to modify later?
-5. **Consistency** — Does it match surrounding code and project conventions?
-
----
+Resolve readability tradeoffs in this order: clarity, simplicity, concision,
+maintainability, consistency. Use the least mechanism that delivers the user's
+requirements. These defaults operate within the precedence below.
 
 ## House Style Wins
-
-> **Owner**: this skill owns the consistency rule. Other skills route here
-> instead of restating it.
 
 Follow the host's instruction hierarchy. Within it, explicit user requirements
 and repository instructions take precedence over these skill defaults. Read
@@ -36,171 +38,78 @@ neighboring code before editing. Skills do not authorize extra work or require
 renewed approval for work the user already authorized.
 
 - Assertion style, error-wrapping style, logger, test layout, and the `_`
-  global prefix follow the nearest existing code, not the guide.
+  global prefix follow the nearest existing code.
 - Introduce a convention the guide prefers only in new code with no neighbor
   to match, or as a whole-package migration the user asked for.
 - A bug is not house style. Fix it within the authorized scope; report unrelated
   findings separately. A review-only request remains read-only.
 
----
-
 ## Formatting
 
-Run `gofmt` — no exceptions. There is **no rigid line length limit**, but Uber suggests a soft limit of 99 characters. Break by semantics, not length — refactor rather than just wrap.
+Use `gofmt` for Go source. This guide imposes no rigid line-length limit;
+break by meaning and readability, while respecting repository requirements.
 
 ## Write Current Go
 
-> **Normative**: Match the toolchain, not the codebase's oldest habits. Code
-> written in a superseded idiom is a style defect even when it compiles.
-
 Respect `go.mod`, build constraints, and supported CI toolchains; an installed
 newer Go version does not authorize a version bump. A scoped `go fix -diff`
-previews modernization. It flags
-the patterns Go has since replaced — `x := x` loop captures, three-clause
-counting loops, `sort.Slice`, `interface{}`, `wg.Add`/`Done` bookkeeping,
-`errors.As`, hand-written `min`/`max`; [go-linting](../go-linting/SKILL.md)
-lists the analyzers and owns the gate. `go fix` catches only what has a
-modernizer; for the rest, reach for the feature that replaces the block before
-writing it — [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships) is the checklist.
+previews modernization. [go-linting](../go-linting/SKILL.md) owns the analyzers
+and verification gate; [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships)
+lists standard-library replacements beyond the automated modernizers.
 
 Keep modernization within the task. If consistency would require unrelated
 rewrites, preserve the local idiom and report the opportunity separately.
 
----
-
 ## Reduce Nesting
 
-> **Owner**: this skill owns nesting depth, early returns, and unnecessary
-> `else`. Other skills route here instead of restating the rule.
-
-Handle error cases and special conditions first. Return early or continue the loop to keep the "happy path" unindented.
-
-```go
-// Bad: Deeply nested
-for _, v := range data {
-    if v.F1 == 1 {
-        v = process(v)
-        if err := v.Call(); err == nil {
-            v.Send()
-        } else {
-            return err
-        }
-    } else {
-        log.Printf("Invalid v: %v", v)
-    }
-}
-
-// Good: Flat structure with early returns
-for _, v := range data {
-    if v.F1 != 1 {
-        log.Printf("Invalid v: %v", v)
-        continue
-    }
-
-    v = process(v)
-    if err := v.Call(); err != nil {
-        return err
-    }
-    v.Send()
-}
-```
+Handle errors and special conditions first. Return early or continue the loop
+so the success path stays unindented. Preserve the order of validation, side
+effects, and returned errors when flattening existing code.
+Negate the original predicate exactly: for floating-point values, `!(x > 0)`
+also rejects NaN, while `x <= 0` does not. Preserve short-circuit evaluation.
 
 ### Unnecessary Else
 
-If a variable is set in both branches of an if, use default + override pattern.
+Omit `else` after a branch that exits. For two branches assigning one value,
+use default plus override when the default is safe to evaluate unconditionally;
+keep the branches when evaluation has side effects or is expensive.
 
-```go
-// Bad: Setting in both branches
-var a int
-if b {
-    a = 100
-} else {
-    a = 10
-}
+## Declarations and Scope
 
-// Good: Default + override
-a := 10
-if b {
-    a = 100
-}
-```
+- Use `:=` for local explicit values; `var` for intentional zero values,
+  top-level variables, or a type that differs from the expression.
+- Keep declarations near use. Use if-init when the value is confined to the
+  conditional; keep it outside when needed afterward or to avoid nesting.
+- Check whether `:=` reassigns in the same scope or shadows an outer variable.
+- Choose enum zero values deliberately: valid useful default or invalid/unset.
+- Preserve nil/empty and explicit-zero distinctions required by the API.
+  Prefer keyed struct literals; leave literal layout and examples to the reference.
 
----
+## Loops and Switches
+
+Preserve iteration order, value semantics, and exit targets when changing a
+loop. Map order is unspecified; string range yields byte offsets and runes.
+An iterator must stop when `yield` returns false. A `break` inside a switch
+exits that switch; use a label when the intended target is the enclosing loop.
+Read the relevant reference before adopting a version-sensitive loop form.
 
 ## Naked Returns
 
-A `return` statement without arguments returns the named return values. This is
-known as a "naked" return.
-
-```go
-func split(sum int) (x, y int) {
-    x = sum * 4 / 9
-    y = sum - x
-    return // returns x, y
-}
-```
-
-### Guidelines for Naked Returns
-
-- **OK in small functions**: Naked returns are fine in functions that are just a
-  handful of lines
-- **Be explicit in medium+ functions**: Once a function grows to medium size, be
-  explicit with return values for clarity
-- **Don't name results just for naked returns**: Clarity of documentation is
-  always more important than saving a line or two
-
-```go
-// Good: Small function, naked return is clear
-func minMax(a, b int) (min, max int) {
-    if a < b {
-        min, max = a, b
-    } else {
-        min, max = b, a
-    }
-    return
-}
-
-// Good: Larger function, explicit return
-func processData(data []byte) (result []byte, err error) {
-    result = make([]byte, 0, len(data))
-
-    for _, b := range data {
-        if b == 0 {
-            return nil, errors.New("null byte in data")
-        }
-        result = append(result, transform(b))
-    }
-
-    return result, nil // explicit: clearer in longer functions
-}
-```
-
-See **go-documentation** for guidance on Named Result Parameters.
-
----
-
-## Semicolons
-
-The lexer inserts a semicolon after any line ending in an identifier, literal,
-`return`, `)`, or `}`, so an opening brace on its own line is a syntax error,
-not a style choice — `gofmt` settles the rest. Explicit semicolons belong only
-in `for` clauses.
-
----
+Use explicit return values once a function is too long to see its named
+results easily. A naked return is acceptable in a handful of clear lines;
+do not name results solely to omit them at `return`. Named-result documentation
+belongs to [go-documentation](../go-documentation/SKILL.md).
 
 ## How Much To Say
 
-> **Owner**: this skill owns how the agent talks while it works, how long its
-> written output is, and when it delegates. Other skills route here.
-
+This skill owns narration, report length, and delegation guidance for the pack.
 Follow the host's communication requirements. Give a short initial update and
 meaningful progress updates during longer work: findings, decisions, blockers,
 or the next check. Avoid narrating every read. Close with the outcome, observed
 verification results, and material limitations; never imply a skipped check ran.
 
-Size anything written to disk — a report, a review, a design note — to what the
-task needs. The `assets/` templates are the shape; filler sections, restated
-summaries, and boilerplate are noise, and an empty section is one line.
+Size reports, reviews, and design notes to the task. Use applicable `assets/`
+templates without filler sections or repeated summaries.
 
 Keep routine edits and checks inline. When the user or host authorizes parallel
 work, delegate only bounded, independent tasks with clear ownership and useful
@@ -210,11 +119,11 @@ model choice, and delegation limits belong to the host, not to a Go style rule.
 
 ## Related Skills
 
-- **Naming conventions**: See [go-naming](../go-naming/SKILL.md) when applying MixedCaps, choosing identifier names, or resolving naming debates
-- **Error flow**: See [go-error-handling](../go-error-handling/SKILL.md) when choosing an error strategy, wrapping errors, or deciding log-vs-return
-- **Statement mechanics**: See [go-control-flow](../go-control-flow/SKILL.md) when writing `if`-init, `range` loops, switch, or type switches
-- **Documentation**: See [go-documentation](../go-documentation/SKILL.md) when writing doc comments, named return parameters, or package-level docs
-- **Linting enforcement**: See [go-linting](../go-linting/SKILL.md) when automating style checks with golangci-lint or configuring CI
-- **Code review**: See [go-code-review](../go-code-review/SKILL.md) when applying style principles during a systematic code review
-- **Applying these rules to existing code**: See [go-code-refactor](../go-code-refactor/SKILL.md) when the fix is a multi-step behavior-preserving refactor rather than a single style call
-- **Logging style**: See [go-logging](../go-logging/SKILL.md) when reviewing logging practices, choosing between log and slog, or structuring log output
+- **Function APIs**: [go-functions](../go-functions/SKILL.md) for signatures, constructors, config structs, and functional options.
+- **Naming**: [go-naming](../go-naming/SKILL.md) for identifiers and receiver names.
+- **Errors**: [go-error-handling](../go-error-handling/SKILL.md) for error strategy, wrapping, and log-vs-return.
+- **Interfaces**: [go-interfaces](../go-interfaces/SKILL.md) for type assertions, type switches, and compile-time checks.
+- **Collections**: [go-data-structures](../go-data-structures/SKILL.md) for choosing and owning slices/maps; [go-performance](../go-performance/SKILL.md) for capacity hints.
+- **Documentation**: [go-documentation](../go-documentation/SKILL.md) for exported API comments and examples.
+- **Verification**: [go-linting](../go-linting/SKILL.md) for the shared gate and CI configuration.
+- **Review and refactoring**: [go-code-review](../go-code-review/SKILL.md) for a systematic review; [go-code-refactor](../go-code-refactor/SKILL.md) for behavior-preserving restructuring.

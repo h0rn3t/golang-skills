@@ -92,14 +92,12 @@ func (s *Store) GetUser(
 
 ---
 
-## Local Consistency
+## Semicolons and Local Consistency
 
-When the style guide is silent, be consistent with nearby code:
+Go inserts semicolons at specified line endings. Keep an opening control-block
+brace with its statement; let `gofmt` handle layout. Explicit semicolons are
+normally needed only to separate if/switch initializers or for clauses.
 
-**Valid** local choices:
-- `%s` vs `%v` for error formatting
-- Buffered channels vs mutexes
-
-**Invalid** local overrides:
-- Line length restrictions
-- Assertion-based testing libraries
+The [house-style rule](../SKILL.md#house-style-wins) governs local conventions,
+including line-length policies and assertion libraries. This reference does
+not override repository requirements.

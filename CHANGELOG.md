@@ -4,6 +4,20 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Skill consolidation
+
+- Reduce the pack from 27 to 24 skills: merge `go-functional-options` into
+  `go-functions`, and `go-control-flow` plus `go-declarations` into
+  `go-style-core`. Update explicit invocations to those owner names; manually
+  copied installations must remove the retired directories.
+- Keep the style entrypoint short with conditional syntax references; combine
+  overlapping initialization/literal/struct guides into one reference. The
+  pack now contains 61 references.
+- Narrow function API activation, preserve config-struct and functional-options
+  choices, and update routing, ownership, and eval expectations. Add focused
+  translation, shadowing, config-convention, and iterator-stop scenarios.
+  Probe results and limitations are in `docs/SKILL_CONSOLIDATION_REVIEW.md`.
+
 ### Cross-model compatibility
 
 - Align shared Go instructions with GPT-6 Astra guidance while retaining the

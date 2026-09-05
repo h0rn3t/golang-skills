@@ -86,7 +86,7 @@ allowed-tools: Bash(bash:*)
 - [ ] **Variable names**: Short names for limited scope (`i`, `r`, `c`); longer names for wider scope → [go-naming](../go-naming/SKILL.md)
 - [ ] **Receiver names**: One or two letter abbreviation of type (`c` for `Client`); no `this`, `self`, `me`; consistent across methods → [go-naming](../go-naming/SKILL.md)
 - [ ] **Package names**: No stuttering (use `chubby.File` not `chubby.ChubbyFile`); avoid `util`, `common`, `misc` → [go-packages](../go-packages/SKILL.md)
-- [ ] **Avoid built-in names**: Don't shadow `error`, `string`, `len`, `cap`, `append`, `copy`, `new`, `make` → [go-declarations](../go-declarations/SKILL.md)
+- [ ] **Avoid built-in names**: Don't shadow `error`, `string`, `len`, `cap`, `append`, `copy`, `new`, `make` → [go-style-core](../go-style-core/SKILL.md)
 
 ---
 
@@ -124,11 +124,11 @@ allowed-tools: Bash(bash:*)
 
 ## Declarations and Initialization
 
-- [ ] **Group similar**: Related `var`/`const`/`type` in parenthesized blocks; separate unrelated → [go-declarations](../go-declarations/SKILL.md)
-- [ ] **var vs :=**: Use `var` for intentional zero values; `:=` for explicit assignments → [go-declarations](../go-declarations/SKILL.md)
-- [ ] **Reduce scope**: Move declarations close to usage; use if-init to limit variable scope → [go-declarations](../go-declarations/SKILL.md)
-- [ ] **Struct init**: Always use field names; omit zero fields; `var` for zero structs → [go-declarations](../go-declarations/SKILL.md)
-- [ ] **Use `any`**: Prefer `any` over `interface{}` in new code → [go-declarations](../go-declarations/SKILL.md)
+- [ ] **Group similar**: Related `var`/`const`/`type` in parenthesized blocks; separate unrelated → [go-style-core](../go-style-core/SKILL.md)
+- [ ] **var vs :=**: Use `var` for intentional zero values; `:=` for explicit assignments → [go-style-core](../go-style-core/SKILL.md)
+- [ ] **Reduce scope**: Move declarations close to usage; use if-init to limit variable scope → [go-style-core](../go-style-core/SKILL.md)
+- [ ] **Struct init**: Prefer keyed fields; preserve meaningful zero values and local exceptions → [go-style-core](../go-style-core/SKILL.md)
+- [ ] **Use `any`**: Prefer `any` over `interface{}` in new code → [go-style-core](../go-style-core/SKILL.md)
 
 ---
 

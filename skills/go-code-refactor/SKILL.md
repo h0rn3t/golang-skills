@@ -92,10 +92,10 @@ bounds check is a bug, not laziness. These stay even when the diff gets uglier.
 
 ### 1. Orient
 
-Read enough of the package to know what idiomatic means *here*. A refactor that
-imports a house style the repo does not use creates a second dialect — worse
-than the original mess. [go-style-core](../go-style-core/SKILL.md) owns the rule: a local
-`.golangci.yml`, `CONTRIBUTING.md`, or neighboring code outranks any skill here.
+Before rewriting, read [go-style-core](../go-style-core/SKILL.md) for the shared
+style and control-flow rules, including snippet-only refactors. Inspect enough
+of the package to follow its conventions: `.golangci.yml`, `CONTRIBUTING.md`,
+and neighboring code take precedence over the guide's defaults.
 
 Flag two file classes before editing: **generated** files (exclude silently
 when incidental, ask when they are the target) and **build-tagged** files for

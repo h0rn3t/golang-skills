@@ -126,7 +126,7 @@ func process(u *User) error {
 
 Rules that fall out: no `else` after a `return`; handle the error case first;
 scope `err` into the `if` when it is not used later
-([go-control-flow](../../go-control-flow/SKILL.md)).
+([go-style-core](../../go-style-core/SKILL.md)).
 
 **Careful**: do not hoist a condition's subexpressions into variables above the
 `if` — that defeats short-circuiting and can panic where the original did not.
@@ -230,7 +230,7 @@ use rather than at the top of the function; scope to the smallest block
 does explanatory work; eliminate accidental shadowing — two `err`s at different
 depths is a reliable source of confusion; group related package-level
 declarations into one block. See
-[go-declarations](../../go-declarations/SKILL.md).
+[go-style-core](../../go-style-core/SKILL.md).
 
 ---
 

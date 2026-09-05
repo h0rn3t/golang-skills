@@ -165,5 +165,5 @@ func increment(sc *SafeCounter) {
 
 - **Defensive copying**: See [go-defensive](../go-defensive/SKILL.md) when copying slices or maps at API boundaries to prevent mutation
 - **Capacity hints**: See [go-performance](../go-performance/SKILL.md) when pre-sizing slices or maps for known workloads
-- **Iteration patterns**: See [go-control-flow](../go-control-flow/SKILL.md) when using range loops over slices, maps, or channels
-- **Declaration style**: See [go-declarations](../go-declarations/SKILL.md) when choosing between `new`, `make`, `var`, and composite literals
+- **Iteration patterns**: See [go-style-core](../go-style-core/SKILL.md) when using range loops over slices, maps, or channels
+- **Declaration style**: See [go-style-core](../go-style-core/SKILL.md) when choosing between `new`, `make`, `var`, and composite literals

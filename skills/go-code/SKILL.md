@@ -85,6 +85,10 @@ Then load only the rows the task actually touches. The third column names the
 skill a row almost always drags in — load it in the same pass, not after the
 first draft exposes the gap:
 
+`go-style-core` is already loaded. For a declaration or control-flow decision,
+read only its matching reference; ordinary use of an `if` or local variable
+does not require another skill load.
+
 | Task touches | Skill | Also load |
 |---|---|---|
 | errors, wrapping, `errors.Is`/`errors.AsType` | [go-error-handling](../go-error-handling/SKILL.md) | — |
@@ -93,16 +97,15 @@ first draft exposes the gap:
 | tests, table-driven cases, `synctest` | [go-testing](../go-testing/SKILL.md) | — |
 | new identifiers, new exported API | [go-naming](../go-naming/SKILL.md) | [go-documentation](../go-documentation/SKILL.md) |
 | interfaces, embedding, test doubles | [go-interfaces](../go-interfaces/SKILL.md) | — |
-| constructor with 3+ optional parameters | [go-functional-options](../go-functional-options/SKILL.md) | — |
+| function API design, constructor configuration, ordering, signatures, `Printf` helpers | [go-functions](../go-functions/SKILL.md) | — |
 | slices, maps, arrays, sets | [go-data-structures](../go-data-structures/SKILL.md) | — |
-| `var`/`const` blocks, `iota`, composite literals | [go-declarations](../go-declarations/SKILL.md) | — |
-| `if`/`for`/`switch` mechanics, statement scoping | [go-control-flow](../go-control-flow/SKILL.md) | — |
+| declaration, enum, or initialization decisions | [go-style-core references](../go-style-core/SKILL.md#resource-routing) | — |
+| loop/switch mechanics or statement scoping decisions | [go-style-core references](../go-style-core/SKILL.md#resource-routing) | — |
 | type parameters, constraints, generic methods | [go-generics](../go-generics/SKILL.md) | — |
 | `slog`, log levels, request-scoped fields | [go-logging](../go-logging/SKILL.md) | [go-security](../go-security/SKILL.md) if a secret or PII could reach a log line |
 | `defer` cleanup, boundary copies, mutable globals | [go-defensive](../go-defensive/SKILL.md) | — |
 | hot paths, allocations, benchmarks | [go-performance](../go-performance/SKILL.md) | [go-troubleshooting](../go-troubleshooting/SKILL.md) if the cause of slowness is unknown |
 | package layout, imports, dependencies | [go-packages](../go-packages/SKILL.md) | — |
-| function ordering, signatures, `Printf` verbs | [go-functions](../go-functions/SKILL.md) | — |
 | restructuring or deleting existing code | [go-code-refactor](../go-code-refactor/SKILL.md) | — |
 | linter config, CI checks | [go-linting](../go-linting/SKILL.md) | — |
 | HTTP handlers, routing, middleware, servers, clients | [go-http](../go-http/SKILL.md) | [go-error-handling](../go-error-handling/SKILL.md); [go-security](../go-security/SKILL.md) if input reaches a file, shell, URL, or template |

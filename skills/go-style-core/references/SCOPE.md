@@ -9,6 +9,11 @@ scope in Go.
 
 ## Top-Level Declarations
 
+Group related `var`, `const`, and `type` declarations in blocks; keep unrelated
+top-level declarations separate. Adjacent local declarations may share a block
+when this improves readability. Follow the repository's naming convention for
+globals; the `_` prefix in examples is not a universal rule.
+
 At the top level, always use `var`. Do not specify the type unless it differs
 from the expression's type:
 
@@ -74,6 +79,23 @@ var ratio float64 = computeRatio()
 ---
 
 ## Reducing Scope
+
+### Redeclaration versus reassignment
+
+In the same block, `:=` may reuse an existing variable if at least one other
+non-blank variable is new and the reused variable keeps its type:
+
+```go
+f, err := os.Open(name)
+if err != nil {
+    return err
+}
+defer f.Close()
+d, err := f.Stat() // new d, same err
+```
+
+An inner block instead declares a new variable with that name. See
+[SHADOWING.md](SHADOWING.md) before changing assignment across a block boundary.
 
 ### If-init pattern
 

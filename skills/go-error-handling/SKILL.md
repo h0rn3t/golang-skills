@@ -205,5 +205,5 @@ annotation adds nothing, return `err` directly.
 - **Error naming**: See [go-naming](../go-naming/SKILL.md) when naming sentinel errors (`ErrFoo`) or custom error types
 - **Testing errors**: See [go-testing](../go-testing/SKILL.md) when testing error semantics with `errors.Is`/`errors.As` or writing error-checking helpers
 - **Panic handling**: See [go-defensive](../go-defensive/SKILL.md) when deciding between panic and error returns, or writing recover guards
-- **Guard clauses**: See [go-style-core](../go-style-core/SKILL.md) — it owns nesting depth and early returns; see [go-control-flow](../go-control-flow/SKILL.md) for `if`-init and statement mechanics
+- **Guard clauses**: See [go-style-core](../go-style-core/SKILL.md) — it owns nesting depth and early returns; see [go-style-core](../go-style-core/SKILL.md) for `if`-init and statement mechanics
 - **Logging decisions**: See [go-logging](../go-logging/SKILL.md) when choosing log levels, configuring structured logging, or deciding what context to include in log messages

@@ -9,7 +9,9 @@
 var err error
 if condition {
     val, err := someFunc()  // new err — outer err stays nil
-    use(val)
+    if err == nil {
+        use(val)
+    }
 }
 return err  // always nil!
 ```
@@ -21,14 +23,21 @@ var err error
 if condition {
     var val int
     val, err = someFunc()  // assigns to outer err
-    use(val)
+    if err == nil {
+        use(val)
+    }
 }
 return err  // correct
 ```
 
 ### Detection
 
-Enable the `shadow` linter via `go vet`:
+Avoid hiding predeclared identifiers such as `error`, `string`, `len`, `new`,
+`make`, or `any`; choose a name for the value's role instead. Plain `go vet`
+does not generally diagnose shadowing. For outer-variable checks, use the
+optional shadow analyzer or the repository's configured lint checks.
+
+With the `shadow` analyzer installed, invoke it via `go vet`:
 
 ```bash
 go vet -vettool=$(which shadow) ./...

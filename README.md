@@ -3,7 +3,7 @@
 **English** | [Українська](README.uk.md)
 
 AI [Agent Skills](https://agentskills.io/) for writing idiomatic,
-production-quality **Go 1.27** code. 27 modular skills teach AI coding
+production-quality **Go 1.27** code. 24 modular skills teach AI coding
 assistants Go best practices derived from:
 
 - [Google Go Style Guide](https://google.github.io/styleguide/go/)
@@ -14,7 +14,7 @@ assistants Go best practices derived from:
 Skills are tuned following
 [agentskills.io best practices](https://agentskills.io/skill-creation/best-practices):
 content the agent already knows is omitted, procedural decision trees guide
-multi-step tasks, 62 reference files load on demand via progressive disclosure,
+multi-step tasks, 61 reference files load on demand via progressive disclosure,
 10 bundled scripts automate common checks, and 5 asset templates ensure
 consistent output. The Claude Code plugin also ships a `go-verify` subagent
 that runs the verification gate and a PostToolUse hook that runs `gofmt` and
@@ -29,15 +29,12 @@ that runs the verification gate and a PostToolUse hook that runs `gofmt` and
 | **go-code-review** | Systematic checklist for reviewing Go code and PR submissions |
 | **go-concurrency** | Goroutine lifecycle, channels, mutexes, parallelization, thread-safety |
 | **go-context** | Context.Context placement, cancellation, deadlines, request-scoped data |
-| **go-control-flow** | Idiomatic conditionals, loops, switch/break behavior, guard clauses |
 | **go-data-structures** | Slices, maps, arrays — allocation with new vs make, append, copying |
 | **go-database** | database/sql and ORMs — contexts on queries, rows lifecycle, transactions, N+1, pool settings |
-| **go-declarations** | Variable/const/type declarations, var vs :=, iota enums, shadowing |
 | **go-defensive** | API boundary hardening, defer cleanup, Must functions, time handling |
 | **go-documentation** | Doc comments, package docs, godoc formatting, runnable examples |
 | **go-error-handling** | Error strategy decisions, wrapping (%v vs %w), sentinels, logging patterns |
-| **go-functional-options** | Functional options pattern for constructors with optional config |
-| **go-functions** | Function ordering, signature formatting, Printf verbs, Stringer interface |
+| **go-functions** | Function APIs, ordering, signatures, Printf helpers, constructor config structs and functional options |
 | **go-generics** | When to use generics, constraints, common pitfalls, type aliases |
 | **go-http** | net/http handlers, ServeMux routing, middleware, server timeouts, shutdown, clients |
 | **go-interfaces** | Interface design, abstractions, embedding, "accept interfaces return structs" |
@@ -48,9 +45,24 @@ that runs the verification gate and a PostToolUse hook that runs `gofmt` and
 | **go-performance** | String optimization, capacity hints, benchmarking, strconv over fmt |
 | **go-resilience** | Retry budgets, idempotency, circuit breakers, bulkheads, rate limits, backpressure, graceful degradation |
 | **go-security** | Trust-boundary threat model — injection, SSRF, secrets, constant-time compare, password hashing, TLS, cookies, redaction |
-| **go-style-core** | Formatting, nesting reduction, style principles, fallback style guide |
+| **go-style-core** | Style baseline, formatting, nesting, declarations, initialization, scope, loops, switches, and enums |
 | **go-testing** | Table-driven tests, subtests, test helpers, assertions, test organization |
 | **go-troubleshooting** | Ticket and root-cause investigation, deployed version/config checks, data-flow tracing, panics, hangs, leaks, flaky tests |
+
+### Consolidated Skill Names
+
+Update explicit invocations and copied skill installations using this mapping:
+
+| Previous name | Current name |
+|---|---|
+| `go-functional-options` | `go-functions` |
+| `go-control-flow` | `go-style-core` |
+| `go-declarations` | `go-style-core` |
+
+The old skill directories are removed. For manual installations, replace them
+with the current owner directories, including their references; remove stale
+copies of the three retired directories to avoid duplicate discovery. The
+always-loaded style entrypoint stays short, with syntax details read on demand.
 
 ## Bundled Scripts
 
@@ -110,7 +122,7 @@ Codex, OpenCode, Cline, GitHub Copilot, Windsurf, Roo Code, and [25+ more
 agents](https://github.com/vercel-labs/skills#supported-agents).
 
 ```bash
-# all 27 skills
+# all 24 skills
 npx skills add h0rn3t/golang-skills --all
 
 # or pick individual skills
@@ -197,7 +209,7 @@ which works across multiple AI coding tools. When you're writing Go code:
    (e.g., `go-naming` when you're writing a new function)
 2. **Procedural guidance**: Decision trees and step-by-step procedures for
    multi-step tasks like code review and error strategy selection
-3. **Progressive disclosure**: Core rules load immediately; 62 reference files
+3. **Progressive disclosure**: Core rules load immediately; 61 reference files
    load on demand when specific situations arise
 4. **Automation**: 10 bundled scripts handle repetitive checks so the agent
    focuses on higher-level guidance
@@ -216,8 +228,8 @@ which works across multiple AI coding tools. When you're writing Go code:
 
 ## Running the Evals
 
-`evals/evals.json` holds 90 trigger evals (does the right skill fire for this
-prompt?) and 39 quality evals (does the answer satisfy each assertion?). The Go
+`evals/evals.json` holds 92 trigger evals (does the right skill fire for this
+prompt?) and 41 quality evals (does the answer satisfy each assertion?). The Go
 tests in `evals/` validate their schema on every push; running them against a
 model is opt-in because it costs tokens:
 
@@ -256,7 +268,7 @@ changed with recent releases:
 | `go fix` modernizers as part of the gate | go-linting, go-style-core |
 | `slices.Clone`/`maps.Clone` and `os.Root` at boundaries | go-defensive |
 | `slog.NewMultiHandler`, `slog.GroupAttrs` | go-logging |
-| `new(expr)` for non-composite pointers | go-declarations |
+| `new(expr)` for non-composite pointers | go-style-core |
 | `ServeMux` method patterns, `http.NewCrossOriginProtection`, `MaxHeaderValueCount` | go-http |
 | `sql.Null[T]` for nullable columns | go-database |
 | `crypto/pbkdf2`, `crypto/hkdf`, `crypto/sha3` in stdlib; `rsa.EncryptPKCS1v15` deprecated for new designs | go-security |

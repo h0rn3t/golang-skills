@@ -168,5 +168,5 @@ receivers only for small, immutable types (`Point`, `time.Time`) or basic types.
 - **Interface naming**: See [go-naming](../go-naming/SKILL.md) when naming interfaces (the `-er` suffix convention) or choosing receiver names
 - **Error types**: See [go-error-handling](../go-error-handling/SKILL.md) when implementing the `error` interface, custom error types, or `errors.As` matching
 - **Generics vs interfaces**: See [go-generics](../go-generics/SKILL.md) when deciding whether generics are needed or an interface already suffices
-- **Functional options**: See [go-functional-options](../go-functional-options/SKILL.md) when using an interface-based Option pattern for flexible constructors
+- **Functional options**: See [go-functions](../go-functions/SKILL.md) when using an interface-based Option pattern for flexible constructors
 - **Defensive boundaries**: See [go-defensive](../go-defensive/SKILL.md) when interface assertions are one part of a broader API-boundary hardening pass

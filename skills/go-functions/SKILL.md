@@ -1,6 +1,6 @@
 ---
 name: go-functions
-description: Use when organizing functions within a Go file, formatting function signatures, designing return values, or following Printf-style naming conventions. Also use when a user is adding or refactoring any Go function, even if they don't mention function design or signature formatting. Does not cover functional options constructors (see go-functional-options).
+description: Use when designing or reviewing Go function APIs — parameters, return values, signature readability, function ordering, Printf-style helpers, or constructors with optional configuration. Covers choosing ordinary parameters, config structs, or functional options. A routine function-body edit alone does not require this skill; route its actual topic to the relevant Go skill.
 ---
 
 # Go Function Design
@@ -9,8 +9,11 @@ description: Use when organizing functions within a Go file, formatting function
 
 - `references/SIGNATURES.md` - Read when designing parameters, return values, named results, or signature readability.
 - `references/PRINTF-STRINGER.md` - Read when using fmt verbs, Stringer, GoStringer, Formatter, or Printf-style function naming.
+- `references/OPTIONS-VS-STRUCTS.md` - Read when choosing or implementing constructor configuration: config structs, functional options, defaults, validation, and caller ergonomics.
 
-> **When this skill does NOT apply**: For functional options constructors (`WithTimeout`, `WithLogger`), see [go-functional-options](../go-functional-options/SKILL.md). For error return conventions, see [go-error-handling](../go-error-handling/SKILL.md). For naming functions and methods, see [go-naming](../go-naming/SKILL.md).
+For error strategy, see [go-error-handling](../go-error-handling/SKILL.md).
+For identifier names, see [go-naming](../go-naming/SKILL.md). Follow existing
+API conventions and preserve signatures unless changing them is in scope.
 
 ---
 
@@ -86,8 +89,29 @@ or error messages — it safely escapes special characters and wraps in quotes:
 return fmt.Errorf("unknown key %q", key) // produces: unknown key "foo\nbar"
 ```
 
-See **go-functional-options** when designing a constructor with 3+ optional
-parameters.
+## Constructors and Optional Configuration
+
+Choose the API by how callers configure it; an option count alone does not
+justify functional options.
+
+| Caller needs | Starting point |
+|---|---|
+| A few required inputs | Ordinary parameters; meaningful types for ambiguous values |
+| Settings usually supplied together, especially internal APIs | Config struct with documented zero values/defaults |
+| Public API with independently optional settings and useful defaults | Consider functional options; weigh caller clarity against added types and helpers |
+
+Keep required inputs separate from optional settings. Apply defaults first,
+then caller settings, then validate the final configuration, including
+interdependent fields. Distinguish unset from explicit zero when they differ.
+Do not change an existing config API merely to introduce `With*` helpers.
+Check omitted, explicit zero/nil, and repeated settings against the documented
+constructor contract. Resolve known mismatches in the code before presenting
+it; a caveat does not make a contradictory invariant hold.
+
+When functional options fit and the repository has no established pattern,
+this pack prefers an exported `Option` interface with an unexported `apply`
+method. Preserve an existing closure-based convention. Implementation and
+tradeoffs live in the constructor reference above.
 
 ---
 
@@ -100,6 +124,7 @@ parameters.
 | Naked parameters | Add `/* name */` comments or use custom types |
 | Pointers to interfaces | Almost never needed; pass interfaces by value |
 | Printf function names | End with `f` for `go vet` support |
+| Constructor configuration | Choose by caller needs; defaults, overrides, then validation |
 
 ---
 
@@ -107,5 +132,6 @@ parameters.
 
 - **Error returns**: See [go-error-handling](../go-error-handling/SKILL.md) when designing error return patterns or wrapping errors in multi-return functions
 - **Naming conventions**: See [go-naming](../go-naming/SKILL.md) when naming functions, methods, or choosing getter/setter patterns
-- **Functional options**: See [go-functional-options](../go-functional-options/SKILL.md) when designing a constructor with 3+ optional parameters
+- **Option interfaces**: See [go-interfaces](../go-interfaces/SKILL.md) when the abstraction itself needs design or review
+- **API documentation**: See [go-documentation](../go-documentation/SKILL.md) when documenting exported constructors, defaults, or `With*` functions
 - **Formatting principles**: See [go-style-core](../go-style-core/SKILL.md) when deciding line length, naked returns, or signature formatting

@@ -16,6 +16,11 @@ All notable changes to this repository are documented here.
 
 ### Added
 
+- `go-resilience`: replay safety and retry budgets, idempotency across replicas,
+  bounded load admission, circuit recovery and graceful degradation. Includes
+  two routed references and six quality plus six trigger scenarios. Behavioral
+  evidence and limitations are in `docs/GO_RESILIENCE_REVIEW.md`.
+
 - `go-troubleshooting` references for ticket investigation and data-flow tracing,
   with deployed-version/config checks, working-case comparison, testable
   hypotheses, and confirmed/probable/unresolved findings.
@@ -155,6 +160,10 @@ All notable changes to this repository are documented here.
   marketplace versions to agree and to have a `CHANGELOG.md` section.
 
 ### Fixed
+
+- Replace `go-http`'s blanket ban on 4xx retries with routing to `go-resilience`:
+  documented 429 handling depends on replay safety, Retry-After and budgets.
+  Link context, concurrency, database and troubleshooting guidance to the owner.
 
 - Troubleshooting no longer treats a blocked stack as proof of a leak, a panic
   site as its root cause, or a closed-channel panic as necessarily a data race.

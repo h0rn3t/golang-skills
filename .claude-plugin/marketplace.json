@@ -4,14 +4,14 @@
     "name": "cxuu"
   },
   "metadata": {
-    "description": "26 modular skills for idiomatic Go 1.27, derived from Effective Go, Google Go Style Guide, Uber Go Style Guide, and Go Wiki CodeReviewComments. Backed by 60 reference files, 10 automation scripts (all with --json, --limit, --force), 5 asset templates, a go-verify subagent, and a PostToolUse gofmt/vet hook.",
+    "description": "27 modular skills for idiomatic Go 1.27, derived from Effective Go, Google Go Style Guide, Uber Go Style Guide, and Go Wiki CodeReviewComments. Backed by 62 reference files, 10 automation scripts (all with --json, --limit, --force), 5 asset templates, a go-verify subagent, and a PostToolUse gofmt/vet hook.",
     "version": "1.10.0"
   },
   "plugins": [
     {
       "name": "golang-skills",
       "source": "./",
-      "description": "26 Go 1.27 skills (each under 225 lines) with progressive disclosure, conditional cross-references, a shared verification gate enforced by the bundled golangci-lint baseline, a go-verify subagent, and a gofmt/vet PostToolUse hook. Covers HTTP, database access, security, troubleshooting, behavior-preserving refactoring, style, naming, error handling, testing, concurrency, generics, logging, documentation, performance, and more.",
+      "description": "27 Go 1.27 skills (each under 225 lines) with progressive disclosure, conditional cross-references, a shared verification gate enforced by the bundled golangci-lint baseline, a go-verify subagent, and a gofmt/vet PostToolUse hook. Covers HTTP, database access, security, resilience, troubleshooting, behavior-preserving refactoring, style, naming, error handling, testing, concurrency, generics, logging, documentation, performance, and more.",
       "version": "1.10.0"
     }
   ]

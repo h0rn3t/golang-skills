@@ -198,6 +198,8 @@ buffer" pattern uses `select` with `default` for non-blocking operations.
 
 ## Related Skills
 
+- **Overload policy**: [go-resilience](../go-resilience/SKILL.md) owns bulkhead admission, queue/backpressure policy, rate scope, and recovery budgets.
+
 - **Context propagation**: See [go-context](../go-context/SKILL.md) when passing cancellation, deadlines, or request-scoped values through goroutines
 - **Error handling**: See [go-error-handling](../go-error-handling/SKILL.md) when propagating errors from goroutines or using errgroup
 - **Defensive hardening**: See [go-defensive](../go-defensive/SKILL.md) when protecting shared state at API boundaries or using defer for cleanup

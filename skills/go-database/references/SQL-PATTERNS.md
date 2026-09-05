@@ -97,7 +97,10 @@ func (r *AccountRepo) Transfer(ctx context.Context, from, to int64, cents int64)
 
 Isolation level goes in `sql.TxOptions{Isolation: sql.LevelSerializable}` when
 the invariant spans rows; then retry on the serialization-failure SQLSTATE
-(`40001` on Postgres) a bounded number of times.
+(`40001` on Postgres) by rerunning the complete transaction, including the
+reads that informed its writes, a bounded number of times.
+[go-resilience](../../go-resilience/SKILL.md) owns the time/attempt budget and
+replay safety; keep nontransactional external side effects out of that retry.
 
 ## Batch lookup instead of a loop
 

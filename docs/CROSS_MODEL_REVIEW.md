@@ -157,3 +157,9 @@ skill's causal contribution from the host's defaults.
 The [go-troubleshooting review](GO_TROUBLESHOOTING_REVIEW.md) records the later
 ticket/data-flow expansion, new behavioral cases, actual Opus selection probes,
 and remaining model limitations against baseline `e94ee92`.
+
+## Resilience follow-up
+
+The [go-resilience review](GO_RESILIENCE_REVIEW.md) records the new failure-policy
+owner, replay/admission scenarios, native Opus selection, and remaining model
+limitations against baseline `558f8f9`.

@@ -146,6 +146,8 @@ its own timeout.
 
 ## Related Skills
 
+- **Retry budgets**: [go-resilience](../go-resilience/SKILL.md) owns total/attempt time budgets, cancellation-aware backoff, and durable retry ownership.
+
 - **Goroutine coordination**: See [go-concurrency](../go-concurrency/SKILL.md) when using context for goroutine cancellation, select-based timeouts, or errgroup
 - **Error handling**: See [go-error-handling](../go-error-handling/SKILL.md) when deciding how to wrap or return `ctx.Err()` cancellation errors
 - **Interface design**: See [go-interfaces](../go-interfaces/SKILL.md) when designing APIs that accept context alongside interfaces

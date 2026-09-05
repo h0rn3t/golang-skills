@@ -190,6 +190,8 @@ for a one-line bug. Ticket publication requires the user's requested scope.
 
 ## Related Skills
 
+- **Containing known dependency failures**: [go-resilience](../go-resilience/SKILL.md) owns retry amplification, overload admission, breakers, and fallback after the mechanism is identified.
+
 - **SQL and transactions**: [go-database](../go-database/SKILL.md) owns query, tenant-filter, transaction, and pool corrections.
 - **HTTP boundaries**: [go-http](../go-http/SKILL.md) owns routing, request/response, client, and server corrections.
 - **Concurrency and cancellation**: [go-concurrency](../go-concurrency/SKILL.md) and [go-context](../go-context/SKILL.md) own races, leaks, lifetimes, and deadlocks once identified.

@@ -143,8 +143,9 @@ gets its own timeout. The full `run()` is in `references/WEB-SERVER.md`.
 - `defer resp.Body.Close()` on every response, error or not (`bodyclose`
   flags it). Read the body to EOF, `io.LimitReader` if the size is untrusted.
 - Check `resp.StatusCode` before decoding; a 5xx body is not your struct.
-- Retry only idempotent requests, only on 5xx and transport errors, with
-  backoff and jitter, and stop when `ctx` is done. Never retry a 4xx.
+- For retry eligibility, `Retry-After`, replay safety, and coordinated budgets,
+  use [go-resilience](../go-resilience/SKILL.md). HTTP status alone does not
+  establish whether repeating an operation is safe.
 
 > **Validation**: `go vet ./...` (the `httpresponse` analyzer catches `Body`
 > use before the error check), `golangci-lint run` with `bodyclose` and

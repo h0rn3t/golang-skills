@@ -669,6 +669,50 @@
       "should_trigger": [],
       "notes": "Translation mentioning Go symptoms should not activate implementation skills",
       "set": "train"
+    },
+    {
+      "query": "Add retry budgets and jittered backoff to our Go SDK wrapper without multiplying its built-in retries.",
+      "should_trigger": [
+        "go-resilience"
+      ],
+      "notes": "Explicit retry composition request",
+      "set": "train"
+    },
+    {
+      "query": "Наш Go consumer повторно создаёт отправку после таймаута. Нужна идемпотентная обработка повторных событий между репликами.",
+      "should_trigger": [
+        "go-resilience"
+      ],
+      "notes": "Duplicate effects and multi-replica delivery semantics",
+      "set": "validation"
+    },
+    {
+      "query": "Потрібен circuit breaker для Go-клієнта: обмежені half-open запити та коректна деградація під час збою залежності.",
+      "should_trigger": [
+        "go-resilience"
+      ],
+      "notes": "Ukrainian circuit recovery and fallback request",
+      "set": "validation"
+    },
+    {
+      "query": "Design backpressure and per-tenant bulkheads for a Go worker fleet sharing one upstream rate quota.",
+      "should_trigger": [
+        "go-resilience"
+      ],
+      "notes": "Admission and fleet quota scope",
+      "set": "train"
+    },
+    {
+      "query": "Translate only: \"Go retry budget and circuit breaker configuration\" into Ukrainian.",
+      "should_trigger": [],
+      "notes": "Resilience terminology inside a translation request",
+      "set": "validation"
+    },
+    {
+      "query": "Improve the grammar of this sentence only: \"our Go service need retry with backoff\".",
+      "should_trigger": [],
+      "notes": "Copy editing does not request a resilience policy",
+      "set": "train"
     }
   ],
   "quality_evals": [
@@ -1247,6 +1291,104 @@
         "Does not call a lone long-lived chan receive frame proof of a leak or deadlock; asks for ownership/expected lifetime and comparative stacks/counts",
         "Does not claim capture execution or guarantee negligible profiling overhead",
         "Does not present blocked stacks or two Lock frames alone as conclusive evidence of absent peers, lock-order inversion, or pool exhaustion"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 34,
+      "prompt": "Review retry decisions for this Go HTTP client using only the supplied facts. No code execution or live calls are available. The vendor documents retryable 429 and 503 responses for GET /catalog. Calls use a replayable request with no body, one retry owner, and a 500 ms attempt timeout within the caller deadline. A: 429 with Retry-After: 2, 3 seconds remain. B: 429 with Retry-After: 60, 250 ms remain; our backoff cap is 1 second. C: 401 with 3 seconds remaining. Choose actions and explain how deadlines and Retry-After interact. Explain handling a valid HTTP-date header as well; propose focused checks without claiming they ran.",
+      "expected_output": "A scoped resilience policy preserving operation semantics, bounded work, and honest verification.",
+      "target_skills": [
+        "go-resilience"
+      ],
+      "assertions": [
+        "Allows a bounded retry for A after honoring the 2-second Retry-After if sufficient deadline and attempt budget remain; does not categorically ban retries for all 4xx",
+        "Does not shorten the 60-second server delay to the 1-second local cap or retry beyond the 250 ms deadline in B",
+        "Does not repeatedly retry C without a separate authentication recovery contract",
+        "Handles delay-seconds and HTTP-date Retry-After and cancellation during waiting; treats tests as proposed"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 35,
+      "prompt": "Our Go wrapper retries POST /shipments whenever client.Do returns a timeout, generating a new Idempotency-Key each attempt. The original streamed body may be partly consumed. The caller still has 2 seconds left. Vendor A has no documented deduplication or status lookup; the POST may already have succeeded. Vendor B explicitly deduplicates same account+key+payload for 24 hours and replays its original response. The logical operation ID and serialized payload were persisted before the first send. Propose the smallest safe policy for each vendor and request/body/context lifetime. This is a design exercise only: do not send requests or claim tests ran.",
+      "expected_output": "A scoped resilience policy preserving operation semantics, bounded work, and honest verification.",
+      "target_skills": [
+        "go-resilience"
+      ],
+      "assertions": [
+        "Treats the timeout as an ambiguous remote outcome and does not blindly retry vendor A",
+        "For vendor B reuses the same durable operation key and identical replayable payload within its documented retention window rather than generating a key per attempt",
+        "Does not claim adding a client Idempotency-Key alone makes vendor A safe or refuse all POST retries categorically",
+        "Recreates request bodies and derives attempt contexts from the caller; response-body consumption and cleanup finish before canceling that attempt or starting another",
+        "Includes focused duplicate-effect/body-replay and cancellation verification without invented execution",
+        "Does not assume the persisted logical operation ID equals the key actually sent on the first attempt; recovers that original key or leaves the existing outcome unresolved",
+        "Does not recommend adding an unsupported Idempotency-Key header to vendor A as harmless, Request.Close as a retry-disable switch, or assume omitting a GetBody assignment prevents its automatic construction"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 36,
+      "prompt": "Review this proposed Go webhook consumer. Two replicas share SQL storage. Both first SELECT deliveries WHERE tenant=? AND event_id=?, then if absent call external FulfillOrder, then INSERT a completed delivery row. The external API has no idempotency key or reliable status lookup. A crash after FulfillOrder but before INSERT causes redelivery. The requirement is one fulfillment per (tenant,event_id); a repeated key with a changed payload must be rejected. The proposal says wrapping the three steps in a SQL transaction plus a process-local mutex guarantees exactly-once fulfillment. Give a concrete correction direction and remaining guarantee limits, without modifying systems.",
+      "expected_output": "A scoped resilience policy preserving operation semantics, bounded work, and honest verification.",
+      "target_skills": [
+        "go-resilience"
+      ],
+      "assertions": [
+        "Rejects check-then-act and process-local mutex as sufficient cross-replica duplicate suppression",
+        "Uses durable tenant/event identity, atomic unique claim and payload binding; addresses concurrent duplicates and in-progress/crash recovery",
+        "Does not claim a local SQL transaction or an outbox alone makes the external side effect atomic or exactly once",
+        "Explicitly states that the supplied external contract cannot guarantee both safe replay and completion after an ambiguous result; identifies provider deduplication/reconciliation or an explicit business tradeoff as needed",
+        "Proposes concurrency and crash-window checks without claiming they ran"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 37,
+      "prompt": "A Go request calls an SDK behind a service mesh. Application configuration allows 3 total attempts, SDK allows 4 total attempts per call, mesh allows 2 total attempts per SDK attempt, including each initial attempt. All may exhaust. The endpoint has a 2-second caller deadline. During an outage someone proposes increasing every layer to 5 and using context.Background for retries so they eventually finish. Calculate present worst-case downstream attempts, propose ownership and bounded retry policy, and name observability/tests. No execution or config changes are available in this exercise.",
+      "expected_output": "A scoped resilience policy preserving operation semantics, bounded work, and honest verification.",
+      "target_skills": [
+        "go-resilience"
+      ],
+      "assertions": [
+        "Calculates 3*4*2 = 24 possible downstream attempts, counting initial attempts consistently",
+        "Chooses coordinated retry ownership or explicitly budgets unavoidable lower-layer attempts instead of independently retrying at every layer",
+        "Keeps waiting/admission/attempts within the original 2-second caller deadline; does not detach retries with context.Background",
+        "Bounds attempts plus aggregate retry load, uses capped jittered backoff, and stops for cancellation/nonretryable errors/budget exhaustion",
+        "Separates logical-request and attempt metrics and proposes attempt-count/cancellation checks without invented results",
+        "Keeps amplification ratios consistent with 24 total attempts and 23 extra attempts per original operation; fast failures may exhaust attempts within a short deadline"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 38,
+      "prompt": "Review this Go overload plan. For each item in an unbounded event stream we start a goroutine; inside it we acquire a 20-slot semaphore and call a dependency. Excess goroutines wait indefinitely. On 503 they retain their slot while sleeping 30 seconds before retry. There are 10 replicas, each configured with a 500 requests/second token bucket, but the vendor quota is 500 requests/second for the entire account. One tenant floods the stream. Suggest a minimal bounded design and checks. Preserve the stream's explicitly required no-loss behavior; durable intake can slow or use existing broker redelivery. No code or infrastructure changes in this exercise.",
+      "expected_output": "A scoped resilience policy preserving operation semantics, bounded work, and honest verification.",
+      "target_skills": [
+        "go-resilience"
+      ],
+      "assertions": [
+        "Bounds admitted/waiting work before creating unbounded goroutines, with cancellation/deadline-aware admission",
+        "Releases per-attempt dependency concurrency permits during backoff and reacquires for the next attempt, while keeping overall queued/logical work bounded",
+        "Distinguishes concurrency from request rate and explains that ten local 500/s limiters can permit 5000/s rather than the global 500/s quota",
+        "Uses bounded durable backpressure/redelivery without silently dropping required events; addresses tenant isolation and replica-wide quota coordination or allocation",
+        "Proposes saturation, cancellation, tenant isolation and fleet quota checks without claims of execution"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 39,
+      "prompt": "A Go authorization dependency has a proposed circuit breaker: every error, including our queue rejection, caller cancellation and remote 400 validation response, counts as dependency failure. It opens after errors, then after 10 seconds releases all 200 waiting requests as half-open probes; any successful older request closes it. While open the fallback uses an expired cached allow decision from a different tenant with the same numeric user ID and returns success. Review the concrete correctness problems and propose breaker/fallback tests. Do not implement a framework or change files in this exercise.",
+      "expected_output": "A scoped resilience policy preserving operation semantics, bounded work, and honest verification.",
+      "target_skills": [
+        "go-resilience"
+      ],
+      "assertions": [
+        "Separates dependency health failures from local admission, caller cancellation and input validation; classifies attempt timeout separately from exhausted caller budget",
+        "Bounds half-open probes, prevents stale in-flight completions from resetting a newer breaker generation, and avoids releasing the entire queue at once",
+        "Rejects cross-tenant or expired allow fallback and does not turn unknown authorization into success; degradation must preserve security and caller-visible semantics",
+        "Distinguishes circuit breaking from concurrency/rate limiting and prevents retries from bypassing the open breaker",
+        "Proposes deterministic transition/concurrency/fallback tests and reports no actual execution"
       ],
       "set": "validation"
     }

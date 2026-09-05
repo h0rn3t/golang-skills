@@ -189,6 +189,8 @@ integration harness in
 
 ## Related Skills
 
+- **Duplicate delivery and retries**: [go-resilience](../go-resilience/SKILL.md) owns operation idempotency, replay budgets, and limits of atomicity across remote side effects.
+
 - **Context**: See [go-context](../go-context/SKILL.md) for timeouts on queries and what may outlive the request
 - **Errors**: See [go-error-handling](../go-error-handling/SKILL.md) for wrapping driver errors and mapping `sql.ErrNoRows` to a sentinel
 - **HTTP**: See [go-http](../go-http/SKILL.md) for the handler that calls the repository and maps its errors to status codes

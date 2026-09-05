@@ -151,3 +151,9 @@ an Opus-versus-GPT-6 benchmark, automatic trigger coverage on Codex, or a live
 end-to-end test of all 78 trigger and 27 quality cases. Fresh subagents share
 the host's higher-priority instructions, so these probes cannot isolate the
 skill's causal contribution from the host's defaults.
+
+## Troubleshooting follow-up
+
+The [go-troubleshooting review](GO_TROUBLESHOOTING_REVIEW.md) records the later
+ticket/data-flow expansion, new behavioral cases, actual Opus selection probes,
+and remaining model limitations against baseline `e94ee92`.

@@ -625,6 +625,50 @@
       ],
       "notes": "Negative control for troubleshooting: cause is known, task is optimization",
       "set": "train"
+    },
+    {
+      "query": "Разбери тикет по Go API: список счетов иногда теряет записи одного tenant, причина неизвестна. Есть request ID и ответ сервиса.",
+      "should_trigger": [
+        "go-troubleshooting"
+      ],
+      "notes": "Ticket-driven missing results without runtime failure",
+      "set": "train"
+    },
+    {
+      "query": "Our Go service works locally but stage ignores the same query parameter. Investigate the ticket before proposing a patch.",
+      "should_trigger": [
+        "go-troubleshooting"
+      ],
+      "notes": "Environment-specific semantics and deployed version/config investigation",
+      "set": "validation"
+    },
+    {
+      "query": "Знайди першопричину регресії в Go: після релізу JSON-звіт повертає неправильну суму. Поки тільки аналіз, без змін коду.",
+      "should_trigger": [
+        "go-troubleshooting"
+      ],
+      "notes": "Ukrainian regression investigation with read-only scope",
+      "set": "validation"
+    },
+    {
+      "query": "The ticket says Redis is stale, but our Go endpoint returns another tenant's record. Can you trace where the wrong value first appears?",
+      "should_trigger": [
+        "go-troubleshooting"
+      ],
+      "notes": "Alleged cause must be tested against data flow",
+      "set": "train"
+    },
+    {
+      "query": "Rewrite this ticket title in clear English, without investigating it: \"Go endpoint hangs sometimes\".",
+      "should_trigger": [],
+      "notes": "Editing ticket prose is not a debugging task",
+      "set": "validation"
+    },
+    {
+      "query": "Translate this bug report into Ukrainian only: \"The Go service drops invoice rows on stage\".",
+      "should_trigger": [],
+      "notes": "Translation mentioning Go symptoms should not activate implementation skills",
+      "set": "train"
     }
   ],
   "quality_evals": [
@@ -1107,6 +1151,102 @@
         "Does not assume scripts live under /tmp/service/skills or change cwd into the installed skill to analyze code",
         "Does not claim a hook ran or require a Claude-only Skill tool",
         "Reports absent sibling guidance and continues available checks without inventing missing rules"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 28,
+      "prompt": "Investigate this Go ticket; do not edit code or post to the tracker. Work only from these supplied artifacts; no shell or live service is available. Report your conclusion, evidence, and the next discriminating check. Ticket: \"Asset endpoint returns the previous tenant's asset. Redis is stale; flush it.\" Expected: GET /assets/7 as tenant A must never return B's asset. Actual request q17 has auth tenant=A and response {id:7,tenant:B,name:\"B asset\"}. Deployed image and checkout both identify commit abc123. Code at that commit: router.go:12 registers GET /assets/{id} with Auth middleware. auth.go:24 sets verified tenant A in context. handler.go:41 calls repo.Get(ctx, Tenant(ctx), pathID). repo.go:18 is func Get(ctx context.Context, tenant string, id int) (Asset,error); repo.go:19 queries SELECT id, tenant, name FROM assets WHERE id=$1 LIMIT 1 with id. SQL trace q17 confirms that query and selected row (7,B,\"B asset\"). encode.go:9 serializes the returned Asset unchanged. assets uses primary key (tenant,id), with rows (7,A,\"A asset\") and (7,B,\"B asset\"). There is no cache call on this path. A working request for id=8 sees only one row, (8,A,\"A eight\").",
+      "expected_output": "Evidence-based investigation with scoped actions and honest verification.",
+      "target_skills": [
+        "go-troubleshooting"
+      ],
+      "assertions": [
+        "Rejects the ticket cache diagnosis as unsupported and does not flush Redis",
+        "Traces the verified tenant through the handler to repo.go:19, which drops the tenant predicate; ties the returned B row to request q17",
+        "Explains why id=8 working does not validate tenant isolation and proposes a two-tenant same-id regression or equivalent discriminating check",
+        "Respects investigation-only scope and does not claim edits, live commands, or a regression test already ran",
+        "Does not assume an unordered LIMIT 1 request must pick the same row on repetition; uses tenant/content invariants for the comparison"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 29,
+      "prompt": "Investigate this Go service ticket using only the artifacts below; do not change files or deploy anything. No live access or shell is available. Ticket: \"Stage ignores include_archived=true, local works. Patch the SQL on main.\" Same sanitized request GET /items?include_archived=true, same tenant/role and copied fixture rows: one active, one archived. Stage returns active only, local returns both. Stage request log s18 reports image sha256:111, build revision a10 and effective ARCHIVE_SEARCH=false. Local is revision b20 and ARCHIVE_SEARCH=true. The only supplied source is checkout b20: handler.go:50 sets includeArchived = request.IncludeArchived && cfg.ArchiveSearch; repo.go:30 honors includeArchived. No source or build manifest for a10 has been supplied. Give an evidence-based status, the next check that would distinguish causes, and what remediation is justified now.",
+      "expected_output": "Evidence-based investigation with scoped actions and honest verification.",
+      "target_skills": [
+        "go-troubleshooting"
+      ],
+      "assertions": [
+        "Identifies both deployed revision and effective flag differences before proposing a source edit",
+        "Does not assume checkout b20 is the code running on stage a10 or conclusively attribute the stage symptom solely from b20 source",
+        "Proposes matching the deployed artifact to its source and/or a controlled comparison varying one difference at a time with the same request and data",
+        "Does not patch main, change the stage flag, or deploy without establishing the applicable behavior and requested scope"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 30,
+      "prompt": "Investigate ticket GO-93 without modifying code. The entire available report is: \"Some invoices disappear sometimes after a release. Probably a Go map race. Please give us the root cause today.\" No affected invoice IDs, request/response pairs, timestamps, release revision, logs, reproduction, or source are supplied. The tracker and service are inaccessible in this exercise, but you can analyze the text. Give the current finding and the smallest useful evidence request/next step. Do not invent observations.",
+      "expected_output": "Evidence-based investigation with scoped actions and honest verification.",
+      "target_skills": [
+        "go-troubleshooting"
+      ],
+      "assertions": [
+        "Labels the cause unresolved and the map race as an unverified hypothesis",
+        "Does not invent a repository location, race report, reproduction, or successful fix",
+        "Requests a concrete affected example with expected/actual behavior, time/request identifier and deployed version or equivalent minimal correlation evidence",
+        "Does not default to speculative patches or indiscriminate full-suite profiling/race repetition when no relevant package or workload is known",
+        "Does not treat the lack of supplied crash/log evidence as an observed absence that rules down a race"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 31,
+      "prompt": "Read-only investigation of a Go billing report. Do not edit files, write a test, or update the ticket. All artifacts are inline; no tools can execute the illustrative program. Contract: an organization-wide report includes one item per (tenant, local_id). Request is organization=O, and its authorized tenants are A and B. Middleware passes both; SQL WHERE tenant IN ('A','B') returns ordered rows (A,7,10), (B,7,20). Debug capture immediately after Scan contains both rows. report.go:61-64: byID := map[int]Item{}; for _, row := range rows { byID[row.LocalID] = Item{Tenant:row.Tenant, ID:row.LocalID, Amount:row.Amount} }; items := maps.Values(byID). Encoder emits every item from items. The actual response contains only (B,7,20). Control with rows (A,7,10), (B,8,20) emits both. Ticket claims database/sql silently skipped Scan. Locate the first bad transformation and report what is established versus what still needs execution.",
+      "expected_output": "Evidence-based investigation with scoped actions and honest verification.",
+      "target_skills": [
+        "go-troubleshooting"
+      ],
+      "assertions": [
+        "Locates the first loss at report.go:61-64 where local ID alone overwrites A with B",
+        "Uses the two-row post-Scan capture and different-ID control to rule against the claimed Scan loss in this example",
+        "Preserves the organization-wide two-tenant contract; does not recommend filtering the report down to one tenant",
+        "Provides an investigation conclusion with a proposed compound-key regression, without editing/writing tests or claiming runtime verification",
+        "Separates input assignment order, which decides overwrites, from map iteration order, which only decides output order"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 32,
+      "prompt": "Use go-troubleshooting for this Go bugfix exercise. I authorize the smallest correction and a regression test; no approval checkpoint is needed. Only supply the proposed patch/plan because execution and file editing are unavailable here. API contract: missing limit on GET /items means 20; a positive supplied limit is honored. Evidence: handler.go:40 calls n := parseLimit(r.URL.Query().Get(\"limit\")), then repo.List(ctx,n). parseLimit is shared, returns 0 for an empty string and parses valid positive integers otherwise. Its documented 0 default is correct for the export caller, where 0 means all items; existing export tests require this. The GET handler currently returns every item when limit is missing. The repository's actual verification command is make check. State the correction, regression proof, and completion status.",
+      "expected_output": "Evidence-based investigation with scoped actions and honest verification.",
+      "target_skills": [
+        "go-troubleshooting"
+      ],
+      "assertions": [
+        "Applies the missing-query default at the GET endpoint boundary rather than changing the shared helper default or export behavior",
+        "Includes focused coverage for missing and positive limit and preserves the export 0 behavior",
+        "Describes proving the missing-limit regression fails on original code and passes after, without stashing or discarding user changes by default",
+        "Names make check as the required repository check and reports execution/verification unavailable rather than claiming PASS or fixed",
+        "Continues the authorized proposal without asking for redundant permission",
+        "Limits the default to the absent parameter rather than silently changing explicit empty, zero, negative or invalid inputs"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 33,
+      "prompt": "A production Go service intermittently stops responding. Investigate only: no restarts, termination, code edits, or config changes are authorized. You cannot run commands in this exercise; select the next capture and explain what it can establish. An existing access-controlled admin listener is reachable from the service host at http://127.0.0.1:6060 and serves net/http/pprof. One pasted stack says goroutine 77 [chan receive, 47 minutes] at worker.go:35; no other stacks or count history are supplied. The ticket suggests \"kill -QUIT PID, it's just a dump; this proves a leaked goroutine.\" Give a concrete capture command and assess that claim.",
+      "expected_output": "Evidence-based investigation with scoped actions and honest verification.",
+      "target_skills": [
+        "go-troubleshooting"
+      ],
+      "assertions": [
+        "Selects a quoted goroutine pprof URL on the existing admin listener as the nonterminating first capture",
+        "Explains SIGQUIT normally prints stacks and exits a Go process, and does not select it under the no-termination constraint",
+        "Does not call a lone long-lived chan receive frame proof of a leak or deadlock; asks for ownership/expected lifetime and comparative stacks/counts",
+        "Does not claim capture execution or guarantee negligible profiling overhead",
+        "Does not present blocked stacks or two Lock frames alone as conclusive evidence of absent peers, lock-order inversion, or pool exhaustion"
       ],
       "set": "validation"
     }

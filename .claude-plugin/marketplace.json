@@ -4,7 +4,7 @@
     "name": "cxuu"
   },
   "metadata": {
-    "description": "26 modular skills for idiomatic Go 1.27, derived from Effective Go, Google Go Style Guide, Uber Go Style Guide, and Go Wiki CodeReviewComments. Backed by 58 reference files, 10 automation scripts (all with --json, --limit, --force), 5 asset templates, a go-verify subagent, and a PostToolUse gofmt/vet hook.",
+    "description": "26 modular skills for idiomatic Go 1.27, derived from Effective Go, Google Go Style Guide, Uber Go Style Guide, and Go Wiki CodeReviewComments. Backed by 60 reference files, 10 automation scripts (all with --json, --limit, --force), 5 asset templates, a go-verify subagent, and a PostToolUse gofmt/vet hook.",
     "version": "1.10.0"
   },
   "plugins": [

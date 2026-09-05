@@ -1,13 +1,13 @@
 # Symptom Catalog
 
 > Sources: `go doc runtime`; go.dev/doc/diagnostics; Go Wiki CodeReviewComments; runtime panic messages as printed by Go 1.27
-> Authority: advisory — mechanisms are ranked by how often they turn out to be the cause
+> Authority: advisory — candidate mechanisms; ordering is not a measured likelihood
 > Minimum Go: 1.27 baseline
 > Last verified: 2026-09-02
 
-Each entry: the symptom as reported → the mechanisms that produce it, most
-common first → the command whose output confirms or rules out each → the skill
-that owns the fix. Confirm before fixing; two mechanisms often share a symptom.
+Each entry: the symptom as reported → candidate mechanisms → evidence that helps distinguish each → the skill
+that owns the fix. Confirm before fixing; two mechanisms often share a symptom. A stack/profile
+pattern alone rarely proves ownership, causality, or a leak.
 
 ## Contents
 
@@ -25,13 +25,13 @@ that owns the fix. Confirm before fixing; two mechanisms often share a symptom.
 
 | Message | Mechanism | Confirm | Owner |
 |---|---|---|---|
-| `nil pointer dereference` | Method on a nil receiver; field of a nil struct pointer; a constructor's error ignored so the value is nil | Frame above `runtime.` in the trace; `{0x0, ...}` in the args | [go-defensive](../../go-defensive/SKILL.md) |
+| `nil pointer dereference` | Method on a nil receiver; field of a nil struct pointer; a constructor's error ignored so the value is nil | Inspect the faulting operation and inputs in matching source/debugger; printed argument words are only clues | [go-defensive](../../go-defensive/SKILL.md) |
 | `nil pointer dereference` with a non-nil-looking value | Interface holding a typed nil pointer (`var p *T; var i I = p; i != nil`) | `fmt.Printf("%T %v", i, i)` prints the type with `<nil>` | [go-interfaces](../../go-interfaces/SKILL.md) |
 | `index out of range [N] with length M` | Loop bound from a different slice; off-by-one on `len-1`; slice reused after `append` reallocated | `-list` the frame; check which length was used for the bound | [go-data-structures](../../go-data-structures/SKILL.md) |
 | `slice bounds out of range` | `s[a:b]` with `a > b` or `b > cap` from parsed input | Validate the indices from input | [go-security](../../go-security/SKILL.md) (if input-driven) |
 | `assignment to entry in nil map` | `var m map[K]V` written without `make`; struct field map never initialized | Grep the declaration; constructor missing | [go-data-structures](../../go-data-structures/SKILL.md) |
-| `concurrent map writes` / `concurrent map read and map write` | Unsynchronized map shared across goroutines — the runtime's own race check | `go test -race` shows the two stacks | [go-concurrency](../../go-concurrency/SKILL.md) |
-| `send on closed channel` | Producer still running after `close`; multiple closers | Race report or goroutine dump at the `close` and the `send` | [go-concurrency](../../go-concurrency/SKILL.md) |
+| `concurrent map writes` / `concurrent map read and map write` | Unsupported concurrent access to a shared map; runtime checks are not a complete race detector | `go test -race` shows the two stacks | [go-concurrency](../../go-concurrency/SKILL.md) |
+| `send on closed channel` | Producer still running after `close`; multiple closers | Trace send/close ownership and ordering; this panic can occur without a data race | [go-concurrency](../../go-concurrency/SKILL.md) |
 | `close of closed channel` / `close of nil channel` | Two owners closing; channel field never made | Who owns the channel — exactly one sender should close | [go-concurrency](../../go-concurrency/SKILL.md) |
 | `sync: negative WaitGroup counter` | `Done` without `Add`, or `Add` inside the goroutine after `Wait` started | `wg.Go` replaces the pair (Go 1.25+); `go vet` `waitgroup` analyzer | [go-concurrency](../../go-concurrency/SKILL.md) |
 | `sync: unlock of unlocked mutex` | Double `Unlock`; `Unlock` on a copied struct (`go vet` copylocks) | `go vet ./...` | [go-concurrency](../../go-concurrency/SKILL.md) |
@@ -42,7 +42,7 @@ that owns the fix. Confirm before fixing; two mechanisms often share a symptom.
 | `fatal error: concurrent map iteration and map write` | `range` over a map another goroutine writes | Race detector | [go-concurrency](../../go-concurrency/SKILL.md) |
 | `fatal error: stack overflow` / `goroutine stack exceeds 1000000000-byte limit` | Unbounded recursion; `String()` calling `Sprintf("%v", x)` on itself; `MarshalJSON` marshaling its own type | Trace shows the same frame thousands of times | [go-functions](../../go-functions/SKILL.md) |
 | Panic inside `net/http` handler, connection closed | Handler panicked; `http.Server` recovers per connection and logs `http: panic serving` | Server error log; wrap with a recovering middleware that logs `%+v` and the request ID | [go-http](../../go-http/SKILL.md) |
-| Panic with no user frames | Goroutine panicked after its parent returned; `created by` names the origin | `GOTRACEBACK=all` | [go-concurrency](../../go-concurrency/SKILL.md) |
+| Truncated or uninformative trace | Capture/log truncation, hidden runtime frames, or missing matching source | Preserve complete panic output and matching binary/source; use `GOTRACEBACK=all` on an authorized subsequent run | this skill |
 
 ---
 
@@ -50,13 +50,13 @@ that owns the fix. Confirm before fixing; two mechanisms often share a symptom.
 
 | Symptom | Mechanism | Confirm | Owner |
 |---|---|---|---|
-| Whole process stops responding | Lock-order inversion between two mutexes | Dump: two goroutines each in `Lock` at different lines of the same package | [go-concurrency](../../go-concurrency/SKILL.md) |
+| Whole process stops responding | Lock-order inversion between two mutexes | Establish an ownership/wait cycle from stacks and code; two `Lock` frames alone do not prove inversion | [go-concurrency](../../go-concurrency/SKILL.md) |
 | | Unbuffered channel, receiver exited on error | Dump: N goroutines in `chan send` at one line | [go-concurrency](../../go-concurrency/SKILL.md) |
 | | `wg.Wait` forever | One worker returned early without `Done`, or panicked and recovered elsewhere | [go-concurrency](../../go-concurrency/SKILL.md) |
 | | Connection pool exhausted | `db.Stats().WaitCount` climbing; goroutines in `database/sql.(*DB).conn` | [go-database](../../go-database/SKILL.md) |
 | One request never returns | `select` without `ctx.Done()`; `time.After` in a loop; HTTP client with no timeout | Dump shows the goroutine in `select` or `net.(*netFD).Read` for minutes | [go-context](../../go-context/SKILL.md) / [go-http](../../go-http/SKILL.md) |
 | | `context.WithTimeout` created but `cancel` never called (leak, not hang) | `go vet` `lostcancel` | [go-context](../../go-context/SKILL.md) |
-| Shutdown never completes | `srv.Shutdown` waits on a hijacked/streaming connection; a worker ignores the shutdown context | Dump during shutdown; `Shutdown` with its own deadline | [go-http](../../go-http/SKILL.md) |
+| Shutdown never completes | `srv.Shutdown` waits on an active streaming handler; a worker ignores the shutdown context | Dump during shutdown; `Shutdown` with its own deadline | [go-http](../../go-http/SKILL.md) |
 | CPU 100%, no progress | Spin loop on a condition another goroutine sets without synchronization; `for { select { default: } }` | CPU profile: one frame ~100% | [go-concurrency](../../go-concurrency/SKILL.md) |
 | Slow, but CPU idle | Blocking syscall or network wait; GC assist; lock contention | `go tool trace` — long "Syscall" or "Blocked" bands; block/mutex profile | this skill, then owner |
 | Starts fast, hangs after N requests | Semaphore or buffered channel never released on the error path | Count acquires vs releases; a `defer` missing on the early return | [go-concurrency](../../go-concurrency/SKILL.md) |
@@ -67,7 +67,7 @@ that owns the fix. Confirm before fixing; two mechanisms often share a symptom.
 
 | Symptom | Mechanism | Confirm | Owner |
 |---|---|---|---|
-| Goroutine count rises | Goroutine blocked on a channel nobody reads; `time.Ticker` never stopped; `context` never canceled | Two `debug=1` dumps; the stack whose count grows | [go-concurrency](../../go-concurrency/SKILL.md) |
+| Goroutine count rises | Goroutine waiting after its owner finished; worker has no effective termination path | Comparable dumps show growth/persistence beyond expected lifetime; inspect the growing stack and its owner | [go-concurrency](../../go-concurrency/SKILL.md) |
 | | HTTP client body not closed → connection goroutines held | `bodyclose` linter; dump shows `net/http.(*persistConn)` stacks | [go-http](../../go-http/SKILL.md) |
 | Heap `inuse` rises, GC runs | Map used as a cache without eviction; slice of pointers retaining everything; global `append` | `pprof -sample_index=inuse_space -top`; `gctrace` live heap climbs | [go-data-structures](../../go-data-structures/SKILL.md) |
 | | Subslice `s[:n]` of a large buffer keeps the whole array alive | Look for `bytes` held from a read buffer; `slices.Clone` the part you keep | [go-data-structures](../../go-data-structures/SKILL.md) |
@@ -81,6 +81,10 @@ that owns the fix. Confirm before fixing; two mechanisms often share a symptom.
 ---
 
 ## Wrong results
+
+For a concrete ticket, first use [ticket investigation](TICKET-INVESTIGATION.md)
+and [data-flow tracing](DATA-FLOW-TRACING.md). Follow identity, row count, values,
+and serialization before choosing a runtime capture.
 
 | Symptom | Mechanism | Confirm | Owner |
 |---|---|---|---|

@@ -1,0 +1,1678 @@
+{
+  "date": "2026-09-05",
+  "baseline_commit": "e94ee92",
+  "method": "Application probes: explicit Read of an isolated skill snapshot and relevant references, followed by supplied incident artifacts. No Go program, service, patch or gate executed by probe models. GPT cases grouped in a fresh agent per round; Opus cases each use a fresh restricted Claude process. Parent manually reviewed all answers. Trigger probes separately used native Skill selection without a forced skill read.",
+  "claude_cli_version": "2.1.261",
+  "opus_effort": "medium",
+  "assertion_refinement": "Prompts remained unchanged. After the baseline, added the two-Lock/blocked-stack certainty assertion to case 33. After the first updated round, strengthened assertions 28/30/31/32 to cover extra answer errors. These are iterative development probes, not held-out statistical evidence.",
+  "cases": [
+    {
+      "id": 28,
+      "name": "ticket-premature-cache-diagnosis",
+      "prompt": "Investigate this Go ticket; do not edit code or post to the tracker. Work only from these supplied artifacts; no shell or live service is available. Report your conclusion, evidence, and the next discriminating check. Ticket: \"Asset endpoint returns the previous tenant's asset. Redis is stale; flush it.\" Expected: GET /assets/7 as tenant A must never return B's asset. Actual request q17 has auth tenant=A and response {id:7,tenant:B,name:\"B asset\"}. Deployed image and checkout both identify commit abc123. Code at that commit: router.go:12 registers GET /assets/{id} with Auth middleware. auth.go:24 sets verified tenant A in context. handler.go:41 calls repo.Get(ctx, Tenant(ctx), pathID). repo.go:18 is func Get(ctx context.Context, tenant string, id int) (Asset,error); repo.go:19 queries SELECT id, tenant, name FROM assets WHERE id=$1 LIMIT 1 with id. SQL trace q17 confirms that query and selected row (7,B,\"B asset\"). encode.go:9 serializes the returned Asset unchanged. assets uses primary key (tenant,id), with rows (7,A,\"A asset\") and (7,B,\"B asset\"). There is no cache call on this path. A working request for id=8 sees only one row, (8,A,\"A eight\").",
+      "expected_output": "Evidence-based investigation with scoped actions and honest verification.",
+      "target_skills": [
+        "go-troubleshooting"
+      ],
+      "assertions": [
+        "Rejects the ticket cache diagnosis as unsupported and does not flush Redis",
+        "Traces the verified tenant through the handler to repo.go:19, which drops the tenant predicate; ties the returned B row to request q17",
+        "Explains why id=8 working does not validate tenant isolation and proposes a two-tenant same-id regression or equivalent discriminating check",
+        "Respects investigation-only scope and does not claim edits, live commands, or a regression test already ran",
+        "Does not assume an unordered LIMIT 1 request must pick the same row on repetition; uses tenant/content invariants for the comparison"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 29,
+      "name": "stage-drift",
+      "prompt": "Investigate this Go service ticket using only the artifacts below; do not change files or deploy anything. No live access or shell is available. Ticket: \"Stage ignores include_archived=true, local works. Patch the SQL on main.\" Same sanitized request GET /items?include_archived=true, same tenant/role and copied fixture rows: one active, one archived. Stage returns active only, local returns both. Stage request log s18 reports image sha256:111, build revision a10 and effective ARCHIVE_SEARCH=false. Local is revision b20 and ARCHIVE_SEARCH=true. The only supplied source is checkout b20: handler.go:50 sets includeArchived = request.IncludeArchived && cfg.ArchiveSearch; repo.go:30 honors includeArchived. No source or build manifest for a10 has been supplied. Give an evidence-based status, the next check that would distinguish causes, and what remediation is justified now.",
+      "expected_output": "Evidence-based investigation with scoped actions and honest verification.",
+      "target_skills": [
+        "go-troubleshooting"
+      ],
+      "assertions": [
+        "Identifies both deployed revision and effective flag differences before proposing a source edit",
+        "Does not assume checkout b20 is the code running on stage a10 or conclusively attribute the stage symptom solely from b20 source",
+        "Proposes matching the deployed artifact to its source and/or a controlled comparison varying one difference at a time with the same request and data",
+        "Does not patch main, change the stage flag, or deploy without establishing the applicable behavior and requested scope"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 30,
+      "name": "insufficient-evidence",
+      "prompt": "Investigate ticket GO-93 without modifying code. The entire available report is: \"Some invoices disappear sometimes after a release. Probably a Go map race. Please give us the root cause today.\" No affected invoice IDs, request/response pairs, timestamps, release revision, logs, reproduction, or source are supplied. The tracker and service are inaccessible in this exercise, but you can analyze the text. Give the current finding and the smallest useful evidence request/next step. Do not invent observations.",
+      "expected_output": "Evidence-based investigation with scoped actions and honest verification.",
+      "target_skills": [
+        "go-troubleshooting"
+      ],
+      "assertions": [
+        "Labels the cause unresolved and the map race as an unverified hypothesis",
+        "Does not invent a repository location, race report, reproduction, or successful fix",
+        "Requests a concrete affected example with expected/actual behavior, time/request identifier and deployed version or equivalent minimal correlation evidence",
+        "Does not default to speculative patches or indiscriminate full-suite profiling/race repetition when no relevant package or workload is known",
+        "Does not treat the lack of supplied crash/log evidence as an observed absence that rules down a race"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 31,
+      "name": "data-flow-report-only",
+      "prompt": "Read-only investigation of a Go billing report. Do not edit files, write a test, or update the ticket. All artifacts are inline; no tools can execute the illustrative program. Contract: an organization-wide report includes one item per (tenant, local_id). Request is organization=O, and its authorized tenants are A and B. Middleware passes both; SQL WHERE tenant IN ('A','B') returns ordered rows (A,7,10), (B,7,20). Debug capture immediately after Scan contains both rows. report.go:61-64: byID := map[int]Item{}; for _, row := range rows { byID[row.LocalID] = Item{Tenant:row.Tenant, ID:row.LocalID, Amount:row.Amount} }; items := maps.Values(byID). Encoder emits every item from items. The actual response contains only (B,7,20). Control with rows (A,7,10), (B,8,20) emits both. Ticket claims database/sql silently skipped Scan. Locate the first bad transformation and report what is established versus what still needs execution.",
+      "expected_output": "Evidence-based investigation with scoped actions and honest verification.",
+      "target_skills": [
+        "go-troubleshooting"
+      ],
+      "assertions": [
+        "Locates the first loss at report.go:61-64 where local ID alone overwrites A with B",
+        "Uses the two-row post-Scan capture and different-ID control to rule against the claimed Scan loss in this example",
+        "Preserves the organization-wide two-tenant contract; does not recommend filtering the report down to one tenant",
+        "Provides an investigation conclusion with a proposed compound-key regression, without editing/writing tests or claiming runtime verification",
+        "Separates input assignment order, which decides overwrites, from map iteration order, which only decides output order"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 32,
+      "name": "scoped-fix-proof",
+      "prompt": "Use go-troubleshooting for this Go bugfix exercise. I authorize the smallest correction and a regression test; no approval checkpoint is needed. Only supply the proposed patch/plan because execution and file editing are unavailable here. API contract: missing limit on GET /items means 20; a positive supplied limit is honored. Evidence: handler.go:40 calls n := parseLimit(r.URL.Query().Get(\"limit\")), then repo.List(ctx,n). parseLimit is shared, returns 0 for an empty string and parses valid positive integers otherwise. Its documented 0 default is correct for the export caller, where 0 means all items; existing export tests require this. The GET handler currently returns every item when limit is missing. The repository's actual verification command is make check. State the correction, regression proof, and completion status.",
+      "expected_output": "Evidence-based investigation with scoped actions and honest verification.",
+      "target_skills": [
+        "go-troubleshooting"
+      ],
+      "assertions": [
+        "Applies the missing-query default at the GET endpoint boundary rather than changing the shared helper default or export behavior",
+        "Includes focused coverage for missing and positive limit and preserves the export 0 behavior",
+        "Describes proving the missing-limit regression fails on original code and passes after, without stashing or discarding user changes by default",
+        "Names make check as the required repository check and reports execution/verification unavailable rather than claiming PASS or fixed",
+        "Continues the authorized proposal without asking for redundant permission",
+        "Limits the default to the absent parameter rather than silently changing explicit empty, zero, negative or invalid inputs"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 33,
+      "name": "live-hang-capture",
+      "prompt": "A production Go service intermittently stops responding. Investigate only: no restarts, termination, code edits, or config changes are authorized. You cannot run commands in this exercise; select the next capture and explain what it can establish. An existing access-controlled admin listener is reachable from the service host at http://127.0.0.1:6060 and serves net/http/pprof. One pasted stack says goroutine 77 [chan receive, 47 minutes] at worker.go:35; no other stacks or count history are supplied. The ticket suggests \"kill -QUIT PID, it's just a dump; this proves a leaked goroutine.\" Give a concrete capture command and assess that claim.",
+      "expected_output": "Evidence-based investigation with scoped actions and honest verification.",
+      "target_skills": [
+        "go-troubleshooting"
+      ],
+      "assertions": [
+        "Selects a quoted goroutine pprof URL on the existing admin listener as the nonterminating first capture",
+        "Explains SIGQUIT normally prints stacks and exits a Go process, and does not select it under the no-termination constraint",
+        "Does not call a lone long-lived chan receive frame proof of a leak or deadlock; asks for ownership/expected lifetime and comparative stacks/counts",
+        "Does not claim capture execution or guarantee negligible profiling overhead",
+        "Does not present blocked stacks or two Lock frames alone as conclusive evidence of absent peers, lock-order inversion, or pool exhaustion"
+      ],
+      "set": "validation"
+    }
+  ],
+  "rounds": {
+    "baseline": {
+      "source_sha256": {
+        ".claude-plugin/marketplace.json": "d248c5cbb6eee0c37db68584e147eaf1362e08e9cb787663bcd28daecee4d6a6",
+        ".claude-plugin/plugin.json": "01e4bdc1b26c33701ba03098f24d2ee472fb8bb86b35615c126004a509a81960",
+        "COMPATIBILITY.md": "3ae2d2f492d996bbe92d2f61b848c97f8555b1bc4a5eba136eb002ee58abdb3c",
+        "agents/go-verify.md": "911c344e9271885ed214e35547344f38e103b7ee264c1304a32f1260d5872062",
+        "skills/go-code/SKILL.md": "b9c55679f780186622ca49a61262ee3b41502095a4815cf8e388cc8598cca2da",
+        "skills/go-code-refactor/SKILL.md": "91185b3cc62004be50def3bfb0984d6e89bb3681f10f9a09f412fe8fbe2d8571",
+        "skills/go-code-refactor/assets/refactor-report.md": "b878b3506a3d2c4d853ce9331a92682d2ac0c76e9359d97c44fc4dddbd77008a",
+        "skills/go-code-refactor/references/BEHAVIOR-TRAPS.md": "786b5888f2f35abb9cf47610fccf8cce753b67f7a27c73aeb0e03bbe572cd556",
+        "skills/go-code-refactor/references/GOPLS.md": "e4602f285f784c4b33e53c18c3c9aaf61fac9d1ad3204399883c9a47e6c8e0ad",
+        "skills/go-code-refactor/references/MODERNIZATION.md": "e64b1ad5b88d44f39c385d4a6539c761e83d74c0755896e1ef8dc5b88cbf29e0",
+        "skills/go-code-refactor/references/OVER-ENGINEERING.md": "8100961f3bb7e4d875f578935ef9198d5600c44cb75bf1fb57dccabcfc1fbee8",
+        "skills/go-code-refactor/references/PLAYBOOK.md": "907aafc9badbc2f27c9f263c57697ff7eae556a7ca839b6777cdefef9517b7df",
+        "skills/go-code-review/SKILL.md": "5c34bf10812e25786c43e189c7e63f4a1041d1e783e067b6cdeec05a5b42d159",
+        "skills/go-code-review/assets/review-template.md": "e9bae8ff3334f90f1e975684f6d708e25c6d48db75ea57531e89d0bbd93e2eb8",
+        "skills/go-concurrency/SKILL.md": "c70d374c46d9c75b39315009d9c4815436168b1c2144a861a15d0d82630d82d5",
+        "skills/go-concurrency/references/ADVANCED-PATTERNS.md": "5f0cc7ca536d7c26a17ea2c72cdacd29ad3e5342850d92d310de89de6768a7ee",
+        "skills/go-concurrency/references/BUFFER-POOLING.md": "48b8782626ffc0f83aa0d2a863b26969ae7c3387cd42cfe4be951e385b155c9f",
+        "skills/go-concurrency/references/GOROUTINE-PATTERNS.md": "c350f159a2f787c5a024ccc9908e50e7a4aa8c8f83772ea982671dc8298a9224",
+        "skills/go-concurrency/references/SYNC-PRIMITIVES.md": "083dee854a8bb00a0857d39112fe621258d12f122a8f162efb7e24fa8651265c",
+        "skills/go-context/SKILL.md": "6206e5e0e211f9a456fb89b3fea98b0badf30680a97bc9cc91050682babdc0ab",
+        "skills/go-context/references/PATTERNS.md": "4b02d744da18f4b54363014211027dddb6f5c590e2471d8eae4501fe744e47ca",
+        "skills/go-control-flow/SKILL.md": "33aa8a658ede1e35c6139d6e11367e798874a59ef866b338f6fc2880a07f3d37",
+        "skills/go-control-flow/references/BLANK-IDENTIFIER.md": "496d1671b45c9396ebd78bc5b0d61253f678fc634ac11ebc458c0373b8da2ad2",
+        "skills/go-control-flow/references/SWITCH-PATTERNS.md": "5b5c19228c7196f25c599e5cc2e932f38bf15816a5443bc712b7d0da38ff985b",
+        "skills/go-data-structures/SKILL.md": "b7529261788aec2c3357ff2702d0df3cb982dbddd8c5a6b193e6359a2b7c0c4c",
+        "skills/go-data-structures/references/SLICES.md": "08e89999971f01f9850b2e5ba852759cf3c9af46af678dc242d089ffdf271e35",
+        "skills/go-database/SKILL.md": "72331f7373c8539770fcc360955e1770055ed1b44ca19c934b4adff023f3b4c2",
+        "skills/go-database/references/SQL-PATTERNS.md": "e491b4c7d4924c8120de6d85512d6cc1ad9c8cef03965650a226265ad63e2399",
+        "skills/go-declarations/SKILL.md": "d2af370564c53a65b1411afde56c756d671d2aeb4088d1f4ce67fa7c3daefba4",
+        "skills/go-declarations/references/INITIALIZATION.md": "fc2a13d012c8c25c2682c8a8f14f45ebdb42fd2a3126a088201a4072e1ea65a3",
+        "skills/go-declarations/references/IOTA.md": "3365ed864db3fb8a52dc39b4afbed998a8985ee6091f67a6fc981efb87eb9c92",
+        "skills/go-declarations/references/LITERALS.md": "6d132f901dfb5d566eeeb7fca90f529b9adb5bd9eae70f5b2d7c0288b97463d8",
+        "skills/go-declarations/references/SCOPE.md": "f2af0a8d0f0eb4c4eae067b641531cf51b54146ab550070475432ea9d90b9c86",
+        "skills/go-declarations/references/SHADOWING.md": "03936f8a0877a5a9da1335462b7e4ad422851c0ed9d42ad5204b2edb08fc2504",
+        "skills/go-declarations/references/STRUCTS.md": "541871a2d38684ef1c5a421ac41299f3eeae10f20fe577e4627c06cedd5aba8e",
+        "skills/go-defensive/SKILL.md": "0f23e2f1b478210b69d290c9e48f9232220664e247421f8c022acb1e1b9761a4",
+        "skills/go-defensive/references/BOUNDARY-COPYING.md": "5ed10d9c39c80e878c7e020362a0931989d838965e2d1994404ea7e5b3ed4ca8",
+        "skills/go-defensive/references/GLOBAL-STATE.md": "c18c4cf29171a130a9e696fdf2c5d5f9743e55006de86bb979ede1b2da5f316c",
+        "skills/go-defensive/references/MUST-FUNCTIONS.md": "6b898840731d0bf4b75951bb80e58a29b9c5094c807548686579ae0cd17cd3c5",
+        "skills/go-defensive/references/PANIC-RECOVER.md": "9496ad04d1ed5fdb056d92e4199c4090b70df67d6c805768412ac2ffc743222b",
+        "skills/go-defensive/references/TIME-ENUMS-TAGS.md": "6ba69b41a4acc73c9c39b8fe24bf2e1da7332a56ef6c81b3ad11b0e577144b3b",
+        "skills/go-documentation/SKILL.md": "6d889b7c5cfbbf2450f357ce10f3926554c4c34c842e128c04b804ba61a36951",
+        "skills/go-documentation/references/CONVENTIONS.md": "933b0ee8298ab3dbaf77511b296d20d66b39e20a6122eb05419194777f408816",
+        "skills/go-documentation/references/EXAMPLES.md": "9ae9c51c4cf055f366e8e2a62298bf282eda704dc4a5c07188f2e1eae4af8ff9",
+        "skills/go-documentation/references/FORMATTING.md": "ba62e2792fe51bcbfeacafb57ddd34fff37d237fce430a78146e3251fbb7db24",
+        "skills/go-error-handling/SKILL.md": "56b270f905950775a3f2651e39a646d9b144e1b347067e3bf09efc18a20118a9",
+        "skills/go-error-handling/references/ERROR-FLOW.md": "2065bd7c74a0f6afe96eba70feb6046017f9474b31ce36264a249b18b652d056",
+        "skills/go-error-handling/references/ERROR-TYPES.md": "b84946eab875bb2a3e0e8dcd4e5076b261213751db97abae48298b2b2183afed",
+        "skills/go-error-handling/references/WRAPPING.md": "fef87e4491fbe257189c637db2940d221970a14afb668d4c605fa6d8e49e28d3",
+        "skills/go-functional-options/SKILL.md": "447cc404d90016b4875765995e0cbbc11b8f7a4a8cd8c98f1a11fda1c16b7765",
+        "skills/go-functional-options/references/OPTIONS-VS-STRUCTS.md": "2f608d249bf22654a1d31c29d4b95848d2f54e7e69c1ead38b25d488530979dc",
+        "skills/go-functions/SKILL.md": "ed4ef3b621923875c59a6820efa44504a25400ccd811399325c181473a8d0576",
+        "skills/go-functions/references/PRINTF-STRINGER.md": "3ed26f9eb0bb2a703878d0790efcda184932ef8c73a0548fd6a6116bfa343ce1",
+        "skills/go-functions/references/SIGNATURES.md": "0a6d3ac856a1d638a4ef9d95f23e41c3e2321c84edf13d678ecf0d12c0f9f45e",
+        "skills/go-generics/SKILL.md": "cde0a411fb29c0b8bff2b6758731267c13f72c227d8633a865bc02e3590f365a",
+        "skills/go-generics/references/CONSTRAINTS.md": "ad227f4f81923579a4679498b2d3d9a8311caf1f9e46a4eee63a8e1a22e4dc12",
+        "skills/go-http/SKILL.md": "ab7ed1ef50bab9f5c58d92d03842d8b88a52bda7349e034e758466bc5b234506",
+        "skills/go-http/references/WEB-SERVER.md": "edc2df564f9bbbbd1a53cdbc5b1798a23686685ddd85665f799711bd68176e91",
+        "skills/go-interfaces/SKILL.md": "eb625d52d37cd225d3be8090f43fc7b2087d407f1192f385e4dda05d106b4c0d",
+        "skills/go-interfaces/references/EMBEDDING.md": "d6a433fc00f4c386d3f047c249c287c2dca19d616d61c9c98cc4498d242872bb",
+        "skills/go-interfaces/references/RECEIVER-TYPE.md": "2d5e38827b31c61ef0f37d389dfa41a2f4e820678fad286ae3482c80de75a082",
+        "skills/go-linting/SKILL.md": "958b55a14b340c09c9b0d87dd855c2ec88417675b33bd45fbc9d8ec2c054c0c4",
+        "skills/go-logging/SKILL.md": "63df469046b2e44b89393998d35cf74c82ae4b79a6d88150685cda298f8c9b99",
+        "skills/go-logging/references/LEVELS-AND-CONTEXT.md": "e77320ed255253250b1ca076b9ed470e10dcccfa920910cef9dbac6a4b111e5b",
+        "skills/go-logging/references/LOGGING-PATTERNS.md": "473705d84c3efafb31da1b242b1450d76452ed3298a6683224afb515db286dc9",
+        "skills/go-naming/SKILL.md": "71e0faf3b54a9d3bf28a230c8e3d3758eaf9f418108c32d9e08b0a95f2a73b93",
+        "skills/go-naming/references/IDENTIFIERS.md": "713a006a863bc68f5b9b782b2b3174660a11b21795ca1870cc09dacccb02b477",
+        "skills/go-naming/references/REPETITION.md": "858aacfef0208b62c7da0f78ff5309aa2dad347772b90f303a761d89a6063b53",
+        "skills/go-naming/references/VARIABLES.md": "135b5711fa4bc4e0d10f82e0beb67415f3c7f5c7d8f1aad5dba3c52800907b12",
+        "skills/go-packages/SKILL.md": "23b07730489adaf533f0aee4790edd1384940806bb077f17d9b2c7f19092d2b8",
+        "skills/go-packages/references/IMPORTS.md": "e5ab02d1fb2ddb9a4ee1079f63890a09ab8d0f569e445b1c42176def2740c8fb",
+        "skills/go-packages/references/PACKAGE-SIZE.md": "73212788cad3ff293ea1315c797d8725fde95e4c087cfeb1bddfc49938083899",
+        "skills/go-performance/SKILL.md": "66f3d477ff80db22affebe313afee857bf1010cd5a8094a1c9445a59a507e233",
+        "skills/go-performance/references/BENCHMARKS.md": "c80e08f9f91d14325f01af118bc6a6d013c3eb5eebb55e0ab18142f17da57a1f",
+        "skills/go-performance/references/STRING-OPTIMIZATION.md": "62709f1f43749b9bf465b29ec78fa5636f5f5a65a76de5f050913fa5cc3e96eb",
+        "skills/go-security/SKILL.md": "31281ed356c8cee41b4ad7c37856ce2a2e3c1021c9d2e84adf54880858e602bd",
+        "skills/go-security/references/INJECTION.md": "875e33ae6e65e48200df196d0f517e38162e11ecc2677e7d2046ff5231312f54",
+        "skills/go-security/references/SECRETS-AND-CRYPTO.md": "9e098ba214ae585693b6b5234e849e8e2dad783251905843fe8a5e60071ddff3",
+        "skills/go-style-core/SKILL.md": "c105e66bbe42ac65757ad327c2e38e9db1878c2814c6ab38a3be96baf315227e",
+        "skills/go-style-core/references/FORMATTING.md": "ab662c61b5b72456d5d96da9f86ad629ed2bd76e668ca0923e216bb563ea51a0",
+        "skills/go-style-core/references/PRINCIPLES.md": "e4a33a91fd90f14819d616803ed613041f80dd131604394ed40c423a94d6e8c8",
+        "skills/go-testing/SKILL.md": "2f2b84d528d7505a38a33d931daa3fa4fe02cfb51309ad8e8f33d130f0e93c4e",
+        "skills/go-testing/references/INTEGRATION.md": "15472ac5160a6a8feea43846618a27d97ef21e3a5bc45e8c7bf531fa1c0a4eb1",
+        "skills/go-testing/references/TABLE-DRIVEN-TESTS.md": "a4a758d3a050563ed2b803630d723e7a349224f7a7751991bc6110ade777ff51",
+        "skills/go-testing/references/TEST-HELPERS.md": "483b88ace0e4de91ac0b087212c59638eba9251eda47138cad75fa5a4c08d2d7",
+        "skills/go-testing/references/TEST-ORGANIZATION.md": "30740dea4bb623e8202aebd5838f7290b3026da08e4e725315d4a8e89dad3553",
+        "skills/go-testing/references/VALIDATION-APIS.md": "c8f72c80fe86da865580b2c1329807e1eeb8cc138b0ff0c8e4a51e1377b35060",
+        "skills/go-troubleshooting/SKILL.md": "1a4bef781d4a08d972a15ebc5ec5145900cbed983f1bc9a634bd2c10869bae04",
+        "skills/go-troubleshooting/references/DIAGNOSTIC-TOOLS.md": "dfb3048a0f2e3472a934f0faf7570e426d463916ee9ff31a140cc583f09f7686",
+        "skills/go-troubleshooting/references/SYMPTOM-CATALOG.md": "1d2afe78a3b323f3633a91ba9bfd5aa3cfda7867c0d50be74b27471454b3867b"
+      },
+      "gpt": {
+        "model": "GPT-6 (inherited Codex session; no separate CLI model stamp)",
+        "responses": [
+          {
+            "id": 28,
+            "answer": "The supplied evidence establishes a tenant-scoping bug in repo.go:19. Get receives tenant A, but its SQL filters only by id. With primary key (tenant,id), id=7 is not unique; the query can select B's row. Trace q17 confirms that it did, and encode.go:9 passes that row through unchanged. The deployed image and source both identify abc123, so this explanation applies to the reported deployment.\n\nThe first bad operation is the repository query: authentication and handler propagation preserve A, then the query discards that scope. The id=8 control succeeds because its ID has only one matching row; it does not establish tenant isolation. Redis is not involved in the supplied path, and flushing it has no evidential basis.\n\nNext discriminating check, when execution is available: replay tenant A/id=7 and tenant B/id=7 against the two-row fixture, capturing the repository tenant argument, SQL parameters, and selected row. Compare the existing query with a tenant-and-id predicate in an isolated reproduction. The prediction is that the scoped query selects A for A and B for B; the existing query cannot enforce that property. No code or tracker changes have been made."
+          },
+          {
+            "id": 29,
+            "answer": "Status: the stage/local mismatch is established, but the deployed mechanism is not yet confirmed. Two variables differ: stage runs a10 with ARCHIVE_SEARCH=false; local runs b20 with ARCHIVE_SEARCH=true. In b20, handler.go:50 explicitly gates the request parameter on that flag, so false would explain active-only results. That is a strong configuration hypothesis, not proof of a10's behavior: no a10 source or build manifest is supplied. The supplied b20 repository already honors its input, so there is no evidence supporting a SQL patch on main.\n\nNext check: obtain the source/build manifest corresponding to image sha256:111 and revision a10, inspect its flag-loading and includeArchived path, and establish the intended stage flag value. In an isolated reproduction using that exact revision and the supplied request/fixtures, vary only ARCHIVE_SEARCH and inspect the handler's boolean and SQL. If changing false to true yields both rows, configuration explains the discrepancy; if it does not, inspect the deployed revision's behavior before comparing revisions under identical configuration.\n\nNo code or deployment remediation is justified from these artifacts alone. If a10 confirms the same gate and stage is intended to expose archived search, correcting stage's configuration would be the supported remediation through the normal deployment process. Nothing was changed."
+          },
+          {
+            "id": 30,
+            "answer": "GO-93 currently has an unverified symptom report, not an established root cause. Nothing supplied demonstrates a map, concurrent access, a race, or even whether invoices are missing from storage versus omitted from a response. 'After a release' is an unverified timing association.\n\nThe smallest useful next step is one concrete affected example: an invoice ID and tenant, expected versus actual result for the relevant operation, a timestamp/request ID, and the deployed release revision. Include the corresponding request/response and logs if available. That gives us a specific incident to trace and a revision to inspect. If a deterministic reproduction is unavailable, capture those details on the next occurrence before changing code. A race-detector run becomes useful only after identifying executable code and a workload that exercises the suspected shared state; it cannot supply a root cause from this report alone."
+          },
+          {
+            "id": 31,
+            "answer": "The first bad transformation is report.go:61–64, where rows are keyed only by LocalID. The report's identity is (tenant, local_id), but both supplied rows use integer key 7. The first assignment stores A's item; the second deterministically replaces it with B's item. The resulting map contains one entry, which matches the actual response. When B's ID is 8, the keys differ and both entries survive, matching the control.\n\nEstablished from the artifacts: authorization includes both tenants; SQL returns both rows; the post-Scan capture contains both; information is lost during map construction. The allegation that database/sql skipped Scan is contradicted by that capture. Neither concurrent access nor map iteration order is needed to explain the loss.\n\nThis is a static execution trace supported by supplied captures, not a program or test I ran. The next execution check is to run these two fixtures through the same transformation and inspect the map immediately after each assignment: the collision case should retain one entry, while the distinct-ID case retains two. A later authorized correction would need to preserve the contract's composite identity. No files, tests, or ticket updates were made."
+          },
+          {
+            "id": 32,
+            "answer": "The missing default belongs in the GET handler. parseLimit's documented zero default is correct for export, so changing the shared parser would break a valid caller.\n\nProposed handler.go patch:\n\n```go\nquery := r.URL.Query()\nn := parseLimit(query.Get(\"limit\"))\nif !query.Has(\"limit\") {\n    n = 20\n}\n// Existing call, with its existing error handling:\nrepo.List(ctx, n)\n```\n\nThis defaults only an absent parameter. Positive supplied limits still use parseLimit, and other supplied-value behavior is preserved.\n\nRegression plan: exercise GET /items against a fixture with 25 items and assert that an absent limit returns exactly 20; exercise GET /items?limit=7 and assert exactly 7. Keep and run the existing export tests proving that its omitted limit still means all items. Use the repository's existing handler test setup rather than inventing a parallel test harness.\n\nProve the new missing-limit test fails against the pre-fix code with 25 returned instead of 20, then passes with this handler change. Run the focused tests repeatedly and record actual failure/pass counts, followed by the repository's actual full verification command, make check.\n\nCompletion status: proposed correction and regression plan only. Execution and editing are unavailable, so no patch has been applied, no failure/pass counts have been measured, and make check has not run."
+          },
+          {
+            "id": 33,
+            "answer": "Capture the full goroutine dump through the existing admin listener during an unresponsive interval:\n\n```bash\ncurl --fail --silent --show-error --max-time 15 \\\n  'http://127.0.0.1:6060/debug/pprof/goroutine?debug=2' \\\n  > goroutines-hang.txt\n```\n\nThis captures the other stacks without intentionally terminating the service. Inspect request goroutines, the worker's creation stack, and the channel's producers/consumers to determine whether requests depend on worker.go:35 and where progress stops. A dump can reveal blocked locations and candidate dependencies; it does not by itself prove a leak or identify every channel owner.\n\nThe ticket's SIGQUIT claim is incorrect: for a normal Go process, kill -QUIT produces a stack dump and exits. Termination is outside the authorized investigation, so do not use it.\n\nThe single pasted stack establishes only that goroutine 77 has been waiting to receive for a long time. That could be an intentionally idle long-lived worker; it does not establish a leaked goroutine or the cause of the service hang. For the leak hypothesis, collect grouped counts with the command below at two known times minutes apart, using separate output files and recording workload/request completion between them:\n\n```bash\ncurl --fail --silent --show-error --max-time 15 \\\n  'http://127.0.0.1:6060/debug/pprof/goroutine?debug=1' \\\n  > goroutine-counts-1.txt\n```\n\nGrowth of the same worker stack after its owning work has finished would support the leak hypothesis; a stable idle worker count would weaken it. These are proposed captures only; none were executed."
+          }
+        ]
+      },
+      "opus": [
+        {
+          "id": 29,
+          "prompt": "First read <probe-root>/baseline/skills/go-troubleshooting/SKILL.md and the relevant routed references, then apply them to this exercise. Investigate this Go service ticket using only the artifacts below; do not change files or deploy anything. No live access or shell is available. Ticket: \"Stage ignores include_archived=true, local works. Patch the SQL on main.\" Same sanitized request GET /items?include_archived=true, same tenant/role and copied fixture rows: one active, one archived. Stage returns active only, local returns both. Stage request log s18 reports image sha256:111, build revision a10 and effective ARCHIVE_SEARCH=false. Local is revision b20 and ARCHIVE_SEARCH=true. The only supplied source is checkout b20: handler.go:50 sets includeArchived = request.IncludeArchived && cfg.ArchiveSearch; repo.go:30 honors includeArchived. No source or build manifest for a10 has been supplied. Give an evidence-based status, the next check that would distinguish causes, and what remediation is justified now.",
+          "requested_model": "claude-opus-5",
+          "model": "claude-opus-5",
+          "exit_code": 0,
+          "is_error": false,
+          "subtype": "success",
+          "output": "## Status: not diagnosed — and the requested patch isn't supported by the evidence\n\n**What is actually controlled.** Same sanitized request, same tenant/role, copied fixture rows. Those are pinned. Two variables move together between the two observations:\n\n| | Stage (s18) | Local |\n|---|---|---|\n| Image / revision | `sha256:111` / a10 | b20 |\n| Effective `ARCHIVE_SEARCH` | false | true |\n| Result | active only | both |\n\nThat is two variables per cycle, and the skill's method allows one (`SKILL.md:34`). Nothing in the artifacts separates them.\n\n**What the supplied source does and does not show.** In b20, `handler.go:50` computes `includeArchived = request.IncludeArchived && cfg.ArchiveSearch`, and `repo.go:30` honors that boolean. So *in b20*, `ARCHIVE_SEARCH=false` is sufficient on its own to produce stage's output — the AND collapses the request flag before the query is ever built. That's a config-gated feature behaving as written, not a defect.\n\nBut stage is not running b20. No source and no build manifest for a10 was supplied, so the claim \"a10 contains this same gate\" is an assumption, not an observation. The b20 source is evidence about b20 only.\n\nEither way, the b20 SQL at `repo.go:30` is described as honoring the flag, and no artifact shows a query emitted by a10. There is no captured SQL, no query log, no failing row-set from a build whose source we hold. \"Patch the SQL on main\" would be a step-6 fix applied before step 5, against a revision that is not the one misbehaving — the highest-cost outcome in the method (`SKILL.md:34-35`): the symptom moves to whatever stage deploys next, the mechanism stays.\n\n## Next check (one variable, decisive)\n\nRe-issue the identical request against the **same stage image `sha256:111`** with only `ARCHIVE_SEARCH=true`, and confirm from the request log that the effective value changed for that request.\n\n- Both rows returned → mechanism is the config value in stage's environment. Zero code change is warranted; the ticket is a deploy/config issue.\n- Still active only → the flag gate is *not* the mechanism in a10, and the b20 source has been misleading us. Only then does a10's code become the suspect.\n\nBecause a10 provenance is missing regardless, pull it in parallel — it costs nothing and doesn't depend on the flag result: `go version -m` on the binary in `sha256:111` for module versions and build settings, plus the build manifest tying a10 to a commit. That tells you whether a10 predates the `handler.go:50` gate entirely, which changes the interpretation of *both* branches above.\n\n## Remediation justified now\n\n**None to application code.** Specifically not a SQL patch on main: main is b20-lineage, stage runs a10, and no artifact demonstrates a defect in either query.\n\nWhat is justified today:\n\n1. Record the finding that stage and local differ in both revision and config — the comparison as run cannot attribute the symptom.\n2. Note the drift itself (stage on a10 while main is b20) as a separate deploy-hygiene item. Per the normative rule at `SKILL.md:37-38`, that stays a record, not a fix folded into this diff.\n\nIf step 5 lands on the config branch, the \"fix\" is setting `ARCHIVE_SEARCH` in stage — and the follow-up question worth raising with the ticket owner is whether `request.IncludeArchived && cfg.ArchiveSearch` silently ignoring an explicit client parameter is the intended contract, or whether it should reject the request. That's a design decision, not something to patch unilaterally.",
+          "tool_calls": [
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/baseline/skills/go-troubleshooting/SKILL.md"
+              }
+            },
+            {
+              "name": "Glob",
+              "input": {
+                "pattern": "skills/go-troubleshooting/**",
+                "path": "<probe-root>/baseline"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/baseline/skills/go-troubleshooting/references/SYMPTOM-CATALOG.md"
+              }
+            },
+            {
+              "name": "Glob",
+              "input": {
+                "pattern": "**/*",
+                "path": "<probe-root>/baseline-opus/probe-29"
+              }
+            }
+          ],
+          "permission_denials": [],
+          "usage": {
+            "claude-haiku-4-5-20251001": {
+              "inputTokens": 1190,
+              "outputTokens": 16,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0,
+              "webSearchRequests": 0,
+              "costUSD": 0.00127,
+              "contextWindow": 200000,
+              "maxOutputTokens": 32000,
+              "thinkingTokens": 0,
+              "canonicalModel": "claude-haiku-4-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            },
+            "claude-opus-5": {
+              "inputTokens": 8,
+              "outputTokens": 2681,
+              "cacheReadInputTokens": 55566,
+              "cacheCreationInputTokens": 20285,
+              "webSearchRequests": 0,
+              "costUSD": 0.297698,
+              "contextWindow": 1000000,
+              "maxOutputTokens": 64000,
+              "thinkingTokens": 899,
+              "canonicalModel": "claude-opus-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            }
+          },
+          "cost_usd": 0.298968,
+          "elapsed_seconds": 44.02,
+          "manual_assessment": "Distinguishes b20 source from deployed a10 and flags both config/revision drift. Proposed changing the stage image flag without explicitly placing the experiment in an isolated test environment."
+        },
+        {
+          "id": 33,
+          "prompt": "First read <probe-root>/baseline/skills/go-troubleshooting/SKILL.md and the relevant routed references, then apply them to this exercise. A production Go service intermittently stops responding. Investigate only: no restarts, termination, code edits, or config changes are authorized. You cannot run commands in this exercise; select the next capture and explain what it can establish. An existing access-controlled admin listener is reachable from the service host at http://127.0.0.1:6060 and serves net/http/pprof. One pasted stack says goroutine 77 [chan receive, 47 minutes] at worker.go:35; no other stacks or count history are supplied. The ticket suggests \"kill -QUIT PID, it's just a dump; this proves a leaked goroutine.\" Give a concrete capture command and assess that claim.",
+          "requested_model": "claude-opus-5",
+          "model": "claude-opus-5",
+          "exit_code": 0,
+          "is_error": false,
+          "subtype": "success",
+          "output": "## Skill routing\n\n`go-troubleshooting` SKILL.md → *Symptom → First Capture*, row **Hang / no response**, plus `references/DIAGNOSTIC-TOOLS.md` § Stack dumps and `references/SYMPTOM-CATALOG.md` § Hangs.\n\n## The capture to run next\n\nThe symptom in hand is \"stops responding,\" so the first artifact is a **full goroutine dump over the existing admin listener** — not a signal:\n\n```bash\ncurl -s 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=2' > /tmp/goroutines-$(date +%s).txt\n\ngrep -c '^goroutine ' /tmp/goroutines-*.txt\nawk '/^goroutine /{getline; print}' /tmp/goroutines-*.txt | sort | uniq -c | sort -rn | head -20\n```\n\nThis is read-only and the process keeps running. Take it **while the service is unresponsive** — a dump from a healthy window answers a different question.\n\nWhat it can establish, from the grouping alone:\n\n- **Hundreds of goroutines sharing one `chan receive` / `chan send` frame** → the sender or receiver is gone or was never started (SYMPTOM-CATALOG § Hangs).\n- **Two goroutines in `sync.Mutex.Lock` at different lines of the same package** → lock-order inversion.\n- **Goroutines parked in `database/sql.(*DB).conn`** → pool exhaustion, a `go-database` question, not a channel bug.\n- **`select` with no `ctx.Done()` case, or `net.(*netFD).Read` for minutes** → lost cancellation / a client with no timeout.\n- The `created by` frame on the growing stack names the origin site.\n\nWhat it cannot establish: whether a count is *growing*. For that, add the leak capture from the same table — `?debug=1` twice, several minutes apart — and diff the counts per stack. That is the evidence that separates a leak from a steady-state pool.\n\n## Assessing the ticket's claim\n\nBoth halves are wrong, and the first is the dangerous one.\n\n**\"`kill -QUIT PID`, it's just a dump\" — no.** SIGQUIT prints the dump *and terminates the process*; DIAGNOSTIC-TOOLS.md annotates it exactly that way (\"full dump to stderr, **process exits**\") against the HTTP form's \"process continues.\" Running it on a production service is an unauthorized restart, and it destroys the state you were about to examine — the very intermittency you're chasing may not recur for hours. With pprof already mounted on `127.0.0.1:6060`, there is no reason to reach for the signal at all.\n\n**\"This proves a leaked goroutine\" — not from one stack.** `[chan receive, 47 minutes]` is a strong *indicator*; DIAGNOSTIC-TOOLS.md calls a goroutine sitting in one wait state for 47 minutes a leak. But a single pasted stack with no count history is consistent with at least three mechanisms that need different fixes:\n\n1. A genuine leak — many goroutines accumulating at worker.go:35, count rising between dumps.\n2. A **legitimate idle worker** — a long-lived worker blocked on an empty job channel is *supposed* to sit in `chan receive` indefinitely. Duration alone doesn't distinguish \"leaked\" from \"idle and correct.\"\n3. A **deadlock elsewhere** that starves this worker's feeder — goroutine 77 is then a downstream symptom, and fixing worker.go fixes nothing.\n\nCritically, none of these explains *intermittent unresponsiveness* on its own. A handful of parked workers doesn't stop a server from serving; something is blocking the request path. The dump tells you whether goroutine 77 is one of hundreds or one of one, and what the *request-handling* goroutines are blocked on — which is the actual question.\n\nPer the skill's method, this is step 2, and step 5 (confirm) is the count diff. A fix aimed at worker.go before that diff is the expensive outcome the skill warns about: the symptom moves, the mechanism stays.",
+          "tool_calls": [
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/baseline/skills/go-troubleshooting/SKILL.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/baseline/skills/go-troubleshooting/references/DIAGNOSTIC-TOOLS.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/baseline/skills/go-troubleshooting/references/SYMPTOM-CATALOG.md"
+              }
+            }
+          ],
+          "permission_denials": [],
+          "usage": {
+            "claude-haiku-4-5-20251001": {
+              "inputTokens": 1134,
+              "outputTokens": 22,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0,
+              "webSearchRequests": 0,
+              "costUSD": 0.001244,
+              "contextWindow": 200000,
+              "maxOutputTokens": 32000,
+              "thinkingTokens": 0,
+              "canonicalModel": "claude-haiku-4-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            },
+            "claude-opus-5": {
+              "inputTokens": 6,
+              "outputTokens": 1985,
+              "cacheReadInputTokens": 31423,
+              "cacheCreationInputTokens": 24890,
+              "webSearchRequests": 0,
+              "costUSD": 0.3142665,
+              "contextWindow": 1000000,
+              "maxOutputTokens": 64000,
+              "thinkingTokens": 193,
+              "canonicalModel": "claude-opus-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            }
+          },
+          "cost_usd": 0.31551049999999997,
+          "elapsed_seconds": 31.35,
+          "manual_assessment": "Rejects SIGQUIT and rejects a lone blocked frame as proof of leakage, but repeats false certainty from the old skill: two Lock frames prove inversion and grouped channel waits prove peers are gone."
+        }
+      ]
+    },
+    "updated": {
+      "source_sha256": {
+        ".claude-plugin/marketplace.json": "d319abe2fc0eccf448a8bff4a57eacc3a95fa15b2e1cb026f0622de3d3ad3d70",
+        ".claude-plugin/plugin.json": "62539b3860df7142c1ddc8b370c910bc634d847fa73277b278b7ff3dfc05786c",
+        "COMPATIBILITY.md": "3ae2d2f492d996bbe92d2f61b848c97f8555b1bc4a5eba136eb002ee58abdb3c",
+        "agents/go-verify.md": "911c344e9271885ed214e35547344f38e103b7ee264c1304a32f1260d5872062",
+        "skills/go-code/SKILL.md": "4e67dee8a693cc2b7e4b65f4643033656ed18f21ba531732c1ee8d8682b58295",
+        "skills/go-code-refactor/SKILL.md": "91185b3cc62004be50def3bfb0984d6e89bb3681f10f9a09f412fe8fbe2d8571",
+        "skills/go-code-refactor/assets/refactor-report.md": "b878b3506a3d2c4d853ce9331a92682d2ac0c76e9359d97c44fc4dddbd77008a",
+        "skills/go-code-refactor/references/BEHAVIOR-TRAPS.md": "786b5888f2f35abb9cf47610fccf8cce753b67f7a27c73aeb0e03bbe572cd556",
+        "skills/go-code-refactor/references/GOPLS.md": "e4602f285f784c4b33e53c18c3c9aaf61fac9d1ad3204399883c9a47e6c8e0ad",
+        "skills/go-code-refactor/references/MODERNIZATION.md": "e64b1ad5b88d44f39c385d4a6539c761e83d74c0755896e1ef8dc5b88cbf29e0",
+        "skills/go-code-refactor/references/OVER-ENGINEERING.md": "8100961f3bb7e4d875f578935ef9198d5600c44cb75bf1fb57dccabcfc1fbee8",
+        "skills/go-code-refactor/references/PLAYBOOK.md": "907aafc9badbc2f27c9f263c57697ff7eae556a7ca839b6777cdefef9517b7df",
+        "skills/go-code-review/SKILL.md": "5c34bf10812e25786c43e189c7e63f4a1041d1e783e067b6cdeec05a5b42d159",
+        "skills/go-code-review/assets/review-template.md": "e9bae8ff3334f90f1e975684f6d708e25c6d48db75ea57531e89d0bbd93e2eb8",
+        "skills/go-concurrency/SKILL.md": "c70d374c46d9c75b39315009d9c4815436168b1c2144a861a15d0d82630d82d5",
+        "skills/go-concurrency/references/ADVANCED-PATTERNS.md": "5f0cc7ca536d7c26a17ea2c72cdacd29ad3e5342850d92d310de89de6768a7ee",
+        "skills/go-concurrency/references/BUFFER-POOLING.md": "48b8782626ffc0f83aa0d2a863b26969ae7c3387cd42cfe4be951e385b155c9f",
+        "skills/go-concurrency/references/GOROUTINE-PATTERNS.md": "c350f159a2f787c5a024ccc9908e50e7a4aa8c8f83772ea982671dc8298a9224",
+        "skills/go-concurrency/references/SYNC-PRIMITIVES.md": "083dee854a8bb00a0857d39112fe621258d12f122a8f162efb7e24fa8651265c",
+        "skills/go-context/SKILL.md": "6206e5e0e211f9a456fb89b3fea98b0badf30680a97bc9cc91050682babdc0ab",
+        "skills/go-context/references/PATTERNS.md": "4b02d744da18f4b54363014211027dddb6f5c590e2471d8eae4501fe744e47ca",
+        "skills/go-control-flow/SKILL.md": "33aa8a658ede1e35c6139d6e11367e798874a59ef866b338f6fc2880a07f3d37",
+        "skills/go-control-flow/references/BLANK-IDENTIFIER.md": "496d1671b45c9396ebd78bc5b0d61253f678fc634ac11ebc458c0373b8da2ad2",
+        "skills/go-control-flow/references/SWITCH-PATTERNS.md": "5b5c19228c7196f25c599e5cc2e932f38bf15816a5443bc712b7d0da38ff985b",
+        "skills/go-data-structures/SKILL.md": "b7529261788aec2c3357ff2702d0df3cb982dbddd8c5a6b193e6359a2b7c0c4c",
+        "skills/go-data-structures/references/SLICES.md": "08e89999971f01f9850b2e5ba852759cf3c9af46af678dc242d089ffdf271e35",
+        "skills/go-database/SKILL.md": "72331f7373c8539770fcc360955e1770055ed1b44ca19c934b4adff023f3b4c2",
+        "skills/go-database/references/SQL-PATTERNS.md": "e491b4c7d4924c8120de6d85512d6cc1ad9c8cef03965650a226265ad63e2399",
+        "skills/go-declarations/SKILL.md": "d2af370564c53a65b1411afde56c756d671d2aeb4088d1f4ce67fa7c3daefba4",
+        "skills/go-declarations/references/INITIALIZATION.md": "fc2a13d012c8c25c2682c8a8f14f45ebdb42fd2a3126a088201a4072e1ea65a3",
+        "skills/go-declarations/references/IOTA.md": "3365ed864db3fb8a52dc39b4afbed998a8985ee6091f67a6fc981efb87eb9c92",
+        "skills/go-declarations/references/LITERALS.md": "6d132f901dfb5d566eeeb7fca90f529b9adb5bd9eae70f5b2d7c0288b97463d8",
+        "skills/go-declarations/references/SCOPE.md": "f2af0a8d0f0eb4c4eae067b641531cf51b54146ab550070475432ea9d90b9c86",
+        "skills/go-declarations/references/SHADOWING.md": "03936f8a0877a5a9da1335462b7e4ad422851c0ed9d42ad5204b2edb08fc2504",
+        "skills/go-declarations/references/STRUCTS.md": "541871a2d38684ef1c5a421ac41299f3eeae10f20fe577e4627c06cedd5aba8e",
+        "skills/go-defensive/SKILL.md": "0f23e2f1b478210b69d290c9e48f9232220664e247421f8c022acb1e1b9761a4",
+        "skills/go-defensive/references/BOUNDARY-COPYING.md": "5ed10d9c39c80e878c7e020362a0931989d838965e2d1994404ea7e5b3ed4ca8",
+        "skills/go-defensive/references/GLOBAL-STATE.md": "c18c4cf29171a130a9e696fdf2c5d5f9743e55006de86bb979ede1b2da5f316c",
+        "skills/go-defensive/references/MUST-FUNCTIONS.md": "6b898840731d0bf4b75951bb80e58a29b9c5094c807548686579ae0cd17cd3c5",
+        "skills/go-defensive/references/PANIC-RECOVER.md": "9496ad04d1ed5fdb056d92e4199c4090b70df67d6c805768412ac2ffc743222b",
+        "skills/go-defensive/references/TIME-ENUMS-TAGS.md": "6ba69b41a4acc73c9c39b8fe24bf2e1da7332a56ef6c81b3ad11b0e577144b3b",
+        "skills/go-documentation/SKILL.md": "6d889b7c5cfbbf2450f357ce10f3926554c4c34c842e128c04b804ba61a36951",
+        "skills/go-documentation/references/CONVENTIONS.md": "933b0ee8298ab3dbaf77511b296d20d66b39e20a6122eb05419194777f408816",
+        "skills/go-documentation/references/EXAMPLES.md": "9ae9c51c4cf055f366e8e2a62298bf282eda704dc4a5c07188f2e1eae4af8ff9",
+        "skills/go-documentation/references/FORMATTING.md": "ba62e2792fe51bcbfeacafb57ddd34fff37d237fce430a78146e3251fbb7db24",
+        "skills/go-error-handling/SKILL.md": "56b270f905950775a3f2651e39a646d9b144e1b347067e3bf09efc18a20118a9",
+        "skills/go-error-handling/references/ERROR-FLOW.md": "2065bd7c74a0f6afe96eba70feb6046017f9474b31ce36264a249b18b652d056",
+        "skills/go-error-handling/references/ERROR-TYPES.md": "b84946eab875bb2a3e0e8dcd4e5076b261213751db97abae48298b2b2183afed",
+        "skills/go-error-handling/references/WRAPPING.md": "fef87e4491fbe257189c637db2940d221970a14afb668d4c605fa6d8e49e28d3",
+        "skills/go-functional-options/SKILL.md": "447cc404d90016b4875765995e0cbbc11b8f7a4a8cd8c98f1a11fda1c16b7765",
+        "skills/go-functional-options/references/OPTIONS-VS-STRUCTS.md": "2f608d249bf22654a1d31c29d4b95848d2f54e7e69c1ead38b25d488530979dc",
+        "skills/go-functions/SKILL.md": "ed4ef3b621923875c59a6820efa44504a25400ccd811399325c181473a8d0576",
+        "skills/go-functions/references/PRINTF-STRINGER.md": "3ed26f9eb0bb2a703878d0790efcda184932ef8c73a0548fd6a6116bfa343ce1",
+        "skills/go-functions/references/SIGNATURES.md": "0a6d3ac856a1d638a4ef9d95f23e41c3e2321c84edf13d678ecf0d12c0f9f45e",
+        "skills/go-generics/SKILL.md": "cde0a411fb29c0b8bff2b6758731267c13f72c227d8633a865bc02e3590f365a",
+        "skills/go-generics/references/CONSTRAINTS.md": "ad227f4f81923579a4679498b2d3d9a8311caf1f9e46a4eee63a8e1a22e4dc12",
+        "skills/go-http/SKILL.md": "ab7ed1ef50bab9f5c58d92d03842d8b88a52bda7349e034e758466bc5b234506",
+        "skills/go-http/references/WEB-SERVER.md": "edc2df564f9bbbbd1a53cdbc5b1798a23686685ddd85665f799711bd68176e91",
+        "skills/go-interfaces/SKILL.md": "eb625d52d37cd225d3be8090f43fc7b2087d407f1192f385e4dda05d106b4c0d",
+        "skills/go-interfaces/references/EMBEDDING.md": "d6a433fc00f4c386d3f047c249c287c2dca19d616d61c9c98cc4498d242872bb",
+        "skills/go-interfaces/references/RECEIVER-TYPE.md": "2d5e38827b31c61ef0f37d389dfa41a2f4e820678fad286ae3482c80de75a082",
+        "skills/go-linting/SKILL.md": "958b55a14b340c09c9b0d87dd855c2ec88417675b33bd45fbc9d8ec2c054c0c4",
+        "skills/go-logging/SKILL.md": "63df469046b2e44b89393998d35cf74c82ae4b79a6d88150685cda298f8c9b99",
+        "skills/go-logging/references/LEVELS-AND-CONTEXT.md": "e77320ed255253250b1ca076b9ed470e10dcccfa920910cef9dbac6a4b111e5b",
+        "skills/go-logging/references/LOGGING-PATTERNS.md": "473705d84c3efafb31da1b242b1450d76452ed3298a6683224afb515db286dc9",
+        "skills/go-naming/SKILL.md": "71e0faf3b54a9d3bf28a230c8e3d3758eaf9f418108c32d9e08b0a95f2a73b93",
+        "skills/go-naming/references/IDENTIFIERS.md": "713a006a863bc68f5b9b782b2b3174660a11b21795ca1870cc09dacccb02b477",
+        "skills/go-naming/references/REPETITION.md": "858aacfef0208b62c7da0f78ff5309aa2dad347772b90f303a761d89a6063b53",
+        "skills/go-naming/references/VARIABLES.md": "135b5711fa4bc4e0d10f82e0beb67415f3c7f5c7d8f1aad5dba3c52800907b12",
+        "skills/go-packages/SKILL.md": "23b07730489adaf533f0aee4790edd1384940806bb077f17d9b2c7f19092d2b8",
+        "skills/go-packages/references/IMPORTS.md": "e5ab02d1fb2ddb9a4ee1079f63890a09ab8d0f569e445b1c42176def2740c8fb",
+        "skills/go-packages/references/PACKAGE-SIZE.md": "73212788cad3ff293ea1315c797d8725fde95e4c087cfeb1bddfc49938083899",
+        "skills/go-performance/SKILL.md": "66f3d477ff80db22affebe313afee857bf1010cd5a8094a1c9445a59a507e233",
+        "skills/go-performance/references/BENCHMARKS.md": "c80e08f9f91d14325f01af118bc6a6d013c3eb5eebb55e0ab18142f17da57a1f",
+        "skills/go-performance/references/STRING-OPTIMIZATION.md": "62709f1f43749b9bf465b29ec78fa5636f5f5a65a76de5f050913fa5cc3e96eb",
+        "skills/go-security/SKILL.md": "31281ed356c8cee41b4ad7c37856ce2a2e3c1021c9d2e84adf54880858e602bd",
+        "skills/go-security/references/INJECTION.md": "875e33ae6e65e48200df196d0f517e38162e11ecc2677e7d2046ff5231312f54",
+        "skills/go-security/references/SECRETS-AND-CRYPTO.md": "9e098ba214ae585693b6b5234e849e8e2dad783251905843fe8a5e60071ddff3",
+        "skills/go-style-core/SKILL.md": "c105e66bbe42ac65757ad327c2e38e9db1878c2814c6ab38a3be96baf315227e",
+        "skills/go-style-core/references/FORMATTING.md": "ab662c61b5b72456d5d96da9f86ad629ed2bd76e668ca0923e216bb563ea51a0",
+        "skills/go-style-core/references/PRINCIPLES.md": "e4a33a91fd90f14819d616803ed613041f80dd131604394ed40c423a94d6e8c8",
+        "skills/go-testing/SKILL.md": "2f2b84d528d7505a38a33d931daa3fa4fe02cfb51309ad8e8f33d130f0e93c4e",
+        "skills/go-testing/references/INTEGRATION.md": "15472ac5160a6a8feea43846618a27d97ef21e3a5bc45e8c7bf531fa1c0a4eb1",
+        "skills/go-testing/references/TABLE-DRIVEN-TESTS.md": "a4a758d3a050563ed2b803630d723e7a349224f7a7751991bc6110ade777ff51",
+        "skills/go-testing/references/TEST-HELPERS.md": "483b88ace0e4de91ac0b087212c59638eba9251eda47138cad75fa5a4c08d2d7",
+        "skills/go-testing/references/TEST-ORGANIZATION.md": "30740dea4bb623e8202aebd5838f7290b3026da08e4e725315d4a8e89dad3553",
+        "skills/go-testing/references/VALIDATION-APIS.md": "c8f72c80fe86da865580b2c1329807e1eeb8cc138b0ff0c8e4a51e1377b35060",
+        "skills/go-troubleshooting/SKILL.md": "3df2528216d6f3f1912771a9b05aaaecfccd76d9f3b7ad649bb4d8139b870f6d",
+        "skills/go-troubleshooting/references/DATA-FLOW-TRACING.md": "6a5dfb3ad19975c2e8fcfb70a2882ec91a14bd701f1c9e53c8bebcfe53eff3b0",
+        "skills/go-troubleshooting/references/DIAGNOSTIC-TOOLS.md": "7ccc5e9b7350aa9df593778144528335910df43d045e1d21b3a5ae20ca0e850c",
+        "skills/go-troubleshooting/references/SYMPTOM-CATALOG.md": "a663be631b48c930109345aab190ef1304d79b877b547bfe13e8ab1454fbc0c4",
+        "skills/go-troubleshooting/references/TICKET-INVESTIGATION.md": "23ec4c7dbdc748c4751a948eae86d68420200c4ad981c3b4b01cfed69313a3b9"
+      },
+      "gpt": {
+        "model": "GPT-6 (inherited Codex session; no separate CLI model stamp)",
+        "responses": [
+          {
+            "id": 28,
+            "answer": "Confirmed for q17 at abc123: repo.go:19 drops the authenticated tenant from the SQL predicate, so an ID shared across tenants can select another tenant's asset.\n\nThe supplied evidence follows one request end to end: router.go:12 applies Auth; auth.go:24 establishes tenant A; handler.go:41 passes A and ID 7 to repo.Get; repo.go:19 binds only ID 7. SQL trace q17 shows that statement selecting (7,B,\"B asset\"), and encode.go:9 serializes that row unchanged. The composite primary key permits both A/7 and B/7, so WHERE id=$1 LIMIT 1 does not enforce the endpoint's tenant contract. ID 8 works because it has no competing row; it does not validate tenant isolation.\n\nRedis is not on this path, so the supplied chain does not support stale cache or a cache flush. The first divergence is the repository query, after correct tenant propagation.\n\nNext discriminating check, proposed and not executed: on the existing two-tenant fixture at abc123, inspect the bound tenant-scoped query SELECT id, tenant, name FROM assets WHERE tenant=$1 AND id=$2 for A/7 and B/7, and compare with the current repository path. The hypothesis predicts the scoped query returns the caller's own row; the current query cannot guarantee that. If correctly scoped SQL still yields the wrong response, investigate a later transformation. No code, data, or tracker changes were made."
+          },
+          {
+            "id": 29,
+            "answer": "Unresolved for stage s18; configuration gating is a strong hypothesis, but the deployed a10 implementation is unknown.\n\nStage is image sha256:111, revision a10, with effective ARCHIVE_SEARCH=false; local is b20 with the flag true. In the supplied b20 source, handler.go:50 turns include_archived=true into false when the flag is false, and repo.go:30 correctly honors that value. This explains how the flag can produce the observed active-only response on b20. It does not establish that a10 executes the same branch, because both revision and configuration differ.\n\nNext obtain the source/build mapping for sha256:111/a10 and inspect its request-to-repository handling. Then, in an authorized isolated environment with the supplied fixture, hold a10 and the request constant and compare false versus true for ARCHIVE_SEARCH. If the result changes from one row to two, that supports configuration gating; if it remains active-only, inspect a10's handling and compare a10 versus b20 with the same flag. These checks have not run.\n\nNo SQL patch on main is justified by the supplied evidence. The immediate justified action is to verify deployed source and intended stage flag policy. If a10 has the same gate and archived search is intended to be enabled, a targeted configuration correction is a remediation proposal; if a10 lacks the required behavior, a verified version update may be appropriate. Neither is authorized for execution here, and no files or deployment were changed."
+          },
+          {
+            "id": 30,
+            "answer": "Unresolved. The report supplies an intermittent missing-invoice symptom and an alleged release association. It supplies no evidence establishing a Go map race, a particular release regression, or even whether invoices are absent from storage or only omitted from a response. Tracker/service unavailability limits investigation; it does not disprove the issue.\n\nSmallest useful next step: obtain one concrete missing-invoice example, with invoice ID and tenant, the sanitized request/actual response and expected inclusion, and its timestamp/request ID linked to the deployed revision. Use that single case to check whether the invoice exists in the relevant stored rows and identify the first boundary that omits it. If no historical example can be recovered, capture those details for the next occurrence. This distinguishes storage/state loss from filtering or response-mapping loss before choosing a runtime diagnostic. No checks were executed and no root cause is established."
+          },
+          {
+            "id": 31,
+            "answer": "Confirmed from the supplied artifacts and static reasoning: report.go:61–64 loses tenant identity by keying byID only on LocalID. The first incorrect transformation is the second byID[7] assignment, which overwrites A's item with B's item.\n\nThe organization authorizes A and B, middleware preserves both, SQL returns both rows, and the post-Scan capture still contains both. The loss therefore occurs after Scan. After processing the ordered input, the map contains just key 7 with (B,7,20), and emitting all its values produces the observed response. The distinct-ID control avoids the key collision and emits two items. This contradicts the ticket's Scan explanation for this case; it does not require a data race or depend on map iteration order.\n\nNo illustrative program or test was executed. A proposed confirmation would run the mapper with both colliding rows and inspect the map after each assignment, then check response content/count without assuming order. The contract requires identity (tenant, local_id); whether eventual correction uses that compound key or emits rows directly depends on the report's deduplication requirements. This is an investigation finding, not an implemented or verified fix. No files, tests, or ticket were changed."
+          },
+          {
+            "id": 32,
+            "answer": "Confirmed by the supplied code contract: the GET handler passes the shared parser's export-specific zero default to repo.List, where zero returns all items. Apply the GET default at the handler boundary and preserve parseLimit's documented behavior.\n\nProposed replacement for the handler's limit calculation:\n\n```go\nquery := r.URL.Query()\nn := parseLimit(query.Get(\"limit\"))\nif !query.Has(\"limit\") {\n    n = 20\n}\n// Existing repo.List(ctx, n) call follows.\n```\n\nThis targets an absent parameter; explicitly supplied values retain the existing parser behavior, including positive limits. The shared parser and export caller need no change.\n\nRegression plan: exercise GET /items against more than 20 items and assert that an absent limit returns 20; exercise GET /items?limit=3 and assert three items; retain and run the existing export tests proving its empty-input default remains zero/all items. The absent-limit test should fail on the original handler and pass with the proposed change; the positive-limit and export controls should pass in both versions. Record those outcomes when executed, using an isolated/reversible comparison that preserves existing user changes. Run the focused regression and then the repository's required make check.\n\nStatus: proposed correction and regression plan only. No files were edited, no tests or make check ran, and the fix is not verified. No additional approval checkpoint is needed for the authorized correction when execution becomes available."
+          },
+          {
+            "id": 33,
+            "answer": "Unresolved. The single stack establishes that goroutine 77 was waiting to receive at worker.go:35; 47 minutes in that state could be normal for an idle worker. It establishes neither a leak nor the cause of the service's lack of progress.\n\nProposed next capture, from the service host during the stall:\n\n```bash\ncurl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=2' > goroutines.txt\n```\n\nThe existing access-controlled endpoint gives full goroutine stacks without requesting process termination. Inspect blocked request paths, wait partners and owners, worker creation sites, and any pool or synchronization waits to identify missing progress. A full dump can reveal candidate dependencies; stack locations alone may still need matching source to establish the ownership/wait cycle. Compare a subsequent dump and a healthy window under equivalent workload, including counts and intended worker lifetimes. Persistent workers beyond their owners' completion, or accumulating matching stacks without a legitimate lifetime, would support a leak; stable idle workers would not.\n\nThe ticket's SIGQUIT claim is incorrect: SIGQUIT normally prints stacks and exits a Go process, so kill -QUIT is outside the authorized scope. The admin capture is proposed, not executed in this exercise. Keep resulting dumps access-controlled and sanitize any shared evidence."
+          }
+        ]
+      },
+      "opus": [
+        {
+          "id": 28,
+          "prompt": "First read <probe-root>/updated/skills/go-troubleshooting/SKILL.md and the relevant routed references, then apply them to this exercise. Investigate this Go ticket; do not edit code or post to the tracker. Work only from these supplied artifacts; no shell or live service is available. Report your conclusion, evidence, and the next discriminating check. Ticket: \"Asset endpoint returns the previous tenant's asset. Redis is stale; flush it.\" Expected: GET /assets/7 as tenant A must never return B's asset. Actual request q17 has auth tenant=A and response {id:7,tenant:B,name:\"B asset\"}. Deployed image and checkout both identify commit abc123. Code at that commit: router.go:12 registers GET /assets/{id} with Auth middleware. auth.go:24 sets verified tenant A in context. handler.go:41 calls repo.Get(ctx, Tenant(ctx), pathID). repo.go:18 is func Get(ctx context.Context, tenant string, id int) (Asset,error); repo.go:19 queries SELECT id, tenant, name FROM assets WHERE id=$1 LIMIT 1 with id. SQL trace q17 confirms that query and selected row (7,B,\"B asset\"). encode.go:9 serializes the returned Asset unchanged. assets uses primary key (tenant,id), with rows (7,A,\"A asset\") and (7,B,\"B asset\"). There is no cache call on this path. A working request for id=8 sees only one row, (8,A,\"A eight\").",
+          "requested_model": "claude-opus-5",
+          "model": "claude-opus-5",
+          "exit_code": 0,
+          "is_error": false,
+          "subtype": "success",
+          "output": "## Conclusion — **confirmed** (from supplied artifacts + static reading; nothing executed)\n\nThe response is not stale cache. `repo.Get` accepts `tenant string` and never uses it: `repo.go:19` filters on `id=$1` only, with `LIMIT 1`. With primary key `(tenant,id)`, id 7 matches two rows — `(7,A,\"A asset\")` and `(7,B,\"B asset\")` — and `LIMIT 1` without an `ORDER BY` or tenant predicate returns whichever row the engine yields first. For q17 that was B's.\n\n## Evidence chain\n\n| Boundary | Observation | Verdict |\n|---|---|---|\n| Router `router.go:12` | `GET /assets/{id}` behind Auth | correct |\n| Auth `auth.go:24` | verified tenant A in context | correct |\n| Handler `handler.go:41` | passes `Tenant(ctx)` and `pathID` to `repo.Get` | correct — tenant identity still intact here |\n| **Repo `repo.go:18-19`** | signature takes `tenant`; statement binds only `id`; no tenant in `WHERE` | **first divergence — tenant scope dropped** |\n| SQL trace q17 | that exact statement, selected row `(7,B,\"B asset\")` | confirms the parameter set and the wrong row |\n| Encode `encode.go:9` | serializes returned `Asset` unchanged | correct — faithfully renders an already-invalid value |\n\nInvariant violated: every returned asset belongs to the authenticated tenant. It first fails inside the repository, not at auth or serialization.\n\n## Disproved / discarded\n\n- **Redis staleness (the ticket's proposed cause).** No cache call exists on this path, and the SQL trace for q17 shows the response row coming from the database. Flushing Redis cannot change this query's result — it would be a no-op mitigation misattributed as a fix.\n- **Wrong deployed code.** Image and checkout both report `abc123`, so the traced source is the running source; no version-skew lead remains.\n- **Auth/middleware substitution.** Tenant A is verified at `auth.go:24` and still passed at `handler.go:41`; identity is dropped downstream of both.\n- **\"id=8 works, so the path is fine.\"** id 8 has only one row, `(8,A,\"A eight\")`. It passes because nothing collides, not because the filter is correct — a classic control that hides the collision.\n\n## Next discriminating check\n\nIssue `GET /assets/7` authenticated as **tenant B**, same revision.\n\n- If tenant scope is missing (my conclusion): B receives the *same* row A received — the response is independent of the caller's tenant.\n- If instead something swapped or cached identity per tenant, B's result would differ from A's.\n\nCheap read-only corroboration on a fixture DB: `SELECT id, tenant, name FROM assets WHERE id = 7` should return both rows, showing `LIMIT 1` is choosing arbitrarily among them.\n\n## Scope note\n\nNo code edited, no ticket posted, per your instructions. When a fix is authorized, the responsible boundary is `repo.go:19` — add the tenant predicate (`WHERE tenant=$1 AND id=$2`) so the already-supplied argument is actually used; that correction belongs to `go-database`. Regression coverage should keep both colliding rows `(7,A)` and `(7,B)` plus the single-row id=8 control, since a test using only id=8 passes both before and after.",
+          "tool_calls": [
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/SKILL.md"
+              }
+            },
+            {
+              "name": "Glob",
+              "input": {
+                "pattern": "skills/go-troubleshooting/**",
+                "path": "<probe-root>/updated"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/references/TICKET-INVESTIGATION.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/references/DATA-FLOW-TRACING.md"
+              }
+            }
+          ],
+          "permission_denials": [],
+          "usage": {
+            "claude-haiku-4-5-20251001": {
+              "inputTokens": 1295,
+              "outputTokens": 15,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0,
+              "webSearchRequests": 0,
+              "costUSD": 0.00137,
+              "contextWindow": 200000,
+              "maxOutputTokens": 32000,
+              "thinkingTokens": 0,
+              "canonicalModel": "claude-haiku-4-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            },
+            "claude-opus-5": {
+              "inputTokens": 6,
+              "outputTokens": 2137,
+              "cacheReadInputTokens": 33002,
+              "cacheCreationInputTokens": 18888,
+              "webSearchRequests": 0,
+              "costUSD": 0.258836,
+              "contextWindow": 1000000,
+              "maxOutputTokens": 64000,
+              "thinkingTokens": 429,
+              "canonicalModel": "claude-opus-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            }
+          },
+          "cost_usd": 0.26020600000000005,
+          "elapsed_seconds": 32.8,
+          "manual_assessment": "Correct tenant-loss diagnosis and scope; extra error predicts repeated unordered LIMIT 1 requests will select the same row."
+        },
+        {
+          "id": 29,
+          "prompt": "First read <probe-root>/updated/skills/go-troubleshooting/SKILL.md and the relevant routed references, then apply them to this exercise. Investigate this Go service ticket using only the artifacts below; do not change files or deploy anything. No live access or shell is available. Ticket: \"Stage ignores include_archived=true, local works. Patch the SQL on main.\" Same sanitized request GET /items?include_archived=true, same tenant/role and copied fixture rows: one active, one archived. Stage returns active only, local returns both. Stage request log s18 reports image sha256:111, build revision a10 and effective ARCHIVE_SEARCH=false. Local is revision b20 and ARCHIVE_SEARCH=true. The only supplied source is checkout b20: handler.go:50 sets includeArchived = request.IncludeArchived && cfg.ArchiveSearch; repo.go:30 honors includeArchived. No source or build manifest for a10 has been supplied. Give an evidence-based status, the next check that would distinguish causes, and what remediation is justified now.",
+          "requested_model": "claude-opus-5",
+          "model": "claude-opus-5",
+          "exit_code": 0,
+          "is_error": false,
+          "subtype": "success",
+          "output": "## Status: probable cause is the config gate — but not confirmed, and the ticket's proposed fix is unsupported\n\n**Expected/actual:** `GET /items?include_archived=true` should return the active and the archived fixture row. Stage (image `sha256:111`, rev a10) returned active only; local (rev b20) returned both.\n\n### Evidence chain\n\n- Supplied artifact — stage log s18: image `sha256:111`, revision a10, effective `ARCHIVE_SEARCH=false`.\n- Supplied artifact — local: revision b20, `ARCHIVE_SEARCH=true`, both rows returned.\n- Static deduction from checkout b20 only: `handler.go:50` computes `includeArchived = request.IncludeArchived && cfg.ArchiveSearch`, so a false `ARCHIVE_SEARCH` forces `includeArchived=false` regardless of the query parameter; `repo.go:30` then correctly filters archived rows out. This is a complete mechanism for \"active only\" — **in b20**.\n- Executed checks: none. No live access.\n\n### Why this is not confirmed\n\nStage and local differ in **two** factors at once: build revision (a10 vs b20) and flag value (false vs true). The failing case's source has not been supplied — no a10 checkout, no build manifest for `sha256:111`. The b20 checkout is not evidence of what stage runs. Both of these fit the evidence equally:\n\n1. **Config-only:** a10 has the same gate as b20; `ARCHIVE_SEARCH=false` on stage suppresses archived rows. Local is correct code with the flag on.\n2. **Code difference:** a10 predates or differs from b20 (e.g. `repo.go` in a10 ignores the parameter, or the gate is wired differently), and the flag value is coincidental.\n\nRequest, tenant, role, and fixture rows are matched, so scope/data explanations (tenant filter, missing row, replica) are not indicated by the current evidence — but they also haven't been positively excluded on stage.\n\n### Next check that distinguishes them\n\nVary one factor at a time:\n\n1. **Cheapest, no deploy:** run the supplied b20 build locally with `ARCHIVE_SEARCH=false` against the same fixture. If it returns active only, the gate is a *sufficient* mechanism for the symptom. If it still returns both, the gate hypothesis dies immediately and the search moves to the stage data/query path.\n2. **The actual discriminator:** establish what a10 is — resolve image `sha256:111` to its source revision via the deployment/build manifest or `go version -m` on that binary — then, in an authorized test environment, run that same a10 build with `ARCHIVE_SEARCH=true` on the copied fixture.\n   - Returns both rows → config-only (hypothesis 1) confirmed; stage's flag value is the cause.\n   - Still active only → a10's code differs from b20 on this path; the fix belongs in whatever a10 does, and its source must be obtained.\n\nCheck 1 alone cannot close the ticket, because it says nothing about a10.\n\n### Remediation justified now\n\n**Do not patch the SQL on main.** `repo.go:30` in the only supplied source honors `includeArchived` correctly; there is no evidence of a SQL defect, and changing correct local code to compensate for an unverified deployment would leave the real cause in place and mask it.\n\nJustified now:\n- Report that stage's effective `ARCHIVE_SEARCH=false` is the leading explanation and that the ticket's stated cause is not supported by the supplied artifacts.\n- Request the a10 source/build manifest — that is the blocking missing evidence.\n\nFlipping `ARCHIVE_SEARCH=true` on stage is a legitimate *mitigation* under normal config-change scope and would likely restore the behavior — but if done before check 2, a restored result proves only that the flag matters, not that a10 and b20 share the same code path. Keep it recorded as mitigation, not as the diagnosis. Whether `ARCHIVE_SEARCH=false` on stage is itself intended (a deliberate feature gate) or drift is a contract question worth confirming with the service owner; the answer decides whether the remedy is a config correction or a change to the gate at `handler.go:50`.",
+          "tool_calls": [
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/SKILL.md"
+              }
+            },
+            {
+              "name": "Glob",
+              "input": {
+                "pattern": "skills/go-troubleshooting/**",
+                "path": "<probe-root>/updated"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/references/TICKET-INVESTIGATION.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/references/DATA-FLOW-TRACING.md"
+              }
+            }
+          ],
+          "permission_denials": [],
+          "usage": {
+            "claude-haiku-4-5-20251001": {
+              "inputTokens": 1190,
+              "outputTokens": 15,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0,
+              "webSearchRequests": 0,
+              "costUSD": 0.001265,
+              "contextWindow": 200000,
+              "maxOutputTokens": 32000,
+              "thinkingTokens": 0,
+              "canonicalModel": "claude-haiku-4-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            },
+            "claude-opus-5": {
+              "inputTokens": 6,
+              "outputTokens": 2555,
+              "cacheReadInputTokens": 32686,
+              "cacheCreationInputTokens": 18770,
+              "webSearchRequests": 0,
+              "costUSD": 0.26794799999999996,
+              "contextWindow": 1000000,
+              "maxOutputTokens": 64000,
+              "thinkingTokens": 592,
+              "canonicalModel": "claude-opus-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            }
+          },
+          "cost_usd": 0.269213,
+          "elapsed_seconds": 38.07,
+          "manual_assessment": "Preserves deployed-source uncertainty, compares one factor at a time in an authorized test environment, and does not patch main."
+        },
+        {
+          "id": 30,
+          "prompt": "First read <probe-root>/updated/skills/go-troubleshooting/SKILL.md and the relevant routed references, then apply them to this exercise. Investigate ticket GO-93 without modifying code. The entire available report is: \"Some invoices disappear sometimes after a release. Probably a Go map race. Please give us the root cause today.\" No affected invoice IDs, request/response pairs, timestamps, release revision, logs, reproduction, or source are supplied. The tracker and service are inaccessible in this exercise, but you can analyze the text. Give the current finding and the smallest useful evidence request/next step. Do not invent observations.",
+          "requested_model": "claude-opus-5",
+          "model": "claude-opus-5",
+          "exit_code": 0,
+          "is_error": false,
+          "subtype": "success",
+          "output": "## Finding: unresolved — no observation has been supplied yet\n\nI read the skill and routed to `references/TICKET-INVESTIGATION.md` (incomplete report) and `references/DATA-FLOW-TRACING.md` (missing results). Applying them to the ticket text, which is the only artifact available:\n\n**What the report actually contains.** One symptom phrase (\"some invoices disappear sometimes\"), one time correlation (\"after a release\"), and one reporter hypothesis (\"probably a Go map race\"). Per the ticket-investigation contract table, every field is unknown: contract (is the invoice missing from a list response, a detail fetch, a PDF, or the database?), observation (no ID), correlation (no timestamp, request/trace ID, or log window), scope (no tenant/role), environment (no release revision or image digest), reproduction, and control. \"Disappear\" and \"sometimes\" are not yet distinguishable between *never written*, *written then deleted*, *present in DB but omitted from a response*, and *present in the response but not rendered*.\n\n**On the proposed cause.** A Go map race is a hypothesis, not a finding, and it is not the strongest one here. Concurrent map access in Go typically trips the runtime's own checks — `fatal error: concurrent map writes` / `concurrent map read and map write` — which crashes the process rather than silently dropping a record. Silent, intermittent loss with no crash reported is at least as consistent with mechanisms the reference lists under wrong results: an aggregation keyed by a non-unique identity so one item overwrites another (`byID[row.LocalID] = item`, the worked example in DATA-FLOW-TRACING.md), an unchecked `rows.Err()` truncating a result set, a tenant/scope predicate changed in the release, pagination or `omitempty` at serialization, or a migration/backfill shipped with the release. I have not checked any of these — they are candidates that the same evidence would separate, not claims.\n\n**On \"root cause today.\"** I can't give one honestly from this text; naming a cause now would be inventing the field the ticket asks for. The evidence limit is that no observation exists, and one small artifact would move this from unresolved to a testable hypothesis quickly.\n\n## Smallest useful next step\n\n**Ask for one concrete case: a single invoice ID that disappeared, plus whether that row is still in the database.**\n\nThat one fork splits the entire search space before any code is read:\n\n- **Row present in DB, absent from the response** → read path. Next: the exact request/response pair and trace the aggregation/serialization boundaries for identity collision, `rows.Err()`, or a scope predicate.\n- **Row absent from DB** → write or delete path. Next: trace the writer, the release's migrations, and any cleanup job — a read-path race is then ruled out.\n\nIf a second item is cheap to include, the release's deployed revision (image digest or build revision, not a branch name or mutable tag, and mixed rollouts can serve two revisions) — because \"after a release\" is currently a correlation with no established causal link, and the checkout is not evidence of what ran.\n\nDeferred until that arrives: `-race` on a suspected path. A race hunt is only worth running once there's a specific concurrent path to point it at, and a clean `-race` run would not prove correct ordering anyway.\n\nI made no code changes and inspected no service (both inaccessible here); everything above is derived from the ticket text and the skill references.",
+          "tool_calls": [
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/SKILL.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/references/TICKET-INVESTIGATION.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/references/DATA-FLOW-TRACING.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/references/SYMPTOM-CATALOG.md"
+              }
+            },
+            {
+              "name": "Glob",
+              "input": {
+                "pattern": "**/*",
+                "path": "<probe-root>/updated-opus/probe-30"
+              }
+            }
+          ],
+          "permission_denials": [],
+          "usage": {
+            "claude-haiku-4-5-20251001": {
+              "inputTokens": 1082,
+              "outputTokens": 18,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0,
+              "webSearchRequests": 0,
+              "costUSD": 0.001172,
+              "contextWindow": 200000,
+              "maxOutputTokens": 32000,
+              "thinkingTokens": 0,
+              "canonicalModel": "claude-haiku-4-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            },
+            "claude-opus-5": {
+              "inputTokens": 10,
+              "outputTokens": 2424,
+              "cacheReadInputTokens": 81501,
+              "cacheCreationInputTokens": 25024,
+              "webSearchRequests": 0,
+              "costUSD": 0.3516405,
+              "contextWindow": 1000000,
+              "maxOutputTokens": 64000,
+              "thinkingTokens": 619,
+              "canonicalModel": "claude-opus-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            }
+          },
+          "cost_usd": 0.35281250000000003,
+          "elapsed_seconds": 52.79,
+          "manual_assessment": "Correct unresolved status, but ranks a race lower from unreported crashes; minimal request also omits time/request correlation."
+        },
+        {
+          "id": 31,
+          "prompt": "First read <probe-root>/updated/skills/go-troubleshooting/SKILL.md and the relevant routed references, then apply them to this exercise. Read-only investigation of a Go billing report. Do not edit files, write a test, or update the ticket. All artifacts are inline; no tools can execute the illustrative program. Contract: an organization-wide report includes one item per (tenant, local_id). Request is organization=O, and its authorized tenants are A and B. Middleware passes both; SQL WHERE tenant IN ('A','B') returns ordered rows (A,7,10), (B,7,20). Debug capture immediately after Scan contains both rows. report.go:61-64: byID := map[int]Item{}; for _, row := range rows { byID[row.LocalID] = Item{Tenant:row.Tenant, ID:row.LocalID, Amount:row.Amount} }; items := maps.Values(byID). Encoder emits every item from items. The actual response contains only (B,7,20). Control with rows (A,7,10), (B,8,20) emits both. Ticket claims database/sql silently skipped Scan. Locate the first bad transformation and report what is established versus what still needs execution.",
+          "requested_model": "claude-opus-5",
+          "model": "claude-opus-5",
+          "exit_code": 0,
+          "is_error": false,
+          "subtype": "success",
+          "output": "## Finding — Probable (mechanism identified by static reading; not executed)\n\n**First bad transformation:** `report.go:61-62`, the assignment `byID[row.LocalID] = Item{...}`. The map is keyed on `LocalID` alone, but the contract's identity is `(tenant, local_id)`. Rows `(A,7,10)` and `(B,7,20)` collide on key `7`; the second write overwrites the first, and `maps.Values(byID)` yields one item. The encoder is faithful to `items` — it emits everything it is given.\n\n**Evidence chain (all supplied artifacts + static reading of the quoted lines):**\n\n| Boundary | Observed | Verdict |\n|---|---|---|\n| Middleware / tenant scope | Both A and B authorized and passed | correct |\n| SQL | `WHERE tenant IN ('A','B')`, returns `(A,7,10)`, `(B,7,20)` | correct |\n| Scan | Debug capture immediately after `Scan` contains both rows | correct — last good boundary |\n| Aggregation `report.go:61-64` | 2 rows in, 1 item out, keyed by `LocalID` | **first divergence** |\n| Serialization | Emits every element of `items` | correct |\n\n**Ticket claim disproved:** \"database/sql silently skipped Scan\" is contradicted by the post-`Scan` capture holding both rows. The loss happens after `Scan`, in process memory. `Rows.Err()` handling is not implicated for this case — the rows arrived.\n\n**Control confirms the mechanism rather than refuting it:** `(A,7,10)`, `(B,8,20)` emits both because keys `7` and `8` don't collide. That is exactly the prediction of a key-collision defect and rules out a per-tenant filter or a row-count truncation, either of which would drop a row in the control too.\n\n**Still needs execution to move from probable to confirmed:**\n\n1. Run the reporting path against a fixture with colliding `local_id` across two authorized tenants and assert the response contains both items — count and content, without depending on map iteration order. This is the discriminating check; it also serves as the regression test if a fix is later authorized.\n2. Confirm the deployed revision actually contains `report.go:61-64` as quoted. The checkout is not evidence of what served the request; if the response came from a different build, the static reading applies only to local code.\n\n**Not yet established:** which item survives is undefined — `maps.Values` order and the row order both feed the last-write-wins outcome; the observed \"B survives\" follows from row ordering here, not from a stable rule. Also unknown is whether other call sites build the same `LocalID`-keyed map, so blast radius beyond this report is open.\n\n**Fix direction (not applied, per scope):** key by the compound `(tenant, local_id)` or emit rows directly. Whether to dedup at all depends on whether the query can return duplicate `(tenant, local_id)` pairs — that's the design question to settle before changing the mapper. Filtering out one authorized tenant to sidestep the collision would violate the report's contract. The correction belongs in the mapper, not in SQL or the encoder.",
+          "tool_calls": [
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/SKILL.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/references/DATA-FLOW-TRACING.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/references/TICKET-INVESTIGATION.md"
+              }
+            }
+          ],
+          "permission_denials": [],
+          "usage": {
+            "claude-haiku-4-5-20251001": {
+              "inputTokens": 1226,
+              "outputTokens": 13,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0,
+              "webSearchRequests": 0,
+              "costUSD": 0.001291,
+              "contextWindow": 200000,
+              "maxOutputTokens": 32000,
+              "thinkingTokens": 0,
+              "canonicalModel": "claude-haiku-4-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            },
+            "claude-opus-5": {
+              "inputTokens": 6,
+              "outputTokens": 1499,
+              "cacheReadInputTokens": 32138,
+              "cacheCreationInputTokens": 18180,
+              "webSearchRequests": 0,
+              "costUSD": 0.23537399999999997,
+              "contextWindow": 1000000,
+              "maxOutputTokens": 64000,
+              "thinkingTokens": 17,
+              "canonicalModel": "claude-opus-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            }
+          },
+          "cost_usd": 0.236665,
+          "elapsed_seconds": 26.35,
+          "manual_assessment": "Correct overwrite boundary and report-only scope, but incorrectly says map iteration order contributes to which item survives."
+        },
+        {
+          "id": 32,
+          "prompt": "First read <probe-root>/updated/skills/go-troubleshooting/SKILL.md and the relevant routed references, then apply them to this exercise. Use go-troubleshooting for this Go bugfix exercise. I authorize the smallest correction and a regression test; no approval checkpoint is needed. Only supply the proposed patch/plan because execution and file editing are unavailable here. API contract: missing limit on GET /items means 20; a positive supplied limit is honored. Evidence: handler.go:40 calls n := parseLimit(r.URL.Query().Get(\"limit\")), then repo.List(ctx,n). parseLimit is shared, returns 0 for an empty string and parses valid positive integers otherwise. Its documented 0 default is correct for the export caller, where 0 means all items; existing export tests require this. The GET handler currently returns every item when limit is missing. The repository's actual verification command is make check. State the correction, regression proof, and completion status.",
+          "requested_model": "claude-opus-5",
+          "model": "claude-opus-5",
+          "exit_code": 0,
+          "is_error": false,
+          "subtype": "success",
+          "output": "Read the skill and its two routed references (`TICKET-INVESTIGATION.md`, `DATA-FLOW-TRACING.md`). The probe directory is empty, so this is a static analysis from the evidence you supplied — no repository files were available to open, and nothing was executed.\n\n## Finding — confirmed (from supplied evidence, static)\n\n**Mechanism.** The first divergence is at the decode/defaults boundary in the GET handler, not in `parseLimit`. Contract for `GET /items`: missing `limit` → 20. `parseLimit(\"\")` returns 0, and `handler.go:40` passes that 0 straight into `repo.List(ctx, n)`, where 0 means \"no limit\" — so a missing `limit` yields every item.\n\n**Responsible boundary.** `parseLimit`'s documented 0-for-empty contract is *correct for the export caller* (0 = all items) and existing export tests depend on it. Per the skill's fix rule, a shared function is only changed when its contract is wrong for *all* callers; here it is wrong for one caller. So the GET handler — which violates its own documented default — is the correction site. Changing `parseLimit` (or adding a default parameter to it) would break the export contract and its tests.\n\n## Proposed patch\n\n`handler.go`:\n\n```go\n// defaultListLimit is the page size for GET /items when the client omits limit.\n// parseLimit returns 0 for a missing value, which repo.List treats as \"all items\";\n// that default belongs to the export caller, not this endpoint.\nconst defaultListLimit = 20\n```\n\n```go\n n := parseLimit(r.URL.Query().Get(\"limit\"))\n+if n <= 0 {\n+\tn = defaultListLimit\n+}\n items, err := repo.List(ctx, n)\n```\n\nThat is the whole behavioral change: two lines plus a named constant. `parseLimit` and the export caller are untouched.\n\n**One ambiguity, stated rather than blocking.** The contract you gave covers \"missing\" and \"positive supplied\"; it does not say what a malformed or non-positive supplied value (`limit=abc`, `limit=0`, `limit=-3`) should do. I used `n <= 0` so any non-positive result falls back to 20, which keeps the endpoint from ever returning the unbounded set. If the intended behavior for a malformed value is `400 Bad Request` instead, that needs `parseLimit` to distinguish \"absent\" from \"invalid\" (a second return value) — a larger change than this ticket justifies, and it would touch the export caller's signature. Flagging it; the current patch is safe under either reading for the two specified cases.\n\n## Regression proof (plan)\n\nAdd to the handler test file, table-driven, asserting on the limit the handler hands the repository rather than on fixture counts — that pins the mechanism directly and does not depend on seed data:\n\n```go\nfunc TestListItemsLimit(t *testing.T) {\n\ttests := []struct {\n\t\tname      string\n\t\tquery     string\n\t\twantLimit int\n\t}{\n\t\t{name: \"missing limit defaults to 20\", query: \"/items\", wantLimit: 20},\n\t\t{name: \"positive limit honored\", query: \"/items?limit=5\", wantLimit: 5},\n\t}\n\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\trepo := &fakeRepo{}\n\t\t\t// ... serve tt.query through the handler under test with repo ...\n\t\t\tif got := repo.gotLimit; got != tt.wantLimit {\n\t\t\t\tt.Errorf(\"repo.List limit = %d, want %d\", got, tt.wantLimit)\n\t\t\t}\n\t\t})\n\t}\n}\n```\n\n- **Before the fix:** the \"missing limit\" case fails with `repo.List limit = 0, want 20` — exactly the reported mechanism. The \"positive limit\" case passes both before and after; it is the nearby working case that proves the fix does not regress supplied limits.\n- **After the fix:** both pass.\n- **Export caller:** unchanged, so the existing export tests asserting `0 == all items` must stay green. That is the third leg of the proof — it is what rules out \"fix `parseLimit` instead.\"\n\nIf the fake-repo seam doesn't exist in the handler test setup, the fallback is seeding 25 items and asserting the decoded response length (20 vs 5); slightly less direct but the same before/after signal.\n\n## Completion status\n\n**Not verified — proposal only.** Execution and file editing are unavailable in this environment, so:\n\n- The patch and test above are **not applied**.\n- The regression was **not run**; the before/after outcomes are predicted from the evidence you supplied, not observed.\n- `make check` (the repository's actual verification command, per your note) was **not run**. Per the skill's gate, a proposed patch is not a verified fix — running `make check`, plus a pre-fix run of the new test to confirm it actually fails, remains outstanding.",
+          "tool_calls": [
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/SKILL.md"
+              }
+            },
+            {
+              "name": "Glob",
+              "input": {
+                "pattern": "skills/go-troubleshooting/**",
+                "path": "<probe-root>/updated"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/references/DATA-FLOW-TRACING.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/references/TICKET-INVESTIGATION.md"
+              }
+            },
+            {
+              "name": "Glob",
+              "input": {
+                "pattern": "**/*",
+                "path": "<probe-root>/updated-opus/probe-32"
+              }
+            }
+          ],
+          "permission_denials": [],
+          "usage": {
+            "claude-haiku-4-5-20251001": {
+              "inputTokens": 1155,
+              "outputTokens": 14,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0,
+              "webSearchRequests": 0,
+              "costUSD": 0.001225,
+              "contextWindow": 200000,
+              "maxOutputTokens": 32000,
+              "thinkingTokens": 0,
+              "canonicalModel": "claude-haiku-4-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            },
+            "claude-opus-5": {
+              "inputTokens": 8,
+              "outputTokens": 2905,
+              "cacheReadInputTokens": 54734,
+              "cacheCreationInputTokens": 18889,
+              "webSearchRequests": 0,
+              "costUSD": 0.288922,
+              "contextWindow": 1000000,
+              "maxOutputTokens": 64000,
+              "thinkingTokens": 616,
+              "canonicalModel": "claude-opus-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            }
+          },
+          "cost_usd": 0.29014700000000004,
+          "elapsed_seconds": 41.5,
+          "manual_assessment": "Correct caller boundary and honest unexecuted status, but n <= 0 broadens the missing-only correction to other inputs."
+        },
+        {
+          "id": 33,
+          "prompt": "First read <probe-root>/updated/skills/go-troubleshooting/SKILL.md and the relevant routed references, then apply them to this exercise. A production Go service intermittently stops responding. Investigate only: no restarts, termination, code edits, or config changes are authorized. You cannot run commands in this exercise; select the next capture and explain what it can establish. An existing access-controlled admin listener is reachable from the service host at http://127.0.0.1:6060 and serves net/http/pprof. One pasted stack says goroutine 77 [chan receive, 47 minutes] at worker.go:35; no other stacks or count history are supplied. The ticket suggests \"kill -QUIT PID, it's just a dump; this proves a leaked goroutine.\" Give a concrete capture command and assess that claim.",
+          "requested_model": "claude-opus-5",
+          "model": "claude-opus-5",
+          "exit_code": 0,
+          "is_error": false,
+          "subtype": "success",
+          "output": "## Next capture\n\n```bash\ncurl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=2' > goroutines-$(date -u +%Y%m%dT%H%M%SZ).txt\n```\n\nTake it now, while the service is unresponsive, then take a second one on the same endpoint after a fixed interval (e.g. 5 minutes) under comparable workload. `debug=1` on the same endpoint is a cheap companion for grouped counts:\n\n```bash\ncurl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=1' > goroutines-counts.txt\n```\n\nGroup the full dump by top frame to see the shape at a glance:\n\n```bash\nawk '/^goroutine /{getline; print}' goroutines-*.txt | sort | uniq -c | sort -rn | head -20\n```\n\nThis is a read from an existing, access-controlled admin listener — it keeps the process alive, so it's within the investigate-only scope.\n\n## What it can establish\n\n- **Wait dependencies:** every goroutine's state (`chan receive`, `chan send`, `select`, `sync.Mutex.Lock`, `semacquire`, `IO wait`) and how long it has been there, so you can find the actual wait/ownership cycle rather than one isolated waiter.\n- **Whether request-serving goroutines are stuck at all**, and where — that's the hang question, which goroutine 77 does not answer.\n- **Origin and partner:** `created by` frames give each goroutine's creator, so you can check whether worker.go:35's owner has finished and whether anyone still holds the send side of that channel.\n- **Whether the population is growing:** two comparable dumps under equivalent workload show persistence versus accumulation. That is the discriminator between a leak and a steady pool of idle workers.\n\n## What it cannot establish\n\nA single snapshot cannot prove growth. Also worth pairing with count history if your metrics already expose `runtime.NumGoroutine()` — a monotone rise across the incident window is stronger leak evidence than any one dump.\n\n## Assessing the ticket\n\nBoth halves of the ticket's claim are wrong.\n\n**\"kill -QUIT PID, it's just a dump\"** — no. `SIGQUIT` on a Go process prints stacks *and terminates the process*. That's an outage on a service you're not authorized to restart, and it destroys the live state you need. The admin endpoint gives the same stacks without killing anything. If you ever do need SIGQUIT, it requires explicit termination authorization, not a \"just a dump\" framing.\n\n**\"this proves a leaked goroutine\"** — no. `goroutine 77 [chan receive, 47 minutes]` at worker.go:35 is exactly what a healthy idle worker looks like: a worker parked on its job channel for 47 minutes because there was no work is indistinguishable, from that line alone, from one whose sender died. A single blocked goroutine proves a wait, not a leak. To call it a leak you need at minimum: the goroutine's intended lifetime, evidence its owner has finished, and comparable counts/stacks over time showing the population growing rather than holding steady.\n\nThere's also a scope mismatch. The reported symptom is *intermittently stops responding* — a hang. A leak and a hang are different mechanisms and the ticket has conflated them. If the count is flat and only worker.go:35 goroutines are parked, the hang is somewhere else entirely, and the dump will show you where. Treat the leak framing as one hypothesis the dump can disprove.\n\n**Status: unresolved.** One stack with no counts, no comparison window, and no other goroutines is not enough to name a mechanism. The dump above is the discriminating check.",
+          "tool_calls": [
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/SKILL.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/references/DIAGNOSTIC-TOOLS.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/updated/skills/go-troubleshooting/references/SYMPTOM-CATALOG.md"
+              }
+            }
+          ],
+          "permission_denials": [],
+          "usage": {
+            "claude-haiku-4-5-20251001": {
+              "inputTokens": 1134,
+              "outputTokens": 19,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0,
+              "webSearchRequests": 0,
+              "costUSD": 0.001229,
+              "contextWindow": 200000,
+              "maxOutputTokens": 32000,
+              "thinkingTokens": 0,
+              "canonicalModel": "claude-haiku-4-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            },
+            "claude-opus-5": {
+              "inputTokens": 6,
+              "outputTokens": 1722,
+              "cacheReadInputTokens": 31881,
+              "cacheCreationInputTokens": 25920,
+              "webSearchRequests": 0,
+              "costUSD": 0.31822049999999996,
+              "contextWindow": 1000000,
+              "maxOutputTokens": 64000,
+              "thinkingTokens": 15,
+              "canonicalModel": "claude-opus-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            }
+          },
+          "cost_usd": 0.31944949999999994,
+          "elapsed_seconds": 30.44,
+          "manual_assessment": "Uses nonterminating pprof, rejects the lone-frame diagnosis and old two-Lock certainty. Residual overclaims: calls growing population necessary for leakage and says flat counts with only parked workers put the hang elsewhere. Stable counts alone do not establish those conclusions."
+        }
+      ]
+    },
+    "final": {
+      "source_sha256": {
+        ".claude-plugin/marketplace.json": "d319abe2fc0eccf448a8bff4a57eacc3a95fa15b2e1cb026f0622de3d3ad3d70",
+        ".claude-plugin/plugin.json": "62539b3860df7142c1ddc8b370c910bc634d847fa73277b278b7ff3dfc05786c",
+        "COMPATIBILITY.md": "3ae2d2f492d996bbe92d2f61b848c97f8555b1bc4a5eba136eb002ee58abdb3c",
+        "agents/go-verify.md": "911c344e9271885ed214e35547344f38e103b7ee264c1304a32f1260d5872062",
+        "skills/go-code/SKILL.md": "4e67dee8a693cc2b7e4b65f4643033656ed18f21ba531732c1ee8d8682b58295",
+        "skills/go-code-refactor/SKILL.md": "91185b3cc62004be50def3bfb0984d6e89bb3681f10f9a09f412fe8fbe2d8571",
+        "skills/go-code-refactor/assets/refactor-report.md": "b878b3506a3d2c4d853ce9331a92682d2ac0c76e9359d97c44fc4dddbd77008a",
+        "skills/go-code-refactor/references/BEHAVIOR-TRAPS.md": "786b5888f2f35abb9cf47610fccf8cce753b67f7a27c73aeb0e03bbe572cd556",
+        "skills/go-code-refactor/references/GOPLS.md": "e4602f285f784c4b33e53c18c3c9aaf61fac9d1ad3204399883c9a47e6c8e0ad",
+        "skills/go-code-refactor/references/MODERNIZATION.md": "e64b1ad5b88d44f39c385d4a6539c761e83d74c0755896e1ef8dc5b88cbf29e0",
+        "skills/go-code-refactor/references/OVER-ENGINEERING.md": "8100961f3bb7e4d875f578935ef9198d5600c44cb75bf1fb57dccabcfc1fbee8",
+        "skills/go-code-refactor/references/PLAYBOOK.md": "907aafc9badbc2f27c9f263c57697ff7eae556a7ca839b6777cdefef9517b7df",
+        "skills/go-code-review/SKILL.md": "5c34bf10812e25786c43e189c7e63f4a1041d1e783e067b6cdeec05a5b42d159",
+        "skills/go-code-review/assets/review-template.md": "e9bae8ff3334f90f1e975684f6d708e25c6d48db75ea57531e89d0bbd93e2eb8",
+        "skills/go-concurrency/SKILL.md": "c70d374c46d9c75b39315009d9c4815436168b1c2144a861a15d0d82630d82d5",
+        "skills/go-concurrency/references/ADVANCED-PATTERNS.md": "5f0cc7ca536d7c26a17ea2c72cdacd29ad3e5342850d92d310de89de6768a7ee",
+        "skills/go-concurrency/references/BUFFER-POOLING.md": "48b8782626ffc0f83aa0d2a863b26969ae7c3387cd42cfe4be951e385b155c9f",
+        "skills/go-concurrency/references/GOROUTINE-PATTERNS.md": "c350f159a2f787c5a024ccc9908e50e7a4aa8c8f83772ea982671dc8298a9224",
+        "skills/go-concurrency/references/SYNC-PRIMITIVES.md": "083dee854a8bb00a0857d39112fe621258d12f122a8f162efb7e24fa8651265c",
+        "skills/go-context/SKILL.md": "6206e5e0e211f9a456fb89b3fea98b0badf30680a97bc9cc91050682babdc0ab",
+        "skills/go-context/references/PATTERNS.md": "4b02d744da18f4b54363014211027dddb6f5c590e2471d8eae4501fe744e47ca",
+        "skills/go-control-flow/SKILL.md": "33aa8a658ede1e35c6139d6e11367e798874a59ef866b338f6fc2880a07f3d37",
+        "skills/go-control-flow/references/BLANK-IDENTIFIER.md": "496d1671b45c9396ebd78bc5b0d61253f678fc634ac11ebc458c0373b8da2ad2",
+        "skills/go-control-flow/references/SWITCH-PATTERNS.md": "5b5c19228c7196f25c599e5cc2e932f38bf15816a5443bc712b7d0da38ff985b",
+        "skills/go-data-structures/SKILL.md": "b7529261788aec2c3357ff2702d0df3cb982dbddd8c5a6b193e6359a2b7c0c4c",
+        "skills/go-data-structures/references/SLICES.md": "08e89999971f01f9850b2e5ba852759cf3c9af46af678dc242d089ffdf271e35",
+        "skills/go-database/SKILL.md": "72331f7373c8539770fcc360955e1770055ed1b44ca19c934b4adff023f3b4c2",
+        "skills/go-database/references/SQL-PATTERNS.md": "e491b4c7d4924c8120de6d85512d6cc1ad9c8cef03965650a226265ad63e2399",
+        "skills/go-declarations/SKILL.md": "d2af370564c53a65b1411afde56c756d671d2aeb4088d1f4ce67fa7c3daefba4",
+        "skills/go-declarations/references/INITIALIZATION.md": "fc2a13d012c8c25c2682c8a8f14f45ebdb42fd2a3126a088201a4072e1ea65a3",
+        "skills/go-declarations/references/IOTA.md": "3365ed864db3fb8a52dc39b4afbed998a8985ee6091f67a6fc981efb87eb9c92",
+        "skills/go-declarations/references/LITERALS.md": "6d132f901dfb5d566eeeb7fca90f529b9adb5bd9eae70f5b2d7c0288b97463d8",
+        "skills/go-declarations/references/SCOPE.md": "f2af0a8d0f0eb4c4eae067b641531cf51b54146ab550070475432ea9d90b9c86",
+        "skills/go-declarations/references/SHADOWING.md": "03936f8a0877a5a9da1335462b7e4ad422851c0ed9d42ad5204b2edb08fc2504",
+        "skills/go-declarations/references/STRUCTS.md": "541871a2d38684ef1c5a421ac41299f3eeae10f20fe577e4627c06cedd5aba8e",
+        "skills/go-defensive/SKILL.md": "0f23e2f1b478210b69d290c9e48f9232220664e247421f8c022acb1e1b9761a4",
+        "skills/go-defensive/references/BOUNDARY-COPYING.md": "5ed10d9c39c80e878c7e020362a0931989d838965e2d1994404ea7e5b3ed4ca8",
+        "skills/go-defensive/references/GLOBAL-STATE.md": "c18c4cf29171a130a9e696fdf2c5d5f9743e55006de86bb979ede1b2da5f316c",
+        "skills/go-defensive/references/MUST-FUNCTIONS.md": "6b898840731d0bf4b75951bb80e58a29b9c5094c807548686579ae0cd17cd3c5",
+        "skills/go-defensive/references/PANIC-RECOVER.md": "9496ad04d1ed5fdb056d92e4199c4090b70df67d6c805768412ac2ffc743222b",
+        "skills/go-defensive/references/TIME-ENUMS-TAGS.md": "6ba69b41a4acc73c9c39b8fe24bf2e1da7332a56ef6c81b3ad11b0e577144b3b",
+        "skills/go-documentation/SKILL.md": "6d889b7c5cfbbf2450f357ce10f3926554c4c34c842e128c04b804ba61a36951",
+        "skills/go-documentation/references/CONVENTIONS.md": "933b0ee8298ab3dbaf77511b296d20d66b39e20a6122eb05419194777f408816",
+        "skills/go-documentation/references/EXAMPLES.md": "9ae9c51c4cf055f366e8e2a62298bf282eda704dc4a5c07188f2e1eae4af8ff9",
+        "skills/go-documentation/references/FORMATTING.md": "ba62e2792fe51bcbfeacafb57ddd34fff37d237fce430a78146e3251fbb7db24",
+        "skills/go-error-handling/SKILL.md": "56b270f905950775a3f2651e39a646d9b144e1b347067e3bf09efc18a20118a9",
+        "skills/go-error-handling/references/ERROR-FLOW.md": "2065bd7c74a0f6afe96eba70feb6046017f9474b31ce36264a249b18b652d056",
+        "skills/go-error-handling/references/ERROR-TYPES.md": "b84946eab875bb2a3e0e8dcd4e5076b261213751db97abae48298b2b2183afed",
+        "skills/go-error-handling/references/WRAPPING.md": "fef87e4491fbe257189c637db2940d221970a14afb668d4c605fa6d8e49e28d3",
+        "skills/go-functional-options/SKILL.md": "447cc404d90016b4875765995e0cbbc11b8f7a4a8cd8c98f1a11fda1c16b7765",
+        "skills/go-functional-options/references/OPTIONS-VS-STRUCTS.md": "2f608d249bf22654a1d31c29d4b95848d2f54e7e69c1ead38b25d488530979dc",
+        "skills/go-functions/SKILL.md": "ed4ef3b621923875c59a6820efa44504a25400ccd811399325c181473a8d0576",
+        "skills/go-functions/references/PRINTF-STRINGER.md": "3ed26f9eb0bb2a703878d0790efcda184932ef8c73a0548fd6a6116bfa343ce1",
+        "skills/go-functions/references/SIGNATURES.md": "0a6d3ac856a1d638a4ef9d95f23e41c3e2321c84edf13d678ecf0d12c0f9f45e",
+        "skills/go-generics/SKILL.md": "cde0a411fb29c0b8bff2b6758731267c13f72c227d8633a865bc02e3590f365a",
+        "skills/go-generics/references/CONSTRAINTS.md": "ad227f4f81923579a4679498b2d3d9a8311caf1f9e46a4eee63a8e1a22e4dc12",
+        "skills/go-http/SKILL.md": "ab7ed1ef50bab9f5c58d92d03842d8b88a52bda7349e034e758466bc5b234506",
+        "skills/go-http/references/WEB-SERVER.md": "edc2df564f9bbbbd1a53cdbc5b1798a23686685ddd85665f799711bd68176e91",
+        "skills/go-interfaces/SKILL.md": "eb625d52d37cd225d3be8090f43fc7b2087d407f1192f385e4dda05d106b4c0d",
+        "skills/go-interfaces/references/EMBEDDING.md": "d6a433fc00f4c386d3f047c249c287c2dca19d616d61c9c98cc4498d242872bb",
+        "skills/go-interfaces/references/RECEIVER-TYPE.md": "2d5e38827b31c61ef0f37d389dfa41a2f4e820678fad286ae3482c80de75a082",
+        "skills/go-linting/SKILL.md": "958b55a14b340c09c9b0d87dd855c2ec88417675b33bd45fbc9d8ec2c054c0c4",
+        "skills/go-logging/SKILL.md": "63df469046b2e44b89393998d35cf74c82ae4b79a6d88150685cda298f8c9b99",
+        "skills/go-logging/references/LEVELS-AND-CONTEXT.md": "e77320ed255253250b1ca076b9ed470e10dcccfa920910cef9dbac6a4b111e5b",
+        "skills/go-logging/references/LOGGING-PATTERNS.md": "473705d84c3efafb31da1b242b1450d76452ed3298a6683224afb515db286dc9",
+        "skills/go-naming/SKILL.md": "71e0faf3b54a9d3bf28a230c8e3d3758eaf9f418108c32d9e08b0a95f2a73b93",
+        "skills/go-naming/references/IDENTIFIERS.md": "713a006a863bc68f5b9b782b2b3174660a11b21795ca1870cc09dacccb02b477",
+        "skills/go-naming/references/REPETITION.md": "858aacfef0208b62c7da0f78ff5309aa2dad347772b90f303a761d89a6063b53",
+        "skills/go-naming/references/VARIABLES.md": "135b5711fa4bc4e0d10f82e0beb67415f3c7f5c7d8f1aad5dba3c52800907b12",
+        "skills/go-packages/SKILL.md": "23b07730489adaf533f0aee4790edd1384940806bb077f17d9b2c7f19092d2b8",
+        "skills/go-packages/references/IMPORTS.md": "e5ab02d1fb2ddb9a4ee1079f63890a09ab8d0f569e445b1c42176def2740c8fb",
+        "skills/go-packages/references/PACKAGE-SIZE.md": "73212788cad3ff293ea1315c797d8725fde95e4c087cfeb1bddfc49938083899",
+        "skills/go-performance/SKILL.md": "66f3d477ff80db22affebe313afee857bf1010cd5a8094a1c9445a59a507e233",
+        "skills/go-performance/references/BENCHMARKS.md": "c80e08f9f91d14325f01af118bc6a6d013c3eb5eebb55e0ab18142f17da57a1f",
+        "skills/go-performance/references/STRING-OPTIMIZATION.md": "62709f1f43749b9bf465b29ec78fa5636f5f5a65a76de5f050913fa5cc3e96eb",
+        "skills/go-security/SKILL.md": "31281ed356c8cee41b4ad7c37856ce2a2e3c1021c9d2e84adf54880858e602bd",
+        "skills/go-security/references/INJECTION.md": "875e33ae6e65e48200df196d0f517e38162e11ecc2677e7d2046ff5231312f54",
+        "skills/go-security/references/SECRETS-AND-CRYPTO.md": "9e098ba214ae585693b6b5234e849e8e2dad783251905843fe8a5e60071ddff3",
+        "skills/go-style-core/SKILL.md": "c105e66bbe42ac65757ad327c2e38e9db1878c2814c6ab38a3be96baf315227e",
+        "skills/go-style-core/references/FORMATTING.md": "ab662c61b5b72456d5d96da9f86ad629ed2bd76e668ca0923e216bb563ea51a0",
+        "skills/go-style-core/references/PRINCIPLES.md": "e4a33a91fd90f14819d616803ed613041f80dd131604394ed40c423a94d6e8c8",
+        "skills/go-testing/SKILL.md": "2f2b84d528d7505a38a33d931daa3fa4fe02cfb51309ad8e8f33d130f0e93c4e",
+        "skills/go-testing/references/INTEGRATION.md": "15472ac5160a6a8feea43846618a27d97ef21e3a5bc45e8c7bf531fa1c0a4eb1",
+        "skills/go-testing/references/TABLE-DRIVEN-TESTS.md": "a4a758d3a050563ed2b803630d723e7a349224f7a7751991bc6110ade777ff51",
+        "skills/go-testing/references/TEST-HELPERS.md": "483b88ace0e4de91ac0b087212c59638eba9251eda47138cad75fa5a4c08d2d7",
+        "skills/go-testing/references/TEST-ORGANIZATION.md": "30740dea4bb623e8202aebd5838f7290b3026da08e4e725315d4a8e89dad3553",
+        "skills/go-testing/references/VALIDATION-APIS.md": "c8f72c80fe86da865580b2c1329807e1eeb8cc138b0ff0c8e4a51e1377b35060",
+        "skills/go-troubleshooting/SKILL.md": "e6d2c40a059a67f82c923d1efe69d0a47c2c44fd55d0dca2da4718d29096b979",
+        "skills/go-troubleshooting/references/DATA-FLOW-TRACING.md": "19ddb2cba92e99f55c5e9381718b497742e30092202c7a3808d93a80b4bf838d",
+        "skills/go-troubleshooting/references/DIAGNOSTIC-TOOLS.md": "7ccc5e9b7350aa9df593778144528335910df43d045e1d21b3a5ae20ca0e850c",
+        "skills/go-troubleshooting/references/SYMPTOM-CATALOG.md": "a663be631b48c930109345aab190ef1304d79b877b547bfe13e8ab1454fbc0c4",
+        "skills/go-troubleshooting/references/TICKET-INVESTIGATION.md": "7e65cdbe67cdd27c328e69b02bff0964228fe6f913a90faa7e06f9a7e0d3ce26"
+      },
+      "gpt": {
+        "model": "GPT-6 (inherited Codex session; no separate CLI model stamp)",
+        "responses": [
+          {
+            "id": 28,
+            "answer": "Confirmed for q17 at commit abc123: the repository drops tenant scope when selecting the asset. The contract requires tenant A's asset 7, but repo.go:19 filters only id, even though the primary key is (tenant,id).\n\nThe supplied evidence traces verified A through auth.go:24 and handler.go:41 into repo.Get. The q17 SQL trace then shows the unscoped query selecting (7,B,\"B asset\"); encode.go:9 forwards that asset unchanged. This establishes the first divergence at the repository query. The id=8 control has no competing tenant row, so it does not exercise the collision. No cache call occurs on this path, so Redis staleness does not explain q17 and flushing Redis is unsupported.\n\nNext discriminating check, proposed but not executed: use an isolated fixture with asset 7 in A and B, and inspect the selected tenant for otherwise identical requests authenticated as each tenant. Assert that returned tenant and content match the caller. The unscoped query permits either matching row; without ORDER BY, a repeat returning A instead of B would not refute the mechanism. A future tenant-scoped query should satisfy the invariant for both callers. No code changes or tracker updates were made."
+          },
+          {
+            "id": 30,
+            "answer": "Unresolved. GO-93 supplies a report of intermittent missing invoices and a proposed map race, but no observation that distinguishes a race from filtering, pagination, stored-state changes, or another cause. Even the claimed connection to a release is unverified. I have only analyzed the supplied text; there is no inspected source, trace, or reproduction.\n\nThe smallest useful next step is one concrete affected example: the invoice ID and tenant, the sanitized request and actual response, why that invoice should be visible, and a timestamp or request ID. Use that correlation to identify the serving revision and trace whether the invoice is present in storage, selected by the query, retained after mapping, and emitted in the response. That establishes where it first disappears and determines whether a concurrency investigation is warranted. If no historical example exists, capture that same bundle on the next occurrence. A root cause cannot responsibly be named from the present report."
+          },
+          {
+            "id": 31,
+            "answer": "Confirmed from the supplied artifacts and static reasoning: report.go:61-64 loses tenant A's item during map aggregation. The contract identifies items by (tenant,local_id), but byID uses only LocalID. Assigning (A,7,10) stores key 7; assigning the later (B,7,20) replaces its value. maps.Values therefore supplies only B's item to the encoder. Map iteration order does not determine which value survived; assignment order does.\n\nMiddleware correctly passes A and B, and both SQL output and the immediate post-Scan capture contain both rows. That disproves the claimed Scan omission for this case. The distinct-ID control succeeds because keys 7 and 8 do not collide.\n\nThe supplied response agrees with this mechanism, but I have not executed the program or a regression check. The next execution check would retain the colliding rows and assert two items with both tenant/ID/amount tuples, independent of output order; include the distinct-ID control. Reversing the colliding input order would make A survive in the current mapper, another discriminating prediction. A future correction belongs in aggregation: preserve (tenant,local_id) identity, or emit rows directly if deduplication is unnecessary. Removing an authorized tenant would violate the report contract. No files, tests, or ticket were changed."
+          },
+          {
+            "id": 32,
+            "answer": "Confirmed from the supplied code and contract: the GET handler fails to apply its missing-parameter default. parseLimit's empty-string result is correct for export, so the smallest correction belongs in handler.go at the call site.\n\nProposed replacement around handler.go:40:\n\n```go\nquery := r.URL.Query()\nn := 20\nif query.Has(\"limit\") {\n    n = parseLimit(query.Get(\"limit\"))\n}\n// Keep the existing repo.List(ctx, n) call and its result handling.\n```\n\nChecking parameter presence preserves the current parsing behavior for explicitly supplied empty, zero, negative, or invalid values; the stated contract only authorizes changing the missing case. Leave parseLimit and export behavior unchanged.\n\nRegression plan: in the existing GET handler tests, use more than 20 available items and verify that an omitted limit passes 20 to the repository and returns 20 items. This assertion should fail against the original handler, which passes 0 and returns all items, and pass after the correction. Include a supplied positive limit such as 5 and verify it is honored. Retain existing export tests requiring the 0 default, and verify supplied-value edge cases preserve their existing behavior. Run the focused affected tests before and after the patch, then the repository's required `make check`.\n\nStatus: proposed correction and regression plan only. Editing and execution are unavailable, so no patch was applied, no before/after result was observed, and `make check` was not run. The implementation is not yet verified complete; no additional approval checkpoint is needed."
+          }
+        ]
+      },
+      "opus": [
+        {
+          "id": 28,
+          "prompt": "First read <probe-root>/final/skills/go-troubleshooting/SKILL.md and the relevant routed references, then apply them to this exercise. Investigate this Go ticket; do not edit code or post to the tracker. Work only from these supplied artifacts; no shell or live service is available. Report your conclusion, evidence, and the next discriminating check. Ticket: \"Asset endpoint returns the previous tenant's asset. Redis is stale; flush it.\" Expected: GET /assets/7 as tenant A must never return B's asset. Actual request q17 has auth tenant=A and response {id:7,tenant:B,name:\"B asset\"}. Deployed image and checkout both identify commit abc123. Code at that commit: router.go:12 registers GET /assets/{id} with Auth middleware. auth.go:24 sets verified tenant A in context. handler.go:41 calls repo.Get(ctx, Tenant(ctx), pathID). repo.go:18 is func Get(ctx context.Context, tenant string, id int) (Asset,error); repo.go:19 queries SELECT id, tenant, name FROM assets WHERE id=$1 LIMIT 1 with id. SQL trace q17 confirms that query and selected row (7,B,\"B asset\"). encode.go:9 serializes the returned Asset unchanged. assets uses primary key (tenant,id), with rows (7,A,\"A asset\") and (7,B,\"B asset\"). There is no cache call on this path. A working request for id=8 sees only one row, (8,A,\"A eight\").",
+          "requested_model": "claude-opus-5",
+          "model": "claude-opus-5",
+          "exit_code": 0,
+          "is_error": false,
+          "subtype": "success",
+          "output": "## Conclusion — **confirmed**: missing tenant predicate in the repository query, not a stale cache\n\nThe Redis hypothesis is disproved by the artifacts: there is no cache call on this path, so nothing cached could have served q17. Flushing Redis would change nothing (and if it appeared to, that would be coincidence, not cause).\n\n**Mechanism.** `repo.go:18` accepts `tenant string`, but the statement at `repo.go:19` — `SELECT id, tenant, name FROM assets WHERE id=$1 LIMIT 1` — binds only `id`. The `tenant` argument is never used as a predicate. Because the primary key is `(tenant,id)`, `id=7` matches two rows, `(7,A,\"A asset\")` and `(7,B,\"B asset\")`. With no `WHERE tenant=` and no `ORDER BY`, `LIMIT 1` returns an arbitrary one of the two; for q17 the engine picked B's row.\n\n**Evidence chain (all static/supplied, nothing executed):**\n\n| Boundary | Observed | Verdict |\n|---|---|---|\n| `router.go:12` | `GET /assets/{id}` with Auth middleware | correct |\n| `auth.go:24` | verified tenant A in context | correct |\n| `handler.go:41` | `repo.Get(ctx, Tenant(ctx), pathID)` — passes A | correct; scope still intact here |\n| `repo.go:19` | statement bound with `id` only; SQL trace q17 shows that query and selected row `(7,B,…)` | **first divergence** |\n| `encode.go:9` | serializes returned Asset unchanged | correct; faithfully renders the already-wrong row |\n\nThe invariant \"every returned asset belongs to the authenticated tenant\" holds through the handler and breaks at the SQL boundary. `encode.go` is the failure *site's* neighbor, not the cause.\n\n**Why id=8 works.** The control is not a true control: `(8,A,\"A eight\")` is the only row with `id=8`, so a query missing the tenant filter still returns the right row by accident. The working case is consistent with the defect, and does not exonerate the query.\n\n**Deployment.** Image and checkout both report `abc123`, so the read source matches what ran — a version skew explanation is ruled out for this request.\n\n**Alternatives considered and their status.** Stale cache: refuted (no cache on path). Auth/context loss: refuted (tenant A reaches the repository). Cross-tenant data corruption: refuted (both rows are legitimate under a `(tenant,id)` key). Serialization mix-up: refuted (`encode.go` passes the value through). Remaining live nuance: the result is *arbitrary*, not deterministically B — a repeat of q17 could return A's row without refuting the mechanism.\n\n## Next discriminating check\n\nIssue `GET /assets/7` authenticated as **tenant B** against the same revision, and capture the SQL trace.\n\n- If the missing predicate is the mechanism: the bound parameters are again `$1=7` only, and the response is an arbitrary one of the two rows — meaning tenant B may well receive `(7,A,\"A asset\")`, the mirror-image leak.\n- If instead some tenant-scoped path exists: the trace shows a second bound parameter or a `tenant=` predicate, and B correctly gets B's row — which would refute the diagnosis.\n\nThe cheaper read-only variant, if a fixture database is available: run the exact statement from `repo.go:19` with `id=7` and inspect how many rows qualify before `LIMIT 1`. Two qualifying rows confirms the predicate gap directly. Note that a single repeat of q17 returning B again proves nothing either way — test the tenant invariant, not which row appears.\n\n**Ownership if a fix is authorized** (not done here — this is investigate-only): the correction belongs at `repo.go:19`, adding the tenant to the predicate so the already-passed `tenant` argument is honored — `go-database` territory. Regression coverage should keep both colliding rows `(7,A)` and `(7,B)` and assert the returned tenant for each caller, plus retain the `id=8` distinct-ID case as a control.\n\nOne flag for the tracker owner: this is a cross-tenant data disclosure, not a caching nuisance, so the ticket's severity and title are both understated.",
+          "tool_calls": [
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/final/skills/go-troubleshooting/SKILL.md"
+              }
+            },
+            {
+              "name": "Glob",
+              "input": {
+                "pattern": "skills/go-troubleshooting/**",
+                "path": "<probe-root>/final"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/final/skills/go-troubleshooting/references/TICKET-INVESTIGATION.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/final/skills/go-troubleshooting/references/DATA-FLOW-TRACING.md"
+              }
+            }
+          ],
+          "permission_denials": [],
+          "usage": {
+            "claude-haiku-4-5-20251001": {
+              "inputTokens": 1295,
+              "outputTokens": 13,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0,
+              "webSearchRequests": 0,
+              "costUSD": 0.0013599999999999999,
+              "contextWindow": 200000,
+              "maxOutputTokens": 32000,
+              "thinkingTokens": 0,
+              "canonicalModel": "claude-haiku-4-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            },
+            "claude-opus-5": {
+              "inputTokens": 6,
+              "outputTokens": 2206,
+              "cacheReadInputTokens": 33109,
+              "cacheCreationInputTokens": 19148,
+              "webSearchRequests": 0,
+              "costUSD": 0.2632145,
+              "contextWindow": 1000000,
+              "maxOutputTokens": 64000,
+              "thinkingTokens": 221,
+              "canonicalModel": "claude-opus-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            }
+          },
+          "cost_usd": 0.2645745,
+          "elapsed_seconds": 32.28,
+          "manual_assessment": "Correct tenant invariant and unordered-result caveat; no invented runtime checks or edits."
+        },
+        {
+          "id": 30,
+          "prompt": "First read <probe-root>/final/skills/go-troubleshooting/SKILL.md and the relevant routed references, then apply them to this exercise. Investigate ticket GO-93 without modifying code. The entire available report is: \"Some invoices disappear sometimes after a release. Probably a Go map race. Please give us the root cause today.\" No affected invoice IDs, request/response pairs, timestamps, release revision, logs, reproduction, or source are supplied. The tracker and service are inaccessible in this exercise, but you can analyze the text. Give the current finding and the smallest useful evidence request/next step. Do not invent observations.",
+          "requested_model": "claude-opus-5",
+          "model": "claude-opus-5",
+          "exit_code": 0,
+          "is_error": false,
+          "subtype": "success",
+          "output": "## GO-93 — Finding: **unresolved** (no evidence available)\n\nNo investigation of the actual mechanism has been performed, because nothing beyond the reporter's sentence exists in this exercise: no affected invoice IDs, no request/response pair, no timestamps, no release revision, no logs, no reproduction, and no source. The working directory is empty and the tracker/service are inaccessible. Anything I named as a root cause today would be invented, so I am not naming one.\n\n### What the report actually establishes\n\n| Field | Status |\n|---|---|\n| Contract | **Unknown** — \"disappear\" is not defined (see below) |\n| Observation | Unknown — no invoice ID, no response body, no error |\n| Correlation | Unknown — no timestamp, request/trace/job ID, log window |\n| Scope | Unknown — no tenant, actor, filter parameters, frequency |\n| Environment | Unknown — \"after a release\" names no revision or image digest |\n| Reproduction | None; reported as intermittent (\"sometimes\") |\n| Control | None — no working case recorded |\n\nThe one thing the text does carry is a reporter's *hypothesis*, \"probably a Go map race,\" which by the skill's rules is a lead, not a cause. I have not weighted it up or down: nothing in the report supports or conflicts with it. Note that \"sometimes\" plus \"after a release\" is also fully consistent with entirely non-concurrent mechanisms — a changed list filter or pagination bound, an `omitempty`/serialization change, a migration altering rows, a tenant-scope change in a query, or a caching layer — and no evidence yet distinguishes these. Absence of a reported `concurrent map writes` panic is *not* evidence that no race occurred, and equally not evidence that one did.\n\n### Smallest useful next step\n\n**One affected invoice ID plus the request that failed to return it, with its timestamp (including timezone) and the request/trace ID.**\n\nThat single artifact is the cheapest thing that splits the hypothesis space, because it first settles the contract question that currently blocks everything else: does \"disappear\" mean\n\n- the invoice row is **gone from the database**, or\n- the row exists but is **absent from a list/search response**, or\n- it is returned but with **fields blanked**?\n\nThose three point at disjoint mechanisms and disjoint owning skills, and no amount of code reading substitutes for knowing which one is happening. With the ID and timestamp in hand, the immediate follow-ups are a direct fetch of that invoice by ID (does the row exist now?) and the deployed revision serving that request — the running image digest, not a branch name or a mutable tag, since a mixed rollout can serve two revisions at once.\n\n### On the deadline\n\n\"Root cause today\" is achievable only if that evidence arrives today; the constraint is the evidence, not analysis time. If the concern is customer impact rather than diagnosis, capturing the above before any rollback matters — a rollback may make invoices reappear and would then destroy the ability to attribute the cause, since mitigation success does not confirm a diagnosis.\n\nI did not modify any code, and I ran no checks against the service or tracker, as both are out of reach here.",
+          "tool_calls": [
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/final/skills/go-troubleshooting/SKILL.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/final/skills/go-troubleshooting/references/TICKET-INVESTIGATION.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/final/skills/go-troubleshooting/references/SYMPTOM-CATALOG.md"
+              }
+            },
+            {
+              "name": "Glob",
+              "input": {
+                "pattern": "**/*",
+                "path": "<probe-root>/final-opus/probe-30"
+              }
+            }
+          ],
+          "permission_denials": [],
+          "usage": {
+            "claude-haiku-4-5-20251001": {
+              "inputTokens": 1082,
+              "outputTokens": 17,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0,
+              "webSearchRequests": 0,
+              "costUSD": 0.001167,
+              "contextWindow": 200000,
+              "maxOutputTokens": 32000,
+              "thinkingTokens": 0,
+              "canonicalModel": "claude-haiku-4-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            },
+            "claude-opus-5": {
+              "inputTokens": 8,
+              "outputTokens": 1761,
+              "cacheReadInputTokens": 57888,
+              "cacheCreationInputTokens": 22775,
+              "webSearchRequests": 0,
+              "costUSD": 0.300759,
+              "contextWindow": 1000000,
+              "maxOutputTokens": 64000,
+              "thinkingTokens": 186,
+              "canonicalModel": "claude-opus-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            }
+          },
+          "cost_usd": 0.301926,
+          "elapsed_seconds": 33.21,
+          "manual_assessment": "Unresolved; requests affected ID/request/time and deployed revision; no inference of crash absence from absent logs."
+        },
+        {
+          "id": 31,
+          "prompt": "First read <probe-root>/final/skills/go-troubleshooting/SKILL.md and the relevant routed references, then apply them to this exercise. Read-only investigation of a Go billing report. Do not edit files, write a test, or update the ticket. All artifacts are inline; no tools can execute the illustrative program. Contract: an organization-wide report includes one item per (tenant, local_id). Request is organization=O, and its authorized tenants are A and B. Middleware passes both; SQL WHERE tenant IN ('A','B') returns ordered rows (A,7,10), (B,7,20). Debug capture immediately after Scan contains both rows. report.go:61-64: byID := map[int]Item{}; for _, row := range rows { byID[row.LocalID] = Item{Tenant:row.Tenant, ID:row.LocalID, Amount:row.Amount} }; items := maps.Values(byID). Encoder emits every item from items. The actual response contains only (B,7,20). Control with rows (A,7,10), (B,8,20) emits both. Ticket claims database/sql silently skipped Scan. Locate the first bad transformation and report what is established versus what still needs execution.",
+          "requested_model": "claude-opus-5",
+          "model": "claude-opus-5",
+          "exit_code": 0,
+          "is_error": false,
+          "subtype": "success",
+          "output": "## Finding — **confirmed** (by artifact chain + static reading; nothing executed)\n\n**Mechanism:** the aggregation step at `report.go:61-64` keys items by `row.LocalID` alone. `local_id = 7` collides across tenants A and B, so the `(B,7,20)` assignment overwrites the `(A,7,10)` entry already in `byID`. The encoder faithfully emits every item it is given — there is only one left.\n\n**Boundary walk** (per DATA-FLOW-TRACING, invariant: one item per `(tenant, local_id)`):\n\n| Boundary | Observed | Verdict |\n|---|---|---|\n| Middleware / tenant scope | A and B both authorized and passed | correct |\n| SQL | `WHERE tenant IN ('A','B')`, returns `(A,7,10)`, `(B,7,20)` | correct — 2 rows, both tenants |\n| Scan | debug capture immediately after Scan holds both rows | correct — **last good boundary** |\n| Aggregation `report.go:61-64` | map key = `LocalID`; identity collapses from `(tenant, local_id)` to `local_id` | **first bad transformation** |\n| Serialization | emits everything in `items` | correct, faithful to a corrupted input |\n\n**The ticket's claim is disproved.** \"database/sql silently skipped a Scan\" requires a row to be missing at or before Scan; the post-Scan capture contains both rows, so the loss happens strictly downstream of `database/sql`. The control (IDs 7 and 8, both emitted) is the discriminating comparison: it changes only key uniqueness while holding tenants, query, and code path fixed, and the symptom disappears — which is what a key-collision mechanism predicts and what a Scan-skipping mechanism does not.\n\n**Established without execution:**\n- Rows survive to post-Scan; loss is in-process, after mapping begins.\n- Key collision on `7` is the only difference between the failing case and the passing control.\n- One item per key is structurally impossible to preserve for colliding `local_id`s — this is a property of the map type, not of a particular run.\n\n**Still needs execution to be airtight:**\n1. Confirm the deployed revision actually contains `report.go:61-64` as pasted — the checkout is not evidence of what served the request (SKILL.md step 2). This is the largest open gap.\n2. `Rows.Err()` handling after the loop is not shown in the excerpt. It does not explain *this* symptom (both rows reached the capture), but an unchecked `Rows.Err()` is a separate latent truncation path worth reading.\n3. A focused run over the two colliding rows asserting both items are present — the regression that would fail before a fix and pass after. Not written here, per scope.\n\n**Note on scope, not a defect claim:** in Go 1.23+ `maps.Values` returns an `iter.Seq[Item]`, not a slice, so `items` is an iterator; whatever the encoder does with it, iteration order is unspecified. Order is a separate concern from which value survived — the collision already discarded A's item at assignment time, before any iteration.\n\n**Fix ownership if authorized later:** the responsible boundary is the mapper's identity choice — a compound `(tenant, local_id)` key, or emitting rows directly if deduplication isn't actually required. Filtering a tenant out would violate the report contract. Routing goes to `go-data-structures`; the SQL and middleware need no change.\n\nNo files were edited, no test written, no ticket updated.",
+          "tool_calls": [
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/final/skills/go-troubleshooting/SKILL.md"
+              }
+            },
+            {
+              "name": "Glob",
+              "input": {
+                "pattern": "skills/go-troubleshooting/**",
+                "path": "<probe-root>/final"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/final/skills/go-troubleshooting/references/DATA-FLOW-TRACING.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/final/skills/go-troubleshooting/references/TICKET-INVESTIGATION.md"
+              }
+            }
+          ],
+          "permission_denials": [],
+          "usage": {
+            "claude-haiku-4-5-20251001": {
+              "inputTokens": 1226,
+              "outputTokens": 15,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0,
+              "webSearchRequests": 0,
+              "costUSD": 0.001301,
+              "contextWindow": 200000,
+              "maxOutputTokens": 32000,
+              "thinkingTokens": 0,
+              "canonicalModel": "claude-haiku-4-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            },
+            "claude-opus-5": {
+              "inputTokens": 6,
+              "outputTokens": 1835,
+              "cacheReadInputTokens": 32865,
+              "cacheCreationInputTokens": 19026,
+              "webSearchRequests": 0,
+              "costUSD": 0.25259750000000003,
+              "contextWindow": 1000000,
+              "maxOutputTokens": 64000,
+              "thinkingTokens": 133,
+              "canonicalModel": "claude-opus-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            }
+          },
+          "cost_usd": 0.2538985,
+          "elapsed_seconds": 30.19,
+          "manual_assessment": "Correct first divergence, composite identity and assignment-versus-iteration distinction; preserves investigation-only scope."
+        },
+        {
+          "id": 32,
+          "prompt": "First read <probe-root>/final/skills/go-troubleshooting/SKILL.md and the relevant routed references, then apply them to this exercise. Use go-troubleshooting for this Go bugfix exercise. I authorize the smallest correction and a regression test; no approval checkpoint is needed. Only supply the proposed patch/plan because execution and file editing are unavailable here. API contract: missing limit on GET /items means 20; a positive supplied limit is honored. Evidence: handler.go:40 calls n := parseLimit(r.URL.Query().Get(\"limit\")), then repo.List(ctx,n). parseLimit is shared, returns 0 for an empty string and parses valid positive integers otherwise. Its documented 0 default is correct for the export caller, where 0 means all items; existing export tests require this. The GET handler currently returns every item when limit is missing. The repository's actual verification command is make check. State the correction, regression proof, and completion status.",
+          "requested_model": "claude-opus-5",
+          "model": "claude-opus-5",
+          "exit_code": 0,
+          "is_error": false,
+          "subtype": "success",
+          "output": "Skill and routed references read (`TICKET-INVESTIGATION.md` for contract/scope, `DATA-FLOW-TRACING.md` for the decode/defaults boundary). No repository is present in either working directory — `probe-32` is empty and the `final` tree contains only the skills — so everything below is a static proposal from the evidence you supplied; nothing was executed or edited.\n\n## Finding: confirmed (from supplied evidence), mechanism at the decode/defaults boundary\n\n- **Contract:** `GET /items` with no `limit` returns 20; a positive supplied `limit` is honored.\n- **Actual:** every item is returned when `limit` is absent.\n- **Chain:** `handler.go:40` → `parseLimit(\"\")` → `0` → `repo.List(ctx, 0)` → repository treats 0 as \"all\". The first divergence is in the handler, not the repository: `parseLimit` returns exactly what its documented contract promises, and that 0-means-all default is correct for the export caller (existing export tests depend on it).\n- **Responsible boundary:** per the skill's fix rule, the shared function's contract is right for its other caller, so the caller that violates its own contract gets fixed. Changing `parseLimit` would break export.\n\n## Correction (smallest attributable change)\n\nApply the default only when the parameter is *missing*, using `Has` rather than reinterpreting the parsed 0. This keeps neighboring behavior intact: an explicitly supplied `limit=0`, a negative, or an invalid value continues down whatever path it takes today, since the contract says nothing about them and there is no evidence to redefine them.\n\n```go\n// handler.go\n\n// defaultItemsLimit applies when the request omits limit; parseLimit's 0 default\n// means \"all items\" for the export caller and must not leak into GET /items.\nconst defaultItemsLimit = 20\n\n// --- at handler.go:40 ---\n-\tn := parseLimit(r.URL.Query().Get(\"limit\"))\n+\tq := r.URL.Query()\n+\tn := parseLimit(q.Get(\"limit\"))\n+\tif !q.Has(\"limit\") {\n+\t\tn = defaultItemsLimit\n+\t}\n \titems, err := repo.List(ctx, n)\n```\n\n`parseLimit` and the export caller are untouched.\n\n## Regression proof (proposed)\n\nTable-driven test against the handler with a stub repository that records the `n` it received. It fails on the current code for the trigger row (records `0`, returns all items) and passes after the patch; the nearby working case guards against over-correcting a supplied value into 20.\n\n```go\n// handler_test.go\n\ntype recordingRepo struct {\n\tgotN  int\n\titems []Item\n}\n\nfunc (r *recordingRepo) List(ctx context.Context, n int) ([]Item, error) {\n\tr.gotN = n\n\tif n <= 0 || n > len(r.items) {\n\t\treturn r.items, nil\n\t}\n\treturn r.items[:n], nil\n}\n\nfunc TestItemsHandlerLimitDefault(t *testing.T) {\n\tt.Parallel()\n\n\ttests := []struct {\n\t\tname  string\n\t\tquery string\n\t\twantN int\n\t}{\n\t\t{name: \"missing limit defaults to 20\", query: \"/items\", wantN: 20},\n\t\t{name: \"positive limit honored\", query: \"/items?limit=5\", wantN: 5},\n\t}\n\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tt.Parallel()\n\n\t\t\trepo := &recordingRepo{items: make([]Item, 50)}\n\t\t\treq := httptest.NewRequest(http.MethodGet, tt.query, nil)\n\t\t\trec := httptest.NewRecorder()\n\n\t\t\tnewItemsHandler(repo).ServeHTTP(rec, req)\n\n\t\t\tif rec.Code != http.StatusOK {\n\t\t\t\tt.Fatalf(\"status = %d, want %d\", rec.Code, http.StatusOK)\n\t\t\t}\n\t\t\tif repo.gotN != tt.wantN {\n\t\t\t\tt.Errorf(\"repo.List n = %d, want %d\", repo.gotN, tt.wantN)\n\t\t\t}\n\t\t})\n\t}\n}\n```\n\nAdjust the constructor/stub names to the actual handler wiring; the assertion that matters is `repo.List` receiving 20 for the missing-parameter case. The existing export tests asserting `parseLimit(\"\") == 0` should remain green unchanged — that is the check confirming the fix landed on the right side of the boundary.\n\n## Completion status\n\n**Not verified.** The proposed patch is not a verified fix: `make check` — the repository's actual verification command — was not run, and neither the patch nor the test was applied, because no source tree is available here and file editing is unavailable. To close this out, apply the two hunks, then run `make check` and confirm three things: the new test fails before the handler hunk, passes after, and the export tests stay green.",
+          "tool_calls": [
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/final/skills/go-troubleshooting/SKILL.md"
+              }
+            },
+            {
+              "name": "Glob",
+              "input": {
+                "pattern": "**/*",
+                "path": "<probe-root>/final/skills/go-troubleshooting"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/final/skills/go-troubleshooting/references/TICKET-INVESTIGATION.md"
+              }
+            },
+            {
+              "name": "Read",
+              "input": {
+                "file_path": "<probe-root>/final/skills/go-troubleshooting/references/DATA-FLOW-TRACING.md"
+              }
+            },
+            {
+              "name": "Glob",
+              "input": {
+                "pattern": "**/*",
+                "path": "<probe-root>/final-opus/probe-32"
+              }
+            }
+          ],
+          "permission_denials": [],
+          "usage": {
+            "claude-haiku-4-5-20251001": {
+              "inputTokens": 1155,
+              "outputTokens": 17,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0,
+              "webSearchRequests": 0,
+              "costUSD": 0.00124,
+              "contextWindow": 200000,
+              "maxOutputTokens": 32000,
+              "thinkingTokens": 0,
+              "canonicalModel": "claude-haiku-4-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            },
+            "claude-opus-5": {
+              "inputTokens": 6,
+              "outputTokens": 2700,
+              "cacheReadInputTokens": 32711,
+              "cacheCreationInputTokens": 19163,
+              "webSearchRequests": 0,
+              "costUSD": 0.2755155,
+              "contextWindow": 1000000,
+              "maxOutputTokens": 64000,
+              "thinkingTokens": 429,
+              "canonicalModel": "claude-opus-5",
+              "provider": "firstParty",
+              "costBasis": "list"
+            }
+          },
+          "cost_usd": 0.2767555,
+          "elapsed_seconds": 34.91,
+          "manual_assessment": "Missing-only correction uses query.Has; preserves neighboring and export behavior; before/after regression and make check remain explicitly unexecuted."
+        }
+      ]
+    }
+  },
+  "trigger_snapshot": "updated",
+  "trigger_results": [
+    {
+      "id": "trigger-79",
+      "prompt": "Разбери тикет по Go API: список счетов иногда теряет записи одного tenant, причина неизвестна. Есть request ID и ответ сервиса.",
+      "requested_model": "claude-opus-5",
+      "model": "claude-opus-5",
+      "exit_code": 0,
+      "is_error": false,
+      "subtype": "success",
+      "output": "Тикет разобрать по существу пока нельзя: в контексте нет ни request ID, ни ответа сервиса, ни доступа к репозиторию (у меня в этой сессии нет файловых инструментов — только запуск скиллов). Поэтому ниже — статус, точный список недостающих улик и ранжированные механизмы с проверками, которые их различают.\n\n## Статус: unresolved\n\nНаблюдаемое: список счетов periodically возвращает неполный набор записей для одного tenant. Код ответа, судя по формулировке, успешный — то есть потеря происходит молча, без ошибки. Это само по себе сильный сигнал: искать надо не там, где падает, а там, где результат усекается без диагностики.\n\n## Чего не хватает (пришлите — и разбор пойдёт дальше)\n\n1. Сам запрос: полный URL с query-параметрами (`limit`, `offset`/`cursor`, сортировка, фильтры), заголовки tenant-скоупа, request ID.\n2. Ответ целиком: тело, `X-Total-Count`/поля пагинации, HTTP-статус, длительность.\n3. «Хороший» ответ на тот же вход для сравнения — ключевая улика, а не приятное дополнение.\n4. Развёрнутая ревизия сервиса (образ/коммит), а не то, что лежит в рабочей копии.\n5. Какие именно записи пропадают: всегда одни и те же, свежие, на границе страницы, или случайные.\n6. Логи по request ID и, если есть, SQL-лог с реальным текстом запроса и параметрами.\n\n## Механизмы-кандидаты, от вероятного к менее\n\n**1. Нестабильная пагинация (OFFSET + неуникальный ORDER BY).** `ORDER BY created_at` без tiebreaker по ID: строки с равными значениями упорядочиваются недетерминированно, при переходе между страницами часть записей проскакивает мимо окна. Даёт ровно эту картину — «иногда теряет», у tenant с массовыми импортами (много одинаковых timestamp) и активной записью.\n*Проверка:* запросить страницу 2 дважды подряд и сравнить наборы ID; выполнить запрос с `ORDER BY created_at, id` и повторить. Различает: если при добавленном tiebreaker потери исчезают — это оно.\n\n**2. Тихое усечение при итерации строк.** Не проверяется `rows.Err()` после цикла, либо ошибка `Scan` ломает цикл через `break`, и хендлер отдаёт то, что успел собрать, с кодом 200. Сюда же — отмена контекста по дедлайну посреди чтения: у самого крупного tenant запрос дольше, поэтому режет именно его и именно иногда.\n*Проверка:* грепнуть путь листинга на `rows.Err()`; сопоставить длительность «плохих» запросов с таймаутом. Если плохие ответы жмутся к границе таймаута — механизм подтверждён.\n\n**3. Отставание реплики.** Чтение списка идёт с реплики, запись — в primary. Пропадают только недавно созданные счета.\n*Проверка:* пропадающие записи всегда свежие? Сравнить `created_at` потерянных строк с лагом репликации на момент request ID.\n\n**4. Конкурентная сборка результата.** Fan-out по шардам/страницам с `append` в общий слайс из горутин без синхронизации, или запись по индексу с расхождением. Теряются случайные записи, воспроизводится под нагрузкой.\n*Проверка:* `go test -race` по хендлеру листинга; в коде — есть ли вообще горутины на этом пути. Если путь однопоточный, гипотеза снимается сразу.\n\n**5. Коллизия ключа кэша или дедупликации.** Ключ кэша без tenant ID, либо дедуп через `map[accountNumber]` вместо `map[{tenant, id}]` — записи затирают друг друга. Объясняет привязку к одному tenant (тому, чьи номера пересекаются с соседним).\n*Проверка:* состав ключа кэша и любых map на пути; воспроизвести на паре tenant с пересекающимися номерами счетов.\n\n**6. JOIN-фан-аут с DISTINCT или LIMIT до фильтра.** `DISTINCT` схлопывает легитимно разные строки, либо `LIMIT` в подзапросе применяется раньше tenant-фильтра.\n*Проверка:* прочитать сгенерированный SQL целиком (не билдер, а лог), выполнить его вручную с параметрами из request ID и сравнить count с прямым `SELECT count(*) WHERE tenant_id = ...`.\n\n## Что сделать первым\n\nНе профилирование и не общий прогон тестов. Первый шаг — три вещи в одном подходе: полный текст SQL по проблемному request ID, повторный вызов той же страницы дважды подряд с diff по ID, и проверка наличия `rows.Err()` в коде листинга. Эти три сигнала разводят кандидатов 1, 2 и 6 между собой почти однозначно.\n\nПришлите request ID с ответом (и, если есть, доступ к репозиторию или сам файл хендлера) — доведу до подтверждённого механизма. Скажете «чинить» — сделаю минимальную правку на ответственной границе плюс регрессионный тест, который падает на исходном механизме.",
+      "tool_calls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "golang-skills:go-troubleshooting",
+            "args": "Go API: список счетов иногда теряет записи одного tenant, причина неизвестна. Есть request ID и ответ сервиса."
+          }
+        }
+      ],
+      "permission_denials": [],
+      "usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 941,
+          "outputTokens": 19,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.001036,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        },
+        "claude-opus-5": {
+          "inputTokens": 4,
+          "outputTokens": 3020,
+          "cacheReadInputTokens": 9223,
+          "cacheCreationInputTokens": 13910,
+          "webSearchRequests": 0,
+          "costUSD": 0.21923150000000002,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 1034,
+          "canonicalModel": "claude-opus-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd": 0.2202675,
+      "elapsed_seconds": 53.36,
+      "expected": [
+        "go-troubleshooting"
+      ],
+      "observed": [
+        "go-troubleshooting"
+      ],
+      "selection_passed": true
+    },
+    {
+      "id": "trigger-80",
+      "prompt": "Our Go service works locally but stage ignores the same query parameter. Investigate the ticket before proposing a patch.",
+      "requested_model": "claude-opus-5",
+      "model": "claude-opus-5",
+      "exit_code": 0,
+      "is_error": false,
+      "subtype": "success",
+      "output": "I loaded the troubleshooting skill, but I can't get past its first step here: I have no file, search, or shell tools in this session, only the skill launcher. So I can't read the ticket, the repo at `probe-trigger-80`, or any stage config — and no ticket text was pasted in the request.\n\n**Missing evidence I need to actually investigate:**\n\n- The ticket text (expected vs actual, one concrete request URL + response, timestamp).\n- The deployed stage revision (`/version`, build info, or image tag) vs the commit that added the parameter handling. The checkout is not evidence of deployed code — this alone resolves a large share of \"works locally, not on stage\" tickets.\n- The handler/route registration and wherever the param is read.\n- Stage's ingress/proxy config (nginx, ALB, API gateway) and effective env/config.\n\n**Independent work — ranked mechanisms for \"query param honored locally, ignored on stage,\" each with a check that can disprove it:**\n\n| # | Mechanism | Discriminating check |\n|---|---|---|\n| 1 | Stage runs an older build that predates the param | Compare deployed revision against the commit adding the parse |\n| 2 | Proxy strips the query string — classic nginx `proxy_pass` with a URI/rewrite missing `$is_args$args` | Log `r.URL.RawQuery` in the outermost middleware on stage; empty ⇒ it never arrived |\n| 3 | Param parsed but its effect is gated by a flag/config that defaults differently on stage | Dump effective config for that key on the running instance |\n| 4 | Different route matched on stage (path prefix, trailing-slash redirect — a 301 from `ServeMux` preserves the query, but a hand-rolled redirect built from `r.URL.Path` drops it) | Check response status chain and which handler logs the request |\n| 5 | Name/casing/duplication — `url.Values` is case-sensitive and `Get` returns only the first value | Compare the exact raw query bytes local vs stage |\n| 6 | Cache in front of stage whose cache key excludes the query string | Look for `Age`/`X-Cache` headers; vary the param and see if the response body changes at all |\n| 7 | Middleware replaces `r.URL` or rebuilds it from `Path` only | Log `r.URL.RawQuery` before and after the middleware chain |\n\nCheapest first move that splits the table in two: log `r.URL.RawQuery` at the very first middleware on stage and replay the failing request. Empty ⇒ #2/#4/#6/#7 (infrastructure). Populated ⇒ #1/#3/#5 (application).\n\nPaste the ticket and give me tool access to the repo, and I'll run this down to a specific boundary rather than a list.",
+      "tool_calls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "golang-skills:go-troubleshooting",
+            "args": "Go service works locally but stage ignores the same query parameter"
+          }
+        }
+      ],
+      "permission_denials": [],
+      "usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 916,
+          "outputTokens": 13,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.000981,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        },
+        "claude-opus-5": {
+          "inputTokens": 4,
+          "outputTokens": 1930,
+          "cacheReadInputTokens": 9207,
+          "cacheCreationInputTokens": 13803,
+          "webSearchRequests": 0,
+          "costUSD": 0.1909035,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 897,
+          "canonicalModel": "claude-opus-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd": 0.1918845,
+      "elapsed_seconds": 29.92,
+      "expected": [
+        "go-troubleshooting"
+      ],
+      "observed": [
+        "go-troubleshooting"
+      ],
+      "selection_passed": true
+    },
+    {
+      "id": "trigger-81",
+      "prompt": "Знайди першопричину регресії в Go: після релізу JSON-звіт повертає неправильну суму. Поки тільки аналіз, без змін коду.",
+      "requested_model": "claude-opus-5",
+      "model": "claude-opus-5",
+      "exit_code": 0,
+      "is_error": false,
+      "subtype": "success",
+      "output": "Не можу прочитати репозиторій — у цій сесії мені доступний лише запуск скілів, без інструментів читання файлів чи виконання команд. Тож першопричину назвати поки не можу: потрібні артефакти від вас.\n\n## Що надішліть (мінімум для діагнозу)\n\n1. **Конкретний запит і відповідь** — вхідні параметри звіту (період, тенант/фільтри) + JSON-відповідь з неправильною сумою, і поруч очікуване значення.\n2. **Дифф релізу** — `git log --oneline <попередній_тег>..<поточний_тег>` і дифф по файлах, що торкаються агрегації та серіалізації звіту.\n3. **Код шляху даних** — handler → сервіс агрегації → SQL/запит до сховища → структура DTO з `json`-тегами.\n4. **Рядки з БД** — результат того самого запиту напряму в базі, щоб розділити «зламалась агрегація» vs «зламалась серіалізація».\n5. **Версія, що реально працює в проді** (образ/ревізія), а не гілка в чекауті, і зміни конфігу/міграцій разом із релізом.\n\n## Куди дивитись у першу чергу\n\nДля «неправильна сума в JSON» типовий перший розрив — в одному з чотирьох місць:\n\n- **Серіалізація**: суми у `float64` замість цілих копійок/`decimal`; втрата точності або `omitempty` на нульовому полі; кастомний `MarshalJSON`, доданий у релізі.\n- **Агрегація в SQL**: `SUM` з `JOIN`, що дублює рядки (сума роздувається кратно), `LEFT JOIN` з `NULL`, або втрачений фільтр `WHERE tenant_id = ?` / `deleted_at IS NULL`.\n- **Пагінація/ліміт**: сума рахується по сторінці, а не по всьому набору — класична регресія після додавання `LIMIT`.\n- **Межі періоду й таймзона**: перехід на UTC або `>=`/`>` на границі дня — сума «майже правильна», відрізняється на крайні транзакції.\n\n**Швидкий розрізняючий тест:** візьміть один звіт, де сума неправильна, і порівняйте три числа — сума з БД напряму, сума в Go-структурі до `json.Marshal` (лог/дебагер), сума в JSON-відповіді. Місце, де вони розходяться, одразу вкаже шар, і далі шукати треба тільки в диффі релізу по цьому шарі.\n\nСкиньте артефакти (або дайте доступ до директорії з правами на читання) — і я доведу аналіз до конкретної першопричини, без змін коду.",
+      "tool_calls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "golang-skills:go-troubleshooting",
+            "args": "Регресія після релізу: JSON-звіт повертає неправильну суму. Тільки аналіз, без змін коду."
+          }
+        }
+      ],
+      "permission_denials": [],
+      "usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 942,
+          "outputTokens": 18,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.001032,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        },
+        "claude-opus-5": {
+          "inputTokens": 4,
+          "outputTokens": 1310,
+          "cacheReadInputTokens": 10485,
+          "cacheCreationInputTokens": 12584,
+          "webSearchRequests": 0,
+          "costUSD": 0.16385249999999998,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 254,
+          "canonicalModel": "claude-opus-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd": 0.1648845,
+      "elapsed_seconds": 31.09,
+      "expected": [
+        "go-troubleshooting"
+      ],
+      "observed": [
+        "go-troubleshooting"
+      ],
+      "selection_passed": true
+    },
+    {
+      "id": "trigger-82",
+      "prompt": "The ticket says Redis is stale, but our Go endpoint returns another tenant's record. Can you trace where the wrong value first appears?",
+      "requested_model": "claude-opus-5",
+      "model": "claude-opus-5",
+      "exit_code": 0,
+      "is_error": false,
+      "subtype": "success",
+      "output": "I don't have file or search tools in this session — only the skill loader — so I can't open the code in `probe-trigger-82` myself. Here's the trace plan plus what to paste so I can pin the actual first divergence.\n\n## The ticket's premise is probably wrong\n\n\"Stale Redis\" and \"another tenant's record\" are different failure classes. Staleness returns *your own tenant's old value*. Returning *another tenant's* record means an identity was dropped or overwritten somewhere upstream — a cache that is behaving exactly as told, with the wrong key.\n\nSo the question isn't \"is Redis stale,\" it's **at which boundary does the tenant ID stop traveling with the request.**\n\n## Where the wrong value first appears — ranked\n\n**1. Cache key omits the tenant (most likely).** A key like `user:%d` or `record:%s` instead of `tenant:%s:record:%s`. Two tenants with colliding primary keys (very common with per-tenant auto-increment IDs, or slugs like `default`/`admin`) then share a slot. Whoever writes last wins for everyone. This looks exactly like staleness — the value *is* old, it's just old *and* foreign. Check every `fmt.Sprintf` that builds a Redis key and confirm the tenant is in it.\n\n**2. Tenant resolved from the wrong source on the hit path.** Cache lookup uses a tenant from a header/subdomain while the DB path uses the one from the auth token, or vice versa. The paths agree until they don't.\n\n**3. Context value captured across goroutines or into a closure.** A background refresh/warm goroutine that captures the request's tenant by reference, or a handler that stores tenant on a shared struct field instead of passing it through `context`. Under concurrency, request B's tenant lands in request A's lookup. Symptom is intermittent and load-correlated — if the ticket says \"only under traffic,\" this jumps to #1.\n\n**4. Shared mutable state in the handler or a singleton repo/service.** A `*Repo` with a `tenantID` field set per request. Same mechanism as #3, no goroutines needed.\n\n**5. Missing tenant predicate in the SQL that populates the cache.** The cache is then faithfully serving a genuinely wrong row. Rarer, because it usually breaks loudly, but it's the case where flushing Redis fixes nothing.\n\n**6. Deserialization into a reused struct.** A pooled or package-level target for `json.Unmarshal` that keeps fields from a prior tenant when the new payload omits them.\n\nNote that a cache flush \"fixes\" #1, #2, #3, #4 and #6 temporarily — which is likely why the ticket landed on Redis. That mitigation is not evidence of cause.\n\n## What I need to actually locate it\n\nCheapest discriminating check first: **read the raw key**. Reproduce one bad response, then `MONITOR` or log the exact key string the handler used, and inspect it.\n\n- If the key has no tenant segment → #1, confirmed, stop there.\n- If the key is correct but the value is foreign → the poison entered on write; trace the writer and the SQL behind it (#5).\n- If the key itself contains the *wrong* tenant → the identity was already wrong before Redis; walk backward through middleware to auth (#2, #3, #4).\n\nTo go further, send me any of:\n\n- The cache-key construction function and the read-through/`GetOrSet` wrapper.\n- The middleware that extracts tenant, and the handler signature (specifically: is tenant passed as a parameter, pulled from `context`, or read off a struct field?).\n- The SQL that fills the cache, with its `WHERE` clause.\n- One bad request: request ID, tenant expected, tenant returned, timestamp.\n- Whether it's reproducible on demand or only under concurrent load — that single fact separates the keying bugs from the shared-state bugs.\n\nWith the key-builder and the middleware I can usually name the line.",
+      "tool_calls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "golang-skills:go-troubleshooting",
+            "args": "Ticket says Redis is stale, but Go endpoint returns another tenant's record. Trace where the wrong value first appears."
+          }
+        }
+      ],
+      "permission_denials": [],
+      "usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 920,
+          "outputTokens": 15,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.000995,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        },
+        "claude-opus-5": {
+          "inputTokens": 4,
+          "outputTokens": 1865,
+          "cacheReadInputTokens": 10476,
+          "cacheCreationInputTokens": 12604,
+          "webSearchRequests": 0,
+          "costUSD": 0.177923,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 449,
+          "canonicalModel": "claude-opus-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd": 0.17891800000000002,
+      "elapsed_seconds": 30.97,
+      "expected": [
+        "go-troubleshooting"
+      ],
+      "observed": [
+        "go-troubleshooting"
+      ],
+      "selection_passed": true
+    },
+    {
+      "id": "trigger-83",
+      "prompt": "Rewrite this ticket title in clear English, without investigating it: \"Go endpoint hangs sometimes\".",
+      "requested_model": "claude-opus-5",
+      "model": "claude-opus-5",
+      "exit_code": 0,
+      "is_error": false,
+      "subtype": "success",
+      "output": "A clearer title, given only what the original says:\n\n**\"Go service endpoint intermittently hangs and does not return a response\"**\n\nShorter variants, depending on your convention:\n\n- \"Intermittent hang on Go HTTP endpoint\"\n- \"Go endpoint intermittently stops responding to requests\"\n\nOne note: the original doesn't say *which* endpoint, what \"hangs\" means concretely (no response vs. slow response vs. timeout), or whether it eventually recovers — so the rewrite preserves that vagueness rather than inventing detail. Filling in the endpoint path and the observed symptom would make the title genuinely useful; I'd need those from you since you asked me not to investigate.",
+      "tool_calls": [],
+      "permission_denials": [],
+      "usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 913,
+          "outputTokens": 12,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.000973,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        },
+        "claude-opus-5": {
+          "inputTokens": 2,
+          "outputTokens": 300,
+          "cacheReadInputTokens": 1262,
+          "cacheCreationInputTokens": 7944,
+          "webSearchRequests": 0,
+          "costUSD": 0.08758099999999999,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 77,
+          "canonicalModel": "claude-opus-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd": 0.088554,
+      "elapsed_seconds": 6.48,
+      "expected": [],
+      "observed": [],
+      "selection_passed": true
+    },
+    {
+      "id": "trigger-84",
+      "prompt": "Translate this bug report into Ukrainian only: \"The Go service drops invoice rows on stage\".",
+      "requested_model": "claude-opus-5",
+      "model": "claude-opus-5",
+      "exit_code": 0,
+      "is_error": false,
+      "subtype": "success",
+      "output": "«Go-сервіс втрачає рядки рахунків-фактур на стейджі.»",
+      "tool_calls": [],
+      "permission_denials": [],
+      "usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 911,
+          "outputTokens": 16,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.0009910000000000001,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        },
+        "claude-opus-5": {
+          "inputTokens": 2,
+          "outputTokens": 32,
+          "cacheReadInputTokens": 1262,
+          "cacheCreationInputTokens": 7940,
+          "webSearchRequests": 0,
+          "costUSD": 0.080841,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-opus-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "cost_usd": 0.081832,
+      "elapsed_seconds": 2.89,
+      "expected": [],
+      "observed": [],
+      "selection_passed": true
+    }
+  ],
+  "limits": [
+    "No live deployment or executable Go fixture was investigated; application probes assess decisions from supplied artifacts.",
+    "Native automatic selection tested on Opus only; GPT probes explicitly loaded the skill.",
+    "Each Opus case ran once per indicated round; no repeated sampling or judge-model scores.",
+    "Final reruns cover changed decision areas 28,30,31,32; unchanged scenarios 29,33 retain their updated-round observations.",
+    "GPT baseline already handled the core cases correctly; these runs do not demonstrate a GPT quality increase.",
+    "Opus runtime case 33 still contains overstatements beyond the corrected SIGQUIT and lone-frame decisions; inspect its manual assessment."
+  ]
+}

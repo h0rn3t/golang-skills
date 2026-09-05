@@ -14,7 +14,7 @@ assistants Go best practices derived from:
 Skills are tuned following
 [agentskills.io best practices](https://agentskills.io/skill-creation/best-practices):
 content the agent already knows is omitted, procedural decision trees guide
-multi-step tasks, 58 reference files load on demand via progressive disclosure,
+multi-step tasks, 60 reference files load on demand via progressive disclosure,
 10 bundled scripts automate common checks, and 5 asset templates ensure
 consistent output. The Claude Code plugin also ships a `go-verify` subagent
 that runs the verification gate and a PostToolUse hook that runs `gofmt` and
@@ -49,7 +49,7 @@ that runs the verification gate and a PostToolUse hook that runs `gofmt` and
 | **go-security** | Trust-boundary threat model — injection, SSRF, secrets, constant-time compare, password hashing, TLS, cookies, redaction |
 | **go-style-core** | Formatting, nesting reduction, style principles, fallback style guide |
 | **go-testing** | Table-driven tests, subtests, test helpers, assertions, test organization |
-| **go-troubleshooting** | Root-cause method for panics, hangs, leaks, flaky tests — pprof, traces, goroutine dumps, symptom catalog |
+| **go-troubleshooting** | Ticket and root-cause investigation, deployed version/config checks, data-flow tracing, panics, hangs, leaks, flaky tests |
 
 ## Bundled Scripts
 
@@ -196,7 +196,7 @@ which works across multiple AI coding tools. When you're writing Go code:
    (e.g., `go-naming` when you're writing a new function)
 2. **Procedural guidance**: Decision trees and step-by-step procedures for
    multi-step tasks like code review and error strategy selection
-3. **Progressive disclosure**: Core rules load immediately; 58 reference files
+3. **Progressive disclosure**: Core rules load immediately; 60 reference files
    load on demand when specific situations arise
 4. **Automation**: 10 bundled scripts handle repetitive checks so the agent
    focuses on higher-level guidance
@@ -215,8 +215,8 @@ which works across multiple AI coding tools. When you're writing Go code:
 
 ## Running the Evals
 
-`evals/evals.json` holds 78 trigger evals (does the right skill fire for this
-prompt?) and 27 quality evals (does the answer satisfy each assertion?). The Go
+`evals/evals.json` holds 84 trigger evals (does the right skill fire for this
+prompt?) and 33 quality evals (does the answer satisfy each assertion?). The Go
 tests in `evals/` validate their schema on every push; running them against a
 model is opt-in because it costs tokens:
 

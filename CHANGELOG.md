@@ -16,6 +16,14 @@ All notable changes to this repository are documented here.
 
 ### Added
 
+- `go-troubleshooting` references for ticket investigation and data-flow tracing,
+  with deployed-version/config checks, working-case comparison, testable
+  hypotheses, and confirmed/probable/unresolved findings.
+- Six troubleshooting quality scenarios and six trigger cases, covering tenant
+  scope, stage drift, incomplete evidence, mapping loss, scoped regression proof,
+  live hang capture, and ticket-text tasks that must not trigger debugging.
+  GPT-6/Opus probe evidence and limits are in `docs/GO_TROUBLESHOOTING_REVIEW.md`.
+
 - `go-security`: the trust-boundary threat model the repository had no owner
   for — follow untrusted data to its sink (SQL, `os/exec`, `html/template`,
   file path, outbound URL, log line, error response) and apply the stdlib
@@ -147,6 +155,11 @@ All notable changes to this repository are documented here.
   marketplace versions to agree and to have a `CHANGELOG.md` section.
 
 ### Fixed
+
+- Troubleshooting no longer treats a blocked stack as proof of a leak, a panic
+  site as its root cause, or a closed-channel panic as necessarily a data race.
+  Prefer a nonterminating admin dump to SIGQUIT, explain capture overhead, and
+  distinguish investigation-only scope from authorized correction/verification.
 
 - `go-code` had no `## Resource Routing` section and no golden description, so
   `TestSkillArchitecture` and `TestFrontmatterDescriptionsInvariant` failed on

@@ -3,10 +3,13 @@
 > Sources: `go doc runtime`, `go doc runtime/pprof`, `go doc runtime/trace`, `go doc testing`; go.dev/doc/diagnostics; github.com/go-delve/delve docs
 > Authority: normative for flags and env vars; advisory for the workflows
 > Minimum Go: 1.27 baseline; per-item versions inline
-> Last verified: 2026-09-02
+> Last verified: 2026-09-02; signal, profiling-cost, and memory-limit notes rechecked 2026-09-05
 
 Commands to run, grouped by what they capture. Every example assumes
-`import _ "net/http/pprof"` served on `127.0.0.1:6060` for the HTTP forms.
+an existing, access-controlled `net/http/pprof` listener on `127.0.0.1:6060`
+for the HTTP forms. Enabling a listener is a configuration/code change, not a
+read-only diagnostic step. Capture one profile at a time with bounded duration;
+[profiling overhead](https://go.dev/doc/diagnostics) depends on the workload.
 
 ## Contents
 
@@ -36,8 +39,11 @@ Commands to run, grouped by what they capture. Every example assumes
 | `GODEBUG=inittrace=1` | Time and allocation per package `init` | Slow startup |
 | `GODEBUG=http2debug=2` | HTTP/2 frame log | Client/server stall on HTTP/2 |
 | `GOMAXPROCS=1` | One P | Making a race or ordering bug reproduce |
-| `GOMEMLIMIT=500MiB` | Soft heap limit (Go 1.19+) | Confirming OOM is heap, not RSS elsewhere |
+| `GOMEMLIMIT=500MiB` | Soft limit on Go runtime-managed memory (Go 1.19+) | Tuning memory/GC tradeoffs; excludes native allocations and is not an RSS cap or leak diagnosis |
 | `GOFLAGS=-race` | Race detector on for every build in the shell | CI parity locally |
+
+The [Go GC guide](https://go.dev/doc/gc-guide#Memory_limit) defines which memory
+the soft limit covers. Changing the limit does not establish why memory grows.
 
 `GODEBUG` accepts a comma-separated list. The Go-version-compat settings
 (`GODEBUG=panicnil=1`, `tlsrsakex=1`, ...) are documented under `go doc
@@ -49,13 +55,16 @@ runtime` → "godebug"; a stale one in a Dockerfile is a finding for
 ## Stack dumps
 
 ```bash
-kill -QUIT <pid>                       # SIGQUIT: full dump to stderr, process exits
-curl -s localhost:6060/debug/pprof/goroutine?debug=2 > goroutines.txt   # full stacks, process continues
-curl -s localhost:6060/debug/pprof/goroutine?debug=1                    # grouped by stack, with counts
+curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=2' > goroutines.txt
+curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=1' # grouped counts
 go test -timeout 30s ./pkg             # on timeout: dump of every goroutine, then fail
 ```
 
-Programmatic:
+[SIGQUIT normally dumps stacks and exits](https://pkg.go.dev/os/signal#hdr-Default_behavior_of_signals_in_Go_programs).
+Only use `kill -QUIT <pid>` when termination is authorized; prefer the existing
+admin endpoint for a process that must stay alive.
+
+Programmatic (requires existing instrumentation or an authorized code change):
 
 ```go
 buf := make([]byte, 1<<20)
@@ -74,7 +83,9 @@ awk '/^goroutine /{getline; print}' goroutines.txt | sort | uniq -c | sort -rn |
 Wait states worth recognizing: `chan receive`, `chan send`, `select`,
 `select (no cases)` (a `select {}` — intentional or a bug), `sync.Mutex.Lock`,
 `sync.WaitGroup.Wait`, `semacquire`, `IO wait`, `sleep`, `syscall`. A goroutine
-that has been in one state `[chan receive, 47 minutes]` is a leak.
+in `[chan receive, 47 minutes]` may be an idle worker. Confirm leakage by
+comparing counts/stacks under equivalent workload and checking whether its
+owner has finished and its intended lifetime has expired.
 
 ---
 

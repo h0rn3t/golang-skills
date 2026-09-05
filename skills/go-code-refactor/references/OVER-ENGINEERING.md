@@ -166,13 +166,14 @@ order). `go fix -diff` applies the rows it has modernizers for; the rest are you
 
 ## Ship, Then Question
 
-A request bigger than its need does not stop the turn. Ship the rung that
-holds and question the rest in the same reply — "Did X; Y covers it. Need
-full X? Say so." Never stall on an answer you can default. Stop only where no
-default is safe: the four Stop-and-Ask cases of the refactor workflow
-(go-code-refactor's `SKILL.md`), or two readings that lead to materially
-different work. When the user hears the lazy version and insists on the full
-one, build it — no re-arguing.
+Choose the smallest implementation that satisfies every explicit requirement.
+Simplify implementation choices, not the requested deliverable: dry-run,
+pagination, compatibility, and other requested behavior are not speculative.
+Never stall on an answer you can default within that scope. Explain a routine
+assumption briefly and continue; ask only when missing information changes
+correctness, scope, or authorization, while doing independent work. Respect an
+explicit choice on the first request — no re-arguing or requiring the user to
+ask twice. `go-code-refactor` owns baseline and generated-code decisions.
 
 For new code, lead with the code and the gate result, then at most three short
 lines: `skipped: <X>, add when <Y>`. If the explanation outgrows the code, cut

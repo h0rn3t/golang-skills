@@ -4,6 +4,16 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Cross-model compatibility
+
+- Align shared Go instructions with GPT-6 Astra guidance while retaining the
+  Claude plugin: preserve explicit requirements, avoid redundant approval and
+  verification loops, resolve installed resources, and honor host delegation.
+- Scope `go-verify` to requested checks; distinguish incomplete verification
+  from findings, preserve race coverage, and account for staged dependencies.
+- Add six quality scenarios and document the GPT-6 application probes and the
+  remaining Claude-only automated runner in `docs/CROSS_MODEL_REVIEW.md`.
+
 ### Added
 
 - `go-security`: the trust-boundary threat model the repository had no owner

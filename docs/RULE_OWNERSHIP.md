@@ -36,7 +36,7 @@ owner with a short pointer instead of repeating a full explanation.
 | `os.Root` and `crypto/rand` mechanics (the form, not the threat) | `go-defensive` | `go-security` | `os`, `crypto/rand` docs (Go 1.24) |
 | Root-cause method, diagnostic capture (`pprof`, traces, goroutine dumps, `GODEBUG`, `dlv`), symptom-to-mechanism catalog | `go-troubleshooting` | `go-code`, `go-performance`, `go-concurrency`, `go-testing` | go.dev/doc/diagnostics; `runtime`, `runtime/pprof`, `runtime/trace` docs |
 | Semantic rename and extract via gopls during a refactor | `go-code-refactor` | `go-naming`, `go-code` | golang.org/x/tools/gopls docs |
-| Narration while working, written-output length, when to delegate to a subagent | `go-style-core` | `go-code`, `go-code-review`, `go-code-refactor`, `go-troubleshooting` | Anthropic, *Prompting Claude Opus 5* (response length, progress updates, task boundaries, subagent spawning) |
+| User scope and house style precedence, narration, report length, host-controlled delegation | `go-style-core` | `go-code`, `go-code-review`, `go-code-refactor`, `go-troubleshooting` | Project policy; [OpenAI GPT-6 Astra prompting guidance](https://developers.openai.com/api/docs/guides/latest-model/gpt-6-astra.md#prompting-best-practices); Anthropic Opus guidance remains host-specific |
 
 ## Maintenance Rules
 

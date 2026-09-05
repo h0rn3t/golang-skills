@@ -78,15 +78,27 @@ skills only.
 
 | File | What it does |
 |------|--------------|
-| `agents/go-verify.md` | Opt-in subagent that runs the verification gate (`build`, `gofmt`, `vet`, `go fix -diff`, `golangci-lint`, `test -race`, `govulncheck`) and returns only the failures. It triggers only on an explicit request ("run the gate", "прогони гейти"); the skills run the gate inline, never delegate it, and never spawn this agent to re-check their own work |
+| `agents/go-verify.md` | Opt-in Claude agent for requested checks: "check it builds" selects build; "run the gate" selects the full gate. Reports findings and unavailable checks, with `INCOMPLETE` when required evidence is missing. Routine checks stay inline unless the user or host requests delegation |
 | `hooks/go-vet-on-edit.sh` | PostToolUse hook: after every `Edit`/`Write` of a `.go` file it runs `gofmt -l` and `go vet` on that package and hands the findings back to the agent. Silent when clean; never blocks the edit |
 
-The skills carry their own guidance on narration, report length, and when to
-delegate (`go-style-core`, "How Much To Say"), following Anthropic's
-[prompting guide for Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5):
-the model verifies its own work, so no skill asks it to re-check or to spawn a
-verifier. For a hard cap on delegation, Claude Code 2.1.217+ honors
-`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` and `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`.
+The shared instructions support Claude and GPT-6 without a model-specific
+fork. `go-style-core` owns user-scope precedence, progress updates, report
+length, and host-controlled delegation. `go-linting` requires observed results
+and scales verification to the work. These rules incorporate
+[OpenAI's GPT-6 Astra prompting guidance](https://developers.openai.com/api/docs/guides/latest-model/gpt-6-astra.md#prompting-best-practices).
+See the [review and validation limits](docs/CROSS_MODEL_REVIEW.md).
+
+### Codex
+
+Install the skill directories under `.agents/skills/` in a project or
+`~/.agents/skills/` for your user, as described in the
+[official skills documentation](https://learn.chatgpt.com/docs/build-skills).
+Invoke `$go-code <task>` or an individual skill such as `$go-error-handling`.
+Install the whole pack for the router's sibling references. With a partial
+installation, it reports missing guidance and continues using available skills.
+Resolve scripts relative to the installed skill and run them against the target
+project. Codex does not need this repository's Claude agent or PostToolUse hook;
+the selected checks run directly when no hook output is available.
 
 ## Installation
 
@@ -203,8 +215,8 @@ which works across multiple AI coding tools. When you're writing Go code:
 
 ## Running the Evals
 
-`evals/evals.json` holds 69 trigger evals (does the right skill fire for this
-prompt?) and 19 quality evals (does the answer satisfy each assertion?). The Go
+`evals/evals.json` holds 78 trigger evals (does the right skill fire for this
+prompt?) and 27 quality evals (does the answer satisfy each assertion?). The Go
 tests in `evals/` validate their schema on every push; running them against a
 model is opt-in because it costs tokens:
 
@@ -221,6 +233,13 @@ has a second model grade the answer against the eval's assertions. A failing
 trigger eval means the model read the skill descriptions and chose not to load
 the expected one — the signal to tune that description. In CI, trigger the `Validate Skills` workflow manually
 with **run_evals** checked; it needs an `ANTHROPIC_API_KEY` secret.
+
+The automated runner is Claude-only; `-model` does not switch providers.
+Quality cases 22–27 also cover scope, unavailable checks, evidence reuse,
+requirements, characterization tests, and skill-only installations. Run these
+prompts in fresh GPT-6/Codex sessions using the checked-out skills and record
+the answers separately; the [review](docs/CROSS_MODEL_REVIEW.md) distinguishes
+these application probes from a full cross-model benchmark.
 
 ## Go 1.27
 

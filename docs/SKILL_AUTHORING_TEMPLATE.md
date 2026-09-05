@@ -56,28 +56,40 @@ the syntax it gets right.
 
 - **Cut what the model already knows.** No "goroutines are lightweight
   threads". Every paragraph should change an output.
-- **Command, don't describe.** "Use `slices.Clone`" beats "you might consider
-  cloning". Ambiguity gets resolved as permission to skip.
+- **Make decisions explicit.** State the outcome and conditions for a rule.
+  Reserve absolute language for correctness constraints; identify defaults that
+  yield to the user's request, repository conventions, or supported toolchain.
 - **Make claims checkable.** Attach the command that proves it — `go vet ./...`,
   `go fix -diff ./...`, `golangci-lint run` — instead of asserting a rule the
   reader must take on faith. The verification gate lives in `go-linting`; route
   to it rather than restating it.
 - **Say what "done" means.** A skill that produces work should end with the
   check that fails when the work is wrong.
-- **Do not ask it to double-check.** The model verifies and corrects its own
-  work; "re-check", "verify before answering", or "use a subagent to confirm"
-  stack on top of that and cost tokens without improving the result. State
-  what "done" means once — the gate in `go-linting` — and route to it.
+- **Calibrate verification.** State required evidence through `go-linting`.
+  Do not assume any model has checked its work implicitly. Reuse observed
+  passing results for unchanged code; repeat or expand checks only when an edit,
+  failure, unresolved concern, or repository requirement justifies it.
+- **Preserve the requested result.** Simplicity guides implementation, not
+  which explicit requirements get delivered. Missing tests or a routine choice
+  do not automatically require renewed approval; continue authorized work.
+- **Keep runtime assumptions local.** Resolve scripts from the installed skill
+  directory, execute against the target project, and handle absent siblings.
+  Claude hooks, `Skill`, and agent model names are not portable prerequisites.
 - **Say how much to say once.** Narration cadence, report length, and
   delegation live in `go-style-core` "How Much To Say"; a procedural skill
   routes there instead of restating it.
-- **Report, do not filter.** "Only high severity" or "skip minor" is followed
-  literally and hides findings; ask for everything with a marker and let the
-  reader filter.
+- **Respect report scope.** Give evidence and severity for findings at the
+  depth requested; a skill default must not override an explicit severity filter.
 - **Require honest reporting.** Where a skill tells the agent to run something,
   it also says: report a skipped or failing step as skipped or failing.
 - **Name the Go version inline** for anything newer than 1.21, and route the
   skill's `> Compatibility:` note to `COMPATIBILITY.md`.
+
+These defaults incorporate [OpenAI's GPT-6 Astra prompting guidance](https://developers.openai.com/api/docs/guides/latest-model/gpt-6-astra.md#prompting-best-practices)
+on instruction priority, follow-through, communication, delegation, and bounded
+verification. They are shared rules for GPT-6 and Claude, not claims about either
+model's automatic behavior. Test behavior in each host: a schema check alone
+does not establish model quality. See [the cross-model review](CROSS_MODEL_REVIEW.md).
 
 ## Required Conformance
 

@@ -9,37 +9,37 @@ allowed-tools: Bash(bash:*)
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Modernization
 > targets the `go` directive in `go.mod`, not the installed toolchain.
 
-Legacy Go usually fails on readability, not correctness. The entire value of
-this work is one promise: **the code reads better and does exactly the same
-thing.** Break it once and reviewers stop trusting the diff and re-read every
-line — more expensive than the mess you started with. So behavior preservation
-is the definition of the task, not a quality bar to aim at.
+Improve readability while preserving observable behavior. Establish evidence
+for that promise; compilation alone does not establish equivalent behavior.
 
 ## Resource Routing
+
+Resolve resources from this installed skill directory; run scripts from the
+target project using the resolved absolute script path.
 
 - `references/BEHAVIOR-TRAPS.md` - Read before touching concurrency, `defer`, error handling, slices, interfaces, or struct layout.
 - `references/PLAYBOOK.md` - Read for the concrete transformations, ordered by payoff, with before/after Go.
 - `references/MODERNIZATION.md` - Read before adopting a newer API; sorts Go 1.21–1.27 features into safe, conditional, and report-only.
 - `references/OVER-ENGINEERING.md` - Read before adding any line (it owns the restraint ladder, the reach-for table, and the ship-then-question write rules), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
 - `references/GOPLS.md` - Read before renaming, extracting, or inlining anything with more than one caller: semantic references and safe rename via gopls instead of grep.
-- `scripts/verify-refactor.sh` - Run to capture a baseline, re-check after each step, and diff the two.
+- `scripts/verify-refactor.sh` - Run to capture baseline and final check results; use focused checks between edits.
 - `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no upgrade path.
 - `assets/refactor-report.md` - Use as the final report structure.
 
-## Stop and Ask
+## Resolve Baseline and Scope
 
-Four situations end the turn with a question instead of an edit; the rest is your call.
-
-1. **The baseline is red** — build broken or tests failing before you touched
-   anything. You cannot sign a promise you cannot verify.
-2. **The package has zero tests** — behavior preservation is an empirical
-   claim with nothing to check it against. Offer one characterization test
-   (no framework, no fixtures, smallest thing that fails if the logic breaks)
-   and wait; the extra file is the user's call.
-3. **The target is generated** — `// Code generated ... DO NOT EDIT.` reverts
-   at the next generation. Point at the generator and ask what the real target is.
-4. **Two readings lead to materially different work** — e.g. "clean up the
-   package" where half the mess is an exported API you may not rename.
+Use existing authorization and continue work that does not depend on an answer.
+1. **The baseline is red** — record the failing command and isolate pre-existing
+   or environmental failures. Continue inspection and independently verifiable
+   changes; do not claim behavior preservation without adequate evidence.
+2. **The package has zero tests** — add a small characterization test when
+   needed for the authorized refactor. Missing tests alone do not require another
+   approval. Honor an explicit prohibition on new tests and report the limitation.
+3. **The target is generated** — trace its generator and source inputs. Update
+   those and regenerate when within scope; ask only if the real source or intended
+   target cannot be determined. Do not hand-edit generated output.
+4. **Two readings change the contract or scope** — ask a focused question only
+   if the request and repository do not resolve it; continue independent work.
 
 ---
 
@@ -140,11 +140,11 @@ than trusting it. Then apply the Tier 1 hand edits from
 
 ### 4. Refactor in verifiable steps
 
-One named transformation at a time, verified before the next begins. For
-multi-package work: **one package per cycle** — audit, edit, verify — in
-sequence and in this thread, not one subagent per package. A repo-wide diff
-produced in one sitting cannot be bisected and will not be trusted. Shared
-helpers get their own cycle first.
+Use small, attributable transformations with focused checks between meaningful
+steps. For dependent packages, work in dependency order; shared helpers go first.
+Reuse unchanged passing results and finish with the required repository gate.
+For independent packages, follow the host's delegation policy and
+[go-style-core](../go-style-core/SKILL.md#how-much-to-say).
 
 `references/PLAYBOOK.md` has the transformations. The high-value ones: delete
 dead code, extract until each function has one job, flatten with early returns,

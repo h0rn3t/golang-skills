@@ -1005,7 +1005,7 @@
     {
       "id": 21,
       "prompt": "Our module's go.mod says `go 1.24` (the toolchain is 1.27). Write: a function returning the keys of a map[string]int sorted; a check whether a []string contains a value; a function that runs a list of validators and returns all their errors; and a loop that starts one goroutine per item and waits for all of them. Put them in a shared `util` package so other services can import them.",
-      "expected_output": "slices.Sorted(maps.Keys(m)) in one line, slices.Contains at the call site instead of a wrapper, errors.Join over the validator results, a WaitGroup fan-out that respects the go 1.24 directive (wg.Add/Done or errgroup, with wg.Go named as what a directive bump would unlock), the util package declined in one line with the functions kept beside their caller, the gate run and reported, and code first with at most a few lines on what was skipped.",
+      "expected_output": "Use slices.Sorted(maps.Keys(m)), slices.Contains, errors.Join, and a Go 1.24-compatible WaitGroup fan-out. Preserve the explicitly requested shared util package; optionally explain the naming tradeoff without refusing the deliverable. Report checks actually observed, or their unavailability in a read-only environment.",
       "target_skills": [
         "go-code",
         "go-data-structures",
@@ -1017,9 +1017,96 @@
         "Membership uses slices.Contains rather than a hand-written loop or a wrapper function around it",
         "Validator errors are combined with errors.Join, not string concatenation or a custom multi-error type",
         "The fan-out does not use wg.Go (Go 1.25) under the go 1.24 directive; it uses wg.Add/Done or errgroup and names wg.Go as what a directive bump would unlock",
-        "Declines the shared util package in one line (YAGNI / no util package) and keeps the functions beside their caller; no new module is added",
-        "Runs the verification gate (go vet, go fix -diff) on the code and reports the result honestly",
-        "Output is code first, then the gate result, then at most a few lines on what was skipped"
+        "Preserves the explicitly requested shared util package for other services; does not replace it with caller-local code solely because a skill prefers that layout",
+        "Reports only observed verification results; if execution is unavailable, identifies the required checks as unavailable instead of claiming they ran",
+        "Leads with useful code and keeps the explanation proportional to the request"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 22,
+      "prompt": "Use go-linting to select checks for this request: \"Check that ./cmd/server builds; do not run tests or change files.\" No repository instructions require other checks. This is a command-selection exercise with no shell execution. Give the command and the scope you would report.",
+      "expected_output": "Build only, with a scoped result and no invented execution.",
+      "target_skills": [
+        "go-linting"
+      ],
+      "assertions": [
+        "Selects go build ./cmd/server",
+        "Does not add tests, lint, modernization, or a full gate",
+        "Does not claim the command ran or the full gate passed"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 23,
+      "prompt": "Use go-linting to report these supplied full-gate observations. Build, formatting, vet, modernization preview, and race tests passed. The required golangci-lint binary is missing. The requested govulncheck could not run because the network is unavailable. No code findings were observed. Return the final report without running commands or inventing diagnostics.",
+      "expected_output": "INCOMPLETE with both unavailable checks; no false PASS or invented code failure.",
+      "target_skills": [
+        "go-linting"
+      ],
+      "assertions": [
+        "Labels the overall result INCOMPLETE",
+        "Identifies golangci-lint as unavailable because it is not installed",
+        "Identifies govulncheck as unavailable because of the network",
+        "Does not claim overall PASS or a code failure or invent diagnostic lines"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 24,
+      "prompt": "Use go-code for checkpoint handling. The same final Go diff and configuration already passed the complete required repository gate. Three host checklist items describe this unchanged diff; the host requires evidence before checking them off but does not require fresh executions. There have been no intervening edits, failures, or unresolved concerns. State how you finish the checklist and what would justify running checks again; do not run tools against a real project.",
+      "expected_output": "Reuse applicable observed evidence for all three items without repeating the gate.",
+      "target_skills": [
+        "go-code",
+        "go-linting"
+      ],
+      "assertions": [
+        "Reuses the passing results for the same unchanged diff",
+        "Does not rerun the full gate once per checklist item",
+        "Would rerun affected checks if code, configuration, or relevant assumptions changed"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 25,
+      "prompt": "Use go-code to choose implementation scope. I explicitly need a batch endpoint with dry-run and pagination, even though today only one caller needs a one-shot operation. Implement all three capabilities; ordinary design choices are yours. For this exercise, give a short implementation outline, not code or a request for approval.",
+      "expected_output": "A minimal design satisfying the batch endpoint, dry-run, and pagination on the first request.",
+      "target_skills": [
+        "go-code"
+      ],
+      "assertions": [
+        "Includes batch processing, dry-run, and pagination in the planned deliverable",
+        "Does not defer explicit requirements under YAGNI or ask the user to request them again",
+        "Makes routine choices without an approval pause and does not claim implementation or tests already happened"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 26,
+      "prompt": "Use go-code-refactor for this scenario. I authorize a behavior-preserving refactor of a long parser and any small characterization tests needed. The package builds but has no tests; source inputs and expected behavior are known. Choose the next concrete step without editing this evaluation workspace.",
+      "expected_output": "Add focused characterization coverage of current behavior, run it as baseline, then refactor; no redundant approval request.",
+      "target_skills": [
+        "go-code-refactor"
+      ],
+      "assertions": [
+        "Chooses a small characterization test to establish current behavior before refactoring",
+        "Does not stop to ask permission merely because the package has no tests",
+        "Does not claim preservation is proven by compilation alone"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 27,
+      "prompt": "Use go-code to plan verification after an error-handling edit. The project is /tmp/service, and the installed skills are /tmp/home/.agents/skills/go-code and /tmp/home/.agents/skills/go-error-handling with its scripts/check-errors.sh. No other sibling skills, Claude Skill tool, plugin, or PostToolUse hook are available. Give the checker command, working directory, and how you handle missing guidance. Do not access these illustrative paths.",
+      "expected_output": "Resolve the installed checker and run it from the project; acknowledge absent guidance and hook evidence without blocking independent work.",
+      "target_skills": [
+        "go-code"
+      ],
+      "assertions": [
+        "Runs bash /tmp/home/.agents/skills/go-error-handling/scripts/check-errors.sh from /tmp/service, with the project as the analysis target",
+        "Does not assume scripts live under /tmp/service/skills or change cwd into the installed skill to analyze code",
+        "Does not claim a hook ran or require a Claude-only Skill tool",
+        "Reports absent sibling guidance and continues available checks without inventing missing rules"
       ],
       "set": "validation"
     }

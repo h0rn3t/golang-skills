@@ -17,46 +17,57 @@ that decide whether Go work is finished.
 
 ## Verification Gate
 
-> **Normative**: Run this gate before reporting Go work as done. Do not claim a
-> check passed without having run it, and paste the failing output when one
-> fails.
+> **Normative**: Verify the requested work with observed results. Complete the
+> repository's required checks; use the defaults below when it has no gate.
+> A question or documentation-only edit does not require a Go runtime gate.
 
 ```bash
-gofmt -l .            # must print nothing
+gofmt -l .            # inspect output: exit 0 alone does not mean clean
 go build ./...
 go vet ./...          # includes stdversion, printf, lostcancel, waitgroup
 go test -race ./...
-go fix -diff ./...    # must print nothing: no pending modernization
+go fix -diff ./...    # preview only; scope and findings rules below
 golangci-lint run ./...
 govulncheck ./...     # dependency CVEs; run before release, not every edit
 ```
 
 Gate rules:
 
-- The repository's own gate wins. Where `CLAUDE.md`, `CONTRIBUTING.md`, or the
-  CI config defines the commands, run those; the list above is the default only
-  when nothing local defines one. Run the union when in doubt, and say which
-  list you used.
-- A gate step that errors for an unrelated reason (no network, tool missing) is
-  reported as `unavailable (reason)`, never as passed and never dropped in
-  silence. Do not report a result you did not observe.
-- `go fix -diff` is scoped to the packages the task touched — from the module
-  root, `go fix -diff $(git diff --name-only -- '*.go' | xargs -n1 dirname |
-  sort -u | sed 's|^|./|')`; the `./` prefix is required or `go` reads the
-  paths as import paths. Module-wide modernization is its own commit, not
-  payload smuggled into an unrelated fix — the rule the pack already applies
-  to papercuts.
-- `-race` is not optional for anything that starts a goroutine.
-- Fix in category order: formatting, then vet, then modernizers, then linters.
-  Re-run the gate after each category rather than batching guesses.
+- Read `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, and CI where present. Use
+  their gate at its required scope; do not automatically union it with this one.
+  A specific request such as "check it builds" selects that check, not the full
+  gate. Report the selected scope; build-only success is not full-gate success.
+- Run from the target module or workspace, not the installed skill directory.
+  For a local change without a prescribed gate, start with affected packages;
+  include consumers for shared APIs and broaden for cross-package risk or release.
+  Documentation-only work needs the applicable documentation checks.
+- For modernization, identify existing packages from the task's actual diff,
+  including staged and untracked files when relevant. Pass explicit quoted
+  package arguments (for example `go fix -diff ./internal/store`). An empty
+  package list means skip; do not fall back to the current package or `./...`.
+  Separate pre-existing findings from new ones; do not rewrite unrelated code.
+- Use `-race` for concurrency changes and wherever the repository requires it.
+  Inspect a `make test` recipe before using it: a plain `go test` is not evidence
+  of a race check. Retain its setup and use a race-enabled equivalent if needed.
+- Run `govulncheck` before release, for dependency changes in the requested diff
+  (including staged changes), or when requested. Otherwise mark it not applicable.
+- Fix attributable failures, then rerun affected checks. Reuse passing results
+  for unchanged code and configuration, including across checklist items. Repeat
+  or broaden only for new edits, failures, unresolved concerns, or required gates.
+- Report each selected check as `pass`, `fail`, or `unavailable (reason)`;
+  explicitly omitted checks are `skipped (reason)`. Overall `PASS` requires all
+  required checks to pass; `FAIL` means a finding; `INCOMPLETE` means required
+  evidence is unavailable with no known finding. Report both when they coexist.
+  Missing tools, unsupported toolchains, and infrastructure failures are not
+  clean results. Attribute an environment gap from evidence, not error text alone.
 
 ---
 
 ## Modernization: `go fix`
 
 Go 1.27 ships the modernizers as `go fix` analyzers. `go fix -diff ./...`
-previews; `go fix ./...` applies. Run it on any file you touch — a clean diff
-is part of the gate above.
+previews; `go fix ./...` applies. Use the package scope established above and
+inspect the preview before applying changes.
 
 `go tool fix help` lists the current set. The ones that change guidance:
 
@@ -184,7 +195,7 @@ golangci-lint run --new-from-rev=HEAD~1
 
 | Task | Command |
 |------|---------|
-| Full gate | `gofmt -l . && go vet ./... && go test -race ./... && go fix -diff ./... && golangci-lint run ./...` |
+| Full gate | Run the selected commands above individually and inspect diagnostics as well as exit status |
 | Preview modernizations | `go fix -diff ./...` |
 | Apply modernizations | `go fix ./...` |
 | List modernizers | `go tool fix help` |

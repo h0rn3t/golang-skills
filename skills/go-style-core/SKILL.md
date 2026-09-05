@@ -29,17 +29,18 @@ When writing readable Go code, apply these principles in order of importance:
 > **Owner**: this skill owns the consistency rule. Other skills route here
 > instead of restating it.
 
-Before applying any rule from these skills, read what the codebase already
-does: `.golangci.yml`, `CONTRIBUTING.md`, the neighboring package, the tests
-next to the code. Where they disagree with a skill, the codebase wins — a diff
-that imports a second dialect is worse than the local one.
+Follow the host's instruction hierarchy. Within it, explicit user requirements
+and repository instructions take precedence over these skill defaults. Read
+`AGENTS.md`, `CLAUDE.md` where present, `.golangci.yml`, `CONTRIBUTING.md`, and
+neighboring code before editing. Skills do not authorize extra work or require
+renewed approval for work the user already authorized.
 
 - Assertion style, error-wrapping style, logger, test layout, and the `_`
   global prefix follow the nearest existing code, not the guide.
 - Introduce a convention the guide prefers only in new code with no neighbor
   to match, or as a whole-package migration the user asked for.
-- A deviation that hides a bug (dropped error, data race, missing ctx) is not
-  house style — fix it regardless.
+- A bug is not house style. Fix it within the authorized scope; report unrelated
+  findings separately. A review-only request remains read-only.
 
 ---
 
@@ -52,7 +53,9 @@ Run `gofmt` — no exceptions. There is **no rigid line length limit**, but Uber
 > **Normative**: Match the toolchain, not the codebase's oldest habits. Code
 > written in a superseded idiom is a style defect even when it compiles.
 
-The toolchain decides, not taste: `go fix -diff ./...` must be empty. It flags
+Respect `go.mod`, build constraints, and supported CI toolchains; an installed
+newer Go version does not authorize a version bump. A scoped `go fix -diff`
+previews modernization. It flags
 the patterns Go has since replaced — `x := x` loop captures, three-clause
 counting loops, `sort.Slice`, `interface{}`, `wg.Add`/`Done` bookkeeping,
 `errors.As`, hand-written `min`/`max`; [go-linting](../go-linting/SKILL.md)
@@ -60,9 +63,8 @@ lists the analyzers and owns the gate. `go fix` catches only what has a
 modernizer; for the rest, reach for the feature that replaces the block before
 writing it — [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships) is the checklist.
 
-The exception is consistency: in a file that is uniformly written in an older
-idiom, modernize the whole file or none of it. A diff that switches style
-halfway is worse than either end state.
+Keep modernization within the task. If consistency would require unrelated
+rewrites, preserve the local idiom and report the opportunity separately.
 
 ---
 
@@ -191,21 +193,20 @@ in `for` clauses.
 > **Owner**: this skill owns how the agent talks while it works, how long its
 > written output is, and when it delegates. Other skills route here.
 
-Before the first tool call, say in one sentence what you are about to do. While
-working, speak up only when something changes the plan — a failing check, a bug
-the task did not ask about, a decision the rules do not settle; do not announce
-each file read or each rule loaded. Close by leading with the outcome — what
-changed and whether the checks are green — with detail after it.
+Follow the host's communication requirements. Give a short initial update and
+meaningful progress updates during longer work: findings, decisions, blockers,
+or the next check. Avoid narrating every read. Close with the outcome, observed
+verification results, and material limitations; never imply a skipped check ran.
 
 Size anything written to disk — a report, a review, a design note — to what the
 task needs. The `assets/` templates are the shape; filler sections, restated
 summaries, and boilerplate are noise, and an empty section is one line.
 
-Delegate to a subagent only for a wide, read-only investigation across many
-packages that is independent of the edit in hand. Never delegate the gate, the
-review, or the verification of your own diff — a review "file by file" or a
-refactor "one package per cycle" is a reading order, not a fan-out. When one
-subagent suffices, use one.
+Keep routine edits and checks inline. When the user or host authorizes parallel
+work, delegate only bounded, independent tasks with clear ownership and useful
+work remaining locally. Do not spawn a second agent merely to repeat a completed
+check. A requested independent review is a separate task. Agent availability,
+model choice, and delegation limits belong to the host, not to a Go style rule.
 
 ## Related Skills
 

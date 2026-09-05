@@ -21,11 +21,11 @@ allowed-tools: Bash(bash:*)
    No diff → ask, or default to non-test code, riskiest packages first, read in
    risk order — Security → HTTP → Database → Concurrency → the rest. The flat
    checklist below is for a diff, not for a whole package.
-2. **Read the project's conventions before the first finding**: `CLAUDE.md`,
+2. **Read the project's conventions before the first finding**: `AGENTS.md`, `CLAUDE.md`,
    `CONTRIBUTING.md`, `.golangci.yml`, the neighbors. They fix the report
    language, error style, and test style, and they outrank every rule here —
    [go-style-core](../go-style-core/SKILL.md) "House Style Wins".
-3. Run the mechanical gate — `bash scripts/pre-review.sh ./...` plus
+3. From the project, run `bash <installed-skill-dir>/scripts/pre-review.sh ./...` plus
    `go fix -diff` over the packages in scope. Never spend review attention on
    what a tool reports.
 4. **Subtract first**: before any style row, ask of each added block what could

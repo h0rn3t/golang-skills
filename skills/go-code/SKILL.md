@@ -10,26 +10,30 @@ enforces the gate at the end.
 
 ## Resource Routing
 
-This skill bundles no files. Everything it loads belongs to another skill:
+This skill bundles no files. Resolve these resources from this installed skill
+directory, not from the user's project. Use the host's skill loader or read the
+resolved `SKILL.md`; no Claude-specific tool or hook is required. If a sibling
+is missing, use available guidance and report the gap; do not invent its rules
+or stop unrelated authorized work.
 
-- `../go-code-refactor/references/OVER-ENGINEERING.md` - Read on every invocation for the restraint ladder and cut tags.
+- `../go-code-refactor/references/OVER-ENGINEERING.md` - Read the restraint ladder and write rules on invocation; load the audit lane only for an audit.
 - `../go-style-core/SKILL.md` - Read on every invocation for house style and the fallback rules.
 
 ## Invocation
 
-- **Standalone**: `/go-code <task>` — write or fix the described Go code.
+- **Standalone**: `$go-code <task>` in Codex; `/go-code <task>` in hosts with
+  slash skill commands. Write or fix the described Go code.
 - **As a modifier**: `/opsx:apply /go-code`, `/opsx:apply add-auth /go-code`.
   The host workflow keeps control of its own steps, arguments, and state; this
-  skill only adds the routing and the gate. Strip `/go-code` from the host
+  skill only adds the routing and the gate. Strip the `/go-code` or `$go-code` modifier from the host
   command's arguments before parsing them — it is never a change name or a
   file path.
 
 ## How Much To Say
 
 [go-style-core](../go-style-core/SKILL.md#how-much-to-say) owns this and loads
-on every invocation: one sentence before the first tool call, an update only
-when the plan changes, the outcome first at the end, written output sized to
-the task, and no subagent for the gate or for re-checking your own work.
+on every invocation. Follow its guidance on progress updates, report length,
+and host-controlled delegation.
 
 ## Always Loaded
 
@@ -72,10 +76,8 @@ What restraint never cuts is listed there too — trust-boundary validation,
 data-loss error handling, security controls, accessibility basics, the tests
 that fail when the logic breaks, and anything the user asked for.
 
-> **Note**: Where the `ponytail` skill is installed, load it here too — it is
-> the general-purpose source these Go-specific rules were derived from. Its
-> intensity levels are not carried over: these skills always run at `full`,
-> and the audit lane in OVER-ENGINEERING.md is the `ultra`.
+The bundled restraint rules are sufficient; `ponytail` is their provenance,
+not an additional runtime dependency. Explicit requirements remain in scope.
 
 ## Route Before The First Edit
 
@@ -125,35 +127,33 @@ overhead.
 
 ## Close With The Gate
 
-Run the verification gate from [go-linting](../go-linting/SKILL.md) once,
-when the code is done — `go vet`, `go fix -diff`, `golangci-lint run`,
-`go test -race`, and `govulncheck` before release. Not after each rule applied
-and not after each file: the hook covers edits, the gate covers the task. Fix
-what it reports; a task is not done because the code compiles.
+Use [go-linting](../go-linting/SKILL.md) to select checks for the requested scope
+and record their results. Inspect the final diff and finish authorized work;
+do not stop at a plan, or substitute a smaller deliverable for requested behavior.
 
-Where the repository defines its own gate (`CLAUDE.md`, `CONTRIBUTING.md`, CI
-config), that gate wins and this list is only the default in its absence —
-go-linting owns both rules, including how to report a tool that is not
-installed and how far `go fix -diff` reaches outside the diff.
+Repository commands in `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, or CI win
+over defaults. `go-linting` owns missing-tool reporting and the scope of
+`go fix -diff`.
 
-Topic-specific checks stack on top of the gate, not instead of it:
+Use relevant bundled checks when they add evidence beyond the selected gate.
+Resolve each script against its installed skill directory and run it from the
+target project; the paths below are relative to this `SKILL.md`:
 
-- Refactor → `bash skills/go-code-refactor/scripts/verify-refactor.sh` to prove
-  behavior held, and `check-debt.sh` for the `Kept:` markers left behind.
-- Errors → `bash skills/go-error-handling/scripts/check-errors.sh`.
-- New exported API → `bash skills/go-documentation/scripts/check-docs.sh`.
+- Refactor → `../go-code-refactor/scripts/verify-refactor.sh` to capture
+  baseline/after evidence, and `../go-code-refactor/scripts/check-debt.sh`
+  for the `Kept:` markers left behind.
+- Errors → `../go-error-handling/scripts/check-errors.sh`.
+- New exported API → `../go-documentation/scripts/check-docs.sh`.
 - Before submitting → [go-code-review](../go-code-review/SKILL.md).
 
-Under a host workflow with per-task checkpoints (such as an OpenSpec apply
-loop), run the gate before marking each Go-touching task complete, not once at
-the very end — a batched gate reports failures too late to attribute them.
+Under a host workflow with per-task checkpoints, attach applicable check results
+before marking each item complete. Reuse results for the same unchanged diff;
+rerun affected checks after new edits and honor explicit checkpoint requirements.
 
-> **Note**: Run the gate yourself. It is a handful of commands, and a subagent
-> spawned to run it — or to re-check work you have already done — costs more
-> than it saves; the bundled `go-verify` agent is for the user to invoke, not
-> for you to reach for. The PostToolUse hook already runs `gofmt` and `go vet`
-> on every edited `.go` file; its report is the first gate step, not a
-> substitute for the rest.
+Run routine checks inline. `go-verify` and the PostToolUse hook ship only with
+the Claude Code plugin; skill-only installations, including Codex, need neither.
+Count hook results only when their output was actually observed for the current
+diff and scope. Otherwise run the selected formatting and vet checks directly.
 
 ---
 

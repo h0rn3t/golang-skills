@@ -51,7 +51,7 @@ found by the compiler, not before the edit.
 - **Fill struct / add tags / remove unused parameter**: `refactor.rewrite.*`
   actions; `removeUnusedParam` also updates every call site.
 - **Generated files** (`// Code generated ... DO NOT EDIT`) receive no code
-  actions. That is correct — SKILL.md says to ask, not edit.
+  actions. Trace and update their source inputs as described in `SKILL.md`.
 
 ## After every edit
 

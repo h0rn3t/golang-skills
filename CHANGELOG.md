@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-06
+
 ### Skill consolidation
 
 - Reduce the pack from 27 to 24 skills: merge `go-functional-options` into

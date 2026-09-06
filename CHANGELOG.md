@@ -4,6 +4,36 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Refactoring depth
+
+- Raise the `SKILL.md` ceiling from 225 to 500 lines, the limit the Agent Skills
+  spec sets on a skill body. References still cap at 300 lines each.
+- Add four `go-code-refactor` references: `CATALOG.md` (smell, transform, tool,
+  and risk tier for moves that cross a function, type, or package boundary),
+  `SAFETY-NET.md` (coverage tiers over the blast radius, characterization tests,
+  seams), `MECHANICAL.md` (`gofmt -r`, `eg`, `gopatch`, `go/analysis` fixers for
+  a recurring edit), and `STRUCTURAL.md` (type-alias gradual repair, import-cycle
+  strategies, deprecate-before-delete). The pack now contains 65 references.
+- Add two `go-code-refactor` sections: **When Not to Refactor**, which separates
+  purposeless churn from safety prerequisites that only change the sequence,
+  and **Risk Tiers**, which sets what must be true before a step and pairs with
+  the coverage tiers.
+- Record the new rule areas in `docs/RULE_OWNERSHIP.md` and attribute the topic
+  selection to `samber/cc-skills-golang` (MIT) in `THIRD_PARTY_NOTICES.md`.
+
+### Evals
+
+- Add `evals/cmd/abrun`: runs one refactoring prompt against fixtures under the
+  current plugin, an optional complete reference checkout, and wording variants.
+  It reports recursive structural deltas only for builds that pass an external
+  golden test the model never sees. The `no-skill` control decides whether a
+  fixture measures anything; the reference arm enables before/after comparison.
+- Add `evals/ab` with four fixtures, their golden characterization tests, and
+  an evidence contract requiring raw JSON, exact model, seed, and both compared
+  plugin roots before a result is published. Record the first compliant Opus 5
+  control: 40/40 valid runs, 4.15 fewer lines per run overall, and 49.7% less
+  growth on the `report` over-engineering trap with the skill.
+
 ## [0.9.0] - 2026-09-06
 
 ### Skill consolidation

@@ -98,7 +98,7 @@ does not establish model quality. See [the cross-model review](CROSS_MODEL_REVIE
 - Include exactly one `## Resource Routing` section, and list every bundled
   file under `references/`, `scripts/`, and `assets`.
 - Include a `## Related Skills` section for handoffs to owner skills.
-- Keep core files at or below 225 lines; use references for long examples,
+- Keep core files at or below 500 lines; use references for long examples,
   edge cases, and source-sensitive details.
 - Include validation guidance near the relevant command or rule when a
   deterministic check exists.

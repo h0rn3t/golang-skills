@@ -1,0 +1,1499 @@
+{
+  "prompt": "Refactor the Go package in ./%s so it reads better. Keep observable behavior identical: the exported API, error texts, and rendered output must not change. Apply the changes to the files.",
+  "model": "claude-opus-5",
+  "reps": 5,
+  "seed": 20260907,
+  "arms": [
+    {
+      "name": "no-skill"
+    },
+    {
+      "name": "baseline",
+      "source": "/Users/eugeneshershen/golang-skills",
+      "sha256": "42fb1bc30c5314e8c4cc7d4a2e20628260ee44bf68d91826a0412b632e898ee7"
+    }
+  ],
+  "results": [
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 0,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 104,
+        "files": 2,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -27,
+        "files": 0,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Both files rewritten.\n\n**What changed**\n\n- Replaced the five copy-pasted `if plan == ...` branches with a single `catalog` table (`pricing.go:22`) holding each plan's name, seat rate, and discount tiers. `Price`, `SeatCost`, `Discount`, and `Plans` all read from it via one `lookup` helper.\n- Discount curves became `discountTier{months, pct}` rows evaluated by `plan.termDiscount`, longest term first. That's the shape the `TODO(billing)` enterprise plan will need: one new row in the catalog, no new branches.\n- `Price` now computes `total` and applies the discount once instead of four times.\n\n**Behavior held fixed**\n\n- Validation order is unchanged: `seats`/`months` are checked before the plan is looked up, so `Price(\"bogus\", 0, 1)` still returns `price bogus: seats must be positive, got 0` rather than an unknown-plan error.\n- Error texts and verbs are byte-identical (`price %s:` for validation, `price %q:`/`seat cost %q:`/`discount %q:` wrapping `ErrUnknownPlan`).\n- Arithmetic is unchanged, including the integer truncation in `total - total*pct/100`; `free` still yields 0 via a 0 seat rate.\n- `Discount` still ignores non-positive `months` (returns 0, no error), and `Plans` still returns a freshly allocated slice each call, so a caller mutating the result can't corrupt the catalog.\n\n**Not verified**: I have no shell in this session, so I could not run `go build` / `go vet`, and the package ships no tests. The changes are compile-checked by reading only. One thing to be aware of: the unexported type `plan` and the parameter `plan` in the exported functions share a name, so inside those bodies the parameter shadows the type. I kept the parameter names as-is to leave the godoc signatures identical; if you'd rather avoid the shadowing, renaming the type to `planRate` is a mechanical follow-up."
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 3,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": 15,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. `report/report.go` is rewritten.\n\n**What changed**\n\n- **Un-nested the loop.** The original `if Account != \"\" { if Units \u003e= 0 { ...write... } else { err } } else { err }` became two guard clauses followed by the write, so the happy path is at the top level.\n- **Pulled the mode branching out of the body** into a `layout` struct chosen once (`csvLayout` / `textLayout`). The four `if csv { … } else { … }` blocks collapse to one selection, and each mode's three format strings now sit together instead of being split across the function.\n- **`Sprintf` + `WriteString` → `Fprintf`** on the builder.\n- The text header is now `Sprintf`'d once at package init rather than on every call.\n\n**How behavior is held fixed**\n\n- The total line's argument lists were unified by giving CSV a `\"%s,%s,%d.%02d\\n\"` format fed `\"TOTAL\", \"\"` — that renders `TOTAL,,` byte-for-byte as before, and lets row and total share one arity across modes.\n- I deliberately kept the amount as two verbs (`%9d.%02d`) rather than extracting a `formatCents` helper. Folding it into one string would change output for negative `Cents`: `%9d.%02d` pads only the whole-units part, so `-150` renders as `       -1.-50` (13 cols), whereas a combined `%12s` would produce `      -1.-50` (12). Odd output, but it's existing observable behavior, so it stands.\n- Error precedence is unchanged: empty account is still checked before negative units, on the first offending row, and errors still return `\"\"` so no partial output leaks. Validation stayed inline for that reason.\n- `total` still accumulates only over rows already validated, which is what the original did since any bad row aborted.\n\nOne caveat: I have no shell in this session, so I could not run `go build` or `go vet` — the changes are verified by reading only, and there are no tests in the module to run."
+    },
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 1,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 100,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -31,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. Both files rewritten around a single price-list table.\n\n**What changed**\n\n| Before | After |\n|---|---|\n| Plan names/rates repeated in `Price`, `SeatCost`, `Discount`, `Plans` (4 copies) | One `plans` table; `lookup` is the only place a name is matched |\n| `Price`: 4 near-identical `else if` arms, each with its own rate literal and discount call | One arm: table lookup, then `total - total*pct/100` |\n| `Discount`: 12/6-month tier ladder copied per plan | `plan.discount` method, one switch |\n| `Plans`: hand-maintained literal that had to stay in sync with price order | Derived from the table |\n\n133 → 98 lines. The only additions are the `plan` type and the `lookup` helper, which is what pays for the four deletions.\n\n**Behavior preservation** — I checked each observable:\n\n- Error texts are byte-identical, including the `%s`/`%q` inconsistency between the seats/months errors and the unknown-plan errors, which I left alone.\n- Validation order in `Price` is unchanged: seats and months are still checked *before* the plan is looked up, so `Price(\"bogus\", -1, 5)` still reports the seats error rather than `ErrUnknownPlan`.\n- `\"free\"` still returns 0 — now because its `seatCents` is 0 rather than a special case, and `0 - 0*pct/100 == 0`.\n- Arithmetic is unchanged: same `int64` widening, same multiply-before-divide truncation, same overflow points.\n- `Discount` still ignores non-positive `months` (returns 0, no error), matching the original.\n- `Plans` still returns a freshly allocated slice per call, so a caller mutating it can't corrupt the table.\n\nOne deliberate deletion: `Price` no longer calls `Discount` and so no longer has its `if err != nil` path. That path was unreachable — the lookup has already succeeded by then, and `Discount` errors only on an unknown name.\n\n**Not verified by tests.** The package has none, and I didn't add any, so the above is line-by-line case analysis plus `go vet` (clean), not a passing suite. For a package this small the cases are exhaustively enumerable, but if you want the guarantee mechanized I can add a characterization test — a table over the 5 plans × the 3 month tiers pinning exact cent totals and error strings. Say the word.\n\n**Findings, not fixed** (behavior changes, so out of scope for this diff):\n- `Price` can silently overflow `int64` on large `seats`/`months`; there's no bound check.\n- The `%s` vs `%q` split in `Price`'s error texts looks accidental — an unquoted plan name in the seats/months errors makes them harder to parse.\n- `SeatCost(\"free\")` and an unknown plan both return `0`, distinguishable only by the error; worth confirming callers check it.\n\nI kept the `TODO(billing)` note about the enterprise plan, moving it onto the `plans` table since that's now the single place a new plan and its curve get added."
+    },
+    {
+      "arm": "no-skill",
+      "task": "dispatch",
+      "rep": 2,
+      "skills": [],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 55,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -10,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. `dispatch/dispatch.go:24`:\n\n- The three `if/else if` branches were byte-for-byte copies apart from the kind string and which `Store` method they call. A single `switch` now selects the operation, and the shared parts — the empty-ID check, the `event:\u003ckind\u003e:\u003clowered id\u003e` key, and the error wrapping — appear once.\n- `DispatchAll` uses `range` and the idiomatic `if err := ...; err != nil` form.\n\nBehavior is preserved exactly:\n\n- The kind check still runs *before* the empty-ID check, so an unknown kind with an empty ID still reports `unknown kind`.\n- Error texts are unchanged: `e.Kind` is interpolated only on paths where it is literally `created`, `updated`, or `deleted`, matching the old hardcoded strings; the `%w` wrapping and thus `errors.Is`/`As` still work.\n- Keys are unchanged for the same reason — `\"event:\" + e.Kind + \":\"` reduces to the old literals.\n- `Put` is still called for `created`/`updated` and `Delete` for `deleted`, with the same arguments and the same `ctx`.\n- Exported API (`Event`, `Store`, `Dispatch`, `DispatchAll`) is untouched.\n\nOne caveat: no shell tool is available in this environment, so I verified this by reading rather than by running `go vet`/`go build` or a test suite (the module has no tests). The change is small enough to check by inspection, but it hasn't been compiled."
+    },
+    {
+      "arm": "no-skill",
+      "task": "dispatch",
+      "rep": 1,
+      "skills": [],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 54,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -11,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. `dispatch/dispatch.go` now:\n\n- Collapses the three copy-pasted `if/else if` branches into one `switch` that only decides *which* store operation to run (`Put` vs `Delete`); the shared ID validation, key construction, and error wrapping happen once afterward.\n- Derives the key prefix and error messages from `e.Kind` (`\"event:\"+e.Kind+\":\"`, `\"dispatch %s: empty id\"`, `\"dispatch %s %s: %w\"`), which produces byte-identical strings for the three valid kinds.\n- Replaces the index loop in `DispatchAll` with `range` and folds the error check into the `if`.\n\nBehavior preserved, including the ordering subtlety that an unknown kind is reported before the empty-ID check, so an `Event{Kind: \"\", ID: \"\"}` still yields `dispatch: unknown kind \"\"` rather than an empty-id error.\n\nOne caveat: this sandbox gives me no shell, so I could not run `go build`/`go vet` to confirm it compiles — the review above is by inspection. The imports (`context`, `fmt`, `strings`) are all still used, and the exported API is untouched."
+    },
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 4,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 104,
+        "files": 2,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -27,
+        "files": 0,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. The rates and discount curves are now one table instead of being spelled out in three parallel if-chains.\n\n**What changed**\n\n- `priceList` in `pricing.go:29` is the single source of truth: name, per-seat cents, and discount curve per plan. Adding the enterprise plan the TODO mentions is now one line, and its curve can have any number of tiers rather than the hardcoded 12/6-month pair.\n- `lookup` replaces the repeated string comparisons in all four functions.\n- `Price` lost four near-identical branches; the fee math appears once.\n- `Discount` became a table walk, `Plans()` derives its names from the table so the two can't drift.\n\n**Behavior held fixed**\n\n- Signatures, parameter names, and doc comments are unchanged.\n- Validation order in `Price` is still seats, then months, then plan — so `Price(\"bogus\", 0, 5)` still yields `price bogus: seats must be positive, got 0`, keeping the `%s`/`%q` split the original had between validation and unknown-plan errors.\n- The discount arithmetic is byte-for-byte the old expression, `total - total*pct/100`, so integer truncation lands the same way; `free` still totals 0.\n- `Plans()` returns a freshly allocated slice per call, as the old literal did, so a caller mutating it still can't corrupt package state.\n- `Discount` still applies no month validation: zero or negative months match no tier and return `0, nil` for a known plan.\n\nOne caveat: there's no Bash tool in this session, so I could not run `go build` or `go vet` to confirm compilation — I checked imports and identifiers by hand only. There were also no tests in the repo to run against, and no rendering code in the package, so \"rendered output\" here amounts to the error strings above."
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 1,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 77,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": 27,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Applied. Refactor report:\n\n## What changed\n\n| Transform | Location | Tier |\n|---|---|---|\n| Guard clauses replace inverted `if/else` nesting | `totalCents` | Low |\n| Extract validation + summation out of the render loop | `Render` → `totalCents` | Medium |\n| Split the three interleaved `if csv` branches into one function per format | `Render` → `renderCSV`, `renderText` | Medium |\n| `b.WriteString(fmt.Sprintf(...))` → `fmt.Fprintf(\u0026b, ...)` | both renderers | Low |\n| `fmt.Errorf` with no verbs → `errors.New` | `totalCents:34` | Low |\n\n`Render` is now three branches and no formatting; each renderer reads top-to-bottom as one output format.\n\n## Behavior preservation\n\nEvery format string, argument expression, and check order was carried over verbatim — same account-before-units check order, same first-error-wins semantics, same `total` (rows are all valid whenever it is used). Moving validation ahead of the header write is unobservable because the original discarded its buffer on error and `strings.Builder` has no side effects. `fmt.Errorf` with no `%w` already returns `errors.New(s)`, so the error text *and* type are unchanged.\n\n## Verification: not run\n\n**I have no shell in this session**, so no baseline, `go build`, `go vet`, `go test`, or `verify-refactor.sh` was executed. Equivalence above is by inspection only, not by evidence. Please run `go build ./... \u0026\u0026 go vet ./...` before trusting the diff. I did not add a characterization test: with no way to run it against the pre-refactor code, its golden strings would assert what the new code does rather than what the old code did, which proves nothing and risks a hand-miscounted column looking like a regression. Adding one is the highest-value next step.\n\nNet line count: 51 → 74. Growth is 11 comment lines (three doc comments plus the `Kept:` block) and the signatures/braces of two extracted functions; no new logic, types, or dependencies beyond the `errors` import.\n\n## Findings — noticed, deliberately not fixed\n\n1. **`Cents` is unvalidated while `Units` is.** A negative `Cents` renders as `0.-50` / `-1.-50` in both formats. This is the constraint behind the `Kept:` marker at `report.go:60`; fixing it changes output, so it needs its own commit.\n2. **`Render(rows, true, false)` reads poorly at call sites.** Two adjacent bools is the classic case for an options struct or split entry points — but that is an exported API change, out of scope here.\n3. **The CSV writer is hand-rolled.** Any account containing a comma or quote produces malformed CSV; `encoding/csv` would quote it. Also a behavior change, so left alone."
+    },
+    {
+      "arm": "no-skill",
+      "task": "dispatch",
+      "rep": 3,
+      "skills": [],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 53,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -12,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Applied to `dispatch/dispatch.go`.\n\nWhat changed:\n- Collapsed the three near-identical `if/else if` branches into one `switch` on `e.Kind` that selects an `apply` closure (`Put` for created/updated, `Delete` for deleted). The shared validation, key construction, and error wrapping now appear once.\n- Key and error strings are built from `e.Kind` instead of being repeated as literals.\n- `DispatchAll` uses `range` and the idiomatic `if err := ...; err != nil` form.\n\nBehavior preservation:\n- Exported API (`Event`, `Store`, `Dispatch`, `DispatchAll`) is untouched.\n- Error texts are byte-identical: `e.Kind` is exactly `\"created\"`, `\"updated\"`, or `\"deleted\"` on the paths that use it, so `\"dispatch %s: empty id\"` and `\"dispatch %s %s: %w\"` render as before, and `%w` still wraps the store error.\n- Ordering is preserved: unknown kind is rejected before the empty-ID check, but for known kinds an empty ID still yields the empty-id error — the original reached the unknown-kind return only for kinds outside the three, regardless of ID.\n- Keys are identical: `\"event:\" + kind + \":\" + strings.ToLower(e.ID)`.\n\nOne caveat: there's no `go.mod` or test file in this directory and no shell available to me here, so I did not compile or run anything — the equivalence above is from reading the code, not from a verified build."
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 4,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 83,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": 33,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Refactored `report/report.go`:\n\n- **Validation split out into `validate`**, run up front with guard clauses. The original checked `Account != \"\"` / `Units \u003e= 0` in nested `if/else` with the error in the `else` branch; now each failure is an early return in the order the original would have hit them. Since the original returned `\"\"` on error, hoisting validation ahead of rendering is observationally identical.\n- **Split the `csv` flag into `renderCSV` / `renderText`.** The flag was branched on four times (header, row, total); now each flavor is one straight-line function with its format strings together.\n- **Extracted `sumCents` and `splitCents`.** Total accumulation no longer piggybacks on the render loop, and the `cents/100, cents%100` pair appears once.\n- `fmt.Errorf` with no verbs → `errors.New` (same message, same error type), `b.WriteString(fmt.Sprintf(...))` → `fmt.Fprintf(\u0026b, ...)`.\n\nTwo things I deliberately did *not* change, to keep output byte-identical:\n\n- The amount stays formatted as two arguments (`%9d.%02d`) rather than a pre-rendered money string padded with `%12s`. Those are equivalent for non-negative amounts but diverge for negative `Cents`, where `%02d` of the remainder emits a sign (`-1.-50`) and the field widths no longer line up.\n- Negative `Cents` still renders that `-1.-50` form, and `sumCents` sums all rows including ones excluded from totaling logic in no way — the original added `r.Cents` for every row that passed validation, which is every row in a successful render.\n\nI could not compile or run tests: this environment has no shell tool, and the package has no test files. The changes are mechanical, but they're unverified by a build."
+    },
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 2,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 101,
+        "files": 2,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -30,
+        "files": 0,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. Both files rewritten, plus a characterization test.\n\n**What changed**\n\nThe package had five copies of the same three-line price calculation in `Price`, and four copies of the same two-threshold discount ladder in `Discount`, with the plan data inlined into `if`/`else if` chains across three functions. The rates now live once, in a table:\n\n```go\nvar priceList = []planSpec{\n\t{name: \"free\"},\n\t{name: \"starter\", seatCents: 899, halfYear: 5, yearly: 10},\n\t...\n}\n```\n\n`Price`, `SeatCost`, `Discount`, and `Plans` all read from it through `lookup`. The `else if` chain became a guard clause plus a single arithmetic expression; the discount ladder became one `switch` on the entry's two thresholds.\n\nNet: 132 lines → 98 (`pricing.go` 78→77, `discount.go` 54→22). Adding the `enterprise` plan the TODO mentions is now one table row instead of four edits.\n\n**Behavior held fixed**\n\n- Argument-validation order: seats, then months, then the plan lookup — so `Price(\"bogus\", 0, 1)` still reports the seats error, with `%s` (unquoted), not `unknown plan`.\n- Error texts and the `%w` wrapping of `ErrUnknownPlan` in all three messages, verbatim.\n- Integer truncation and evaluation order: `total - total*pct/100` with the same left-to-right multiplication, so rounding and overflow points are unmoved.\n- `Plans` still allocates a fresh slice per call; a caller mutating the result can't corrupt the table. The test asserts this.\n- Exported signatures and parameter names are untouched.\n\n**Verification — not run**\n\nI have no shell in this session, so `go build`, `go vet`, `gofmt`, and `go test` were not executed. The test file's expected values are hand-derived from the original code (e.g. `team`/3 seats/12 months: 86364 − 12954 = 73410), not observed output. Please run `go test ./pricing/` to confirm; if anything fails there, treat my equivalence claim as unproved until it's green.\n\n**One finding, not fixed**\n\n`Discount` accepts non-positive `months` and returns `0, nil`, while `Price` rejects them. That asymmetry predates this change and is observable, so I left it alone — worth a decision separately."
+    },
+    {
+      "arm": "no-skill",
+      "task": "dispatch",
+      "rep": 4,
+      "skills": [],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 54,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -11,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. `dispatch/dispatch.go:23`:\n\n**What changed**\n- The three `if/else if` branches collapsed into one path. A single `switch` picks the store operation (`Put` for `created`/`updated`, a `Delete` adapter for `deleted`) or rejects an unknown kind; the shared id check, key construction, and error wrapping now happen once.\n- Key and error strings are built from `e.Kind` instead of being spelled out per branch.\n- `DispatchAll` uses `range` and the idiomatic `if err := ...; err != nil` form.\n\n**Behavior preservation**\n- Check order is unchanged: unknown kind is rejected before the empty-id check, so an event with an unknown kind and empty ID still yields `dispatch: unknown kind %q`.\n- Since `e.Kind` is one of the three literals at every use site, `\"event:\" + e.Kind + \":\"` and `\"dispatch %s: empty id\"` / `\"dispatch %s %s: %w\"` render byte-identical text to the originals, and `%w` still wraps the store error.\n- The `deleted` adapter discards the payload, exactly as the old `s.Delete(ctx, key)` call did.\n- Exported API (`Event`, `Store`, `Dispatch`, `DispatchAll`) is untouched.\n\nOne caveat: I have no shell in this session, so I could not run `go build`/`go vet` to confirm — the review above is by inspection. The only new construct is the `s.Put` method value assigned to the declared `func(context.Context, string, string) error`, whose signature matches the interface method."
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 0,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 94,
+        "files": 1,
+        "test_files": 0,
+        "types": 4,
+        "interfaces": 1,
+        "funcs": 10,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": 44,
+        "files": 0,
+        "test_files": 0,
+        "types": 3,
+        "interfaces": 1,
+        "funcs": 9,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Refactored `report/report.go`. What changed:\n\n- **Flattened validation.** The nested `if Account != \"\" { if Units \u003e= 0 {...} else {err} } else {err}` pyramid became a `Row.validate()` method with two guard clauses, checked in the same order (empty account before negative units), so the same row still produces the same error.\n- **Split the two layouts.** The four `if csv` branches scattered through the function collapsed into a `format` interface with `csvFormat` and `textFormat` implementations, selected once at the top. `Render` now reads as header → validate/accumulate/write rows → optional total.\n- **Named the amount split.** `r.Cents/100, r.Cents%100` appeared four times; it's now `dollars()` / `remainder()`.\n\nTwo deliberate non-changes worth flagging:\n\n- I kept the amount as *two* format arguments (`%9d.%02d`) rather than pre-formatting it into one string rendered with `%12s`. Those differ for negative `Cents` — `%9d` pads the whole part to 9 before `\".-50\"` is appended, giving a 13-char field, whereas `%12s` on `\"-1.-50\"` gives 12. `Cents` is never validated, so negative amounts are reachable, and I preserved the existing (odd-looking) output. The comment on `dollars`/`remainder` records why they're a pair.\n- The `Render` doc comment says an empty slice \"renders headers only,\" which isn't quite true when `includeTotal` is set. That's a pre-existing doc inaccuracy; I left it alone since changing it isn't part of the refactor — worth a separate fix if you want it.\n\nI could not compile or run tests: this session has no shell tool, and the package has no test file. The change is a mechanical restructuring with format strings and arguments copied verbatim, but it is unverified by execution."
+    },
+    {
+      "arm": "baseline",
+      "task": "dispatch",
+      "rep": 2,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 55,
+        "files": 1,
+        "test_files": 1,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -10,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "## What changed\n\n`dispatch/dispatch.go` — 42 lines → 31 lines for the two functions.\n\n**`Dispatch`**: the three `else if` branches were the same four steps (validate ID → build key → call store → wrap error), differing only in the kind literal and Put-vs-Delete. Now one `switch` picks the store operation, and the shared steps happen once. Since the kind literal was the only thing varying in the error strings and key prefix, `e.Kind` substitutes into them directly.\n\nThe ordering trap: the original checked unknown kind *last*, so `Event{Kind: \"archived\", ID: \"\"}` reports the unknown kind, not the empty ID. The `switch` runs before the ID check to keep that precedence, and the comment says why.\n\n**`DispatchAll`**: index loop → `range`, and the err check folded into the `if`.\n\n## Behavior preservation\n\n| Observable | Status |\n|---|---|\n| Exported API (`Event`, `Store`, `Dispatch`, `DispatchAll`) | unchanged |\n| Error texts, incl. `%q` quoting and `%w` chain | unchanged |\n| Key format `event:\u003ckind\u003e:\u003clowercased id\u003e` | unchanged |\n| Store call sequence, stop-at-first-failure | unchanged |\n| Unknown-kind-before-empty-ID precedence | unchanged |\n\nTwo textual identities the consolidation relies on: `\"dispatch %s: empty id\"` with `e.Kind` fixed to `created`/`updated`/`deleted` yields exactly the three original strings, and `\"event:\" + e.Kind + \":\"` yields the three original prefixes.\n\n## Verification\n\nI have no shell in this session, so **`go build`, `go vet`, and `go test` were not run** — the equivalence above is established by inspection, not execution.\n\nTo close that gap I added `dispatch/dispatch_test.go` (new file), a characterization test that pins the exact error texts, the lowercased key format, the wrap chain via `errors.Is`, the unknown-kind precedence, and the call sequence. It should pass against both the old and new implementations; please run `go test ./dispatch/` to confirm. If you'd rather not carry the test file, deleting it leaves the refactor intact.\n\n## Finding, not fixed\n\n`Dispatch` accepts `Event{Kind: \"created\", ID: \"a\", Payload: \"\"}` and stores an empty payload without comment, while an empty `ID` is an error. That may be intentional; changing it would be a behavior change, so I left it."
+    },
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 98,
+        "files": 2,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -33,
+        "files": 0,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. Both files refactored, plus a characterization test as the safety net.\n\n## What changed\n\n**Deleted duplication.** `Price` had four near-identical `else if` branches differing only in a magic cent value, and `Discount` had four identical month ladders. Both collapsed onto one table:\n\n```go\nvar rates = []planRate{\n\t{name: \"free\"},\n\t{name: \"starter\", seatCents: 899, halfYearPct: 5, fullYearPct: 10},\n\t...\n}\n```\n\n- `pricing.go`: `Price` is now validate → `rateFor` → compute, with the discount arithmetic written once. `SeatCost` is a lookup.\n- `discount.go`: the month ladder became `planRate.discountPct`, shared by `Price` and `Discount`. `Plans` derives from the table and still returns a fresh slice per call, so a caller mutating the result can't affect the next one (the old literal had that property; a shared package slice would have quietly lost it).\n\nNet: 132 → 96 non-test lines.\n\n## Behavior held fixed\n\n- Signatures, parameter names, doc comments and the `TODO(billing)` marker unchanged.\n- Error texts byte-identical, including the unquoted `price %s` in the two validation errors versus the quoted `%q` in the unknown-plan errors, and the ordering that makes `Price(\"bogus\", 0, 3)` report seats rather than the unknown plan.\n- `%w` wrapping of `ErrUnknownPlan` preserved in all three sites.\n- Discount arithmetic kept as `total - total*pct/100` in the same order, so integer truncation lands identically; multiplication order in `total` is unchanged, so overflow points are too.\n- `Price` no longer routes through the exported `Discount`; the values are identical and nothing observes the call.\n\n## Verification\n\n`go vet ./pricing` passes (run by the repo's edit hook). **I could not run `go test` — no shell access in this session**, so the suite is unproven by execution; please run `go test ./pricing`. The test file encodes pre-refactor values computed by hand from the original branches (e.g. `starter`, 2 seats, 6 months → 10788 − 539 = 10249), covering every plan, both discount tier boundaries at 5/6/11/12 months, all three error texts, `errors.Is` wrapping, and the `Plans` copy semantics.\n\nOne finding, not fixed: `Price` and `SeatCost`/`Discount` disagree on error formatting for the same bad input (`price bogus:` versus `price \"bogus\":`), which is now visible in one file rather than spread across branches. Normalizing it would change error text, so it's yours to call."
+    },
+    {
+      "arm": "no-skill",
+      "task": "store",
+      "rep": 2,
+      "skills": [],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "after": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "delta": {
+        "lines": -15,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "The package now reads:\n\n```go\nfunc (m *Manager) Get(key string) (string, error) {\n\tif k := strings.ToLower(strings.TrimSpace(key)); k != \"\" {\n\t\tif v, ok := m.cache[k]; ok {\n\t\t\tm.hits++\n\t\t\treturn v, nil\n\t\t}\n\t\tif v, ok := m.remote[k]; ok {\n\t\t\tm.hits++\n\t\t\t// Reading a nil map is fine, but writing one panics.\n\t\t\tif m.cache != nil {\n\t\t\t\tm.cache[k] = v\n\t\t\t}\n\t\t\treturn v, nil\n\t\t}\n\t}\n\tm.misses++\n\treturn \"\", fmt.Errorf(\"get %q: %w\", key, ErrNotFound)\n}\n```\n\nWhat changed and why each is behavior-preserving:\n\n- **Collapsed the three identical miss branches into one.** The `key != \"\"` guard was redundant: `\"\"` trims to `\"\"`, so the empty-key case already fell through the `k != \"\"` check. All three tails incremented `misses` and formatted the same error from the *original* `key` — that argument is unchanged, so error text is identical.\n- **Dropped the `m.cache != nil` / `m.remote != nil` guards on lookups.** Indexing a nil map in Go yields the zero value with `ok == false`, exactly what the guards produced. The guard on the cache *write* is kept, since assigning to a nil map panics; I left a comment there so it doesn't get \"cleaned up\" later.\n- **`m.hits = m.hits + 1` → `m.hits++`**, and `NewManager` now uses a composite literal instead of `new` plus field assignments.\n\nUnchanged: exported API (`ErrNotFound`, `Manager`, `NewManager`, `Get`, `Stats`), the `get %q: %w` error text and its wrapping of `ErrNotFound`, the cache-before-remote order, the cache-fill-on-remote-hit side effect, and hit/miss accounting.\n\nI did not compile or test this — there's no test file in the module and I didn't run `go build`/`go vet`. If you want, I can run those, or add a table test covering the empty-key, whitespace-key, and nil-cache paths to pin the behavior down."
+    },
+    {
+      "arm": "baseline",
+      "task": "store",
+      "rep": 4,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "after": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "delta": {
+        "lines": -15,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Refactored `store/store.go`; exported API, error texts, and counter semantics unchanged.\n\n## Changes\n\n`Get` was 29 lines at nesting depth 4 with the miss path written three times; it is now 17 lines at depth 3 with one miss path.\n\n| Change | Why it preserves behavior |\n|---|---|\n| Deleted the outer `key != \"\"` guard | An empty `key` normalizes to an empty `k`, which the inner branch already routed to the same miss-and-error. The two branches were byte-identical. |\n| Collapsed three copies of `m.misses++; return \"\", fmt.Errorf(\"get %q: %w\", key, ErrNotFound)` into one | All three were reached only when no lookup succeeded. The surviving one formats the *original* `key`, not the normalized one — same as before, so `get \"   \": record not found` still shows the untrimmed key. |\n| Dropped `if m.cache != nil` / `if m.remote != nil` around the **reads** | A read from a nil map yields `\"\", false` — exactly what the skipped branch produced. |\n| Kept `if m.cache != nil` around the **write** | Writing to a nil map panics; this one is load-bearing, so it now carries a comment saying why its siblings went and it stayed. |\n| `m.hits = m.hits + 1` → `m.hits++`, `new(Manager)` + assignments → composite literal | Mechanical. |\n\nI did not touch names, the `strings.ToLower(strings.TrimSpace(...))` order (`ToLower` doesn't alter whitespace, so the composition is order-independent either way), or field order.\n\n## Verification — read this\n\n**I could not run anything.** No shell is available in this session, so `go build`, `go vet`, and `go test` were never executed, and the skill's baseline/after diff gate was skipped entirely. The behavior claims above come from reading the code, not from a green run.\n\nTo close that gap I added `store/store_test.go` — a characterization test over the exported surface, pinning exact error strings, `errors.Is(err, ErrNotFound)`, the hit/miss counters, remote-to-cache promotion, and the two cases my edit actually depends on: a blank key must *not* match a `\"\"` cache entry, and a nil cache must not panic on a remote hit. It should pass against both the old and the new code. It is also unrun, so please run `go test ./store/` first; if it fails to compile, that's my error in the test, not a behavior change in `store.go`.\n\nAdding a test file is slightly wider than \"refactor the package\" — delete it if you don't want it, though I'd suggest running it once before you do.\n\n**One thing I noticed and deliberately left alone:** `Manager` has no mutex, but `Get` mutates `m.cache`, `m.hits`, and `m.misses`. Concurrent callers race, and the promotion write can corrupt the map. That's a pre-existing bug, not a readability issue, so fixing it would have changed behavior and muddied this diff — flagging it for you to triage separately."
+    },
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 4,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 107,
+        "files": 2,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -24,
+        "files": 0,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Report asset is outside the sandbox, so here's the report in the structure the skill describes.\n\n## What changed\n\nThe three independent copies of the plan set collapsed into one table. Adding the TODO'd `enterprise` plan previously meant editing three functions across two files; it's now one row.\n\n**Net: 131 → 107 production lines (−24).** No new file, layer, or dependency — the one new declaration, `planRate`, is the name for the duplication that was already there.\n\n| Location | Was | Now |\n|---|---|---|\n| `pricing.go` `Price` | Four near-identical 8-line `else if` arms | Table lookup + one arithmetic expression |\n| `pricing.go` `SeatCost` | 5-branch if-chain duplicating the rates | Returns `p.cents` |\n| `discount.go` `Discount` | The `\u003e=12 / \u003e=6 / 0` shape written four times | `planRate.discount`, one `switch` |\n| `discount.go` `Plans` | Hand-written third copy of the plan set | Derived from `priceList` |\n| `899`/`2399`/`12`/`6` at use sites | Bare literals | Table columns; `annualTerm`, `semiAnnualTerm` |\n\n## Behavior preservation\n\nChecked by hand, expression by expression:\n\n- **Arithmetic is byte-identical.** `p.cents * int64(seats) * int64(months)` keeps the original operand order and types, so overflow points and truncation match. `total - total*int64(pct)/100` is unchanged, including the integer division that rounds `business, 4 seats, 11 months` down to `194001` rather than `194000.4`.\n- **Validation order preserved.** Seats and months are still checked *before* the plan lookup, so `Price(\"enterprise\", 0, 1)` still reports seats, not the unknown plan. This is easy to lose and is pinned by a named test case.\n- **Error texts verbatim**, including the inconsistent `%s` in the validation errors vs `%q` in the unknown-plan errors, and the `%w` chains to `ErrUnknownPlan`.\n- **`Plans()` still returns a fresh, non-nil, len-5 slice** — `make(..., 0, 5)` + append, so JSON rendering and caller mutation both behave as before.\n- **`Price` no longer calls exported `Discount`.** That call could never fail (the plan was already known), so the error branch was unreachable; `Discount` is pure, so dropping the call is unobservable.\n- **Exported signatures untouched**, parameter names included, since those render in godoc.\n- **`free` now goes through the table** instead of returning early: rate 0, discounts 0, so every path yields 0.\n\n## Verification\n\n| Check | Result |\n|---|---|\n| `go vet ./pricing` | Pass (via the edit hook) |\n| `go build` | Pass (implied by vet) |\n| `go test ./pricing` | **Not run** |\n| `gofmt` | Not run |\n\nNo shell tool is available in this session, so I could not run the test suite or the skill's `verify-refactor.sh`. Compilation and vet are confirmed; **the tests are unexecuted, so treat behavior preservation as argued rather than demonstrated** until you run `go test ./pricing`.\n\nI added `pricing/pricing_test.go` (external `package pricing_test`, exported API only) as the characterization net: all five plans priced across the tier boundaries, every error string asserted literally, the discount curve sampled below/at/above each threshold, and the `Plans()` freshness property. Expected values were computed by hand from the *original* code. If any case fails, trust the test over my refactor — but check the expectation first, since I couldn't run it.\n\n## Findings — not fixed, for your triage\n\n1. **`Price` and `SeatCost` disagree on error formatting** for the same condition: `price %s` (unquoted) for validation vs `price %q` for unknown plans. Cosmetic, but a caller parsing messages sees two shapes. Left alone — the texts are contract.\n2. **Zero-cost plans skip discount validation.** `Price(\"free\", 1, -5)` errors on months, but `Discount(\"free\", -5)` returns `0, nil`. Negative months are accepted by `Discount` generally; only `Price` rejects them. Possibly intended, possibly a gap.\n3. **Structural note (one sentence, as the skill asks):** the discount curve is currently uniform — every plan uses the same 12/6 thresholds — so the table encodes thresholds in code and percentages in data. The TODO says `enterprise` arrives \"with its own curve\"; if that curve has different *thresholds*, `annualPct`/`semiAnnualPct` become the wrong shape and you'll want a `[]tier{{months, pct}}` per row. I deliberately did not build that now — it's machinery for a plan that doesn't exist yet, and the swap is a contained edit when it does."
+    },
+    {
+      "arm": "no-skill",
+      "task": "dispatch",
+      "rep": 0,
+      "skills": [],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 57,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -8,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. The refactor collapses three near-identical branches into one path:\n\n**`dispatch/dispatch.go:24`** — `Dispatch`\n- A `switch` on `e.Kind` selects the store operation (`Put` for `created`/`updated`, `Delete` for `deleted`) and rejects unknown kinds. Validating the kind first preserves the original precedence: an unknown kind with an empty ID still yields `dispatch: unknown kind %q`, not the empty-id error.\n- The empty-ID check, key construction, and error wrapping now happen once, with `e.Kind` interpolated into the messages and the key — producing byte-identical strings to the hand-written per-branch versions.\n\n**`dispatch/dispatch.go:48`** — `DispatchAll` uses `range` and the idiomatic `if err := ...; err != nil` form.\n\nThe exported API (`Event`, `Store`, `Dispatch`, `DispatchAll`) is untouched, and all four error texts and the `event:\u003ckind\u003e:\u003clower-id\u003e` key format are unchanged.\n\nOne caveat on verification: I have no shell tool in this session, so I could not run `go build` or `go vet` to confirm compilation — the review above is by inspection. The one thing worth a second look if you compile is `apply = s.Delete`, a method value that relies on `Store.Delete` having exactly the `func(context.Context, string) error` shape, which it does per the interface at `dispatch/dispatch.go:19`. There are also no tests in the module to run against."
+    },
+    {
+      "arm": "baseline",
+      "task": "dispatch",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 57,
+        "files": 1,
+        "test_files": 1,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -8,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. `dispatch.go` went from 65 to 57 lines; `Dispatch` from 31 lines to 24.\n\n**Changes**\n\n- Collapsed the `if/else if` chain into a single `switch e.Kind`. The switch now decides only *which* store call to make; the shared tail (empty-ID check, key construction, error wrapping) is written once instead of three times.\n- Key is built from `e.Kind` (`\"event:\" + e.Kind + \":\" + strings.ToLower(e.ID)`) rather than three literals with the kind baked in.\n- Error texts derive from `e.Kind` too: `\"dispatch %s: empty id\"` and `\"dispatch %s %s: %w\"` render byte-identically to the previous per-branch literals.\n- `DispatchAll` uses `range` and the `if err := ...; err != nil` form.\n- Added a comment noting the kind check deliberately precedes the ID check — that ordering is observable (`Event{}` yields `dispatch: unknown kind \"\"`, not the empty-ID error) and is the one thing a future edit could silently break.\n\n**Behavior preserved:** exported signatures, the three error formats, `%w` wrapping of the store error, key format including `ToLower`, the kind-before-ID check order, the \"no store call on validation failure\" property, and stop-at-first-failure in `DispatchAll`.\n\n**Added:** `dispatch/dispatch_test.go` — a characterization test over a recording fake `Store`, pinning exact error strings, keys, payload passing (`deleted` ignores `Payload`), `errors.Is` unwrapping, and the call sequence. The package had no tests, so without it \"identical behavior\" would rest on reading alone.\n\n**Not verified:** I have no shell in this session, so `go build`, `go vet`, and `go test ./...` were not run — including the new test file. Please run `go test ./dispatch/...` to confirm; the test is the intended evidence and it should pass against both the old and new implementation.\n\n**Noted, not fixed** (no bugs found, one design observation): the `Payload` field is silently ignored for `deleted` events rather than rejected. That's the pre-existing contract, so I left it alone."
+    },
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 2,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 98,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -33,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Refactored both files. The five copy-pasted plan branches are now a single price-list table.\n\n**What changed**\n\n`pricing/pricing.go`\n- Added an unexported `planSpec` (name, per-seat cents, and the two discount percentages) plus `priceList`, the plans in price order, and a `lookup` helper.\n- `Price` collapses from five near-identical `else if` blocks to one: validate seats, validate months, look up the plan, compute. The arithmetic is character-for-character the same expression (`total - total*int64(pct)/100`, same operand order and `int64` conversions), so the integer truncation behaves identically.\n- `SeatCost` is now a lookup returning `spec.seatCents`.\n\n`pricing/discount.go`\n- Added a `discount(months)` method on `planSpec` holding the shared `\u003e= 12 / \u003e= 6 / else 0` ladder; `Discount` is now lookup + method call.\n- `Plans` derives names from `priceList` instead of a duplicate literal, still returning a fresh slice per call so callers can't mutate shared state.\n\n**Behavior preserved deliberately**\n- Validation order in `Price` is unchanged: a bad `seats` on an unknown plan still yields the seats error, not `ErrUnknownPlan`.\n- Error texts are byte-identical, including the `%s` (not `%q`) verb in the seats/months messages and the `%w` wrapping of `ErrUnknownPlan`.\n- `Discount` still does no validation of `months`; zero or negative months yields `0, nil` as before.\n- `free` still prices at 0 and discounts at 0 — it's a table row with zero rate, so it needs no special case.\n- Exported signatures and parameter names are untouched (that's why the struct is `planSpec` rather than `plan` — keeping the `plan string` parameter unshadowed).\n\nOne note: `Price` previously called `Discount` and propagated its error, which was unreachable dead code since the plan was already known-good by that point. The new version drops that unreachable error path, so `Price` no longer has a way to return a discount error — no input reaches it differently.\n\nI could not compile or run tests: this session has no shell tool, and the package has no test files. The changes are verified by reading only."
+    },
+    {
+      "arm": "no-skill",
+      "task": "store",
+      "rep": 1,
+      "skills": [],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "after": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "delta": {
+        "lines": -15,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Refactored `store/store.go`:\n\n- **`Get`** (`store/store.go:29`) — the three trailing branches (empty key, blank-after-trim key, not-found) were byte-identical, so the nested `if key != \"\"` / `if k != \"\"` pyramid collapses into one guard with a single miss-and-error tail. `TrimSpace(\"\") == \"\"` makes the outer `key != \"\"` check redundant.\n- Dropped the `m.cache != nil` / `m.remote != nil` guards around lookups — reading a nil map yields the zero value with `ok == false`, which is exactly what those branches fell through to. The guard on the cache write-back stays, since writing to a nil map panics.\n- `m.hits = m.hits + 1` → `m.hits++`; same for misses.\n- **`NewManager`** — `new` plus field assignments → a composite literal.\n\nExported signatures, the `get %q: %w` error text (still formatted with the original untrimmed `key`), `ErrNotFound` wrapping, and the hit/miss accounting per call path are all unchanged. I don't have a shell in this session, so I couldn't run `go build` or `go vet` to confirm — the change is small enough to read, but it's unverified by a compiler, and there are no tests in the package to run."
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 57,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": 7,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Refactored `report/report.go` and added a characterization test.\n\n## What changed\n\n| # | Site | Was | Now |\n|---|---|---|---|\n| 1 | loop body | 4-level nesting; both error cases sat in `else` branches below the happy path | guard clauses — empty account and negative units return at the top of the iteration |\n| 2 | 5 write sites | `b.WriteString(fmt.Sprintf(...))` | `fmt.Fprintf(\u0026b, ...)` |\n| 3 | empty-account error | `fmt.Errorf` with no verbs | `errors.New`, same text |\n| 4 | accumulator | `total := int64(0)` | `var total int64` |\n| 5 | signature | `csv bool, includeTotal bool` | `csv, includeTotal bool` (identical type signature) |\n\nKept deliberately, with a `Kept:`/`Ceiling:`/`Fix:` marker in the code: the `%d.%02d` amount pair is not extracted into a money helper. The text column pads *whole units* to width 9 and then appends `\".NN\"`; formatting the amount into one string and padding that to 12 gives identical output for non-negative `Cents` but shifts the column for negative ones.\n\nNet: 51 → 56 lines; the code shrank, the 5-line marker comment is the growth.\n\n## Behavior preservation\n\nFormat strings, error texts, total arithmetic, and the write order are byte-for-byte unchanged. `report/report_test.go` pins them: CSV and text goldens with and without totals, headers-only, both error texts against both formats, and the malformed negative-`Cents` amount (`neg,0,0.-50`) pinned as-is.\n\n## Verification — read this\n\nI had no shell in this session, so **`go test` was not run**. What did run: the repo's `go vet ./report` edit hook, which type-checks the package including the test file — it passes. I verified the text goldens' column widths against the format strings by regex (`ACCOUNT·{17}UNITS·{7}AMOUNT` etc., middle dots stand in for spaces in the source so padding is countable); all four line shapes matched. Please run `go test ./report/...` to close the gate.\n\n## Findings — not fixed, they'd change behavior\n\n1. **Negative `Cents` render malformed.** `-50` → `0.-50` in CSV, and in text it produces a 13-char amount field instead of 12, breaking alignment. `Cents` is unvalidated while `Units` is.\n2. **`Units` is validated but never bounds-checked against `Cents`**; a row with `Units: 0` and nonzero `Cents` still contributes to the total. Probably intended — flagging in case it isn't."
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 4,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 62,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": 12,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Both files are written. Here's the report.\n\n## Refactor: `./report`\n\n**Verification gate: not run.** This session has no shell tool, so `go build`, `go vet`, `go test`, and `scripts/verify-refactor.sh` were never executed — neither for the baseline nor after. Nothing below is machine-confirmed. Please run:\n\n```\ngo test ./report/... \u0026\u0026 go vet ./report/...\n```\n\nThe package had zero tests, so I added `report/report_test.go` as the safety net the behavior promise needs. It keeps the pre-refactor `Render` verbatim as `legacyRender` and asserts the new one matches it byte for byte across 11 inputs × csv × includeTotal, plus exact error-text assertions. If the refactor broke something, that test is what catches it.\n\n### Changes\n\n| Location | Was | Now |\n|---|---|---|\n| loop body | 4-deep nesting, both error paths in `else` branches | two guard clauses, depth 2 |\n| 4 sites | `r.Cents/100, r.Cents%100` inline | `amount(cents)` helper |\n| data/total rows | `%9d.%02d` | `%12s`, matching the header's own `%12s` |\n| 8 sites | `b.WriteString(fmt.Sprintf(...))` | `fmt.Fprintf(\u0026b, ...)` |\n| empty-account error | `fmt.Errorf` with no verbs | `errors.New` |\n| `total := int64(0)` | — | `var total int64` |\n\nNet: 51 → 61 lines. That is growth, and it's two things: the 6-line `Kept:` marker (documentation, not logic) and the 3-line helper that retired four copies of the money idiom. Executable lines are roughly flat; the gain is nesting depth and the fact that the money format now has one definition.\n\n**The one step that isn't obviously identical** is `%9d.%02d` → `%12s`. For an *n*-digit integer part, `%9d.%02d` yields `max(9,n)+3` characters and `%12s` over `\"%d.%02d\"` (length `n+3`) yields `max(12,n+3)` — equal for every input, sign included. Tests cover both sides of the `n=9` boundary.\n\nNo exported signature, error text, or byte of output was intended to change. `Render`'s parameter list went from `csv bool, includeTotal bool` to `csv, includeTotal bool` — same type.\n\n### Findings — noticed, deliberately not fixed\n\n1. **CSV injection / malformed output (highest).** Neither `Account` nor the header path escapes anything. An account containing `,`, `\"`, or a newline produces a broken CSV record. `encoding/csv` would fix it, but it also quotes fields, which changes output for existing well-formed data — a behavior change, not a refactor.\n2. **Negative cents render as `-1.-50`.** The quotient and remainder each carry the sign. Marked in place with `Kept:`/`Ceiling:`/`Fix:`; `bash scripts/check-debt.sh ./...` will list it.\n3. **Asymmetric validation.** Negative `Units` is an error; negative `Cents` passes through silently. If credits are legitimate, finding 2 is a live bug rather than a theoretical one.\n4. **`total` can overflow int64** with no detection. Unreachable at plausible scale.\n\nFindings 1 and 3 both come from the same root: `Row` has no notion of a valid row, so `Render` validates ad hoc mid-format. Pulling validation into a `Row.Validate` and formatting into a writer-per-format would address all four, but that's an API change and your call, not a readability pass."
+    },
+    {
+      "arm": "baseline",
+      "task": "store",
+      "rep": 3,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "after": {
+        "lines": 58,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 2
+      },
+      "delta": {
+        "lines": -7,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Refactor applied to `store/store.go` (65 → 47 lines).\n\n**What changed**\n\n| Location | Was | Now |\n|---|---|---|\n| `NewManager` | `new(Manager)` + three assignments | one composite literal |\n| `Get` | three copies of the miss-and-error tail, one per branch | one `miss` helper, two call sites |\n| `Get` | nested to four levels | guard clauses, max one level |\n| `Get` | `if key != \"\"` outside `if k != \"\"` | dropped; trimming `\"\"` yields `\"\"`, so the inner check already covered it |\n| `Get` | `if m.cache != nil { v, ok := m.cache[k]; ... }` | direct lookup — a nil map read returns the zero value with `ok == false` |\n| `Get` | `m.hits = m.hits + 1` | `m.hits++` |\n\n**Behavior held fixed**\n- Exported API untouched: `ErrNotFound`, `Manager`, `NewManager`, `Get`, `Stats`.\n- Error text and chain identical (`get %q: %w`), still formatted with the caller's original untrimmed key in every path, including the empty-key one.\n- Counter side effects unchanged in order and count: `hits++` before returning a cached or remote value, `misses++` before every error, remote hit still populates the cache *after* incrementing `hits`.\n- The `m.cache != nil` guard on the cache **write** stays — that one is not redundant, writing to a nil map panics. It now carries a comment, since the asymmetry with the unguarded reads is otherwise a puzzle for the next reader.\n\n**Verification: none run.** This session has no shell tool, so I could not run `go build`, `go vet`, `gofmt`, or the skill's `verify-refactor.sh`, and the package ships no tests to characterize against. The equivalence claims above are from reading, not from a green run. Please run `go vet ./store` and `gofmt -l store` before trusting the diff.\n\n**Finding, not fixed** (a behavior change, so out of scope for a refactor): `Get` mutates `hits`/`misses` and the cache map with no synchronization, so a `Manager` shared across goroutines races. If concurrent use is intended, that needs a mutex in its own commit."
+    },
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 3,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 102,
+        "files": 2,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -29,
+        "files": 0,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Both files are rewritten. Summary of the refactor:\n\n**The change:** the package repeated the plan list four times — once as an if/else chain of rates in `Price`, once in `SeatCost`, once as the discount curve in `Discount`, and once as a literal in `Plans`. All four now derive from one table in `pricing.go:27`:\n\n```go\n{name: \"starter\", seatCents: 899, tiers: []tier{{12, 10}, {6, 5}}},\n```\n\n- `lookup` is the single place a plan name is resolved, so each exported function reduces to a lookup plus its own error wrapper.\n- `Price` lost the four near-identical branches; the \"compute total, subtract discount\" arithmetic appears once.\n- `discount` became a method on `entry` that walks tiers longest-term-first, replacing four nested threshold chains.\n- `Plans` now projects the table, so it can't drift out of sync with the price list.\n\n**Behavior preserved deliberately:**\n- Seats/months validation still runs *before* plan lookup, so `Price(\"bogus\", 0, 1)` still reports the seats error, not the unknown-plan one; those two messages keep `%s` (unquoted) while the three `ErrUnknownPlan` wrappers keep `%q`.\n- Integer truncation order is unchanged: `total - total*pct/100`.\n- `\"free\"` previously skipped the `Discount` call in `Price`; it now goes through the table with no tiers, which yields the same `0`.\n- `Discount` still doesn't validate `months`, so negative values return `0, nil` as before.\n- `Plans` still returns a fresh slice per call, so a caller mutating the result can't corrupt the table.\n\n**One judgment call to flag:** I moved the `TODO(billing)` about the upcoming enterprise plan off `Discount`'s doc comment and onto the table, since adding a plan is now a one-line table edit rather than a change to `Discount`. That does alter `Discount`'s godoc text (the rest of the doc comments are verbatim). Say the word if you'd rather I restore it in place.\n\nI don't have a shell tool in this session, so I haven't compiled the package or run `go vet` — the changes are verified by reading only, and there were no test files in the module to run."
+    },
+    {
+      "arm": "baseline",
+      "task": "dispatch",
+      "rep": 3,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 62,
+        "files": 1,
+        "test_files": 1,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -3,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "**What changed in `dispatch/dispatch.go`**\n\n| Before | After |\n|---|---|\n| `if/else if` chain, three near-identical 6-line branches | membership `switch` for validation, then one shared path |\n| empty-ID check ×3, key concat ×3, error wrap ×3 | each written once, kind interpolated |\n| `\"created\"` / `\"updated\"` / `\"deleted\"` as bare literals in 12 places | three unexported constants |\n| `for i := 0; i \u003c len(events); i++` + separate `err :=` | `for _, e := range events` with the call in the `if` |\n\nFunction body went from 30 lines to 21, with the duplication gone rather than rearranged.\n\n**Behavior held fixed**\n\n- `fmt.Errorf(\"dispatch %s: empty id\", e.Kind)` reproduces the three original texts exactly, and it is only reachable after the kind switch, so no fourth text can appear.\n- Kind validation stays *ahead* of the empty-ID check: an unknown kind with an empty ID still reports `dispatch: unknown kind %q`, as before.\n- `%w` wrapping, wrap text, and the `Put`/`Delete` split are unchanged; `DispatchAll` still returns the first error unwrapped and performs no work after it.\n\n**Verification — read this before trusting the diff**\n\nI had no shell in this session, so nothing was compiled or run: no `go build`, no `go vet`, no `gofmt` check, no baseline/after test comparison. The equivalence argument above is by inspection only.\n\nTo make it checkable I added `dispatch/dispatch_test.go` — a characterization test pinning all six error texts, the lowercased key format, the unknown-kind-outranks-empty-id ordering, `errors.Is` on the wrap, and DispatchAll's stop-at-first-failure call sequence. The package had zero tests, and this refactor rewrites every error construction, which compilation cannot check. It is also unrun: please execute `go test ./dispatch/` first. If it fails, treat the test as the source of truth about the old behavior and the new `dispatch.go` as the thing to fix.\n\nOne finding, not fixed: `Dispatch`/`DispatchAll` in package `dispatch` stutter at the call site as `dispatch.Dispatch`. Renaming is an exported-API change, so it was out of scope here."
+    },
+    {
+      "arm": "baseline",
+      "task": "dispatch",
+      "rep": 1,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 54,
+        "files": 1,
+        "test_files": 1,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -11,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "`go vet ./dispatch` passes via the edit hook (it type-checks the test file too). I have no shell tool in this session, so I could **not** run `go test` — the test file is compiled but unexecuted.\n\n## What changed\n\n**`dispatch/dispatch.go`** — 54 → 43 lines (excluding the new test).\n\n- `Dispatch`: the three near-identical `else if` branches collapsed into one `switch` that only picks the store operation. Everything they shared — the empty-ID guard, the key construction, the error wrap — now appears once, with `e.Kind` interpolated where the literal used to be hardcoded. Each kind string now appears once instead of four times.\n- `DispatchAll`: index loop → `range`; `err :=` folded into the `if`.\n\nThe error texts are unchanged by construction: each branch is reached only when `e.Kind` equals the literal it previously hardcoded, so `\"dispatch %s: empty id\"` and `\"dispatch %s %s: %w\"` render exactly the old strings, and `%w` still wraps the store error. Exported API, key format (`event:\u003ckind\u003e:\u003clowercased id\u003e`), and the stop-at-first-failure order are untouched.\n\nOne judgment call worth flagging: the `apply` closure adds a small indirection to avoid dispatching on `e.Kind` twice. The alternative — a `switch` guard for the unknown kind plus a second `switch` at the call site — is equally correct and allocation-free, if you prefer that shape.\n\n**`dispatch/dispatch_test.go`** (new) — characterization coverage that pins the exact error strings, the lowercased keys, `Put` vs `Delete` selection, the `errors.Is` wrap chain, and that `DispatchAll` stops after the first failure. This is the evidence for the behavior-identical claim; please run `go test ./dispatch` to confirm, since I couldn't.\n\n## Findings, not fixed\n\n- `ctx` is never checked for cancellation between events in `DispatchAll`; a long batch runs to completion after the caller gives up. Adding a check would change observable behavior, so I left it.\n- The accepted kinds are a string contract with no constants; if callers elsewhere spell these literals themselves, an unexported enum plus a parse function would be the follow-up — an API-shaped change, out of scope here."
+    },
+    {
+      "arm": "baseline",
+      "task": "dispatch",
+      "rep": 4,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 55,
+        "files": 1,
+        "test_files": 1,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -10,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Both files now pass the repo's on-edit `gofmt`/`go vet` hook (the first write was rejected for formatting and the fix cleared it).\n\n## What changed\n\n`dispatch/dispatch.go` — 41 lines → 31 lines for the two functions.\n\n- The `if / else if` chain became a `switch` that selects the store operation. The three branches were identical apart from the kind literal and `Put` vs `Delete`, and the literal was already available as `e.Kind`, so the empty-ID check, key construction, and error wrapping now exist once each instead of three times.\n- The `\"event:\u003ckind\u003e:\"` key format is built in one place.\n- `DispatchAll` uses `range` and inlines the call into the `if`.\n\nThe `deleted` case adapts `s.Delete` to the `Put` signature with a small closure, which is what lets the whole thing be one switch instead of two (one to validate the kind, one to perform the op). A comment records why validation precedes the ID check — that ordering is observable: `Event{Kind: \"archived\"}` with an empty ID reports the unknown-kind error, not `empty id`.\n\n## Behavior preservation\n\nEvery error text is reproduced verbatim, now formatted from `e.Kind` rather than written out per branch: `dispatch \u003ckind\u003e: empty id`, `dispatch \u003ckind\u003e \u003cID\u003e: %w`, and `dispatch: unknown kind %q`. The `%w` chain, the lowercased key, the payload being ignored on delete, and first-failure abort in `DispatchAll` are unchanged. The exported API is untouched.\n\nI added `dispatch/dispatch_test.go` — a characterization test covering all three kinds, both failure modes, the wrapped-error identity, the kind-before-ID ordering, and the store call sequence. It is a new file beyond the literal ask; it exists so the equivalence claim above is checkable rather than asserted. Delete it if you don't want it.\n\n**Not verified:** this session has no shell, so I could not run `go test ./...` or `go build`. The evidence I have is that the edit hook's `gofmt` (and `go vet`, if that's what it runs — vet requires a successful build, including the test file) accepts both files. The test asserts the pre-refactor strings, so running it is the check I couldn't perform.\n\nNo bugs surfaced during the audit."
+    },
+    {
+      "arm": "baseline",
+      "task": "store",
+      "rep": 2,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "after": {
+        "lines": 52,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "delta": {
+        "lines": -13,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. `store.go` is 65 → 53 lines; `Get` went from 30 lines at 4 levels of nesting to 20 at 2.\n\n**Changes**\n\n- `NewManager`: `new` + three assignments → composite literal.\n- `Get`: three byte-identical miss branches collapsed into one exit at the bottom. The `key != \"\"` outer check was subsumed by the `k != \"\"` check after trimming, so it's gone.\n- `Get`: dropped the `m.cache != nil` / `m.remote != nil` guards around map *reads* — reading a nil map yields the zero value and `ok == false`. The guard on the *write* at line 38 stays; that one prevents a panic.\n- `m.hits = m.hits + 1` → `m.hits++`.\n- Added two comments recording the non-obvious contracts I had to preserve.\n\n**Behavior held fixed**: exported API, the `\"get %q: record not found\"` text formatting the caller's original key (not the normalized one), the `%w` wrap of `ErrNotFound`, hit/miss counting per path, promotion of a remote hit into the cache, and the fact that a record stored under `\"\"` is unreachable — that last one is why the `k != \"\"` guard survives instead of folding into the map lookups.\n\n**Verification — not run.** I have no shell in this session, so `go build`, `go vet`, and `go test` were never executed; the equivalence above is from reading, not from a green run. To close that gap I added `store/store_test.go` (stdlib only — the module has no dependencies), covering cache hits, normalization, remote-hit promotion, nil maps, the empty/whitespace keys, the `\"\"`-key trap, exact error text, and counter accumulation. Please run `go test ./store/` — those tests are unexecuted too, so treat them as the check on my claim rather than as evidence for it.\n\n**Findings, not fixed** (each would change behavior, so they're out of scope for a refactor):\n\n- `Manager` has no locking. Concurrent `Get` calls race on `hits`/`misses` and on the `m.cache[k] = v` write. If callers share one `Manager` across goroutines, this needs a mutex.\n- `Get` mutates `cache` — the map the caller passed to `NewManager` — as a side effect of a read. Worth documenting on the exported method if that's intended."
+    },
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 3,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 103,
+        "files": 2,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -28,
+        "files": 0,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Vet passed on the final write, and `go vet` type-checks the test file as part of the package — so everything compiles.\n\n## Refactor report\n\n**Deleted:** the four parallel copies of the plan list. `pricing.go` 77→65, `discount.go` 54→36 — **net −30 lines** of production code, with one new declaration (`terms` + `catalog`) that replaces all four.\n\n| Transformation | Where | Tier |\n|---|---|---|\n| Five `else if` branches → table lookup | `pricing.go:32-47` | Medium |\n| Five `if plan ==` returns → table lookup | `pricing.go:49-56` | Medium |\n| Four repeated `\u003e=12/\u003e=6/0` ladders → one `terms.discount` method | `discount.go:16-27` | Medium |\n| Hardcoded name list → derived from `catalog` | `discount.go:30-36` | Low |\n| Guard clause for the unknown plan, dropping the `else if` chain | `pricing.go:39-42` | Low |\n\nThe `TODO(billing)` enterprise plan is now a one-line row in `catalog` instead of an edit in four places.\n\n**Behavior held fixed, and covered by the test:**\n- Validation order — `Price(\"bogus\", 0, 1)` still reports the seats problem, not the unknown plan.\n- Error texts verbatim, including the inconsistency where the two validation messages use `%s` and the unknown-plan messages use `%q`.\n- `free` folds into the table as a zero row: `0*seats*months` with a 0% discount is the same `0, nil` the early return produced.\n- Multiplication order and `total - total*pct/100` integer truncation are unchanged, so rounding and overflow points are identical.\n- `Plans()` still allocates a fresh slice per call (len and cap 5), so a caller mutating the result can't corrupt the catalog.\n\n**Verification — read this before trusting the diff.** I have no shell in this session. The `go vet` hook on each write is the only check that actually ran; it passed, which proves the package and its test compile and type-check. **The tests have not been executed.** Please run:\n\n```\ngo test ./pricing/\n```\n\n`pricing/characterization_test.go` is new. Its expectations were computed by hand from the pre-refactor code, not read off the new implementation — so a failure means I moved behavior, and the fix is the code, not the test.\n\n**Findings, not fixed** (fixing them in this diff would break the behavior promise):\n1. `Price` reports validation failures before it recognizes the plan, so a caller passing both a bad plan and bad seats never learns the plan was wrong. Deliberate or not, it's observable.\n2. The `%s`/`%q` split in `Price`'s error messages is almost certainly unintentional.\n3. `seatCents * seats * months` can overflow `int64` for absurd inputs; nothing bounds either argument.\n\nOne structural note, for you to decide on separately: the rates and discount curves are compiled into the binary, so a price change is a deploy. The `catalog` table is now the single place that would need to become configuration if that ever matters."
+    },
+    {
+      "arm": "baseline",
+      "task": "store",
+      "rep": 1,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "after": {
+        "lines": 52,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "delta": {
+        "lines": -13,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Refactored `store/store.go` and added a characterization test.\n\n## What changed\n\n`store/store.go` — `Get` had three identical miss branches, one per rejection path, nested two deep:\n\n- Collapsed the `key != \"\"` and `k != \"\"` guards into one. `strings.TrimSpace` already maps `\"\"` to `\"\"`, so the outer check was subsumed by the inner one.\n- Collapsed the three duplicate `misses++` / `fmt.Errorf` tails into a single fallthrough at the end of the function. The error text and `%w` chain are byte-identical, and it still formats the *original* `key`, not the normalized one.\n- Dropped the `m.cache != nil` / `m.remote != nil` guards on the **reads** — reading a nil map is legal and yields `ok == false`. The nil guard on the cache **write** stays; that one would panic.\n- `m.hits = m.hits + 1` → `m.hits++`; `new(Manager)` plus three assignments → a struct literal.\n\nTwo subtleties preserved deliberately, one of which now has a comment in the code:\n\n- A key normalizing to `\"\"` never reaches the maps. If a caller's map holds the `\"\"` key, `Get(\"\")` must still miss rather than return that value — so the `k != \"\"` guard could not be deleted along with the outer one.\n- On a remote hit with a nil cache, no promotion happens and no map is allocated.\n\nNet: `Get`'s body went from 30 lines to 18; the file from 66 to 55.\n\n`store/store_test.go` (new) — the package had no tests, so nothing backed the \"identical behavior\" promise. Table-driven coverage of cache hit precedence over remote, trim/lowercase normalization, remote-hit promotion, miss error text (`get \"a\": record not found`) and `errors.Is(err, ErrNotFound)`, nil maps, the empty- and blank-key guards against a map holding `\"\"`, plus the nil-cache promotion case and counter accumulation.\n\n## Verification\n\n**I did not run anything.** This session has no shell tool, so `go build`, `go vet`, and `go test ./...` were not executed — the refactor and the test are both unrun. The equivalence argument above is by inspection only. Please run `go test ./store/...` before trusting it; if the test file has a typo, that is where it will surface.\n\n## Findings, not fixed\n\n- `Manager` is not safe for concurrent use — `Get` increments the counters and writes to `cache` with no synchronization — and nothing in the doc comments says so. Adding a mutex would change the concurrency shape, so it stays out of a behavior-preserving diff.\n- `NewManager` retains and mutates the caller's `cache` map rather than copying it. That looks intentional (promotion is the point), but it is an undocumented aliasing contract."
+    },
+    {
+      "arm": "baseline",
+      "task": "store",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "after": {
+        "lines": 57,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 2
+      },
+      "delta": {
+        "lines": -8,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Refactor applied to `store/store.go`.\n\n## What changed\n\n**Deleted (the bulk of the win):**\n- The two duplicated miss tails — three identical copies of `misses++` + `fmt.Errorf` collapsed into one `miss` helper with two call sites.\n- The outer `key != \"\"` check: `strings.TrimSpace(\"\")` is `\"\"`, so the inner `k != \"\"` already covered it.\n- The `m.cache != nil` / `m.remote != nil` guards around *reads*. Reading a nil map is defined in Go — zero value, `ok == false` — so the guards could never change the outcome. The nil guard on the cache **write** stays; that one prevents a panic.\n\n**Restructured:**\n- `Get` went from a four-level pyramid to flat guard clauses; the two happy paths now sit at one level of indent instead of four.\n- `NewManager`: `new` + field assignments → composite literal.\n- `m.hits = m.hits + 1` → `m.hits++`.\n\nNet: 65 → 57 lines, with the one added declaration (`miss`) removing more than it costs.\n\n## Behavior check, by input class\n\n| Input | Before | After |\n|---|---|---|\n| `\"\"` | tail 3 → miss | `k == \"\"` → miss |\n| `\"   \"` | tail 2 → miss | `k == \"\"` → miss |\n| cache hit | `hits++`, value | same |\n| remote hit | `hits++`, then promote if cache non-nil | same, same order |\n| nil cache / nil remote | guard skips lookup | nil-map read returns `ok == false` — same path |\n| absent key | tail 1 → miss | `miss` |\n\nError text, the `%w` chain to `ErrNotFound`, and the use of the caller's original untrimmed key in the message are all unchanged — I added a comment on `miss` so the untrimmed key doesn't look like an oversight to the next reader. Exported API is untouched.\n\n## Verification not run\n\nI have no shell tool in this session, so I could not execute the skill's gate — nothing here has been compiled or tested, and the equivalence argument above is by reading, not by evidence. Please run:\n\n```bash\ngo build ./... \u0026\u0026 go vet ./... \u0026\u0026 gofmt -l store/\n```\n\nThe package also has zero tests. I'd normally add a characterization test as the actual proof, but an unrun test is a liability rather than evidence — say the word and I'll write one covering the six input classes above for you to run.\n\n## Noted, not fixed\n\n`Manager` has no mutex while `Get` mutates `hits`, `misses`, and the `cache` map. Concurrent use is a data race. That's a behavior change to fix, so it stays out of a refactor diff — flagging it for your triage."
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 3,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 72,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": 22,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Applied to `report/report.go` (51 → 70 lines).\n\n## What changed\n\n- **Flattened the loop.** Both validations are now guard clauses that return first, so the accumulate-and-write path sits at one level of indentation instead of three. Check order (empty account, then negative units) and both error texts are unchanged.\n- **Extracted `writeHeader`, `writeRow`, `writeTotal`.** `Render` now reads as the shape of the report — header, validate and accumulate, total — with each mode's formatting isolated. The `if csv` fork still happens three times, but each is a self-contained four-line function rather than a branch woven through the control flow.\n- **`fmt.Fprintf(b, …)` replaces `b.WriteString(fmt.Sprintf(…))`.** Every format string moved verbatim, with unchanged argument lists.\n- **`errors.New` for the constant error**, `var total int64` for the zero value, and `csv, includeTotal bool` in the signature.\n\n## Behavior preservation\n\nThe evidence is textual: all six format strings and their arguments are byte-identical to the originals, and the branch and side-effect order is unchanged. `fmt.Errorf` with no `%w` returns exactly `errors.New(s)`, so the error's text *and* dynamic type are preserved. `Render`'s signature type is unchanged.\n\nThe growth is ~19 lines, all of it function declarations and doc comments; no new types, indirection, or dependencies.\n\n## Not done, and why\n\n- **No verification.** This session has no shell tool, so nothing was compiled, vetted, or tested. The package also ships zero tests, so there is no existing net. I'd suggest a golden test over both modes before anyone trusts this in a release — I left it out rather than hand-write expected padding I couldn't execute against the original.\n- **Bug found, not fixed** (marked `Kept:` in the code): negative `Cents` renders as `-1.-50`, because `c/100` and `c%100` both carry the sign. Affects rows and totals in both modes. It's a real defect, but fixing it inside a refactor would make the diff unreviewable — worth its own commit.\n- **Flag parameters.** `csv bool` threads through all three writers. That's inherited from the exported signature, so removing it would mean an API change; a `layout` struct holding the three format strings would drop the flag, but the header and total lines take different argument counts per mode, so unifying them requires reshaping the format strings — more machinery than this package earns."
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 1,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 84,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": 34,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. What changed:\n\n- **One branch instead of six.** The `csv` flag now selects a `layout` of format strings once, up front; the rendering body is straight-line. Previously every write site re-tested `csv`.\n- **Guard clauses.** The `if Account != \"\" { if Units \u003e= 0 { ... } else { err } } else { err }` pyramid became `Row.validate()`, returning the errors early, in the same order.\n- **`fmt.Fprintf(\u0026b, ...)` instead of `b.WriteString(fmt.Sprintf(...))`** — drops the intermediate string.\n- **`splitCents`** names the `/100`, `%100` pair that appeared in four places.\n\nBehavior preserved, with the details worth flagging:\n\n- The CSV total format went from `\"TOTAL,,%d.%02d\\n\"` to `\"%s,%s,%d.%02d\\n\"` fed `\"TOTAL\", \"\"`, so it takes the same argument list as the text total and fits the shared `layout`. Output is byte-identical.\n- The text header is now precomputed at package init via the same `Sprintf` call, so its widths still visibly match the row formats.\n- The `%-20s %8d %9d.%02d` formats are untouched, so the existing quirk where a negative `Cents` renders as e.g. `-1.-50` (and pads on the whole part, not the full field) is unchanged.\n- `fmt.Errorf` with no verbs became `errors.New`; identical text.\n- Error precedence is unchanged: empty account is still reported before negative units, and the first bad row still wins.\n\nCaveat: there's no test file in the package and no shell available here, so I have not compiled or run this — please run `go build ./report` and `go vet ./report` to confirm. If you want, I can add a table test that pins the rendered output and error strings."
+    },
+    {
+      "arm": "no-skill",
+      "task": "store",
+      "rep": 3,
+      "skills": [],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "after": {
+        "lines": 59,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 2
+      },
+      "delta": {
+        "lines": -6,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. The changes to `store/store.go`:\n\n- **`NewManager`** — replaced the `new` + field-by-field assignment with a composite literal.\n- **`Get`** — flattened from four levels of nesting to a linear sequence of guard clauses:\n  - Dropped the outer `key != \"\"` check: it's implied by `k != \"\"`, since trimming a non-empty result requires non-empty input. Both branches produced the identical miss result anyway.\n  - Dropped the `m.cache != nil` / `m.remote != nil` guards around *reads* — indexing a nil map is legal in Go and yields `ok == false`, exactly what the guards produced. The `nil` check around the cache *write* is kept, since writing to a nil map panics.\n  - Merged the `v, ok := ...; if ok` pairs into `if v, ok := ...; ok`.\n- **New unexported `miss` helper** — the three identical miss branches collapsed into one place, so the counter bump and error text can't drift apart. It takes the original, untrimmed `key` so the error text stays byte-identical.\n- `m.hits = m.hits + 1` → `m.hits++`.\n\nObservable behavior is unchanged: exported API (`ErrNotFound`, `Manager`, `NewManager`, `Get`, `Stats`) is identical, the error string still formats the caller's original key via `%q` and wraps `ErrNotFound`, and the hit/miss accounting and cache-population-on-remote-hit follow the same paths.\n\nOne caveat on verification: I had no shell in this session, so I reasoned through the equivalence rather than running `go build` / `go test`. There's also no test file in the package, so nothing existing pins this down — worth a `go vet ./store` on your end."
+    },
+    {
+      "arm": "no-skill",
+      "task": "store",
+      "rep": 4,
+      "skills": [],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "after": {
+        "lines": 61,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 2
+      },
+      "delta": {
+        "lines": -4,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. What changed in `store/store.go`:\n\n- **Flattened `Get`.** The three arms that each ended in `m.misses = m.misses + 1; return \"\", fmt.Errorf(...)` collapse into one guard clause. The separate `key != \"\"` test was redundant: an empty `key` trims to `\"\"`, so the `k == \"\"` check already covers it, and every arm formatted the error from the original `key` anyway.\n- **Extracted `miss`.** The miss counter and error construction now live in one unexported helper, so the error text exists in exactly one place.\n- **Dropped the nil-map guards on reads.** Indexing a nil map in Go yields the zero value with `ok == false`, so `m.cache[k]` and `m.remote[k]` behave the same without them. The nil check on the cache *write* is kept — assigning to a nil map panics.\n- **`NewManager`** uses a composite literal, and the counters use `++`.\n\nBehavior is unchanged: same exported API, same `\"get %q: %w\"` text wrapping `ErrNotFound`, same cache-then-remote order, and the remote hit still increments `hits` before populating the cache.\n\nOne caveat on verification: this environment gives me no shell, so I couldn't run `go build` or `go vet`, and the package ships no tests to run. The review above is by inspection only."
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 2,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 66,
+        "files": 1,
+        "test_files": 1,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": 16,
+        "files": 0,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Vet is clean on both files. Here's what changed and what I could and couldn't verify.\n\n## Changes (`report/report.go`, 50 → 66 lines)\n\n| Site | Before | After |\n|---|---|---|\n| Loop body | Happy path nested 3 deep in `if/else`; error returns in `else` arms | Two guard clauses at the top, flat body below |\n| Format strings | Three `if csv { … } else { … }` branches for header/row/total | One `layout` value from `layoutFor(csv)`, chosen once |\n| Writes | `b.WriteString(fmt.Sprintf(…))` ×4 | `b.WriteString(l.header)` + `fmt.Fprintf(\u0026b, …)` |\n| Empty-account error | `fmt.Errorf` with no verbs | `errors.New` (same text, same dynamic type) |\n| Accumulator | `total := int64(0)` | `var total int64` |\n\nNothing was dead, so the delete-first pass yielded no cuts. The file **grew by 16 lines** — that's the `layout` type and `layoutFor`. The payoff is that the CSV spec and the text spec are each readable in one place instead of being spread over three branches 20 lines apart; if you'd rather keep the file at 50 lines, reverting just that extraction and keeping the guard clauses is a clean subset.\n\nOutput equivalence rests on the format strings being byte-identical. The one non-obvious case is the CSV total: `\"TOTAL,,%d.%02d\\n\"` became `\"%s,%s,%d.%02d\\n\"` with `\"TOTAL\", \"\"` passed in, so both layouts take the same four arguments. It expands to the same bytes.\n\n## Verification\n\n- `go vet ./report` passes (run by the edit hook) — the package and test compile, and vet is clean.\n- **I did not run `go test`.** No shell is available to me in this session, so the characterization test below is written and vetted but unexecuted. That is the gap in the behavior promise; please run `go test ./report`.\n- One thing the refactor costs: `vet`'s printf checker can no longer validate the format strings, since they now arrive as struct fields rather than constants. Arg counts are checked by the test instead.\n\n`report/report_test.go` keeps the original implementation verbatim as `renderLegacy` and asserts `Render` matches it — output and error text — across 14 row sets × `csv` × `includeTotal`, including empty rows, over-wide accounts, negative cents, and both error paths. No hand-counted golden padding, so there's nothing in it for me to have miscounted.\n\n## Bugs found while auditing (not fixed — they'd change behavior)\n\n1. **`report.go:57` — negative `Cents` renders garbage.** `%d.%02d` on `Cents = -50` gives `0.-50`, and `-1234` gives `-12.-34`. Same flaw on the total line, so a credit that drives the total negative misprints. This is preserved exactly as-is, including in the test's expectations.\n2. **`Cents` is never validated** while `Units` is, so a negative amount reaches the formatter (see 1) where negative units are rejected.\n3. **No overflow guard on `total`** — accumulating `int64` cents wraps silently. Very unlikely to matter at real volumes."
+    },
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 1,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 103,
+        "files": 2,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": -28,
+        "files": 0,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done. Both files rewritten.\n\n## What changed\n\nThe five plans were repeated as parallel `if`/`else if` chains in three functions. They're now a single table:\n\n`pricing/pricing.go:23`\n```go\nvar plans = []planSpec{\n\t{name: \"free\"},\n\t{name: \"starter\", seatCents: 899, discounts: []discountTier{{12, 10}, {6, 5}}},\n\t{name: \"team\", seatCents: 2399, discounts: []discountTier{{12, 15}, {6, 8}}},\n\t...\n}\n```\n\n- **`Price`** shed four near-identical branches; it validates, looks up, then does the one arithmetic expression — kept verbatim as `total - total*pct/100` so integer truncation matches.\n- **`SeatCost`**, **`Discount`**, **`Plans`** all read from the same table via a shared `lookup`. `Plans` still builds a fresh slice per call, so a caller mutating the result can't corrupt the table.\n- Discount thresholds became `discountTier{minMonths, pct}` rows scanned longest-term-first, replacing the nested `months \u003e= 12` / `\u003e= 6` ladders.\n- Moved the `TODO(billing)` note about the enterprise plan from `Discount` to the table, since that's now the single place a new plan gets added.\n\n## Behavior preserved\n\n- Validation order in `Price` is unchanged: seats, then months, then plan. `Price(\"bogus\", 0, 1)` still returns the seats error, not `ErrUnknownPlan`.\n- All four error strings are byte-identical, including the `%s` vs `%q` inconsistency in `Price` (left alone deliberately — changing it would alter output).\n- `\"free\"` still yields 0 everywhere; with `seatCents: 0` and no tiers the math lands on 0 the same way.\n- `Price` previously propagated an error from `Discount`; that path was unreachable, since the plan was already known-good by then. Dropping it can't change a result.\n\nOne caveat: no Bash tool is available in this session, so I verified equivalence by reading the code rather than by running `gofmt`, `go vet`, or a build. The package has no tests to run either. Formatting follows gofmt's rules as far as I can determine by hand."
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 2,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "after": {
+        "lines": 91,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0
+      },
+      "delta": {
+        "lines": 41,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Refactored `report/report.go`. What changed:\n\n- **Guard clauses instead of nesting** — validation moved to `validate`, which returns the first unrenderable row's error. The render loop is now flat (the original's 4-level `if r.Account != \"\" { if r.Units \u003e= 0 { if csv {...`).\n- **Format selection happens once** — a `layout` struct (header, row, total) picked up front, replacing the three separate `if csv` branches interleaved with the writing logic.\n- **Amount formatting named** — `csvAmount`/`textAmount` wrap the repeated `cents/100, cents%100` pair.\n\nBehavior-preservation notes:\n\n- `textAmount` keeps the `%9d.%02d` split rather than padding a preformatted string to `%12s`. Those differ when `Cents` is negative (the remainder prints as e.g. `.-50`, making the field 13 wide), so the original widths are retained exactly. The negative-cents formatting quirk itself is preserved, not fixed.\n- `total` now accumulates over every row instead of only valid ones, which is equivalent because `validate` runs to completion first and any error returns `\"\"` before totals are used.\n- `errors.New` replaces the argument-less `fmt.Errorf`; `fmt.Errorf` without `%w` returns `errors.New(s)` internally, so text and error type are unchanged.\n\nI have no shell tool in this environment, so I did not run `go build`, `go vet`, or any tests against it — the equivalence above is by inspection of the format strings and control flow."
+    },
+    {
+      "arm": "no-skill",
+      "task": "store",
+      "rep": 0,
+      "skills": [],
+      "before": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 2
+      },
+      "after": {
+        "lines": 57,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 2
+      },
+      "delta": {
+        "lines": -8,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0
+      },
+      "build": true,
+      "golden": true,
+      "output": "Done — `store/store.go` is the only file in the package.\n\n**What changed**\n\n- `NewManager` uses a composite literal instead of `new` plus field-by-field assignment.\n- `Get` was three nested levels deep with three identical not-found tails. Since `strings.TrimSpace(\"\") == \"\"`, the outer `key != \"\"` guard is subsumed by the trimmed-empty check, so all three collapse into one guard clause at the top and one at the bottom.\n- Extracted `miss` for the shared \"bump counter, wrap `ErrNotFound`\" tail. It still formats the *original* `key`, not the normalized one, so error text is byte-identical.\n- Dropped the `m.cache != nil` / `m.remote != nil` guards around *reads*: reading a nil map in Go yields the zero value and `ok == false`, exactly what the old code returned. The nil guard on the cache *write* is kept, since writing to a nil map panics.\n- `m.hits = m.hits + 1` → `m.hits++`.\n- Added a line to the doc comment noting the remote-hit write-through, which was previously only visible in the body.\n\nBehavior is preserved: lookup order, the side-effect ordering of counter bumps versus the cache write, the counters themselves, and the wrapped-error text and `errors.Is` behavior are all unchanged.\n\nOne caveat on verification: I have no shell in this session, so I could not run `go build`/`go vet` or any tests — the review above is by inspection only. There's no test file in the package to run regardless."
+    }
+  ],
+  "finished": "2026-09-07T00:45:33.338443+03:00"
+}

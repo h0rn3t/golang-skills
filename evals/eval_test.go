@@ -1203,8 +1203,11 @@ func TestSkillArchitecture(t *testing.T) {
 			if match := danglingRouting.FindString(content); match != "" {
 				t.Fatalf("dangling reference-routing fragment remains: %q", match)
 			}
-			if lines := strings.Count(content, "\n") + 1; lines > 225 {
-				t.Fatalf("SKILL.md has %d lines, want <= 225; move bulky examples into references", lines)
+			// 500 is the ceiling the Agent Skills spec sets on a skill body; the
+			// TestStructure check below keeps the body itself under it. Bulky
+			// examples still belong in references, which cap at 300 lines each.
+			if lines := strings.Count(content, "\n") + 1; lines > 500 {
+				t.Fatalf("SKILL.md has %d lines, want <= 500; move bulky examples into references", lines)
 			}
 			maxBlock := maxFencedBlockLines(content)
 			if maxBlock > 40 {
@@ -1447,6 +1450,47 @@ func TestKnownReferenceRegressions(t *testing.T) {
 	boundary := read("skills/go-defensive/references/BOUNDARY-COPYING.md")
 	if !strings.Contains(boundary, "slices.Clone") || !strings.Contains(boundary, "maps.Clone") {
 		t.Fatal("BOUNDARY-COPYING.md should use slices.Clone/maps.Clone, not hand-written copy loops")
+	}
+
+	refactorSkill := read("skills/go-code-refactor/SKILL.md")
+	if !strings.Contains(refactorSkill, "rename may introduce dynamic errors") {
+		t.Fatal("go-code-refactor must distinguish compilation-aware rename from behavior preservation")
+	}
+	if !strings.Contains(refactorSkill, "change the sequence, not cancel the work") {
+		t.Fatal("go-code-refactor must not turn safety prerequisites into an instruction to stop authorized work")
+	}
+
+	safetyNet := read("skills/go-code-refactor/references/SAFETY-NET.md")
+	if !strings.Contains(safetyNet, "candidate for investigation") || !strings.Contains(safetyNet, "never proof") {
+		t.Fatal("SAFETY-NET.md must not treat deadcode output as deletion proof")
+	}
+	if !strings.Contains(safetyNet, "expands the set") || !strings.Contains(safetyNet, "packages instrumented") {
+		t.Fatal("SAFETY-NET.md must explain -coverpkg as instrumentation scope")
+	}
+	if strings.Contains(safetyNet, "the honest fix there is deletion") {
+		t.Fatal("SAFETY-NET.md must not authorize deleting exported API from deadcode output")
+	}
+
+	catalog := read("skills/go-code-refactor/references/CATALOG.md")
+	if !strings.Contains(catalog, "pure, stable, and cheap") {
+		t.Fatal("CATALOG.md must constrain Replace Temp with Query to safe expressions")
+	}
+
+	mechanical := read("skills/go-code-refactor/references/MECHANICAL.md")
+	if strings.Contains(mechanical, "gofmt -r 'bytes.Compare(a, b) == 0 -> bytes.Equal(a, b)' -w ./...") {
+		t.Fatal("MECHANICAL.md must not pass the go-list ./... pattern to gofmt")
+	}
+
+	structural := read("skills/go-code-refactor/references/STRUCTURAL.md")
+	normalizedStructural := strings.Join(strings.Fields(structural), " ")
+	for _, needle := range []string{
+		"no cross-package alias for a mutable variable",
+		"adding a method to an interface breaks its implementors",
+		"An exported struct field can break unkeyed literals",
+	} {
+		if !strings.Contains(normalizedStructural, needle) {
+			t.Errorf("STRUCTURAL.md is missing compatibility guard %q", needle)
+		}
 	}
 }
 

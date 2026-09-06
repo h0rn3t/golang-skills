@@ -94,6 +94,6 @@ jobs:
             1. Set `GOLANGCI_LINT_VERSION` in `.github/workflows/validate-skills.yml`, the pinned version in `skills/go-linting/SKILL.md`, and `docs/RELEASE_CHECKLIST.md`.
             2. Install that version and run `golangci-lint config verify --config skills/go-linting/assets/golangci.yml`; adjust the config only if verification fails, and say what changed and why.
 
-            Add an entry under `## [Unreleased]` in `CHANGELOG.md`. Keep every `SKILL.md` at or below 225 lines and every reference at or below 300 lines. In the PR description list each file changed and the toolchain command that justified each version claim. Do not bump the plugin version; the maintainer does that at release time.
+            Add an entry under `## [Unreleased]` in `CHANGELOG.md`. Keep every `SKILL.md` at or below 500 lines and every reference at or below 300 lines. In the PR description list each file changed and the toolchain command that justified each version claim. Do not bump the plugin version; the maintainer does that at release time.
           claude_args: |
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(go:*),Bash(golangci-lint:*),Bash(git:*),Bash(gh:*),Bash(curl:*),Bash(sed:*),Bash(grep:*),Bash(wc:*),Bash(cd:*),Bash(python3:*)"

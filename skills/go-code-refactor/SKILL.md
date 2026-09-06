@@ -19,6 +19,10 @@ target project using the resolved absolute script path.
 
 - `references/BEHAVIOR-TRAPS.md` - Read before touching concurrency, `defer`, error handling, slices, interfaces, or struct layout.
 - `references/PLAYBOOK.md` - Read for the concrete transformations, ordered by payoff, with before/after Go.
+- `references/CATALOG.md` - Read when the move crosses a function, type, or package boundary: the smell that triggers each transform, the tool that performs it, and its risk tier.
+- `references/SAFETY-NET.md` - Read before the first edit to size the net: coverage tiers for the blast radius, characterization tests, and seams for untested code.
+- `references/MECHANICAL.md` - Read when the same edit recurs across many sites: `gofmt -r`, `eg`, `gopatch`, and `go/analysis` fixers instead of hand-editing each one.
+- `references/STRUCTURAL.md` - Read before moving a type between packages, breaking an import cycle, or changing an exported API: type-alias gradual repair and the deprecation sequence.
 - `references/MODERNIZATION.md` - Read before adopting a newer API; sorts Go 1.21–1.27 features into safe, conditional, and report-only.
 - `references/OVER-ENGINEERING.md` - Read before adding any line (it owns the restraint ladder, the reach-for table, and the ship-then-question write rules), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
 - `references/GOPLS.md` - Read before renaming, extracting, or inlining anything with more than one caller: semantic references and safe rename via gopls instead of grep.
@@ -33,13 +37,62 @@ Use existing authorization and continue work that does not depend on an answer.
    or environmental failures. Continue inspection and independently verifiable
    changes; do not claim behavior preservation without adequate evidence.
 2. **The package has zero tests** — add a small characterization test when
-   needed for the authorized refactor. Missing tests alone do not require another
-   approval. Honor an explicit prohibition on new tests and report the limitation.
+   needed for the authorized refactor; [SAFETY-NET.md](references/SAFETY-NET.md)
+   sizes it. Missing tests alone do not require another approval. Honor an
+   explicit prohibition on new tests and report the limitation.
 3. **The target is generated** — trace its generator and source inputs. Update
    those and regenerate when within scope; ask only if the real source or intended
    target cannot be determined. Do not hand-edit generated output.
 4. **Two readings change the contract or scope** — ask a focused question only
    if the request and repository do not resolve it; continue independent work.
+
+---
+
+## When Not to Refactor
+
+> **Normative**: A refactor is an investment repaid by a future change. With no
+> change coming to spend it on, it is churn carrying a nonzero chance of
+> breaking something that works.
+
+Two cases can make the honest deliverable a sentence rather than a diff. Say
+which one applies and stop only when the requested refactor has no concrete
+readability cost or future change to repay it.
+
+| Case | What to do instead |
+|---|---|
+| The code works and nothing planned will touch it again | Name it and stop; a stable, rarely-read package earns nothing from being restructured for its own sake |
+| No purpose behind "refactor this" — no upcoming feature, no bug class, no smell a review flagged | Name the purpose you inferred and refactor to *that*; if there is none, say so in the report |
+
+Two other cases change the sequence, not cancel the work:
+
+- **Critical path with no tests** — add characterization coverage first
+  ([SAFETY-NET.md](references/SAFETY-NET.md)); continue once the net can support
+  the behavior promise, otherwise report exactly what remains unproved.
+- **Minimal change under time pressure** — make the minimal safe change the
+  user requested and propose the larger refactor separately.
+
+None of these is a licence to skip authorized work that has a concrete purpose.
+
+---
+
+## Risk Tiers
+
+The tier sets what has to be true *before* the step, and pairs with the coverage
+tiers in [SAFETY-NET.md](references/SAFETY-NET.md): low coverage on the blast
+radius pushes every transform up a tier.
+
+| Tier | Transforms | Required before the step |
+|---|---|---|
+| **Low** | gopls inline; rename of an unexported symbol with no reflection or string-based contract; extract variable or constant; `gofmt -s`; organize imports; guard clauses | Baseline plus the focused check after it |
+| **Medium** | Extract function or method, inline across packages, adding or removing one parameter, introducing generics, a bulk rewrite ([MECHANICAL.md](references/MECHANICAL.md)) | Tests that provably reach the touched lines |
+| **High** | Signature change across many callers, cross-package moves, package split or merge, breaking an import cycle, any exported API change | Full net, and it is a findings-list item unless the user asked for it |
+
+The gopls inliner is designed to preserve Go language behavior or refuse the
+change. Rename is compilation-aware, but rename may introduce dynamic errors
+through reflection, templates, serialization conventions, or indirect
+interface assertions. Extract is best-effort and may drop comments. A gopls
+refusal is a real semantic hazard — investigate it, never route around it by
+hand-editing.
 
 ---
 
@@ -150,8 +203,15 @@ For independent packages, follow the host's delegation policy and
 dead code, extract until each function has one job, flatten with early returns,
 name things after what they mean, name magic values, remove duplication that
 has a name. Renames and extractions go through gopls (`references/GOPLS.md`):
-find references semantically first, then let the safe rename refuse a change
-that would un-implement an interface — grep cannot see either.
+find references semantically first, inspect reflection and string-based uses,
+then let rename refuse compilation hazards such as a directly observed broken
+interface implementation — grep cannot see those semantic references.
+
+Three cases leave the playbook. A move that crosses a function, type, or package
+boundary is in `references/CATALOG.md`, with its tool and tier. The same edit
+recurring across many sites is a generated rewrite, not thirty hand-edits
+(`references/MECHANICAL.md`). A type changing packages is a staged alias
+migration, never one atomic commit (`references/STRUCTURAL.md`).
 
 ### 5. Verify
 

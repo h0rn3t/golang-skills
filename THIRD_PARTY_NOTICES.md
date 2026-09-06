@@ -30,6 +30,17 @@ project and are attributed to The Go Authors under the BSD 3-Clause license.
 The Uber Go Style Guide snapshot is attributed to Uber Technologies, Inc. under
 the Apache License, Version 2.0.
 
+## Derived Guidance
+
+No files from the projects below are bundled in this repository. They are
+recorded because guidance in this repository was written after reviewing them
+and follows their selection of topics closely enough to warrant attribution.
+
+| This repository | Upstream project | License | Copyright | What was drawn from it |
+|---|---|---|---|---|
+| `skills/go-code-refactor/references/CATALOG.md`, `SAFETY-NET.md`, `MECHANICAL.md`, `STRUCTURAL.md`; the "When Not to Refactor" and "Risk Tiers" sections of `skills/go-code-refactor/SKILL.md` | [samber/cc-skills-golang](https://github.com/samber/cc-skills-golang) `golang-refactoring` and `golang-design-patterns` skills | MIT | samber | Topic selection: the risk-tier split, coverage-adaptive safety net, bulk-rewrite tool ladder, type-alias gradual repair, import-cycle strategy order, and the not-to-refactor gate. Text is this repository's own. |
+| `evals/ab/README.md` (the trap rule for a fixture) | [samber/cc-skills-golang](https://github.com/samber/cc-skills-golang) skill eval format | MIT | samber | The practice of naming, per eval case, how a model fails *without* the skill |
+
 ## Provenance Policy
 
 When updating files under `source/`:

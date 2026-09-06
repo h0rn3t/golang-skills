@@ -14,7 +14,7 @@ assistants Go best practices derived from:
 Skills are tuned following
 [agentskills.io best practices](https://agentskills.io/skill-creation/best-practices):
 content the agent already knows is omitted, procedural decision trees guide
-multi-step tasks, 61 reference files load on demand via progressive disclosure,
+multi-step tasks, 65 reference files load on demand via progressive disclosure,
 10 bundled scripts automate common checks, and 5 asset templates ensure
 consistent output. The Claude Code plugin also ships a `go-verify` subagent
 that runs the verification gate and a PostToolUse hook that runs `gofmt` and
@@ -209,7 +209,7 @@ which works across multiple AI coding tools. When you're writing Go code:
    (e.g., `go-naming` when you're writing a new function)
 2. **Procedural guidance**: Decision trees and step-by-step procedures for
    multi-step tasks like code review and error strategy selection
-3. **Progressive disclosure**: Core rules load immediately; 61 reference files
+3. **Progressive disclosure**: Core rules load immediately; 65 reference files
    load on demand when specific situations arise
 4. **Automation**: 10 bundled scripts handle repetitive checks so the agent
    focuses on higher-level guidance
@@ -283,7 +283,7 @@ and pinned by `TestGoVersionBaseline` in `evals/eval_test.go`.
 .
 ├── skills/
 │   └── go-*/
-│       ├── SKILL.md      # Core rules (< 225 lines each)
+│       ├── SKILL.md      # Core rules (< 500 lines each)
 │       ├── references/   # Detailed guidance, loaded on demand
 │       ├── scripts/      # Automation scripts and helpers
 │       └── assets/       # Output templates (5 skills)

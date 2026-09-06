@@ -5,6 +5,10 @@ description: Use when working with Go slices, maps, or arrays — choosing betwe
 
 # Go Data Structures
 
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `slices`/`maps`
+> and `slices.Clone`/`maps.Clone` require Go 1.21+; `strings.SplitSeq`
+> Go 1.24+; `strings.CutLast`/`bytes.CutLast` Go 1.27+.
+
 ## Resource Routing
 
 - `references/SLICES.md` - Read when deciding nil versus empty slices, copying slices, or managing slice capacity and aliasing.

@@ -193,6 +193,8 @@ operations are not. Document concurrency when:
 
 Use a buffered channel as a free list to reuse allocated buffers. This "leaky
 buffer" pattern uses `select` with `default` for non-blocking operations.
+Read `references/BUFFER-POOLING.md` for the full pattern and when to prefer
+`sync.Pool` instead.
 
 ---
 

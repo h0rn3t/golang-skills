@@ -6,6 +6,9 @@ allowed-tools: Bash(bash:*)
 
 # Go Interfaces and Composition
 
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Generic methods
+> require Go 1.27+.
+
 ## Resource Routing
 
 - `scripts/check-interface-compliance.sh` - Run as a heuristic to find exported interfaces that may need compile-time assertions.

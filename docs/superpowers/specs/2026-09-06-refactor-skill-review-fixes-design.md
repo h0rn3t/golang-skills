@@ -76,7 +76,7 @@ behavior:
 After implementation:
 
 ```bash
-gofmt -d <changed-go-files>
+gofmt -d evals/cmd/abrun/main.go evals/cmd/abrun/main_test.go evals/eval_test.go
 go test ./cmd/abrun -count=1
 go test -race ./cmd/abrun -count=1
 go test ./... -count=1

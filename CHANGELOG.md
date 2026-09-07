@@ -4,6 +4,43 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-07
+
+### Skill descriptions
+
+- Shorten 18 of 24 skill descriptions, from 9,978 to 6,388 characters (−36.0%).
+  Trigger coverage, skill bodies, references, and permissions are unchanged;
+  `go-code-refactor`, `go-testing`, `go-logging`, `go-http`, `go-security`, and
+  `go-troubleshooting` keep their original wording. The exact-description test
+  goldens in `evals/eval_test.go` move with them.
+- Measure the change on the Codex host, where descriptions are the only input
+  to the routing decision: all 105 trigger cases on both description sets under
+  `gpt-5.6-luna` (medium), 210 sessions, no errors. The rendered skills catalog
+  falls 13,930 → 10,338 characters, cases passed move 88/105 → 84/105 and
+  expected-skill reads 98/110 → 94/110 — McNemar exact p = 0.42, with all 18
+  negative controls holding case for case. Prompt size is established;
+  behavioral equivalence is not, and three of the fourteen flips turn on a
+  description that was never edited. Evidence, raw report, and harness are in
+  `docs/evidence/2026-09-07-description-compression-codex-luna-medium.md`.
+
+### Multi-runner evals
+
+- Add `codex` and `copilot` runners to `evals/cmd/abrun` alongside `claude` and
+  `opencode`, each with its own arm isolation: a private `HOME` per arm, and for
+  Codex a `codex debug prompt-input` precondition check that the arm offers the
+  skills it is supposed to and nothing the host installed. Codex has no skill
+  tool, so a skill counts as fired when the model reads its `SKILL.md`, taken
+  from the shell command and never from its output. Add `-effort` for the two
+  runners whose CLI can set a reasoning level; it is rejected elsewhere rather
+  than ignored.
+- Add the `implement` corpus (`evals/ab/_implement`) with the `catalog`, `feed`,
+  `gateway`, and `ledger` fixtures and their hidden golden tests. Where the
+  refactor corpus scores structure removed from working code, this one scores
+  whether documented-but-unimplemented declarations work at all.
+- Publish control runs for Opus 5, GPT-5.6-Luna, MAI-Code-1.1-Flash, MiMo v2.5
+  Pro, and MiniMax M3 under `docs/evidence/`, including the runs where the arms
+  do not separate because the model never falls into the fixture's trap.
+
 ### Refactoring depth
 
 - Raise the `SKILL.md` ceiling from 225 to 500 lines, the limit the Agent Skills

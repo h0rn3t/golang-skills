@@ -254,6 +254,108 @@ prompts in fresh GPT-6/Codex sessions using the checked-out skills and record
 the answers separately; the [review](docs/CROSS_MODEL_REVIEW.md) distinguishes
 these application probes from a full cross-model benchmark.
 
+## Measured Effect Across Models
+
+Trigger and quality evals ask whether the right skill fires and whether the
+answer reads well. Neither says what the skills do to the code the model
+actually writes. `evals/ab` answers that: it hands the same fixture to the same
+model twice, once with no plugin loaded and once with the whole skill tree, then
+measures the resulting Go — not the prose — against a golden test the model
+never sees. Every table below is computed from the raw JSON reports in
+[`docs/evidence/`](docs/evidence), 5 repetitions per fixture per arm, seed `1`,
+40 sessions per model per corpus.
+
+### Refactor corpus: does the skill remove structure?
+
+Four working packages, each with an honest refactor that removes structure and a
+tempting one that adds it. `report` is the trap fixture — two output formats that
+invite a `Formatter` interface no caller needs. Values are the mean line delta
+with the skill minus the mean without it, so **negative favors the skill**.
+
+| Model | Runner | `dispatch` | `pricing` | `report` | `store` | Corpus |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| [GPT-5.6-Luna (medium)](docs/evidence/2026-09-07-go-refactor-control-gpt-5.6-luna-medium.md) | codex | **−5.8** | +2.6 | **−17.6** | −3.6 | **−6.10** |
+| [MiniMax M3](docs/evidence/2026-09-07-go-refactor-control-minimax-m3.md) | opencode | +0.8 | −6.8 | **−16.4** | −9.4 | **−7.95** |
+| [Opus 5](docs/evidence/2026-09-07-go-refactor-control-opus5.md) | claude | +2.0 | −0.4 | **−16.6** | −1.6 | **−4.15** |
+| [MiMo v2.5 Pro](docs/evidence/2026-09-07-go-refactor-control-mimo-v2.5-pro.md) | opencode | +3.0 | −0.6 | **−11.1** | −1.0 | **−4.11** |
+| [MAI-Code-1.1-Flash](docs/evidence/2026-09-07-go-refactor-control-mai-code-1.1-flash.md) | copilot | +5.8 | −2.6 | −0.6 | +1.8 | +1.10 |
+
+The one model where nothing moved is the one that never took the bait. Read the
+control column first — it is how much there was to remove:
+
+| Model | `report` without the skill | With it | Removed |
+| --- | ---: | ---: | ---: |
+| Opus 5 | +33.4 | +16.8 | 50% |
+| MiniMax M3 | +27.4 | +11.0 | 60% |
+| GPT-5.6-Luna | +18.8 | **+1.2** | **94%** |
+| MiMo v2.5 Pro | +16.4 | +5.2 | 68% |
+| MAI-Code-1.1-Flash | +16.2 | +15.6 | 4% |
+
+MAI-Code-1.1-Flash grows the package half as much as Opus 5 does unaided and
+declares one new type across 20 sessions; there is no over-engineering there for
+the skill to prevent. On GPT-5.6-Luna the skill does not merely shrink the
+growth — four of its five `report` sessions returned a package *smaller* than
+the one they were handed, with the hidden golden test still green.
+
+The mechanism differs by model, and the pair of counts is what tells premature
+abstraction apart from helper sprawl:
+
+| Model | New types | New functions |
+| --- | --- | --- |
+| Opus 5 | 15 → 6 (**−60%**) | 32 → 20 (−38%) |
+| GPT-5.6-Luna | 1 → 1 | 31 → 9 (**−71%**) |
+| MiMo v2.5 Pro | 6 → 3 (−50%) | 20 → 8 (−60%) |
+| MiniMax M3 | 5 → 6 | 31 → 16 (−48%) |
+| MAI-Code-1.1-Flash | 1 → 0 | 37 → 47 (+27%) |
+
+Opus 5's failure mode is reaching for a type; everyone else's is reaching for a
+helper. Across all 199 valid sessions exactly one interface was declared — by
+Opus 5's control arm, none by any skilled arm — and no arm anywhere produced a
+pattern-flavored name. Correctness was tied on every model: 20/20 build and
+golden passes in both arms, 19/20 in both arms on MiMo. The refactor corpus is
+evidence about code size, not about defect rates.
+
+### Implementation corpus: does the skill make the code work?
+
+Documented but unimplemented packages, where the golden test *is* the
+specification and can be failed outright. Each fixture hides one defect a Go
+reviewer would send back — a nil slice that marshals to `null`, a server with no
+timeouts, an error chain cut with `%v`, a snapshot that still aliases the
+caller's slice — and the doc comments never name the technique.
+
+| Model | Runner | `catalog` | `feed` | `gateway` | `ledger` | All |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| [GPT-5.6-Luna (medium)](docs/evidence/2026-09-07-go-implement-control-gpt-5.6-luna-medium.md) | codex | 5/5 → 5/5 | 5/5 → 5/5 | 5/5 → 5/5 | 5/5 → 5/5 | 20/20 → 20/20 |
+| Opus 5 ([gateway](docs/evidence/2026-09-07-go-implement-gateway-opus5.md), [feed/catalog](docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md)) | claude | 3/3 → 3/3 | 3/3 → 3/3 | 5/5 → 5/5 | — | 11/11 → 11/11 |
+| [MAI-Code-1.1-Flash](docs/evidence/2026-09-07-go-implement-control-mai-code-1.1-flash.md) | copilot | 5/5 → 5/5 | 4/5 → 5/5 | **1/5 → 3/5** | 5/5 → 5/5 | 15/20 → 18/20 |
+| [MiMo v2.5 Pro](docs/evidence/2026-09-07-go-implement-control-mimo-v2.5-pro.md) | opencode | 4/5 → 4/5 | 3/5 → 3/5 | **1/5 → 3/5** | 4/4 → 5/5 | 12/19 → 15/20 |
+
+Where the model already avoids the defect, the skill has nothing to add and the
+score is what a working implementation costs instead: on Opus 5 `gateway` went
+from 152.6 lines to 99.8 with correctness tied at 5/5, functions down 44% and the
+skilled arm's spread seven times tighter.
+
+Where the model falls in, the score is whether the package works at all.
+`gateway` — an edge server built as `&http.Server{Addr: addr, Handler: h}`, whose
+zero timeouts hold stalled connections until it runs out — goes 1/5 to 3/5 on
+two unrelated models, runners and providers. Every failure in both arms is that
+one defect: `ReadTimeout` or `ReadHeaderTimeout` left at zero.
+
+At `n=5` per cell Fisher's exact gives p ≈ 0.5 for those, so each is a direction
+rather than a demonstrated result; two independent runs landing on the same
+numbers is why `gateway` is the fixture worth a larger `n`.
+
+### What this does and does not establish
+
+It compares the complete current skill tree against no skill at all, which is
+what decides whether a fixture contains a trap the plugin can catch. It is not a
+before/after measurement of a wording change; that claim needs the `reference`
+arm and a second checkout. The runners differ in ways that matter across files —
+tool sets, whether the session has a shell, whether the plugin's hook and
+subagent apply — and those differences are recorded in
+[`evals/ab/README.md`](evals/ab/README.md). Every table here has its raw JSON
+report and a SHA-256 beside it; the repository carries no result without one.
+
 ## Go 1.27
 
 Skills target Go 1.27 and say so where it matters. Notable guidance that

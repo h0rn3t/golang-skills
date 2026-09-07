@@ -75,9 +75,8 @@ against $0.391 for 20 baseline runs, $0.575 for the corpus.
 This is the cleanest replication of the effect so far. The trap is live — the
 unaided model grows `report` by 16.4 lines — and the skill removes most of it,
 which is the pattern Opus 5 and MiniMax M3 showed and which
-[MAI-Code-1.1-Flash](2026-09-07-go-refactor-control-mai-code-1.1-flash.md)
-(saturated trap) and [GPT-5.3-Codex-Spark](2026-09-07-go-refactor-control-codex-spark-xhigh.md)
-(live trap, no effect) both broke.
+[MAI-Code-1.1-Flash](2026-09-07-go-refactor-control-mai-code-1.1-flash.md), whose
+trap is saturated, broke.
 
 Both structural mechanisms reproduce at once, which no earlier run managed.
 Opus 5 cut new types by 60% but function growth by 37.5%; MiniMax M3 cut

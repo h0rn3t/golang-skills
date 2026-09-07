@@ -177,18 +177,6 @@ The same model is the first to give the implementation corpus a live trap:
 sessions that reached `go-http` set every timeout —
 [analysis and raw report](../../docs/evidence/2026-09-07-go-implement-control-mai-code-1.1-flash.md).
 
-A fourth replication under `-runner codex` with `gpt-5.3-codex-spark -effort
-xhigh` is the first genuine negative result for the wording. The trap is live
-there — unaided, the model grows `report` by 30.6 lines, between Opus 5's +33.4
-and MiniMax M3's +27.4 — and the skill did not move it (+31.8), while `dispatch`
-got clearly worse. The skill was read in 18 of 20 sessions, so it is not a
-triggering failure. Correctness moved the other way: 15 of 20 control sessions
-produced a usable refactor against 18 of 20 skilled, with four sessions across
-both arms leaving a Go file that does not parse. See the
-[analysis and raw report](../../docs/evidence/2026-09-07-go-refactor-control-codex-spark-xhigh.md).
-The implementation corpus has not been run on codex; the account's quota ran out
-first, and the command to finish it is recorded in that file.
-
 A fifth model, `opencode-go/mimo-v2.5-pro` under `-runner opencode`, gives the
 cleanest replication yet and the most useful implementation run to date. On the
 refactor corpus it cuts `report` growth 68.0% (+16.4 to +5.2, the only fixture
@@ -237,7 +225,7 @@ go run ./cmd/abrun -runner opencode -model opencode-go/minimax-m3 \
 go run ./cmd/abrun -runner copilot -model mai-code-1.1-flash \
   -arms no-skill,baseline -n 5 -j 4 -seed 1 -out copilot.json
 
-go run ./cmd/abrun -runner codex -model gpt-5.3-codex-spark -effort xhigh \
+go run ./cmd/abrun -runner codex -model gpt-5.6-luna -effort medium \
   -arms no-skill,baseline -n 5 -j 4 -seed 1 -out codex.json
 
 go run ./cmd/abrun -tasks report -n 1 -verbose     # one fixture, one pass

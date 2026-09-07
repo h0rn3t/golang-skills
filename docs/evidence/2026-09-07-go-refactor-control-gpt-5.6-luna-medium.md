@@ -29,11 +29,10 @@ fixture and stayed out of the repository checkout, so all 40 count as evidence.
 `go-testing` fired in 6, `go-code` in 4 and `go-code-review` in 1. This is the
 first run on any runner where the owning skill reached every single session.
 
-Runner conditions are those of the
-[GPT-5.3-Codex-Spark run](2026-09-07-go-refactor-control-codex-spark-xhigh.md):
-Codex has no skill tool, so a skill is scored from the shell command that opened
-its `SKILL.md`; Codex keeps its own tool set, so these sessions have a shell; and
-the plugin's PostToolUse hook and `go-verify` subagent do not apply.
+Two runner conditions matter for reading this file. Codex has no skill tool, so
+a skill is scored from the shell command that opened its `SKILL.md`; Codex keeps
+its own tool set, so these sessions have a shell and could run `go test` on their
+own work. The plugin's PostToolUse hook and `go-verify` subagent do not apply.
 
 ## Results
 
@@ -57,10 +56,10 @@ than the one they were handed while the hidden golden test still passed. The
 effect is −17.6 lines, the largest recorded, and its interval is the only one in
 the corpus that clears zero by more than a rounding error.
 
-`dispatch` is the surprise. It has gone the wrong way on all five models
-measured before this one — Opus 5 +2.0, MiniMax M3 +0.8, MiMo v2.5 Pro +3.0,
-MAI-Code-1.1-Flash +5.8, GPT-5.3-Codex-Spark +11.8 — and here it is −5.8 with an
-interval that excludes zero. The skilled arm is also far more consistent on it,
+`dispatch` is the surprise. It has gone the wrong way on every model measured
+before this one — Opus 5 +2.0, MiniMax M3 +0.8, MiMo v2.5 Pro +3.0,
+MAI-Code-1.1-Flash +5.8 — and here it is −5.8 with an interval that excludes
+zero. The skilled arm is also far more consistent on it,
 ±1.0 against the control's ±4.3.
 
 | Structural additions across 20 runs | No skill | Skill | Change |
@@ -91,18 +90,8 @@ mechanism is unambiguous: 22 fewer helper functions across the arm, with no
 change in types or interfaces. This model's failure mode is helper sprawl, the
 same one MiniMax M3 has, and the skill suppresses it hardest.
 
-Reading it beside the [GPT-5.3-Codex-Spark run](2026-09-07-go-refactor-control-codex-spark-xhigh.md)
-is the useful part, because the two share a runner, a corpus, a seed and a
-harness and differ only in the model. Spark at `xhigh` had a live trap (+30.6
-unaided) and the skill did nothing with it (+31.8), while shipping code that did
-not compile in 4 of 40 sessions. Luna at `medium` has a smaller trap (+18.8) and
-the skill empties it. Whatever separates them, it is not the runner, the tool
-set or the absence of a skill tool — and it is not reasoning effort in the
-direction one would guess, since the model that responded was the one run at the
-lower setting.
-
 `dispatch` moving for the first time is worth a second look rather than a
-conclusion. Five models put it on the wrong side and one puts it clearly on the
+conclusion. Four models put it on the wrong side and one puts it clearly on the
 right side; that is a fixture whose result depends on the model more than the
 wording does, and `n=5` per cell with four fixtures tested at once makes these
 descriptive intervals, not a preregistered result.

@@ -30,10 +30,12 @@ func TestResultStatus(t *testing.T) {
 		in   result
 		want string
 	}{
-		{name: "success", in: result{Build: true, Golden: true}, want: "ok "},
-		{name: "runner error", in: result{Build: true, Golden: true, Err: "failed"}, want: "ERR"},
-		{name: "build failure", in: result{Golden: true}, want: "ERR"},
-		{name: "golden failure", in: result{Build: true}, want: "ERR"},
+		{name: "success", in: result{Build: true, Golden: true, Edited: true}, want: "ok "},
+		{name: "runner error", in: result{Build: true, Golden: true, Edited: true, Err: "failed"}, want: "ERR"},
+		{name: "build failure", in: result{Golden: true, Edited: true}, want: "ERR"},
+		{name: "golden failure", in: result{Build: true, Edited: true}, want: "ERR"},
+		{name: "no edit", in: result{Build: true, Golden: true}, want: "ERR"},
+		{name: "repository reference", in: result{Build: true, Golden: true, Edited: true, Leaked: true}, want: "ERR"},
 	}
 
 	for _, tt := range tests {
@@ -47,14 +49,21 @@ func TestResultStatus(t *testing.T) {
 
 func TestSummarizeArmExcludesInvalidDeltas(t *testing.T) {
 	rep := report{Results: []result{
-		{Arm: "baseline", Build: true, Golden: true, Delta: metrics{Lines: -10}},
-		{Arm: "baseline", Build: true, Golden: false, Delta: metrics{Lines: -100}},
+		{Arm: "baseline", Build: true, Golden: true, Edited: true, Delta: metrics{Lines: -10}},
+		{Arm: "baseline", Build: true, Golden: false, Edited: true, Delta: metrics{Lines: -100}},
 		{Arm: "baseline", Err: "session failed", Delta: metrics{Lines: -200}},
+		// A session that edited nothing scores a zero delta on every metric,
+		// which would read as a behavior-preserving tie rather than a miss.
+		{Arm: "baseline", Build: true, Golden: true},
+		{Arm: "baseline", Build: true, Golden: true, Edited: true, Leaked: true, Delta: metrics{Lines: -400}},
 	}}
 
 	got := summarizeArm(rep, "baseline")
-	if got.Runs != 3 || got.Errors != 1 || got.Valid != 1 {
-		t.Fatalf("summarizeArm counts = runs:%d errors:%d valid:%d, want 3, 1, 1", got.Runs, got.Errors, got.Valid)
+	if got.Runs != 5 || got.Errors != 1 || got.Valid != 1 {
+		t.Fatalf("summarizeArm counts = runs:%d errors:%d valid:%d, want 5, 1, 1", got.Runs, got.Errors, got.Valid)
+	}
+	if got.NoEdit != 1 || got.Leaked != 1 {
+		t.Errorf("summarizeArm counts = noedit:%d leaked:%d, want 1, 1", got.NoEdit, got.Leaked)
 	}
 	if got.Lines != -10 {
 		t.Errorf("summarizeArm lines = %d, want -10 from the valid run only", got.Lines)
@@ -71,9 +80,60 @@ func TestAnalyzeIncludesNestedGoFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("analyze(%q) error = %v, want nil", root, err)
 	}
-	want := metrics{Lines: 7, Files: 2, TestFiles: 1, Types: 2, Interfaces: 1, Funcs: 2}
+	want := metrics{Lines: 7, Files: 2, TestFiles: 1, Types: 2, Interfaces: 1, Funcs: 2, Exported: 4}
 	if got != want {
 		t.Errorf("analyze(%q) = %+v, want %+v", root, got, want)
+	}
+}
+
+func TestAnalyzeCountsPublicSurfaceAndBranches(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "surface.go"), `package surface
+
+const Public = 1
+
+const private = 2
+
+var Exported, unexported = 3, 4
+
+type Kind int
+
+type hidden struct{}
+
+// Method is exported but hangs off an unexported type, so it adds no
+// reachable surface.
+func (hidden) Method() {}
+
+func Walk(items []int) int {
+	total := 0
+	for _, n := range items {
+		if n < 0 {
+			continue
+		}
+		switch n {
+		case 1, 2:
+			total += n
+		default:
+			total++
+		}
+	}
+	return total
+}
+`)
+
+	got, err := analyze(root)
+	if err != nil {
+		t.Fatalf("analyze(%q) error = %v, want nil", root, err)
+	}
+
+	// Public, Exported, Kind, Walk. private, unexported, hidden and the method
+	// on hidden are all unreachable from outside the package.
+	if got.Exported != 4 {
+		t.Errorf("analyze exported = %d, want 4", got.Exported)
+	}
+	// range, if, and the two values of the one non-default case.
+	if got.Branches != 4 {
+		t.Errorf("analyze branches = %d, want 4", got.Branches)
 	}
 }
 
@@ -188,14 +248,16 @@ func TestBuildJobsIsSeededAndNotArmMajor(t *testing.T) {
 }
 
 func TestValidateOptions(t *testing.T) {
-	valid := options{reps: 1, parallel: 1, timeout: time.Second}
+	valid := options{corpus: corpusRefactor, runner: runnerClaude, reps: 1, parallel: 1, timeout: time.Second}
 	tests := []struct {
 		name string
 		in   options
 	}{
-		{name: "zero repetitions", in: options{parallel: 1, timeout: time.Second}},
-		{name: "zero parallelism", in: options{reps: 1, timeout: time.Second}},
-		{name: "zero timeout", in: options{reps: 1, parallel: 1}},
+		{name: "zero repetitions", in: options{corpus: corpusRefactor, runner: runnerClaude, parallel: 1, timeout: time.Second}},
+		{name: "zero parallelism", in: options{corpus: corpusRefactor, runner: runnerClaude, reps: 1, timeout: time.Second}},
+		{name: "zero timeout", in: options{corpus: corpusRefactor, runner: runnerClaude, reps: 1, parallel: 1}},
+		{name: "unknown runner", in: options{corpus: corpusRefactor, runner: "codex", reps: 1, parallel: 1, timeout: time.Second}},
+		{name: "opencode without a model", in: options{corpus: corpusRefactor, runner: runnerOpencode, reps: 1, parallel: 1, timeout: time.Second}},
 	}
 
 	if err := validateOptions(valid); err != nil {

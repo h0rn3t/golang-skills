@@ -1,6 +1,6 @@
 ---
 name: go-defensive
-description: Use when hardening Go code at API boundaries — copying slices/maps, verifying interface compliance, using defer for cleanup, time.Time/time.Duration, or avoiding mutable globals. Also use when reviewing for robustness concerns like missing cleanup or unsafe crypto usage, even if the user doesn't mention "defensive programming." Does not cover error handling strategy (see go-error-handling).
+description: Use when hardening Go code at API boundaries — copying slices/maps, verifying interface compliance, using defer for cleanup, time.Time/time.Duration, or avoiding mutable globals. Also use for silent-correctness traps in ordinary Go code — a typed nil in an interface, slices that still alias after append, a narrowing integer conversion that overflows, float equality, a nil channel that blocks forever, or defer inside a loop — and when reviewing for robustness concerns like missing cleanup or unsafe crypto usage, even if the user doesn't mention "defensive programming." Does not cover error handling strategy (see go-error-handling).
 ---
 
 # Go Defensive Programming Patterns
@@ -50,6 +50,21 @@ Reviewing an API boundary?
 | Must functions | Only at init; panic on failure | [MUST-FUNCTIONS.md](references/MUST-FUNCTIONS.md) |
 | Panic/recover | Never expose panics across packages | [PANIC-RECOVER.md](references/PANIC-RECOVER.md) |
 | Mutable globals | Replace with dependency injection | Below |
+
+---
+
+## Common Pitfalls
+
+| Pitfall | Rule |
+|---|---|
+| Typed nil in an interface | Return explicit `nil`; a `*T(nil)` in an `error` slot is non-nil (see [go-error-handling](../go-error-handling/SKILL.md)) |
+| Bare `x.(T)` assertion | Use comma-ok; reflection code prefers `reflect.TypeAssert[T]` (Go 1.25+, see [go-interfaces](../go-interfaces/SKILL.md)) |
+| `append` aliasing | Both slices share the backing array while capacity allows. `s[:len(s):len(s)]` only caps capacity so the next `append` reallocates — existing elements still alias; `slices.Clone(s)` is the copy (see [go-data-structures](../go-data-structures/SKILL.md)) |
+| `int64` to `int32` without a bounds check | Values wrap silently; compare against `math.MaxInt32`/`math.MinInt32` first |
+| Float `==` | Use an epsilon comparison; exact money math needs integer units or `math/big` |
+| `defer` in a loop | Calls fire at function exit, not per iteration — extract the body (behavior note in [go-code-refactor](../go-code-refactor/references/BEHAVIOR-TRAPS.md)) |
+| Nil channel | Send and receive block forever, so an unmade channel field is a hang, not an error — a deliberate `nil` in a `select` is the idiom for disabling that case (channel ownership: [go-concurrency](../go-concurrency/SKILL.md)) |
+| Integer division by zero | Panics; guard the divisor (float division yields `Inf`/`NaN` instead) |
 
 ---
 

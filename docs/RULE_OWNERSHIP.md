@@ -44,6 +44,12 @@ owner with a short pointer instead of repeating a full explanation.
 | Bulk mechanical rewrites: `gofmt -r`, `eg`, `gopatch`, `go/analysis` fixers | `go-code-refactor` | `go-linting`, `go-code` | golang.org/x/tools/cmd/eg; uber-go/gopatch; `go/analysis` docs |
 | Cross-package moves during a refactor: type-alias gradual repair, import-cycle strategies, deprecate-before-delete | `go-code-refactor` | `go-packages`, `go-interfaces` | Go 1.9 type alias proposal; Go Modules Reference |
 | User scope and house style precedence, narration, report length, host-controlled delegation | `go-style-core` | `go-code`, `go-code-review`, `go-code-refactor`, `go-troubleshooting` | Project policy; [OpenAI GPT-6 Astra prompting guidance](https://developers.openai.com/api/docs/guides/latest-model/gpt-6-astra.md#prompting-best-practices); Anthropic Opus guidance remains host-specific |
+| Deprecated API replacement targets, versions, and risk conditions | `go-code-refactor` | `go-packages` | `go-code-refactor/references/MODERNIZATION.md`; `$GOROOT/api/go1.*.txt` |
+| Boundary safety pitfalls: typed nil, `append` aliasing, narrowing conversions, float compare, nil channel, division by zero | `go-defensive` | `go-code`, `go-code-review`, `go-troubleshooting` | Go specification; `gosec` G115; Effective Go |
+| Production observability checklist (metrics shape, trace correlation, done criteria) | `go-logging` | `go-performance`, `go-troubleshooting` | `log/slog` docs; Prometheus histogram guidance |
+| Benchmark discipline (file layout, serial runs, benchstat evidence, perf commits) | `go-performance` | `go-code-review` | Go testing benchmark docs; `benchstat` |
+| Tool directives and dependency audit (`go get -tool`, tidy check, vuln scan trigger) | `go-packages` | `go-linting` | `go help get`; `go help tool` |
+| CI pipeline shape (version matrix, test flags, pinned actions, least-privilege permissions) | `go-linting` | `go-testing` | GitHub Actions docs; `go help testflag` |
 
 ## Maintenance Rules
 
@@ -51,3 +57,41 @@ owner with a short pointer instead of repeating a full explanation.
 - In non-owner skills, keep route text to one or two lines plus a link.
 - If sources conflict, record the chosen repository policy in the owner
   reference and link to it from route-only skills.
+
+## Scope Exceptions
+
+A rule area is written for the code its owner skill teaches about. Where this
+repository's own tooling does not follow one, record the exception here so a
+reader of the workflow finds the reason instead of an apparent oversight.
+
+### CI pipeline shape does not apply to this repository's workflows
+
+The checklist in `go-linting` addresses a Go **service**. This repository is a
+skills pack: its only committed module, `evals/`, has no `require` block, and
+its tests read Markdown and shell out to the bundled scripts. Decision on
+2026-09-07 — `.github/workflows/validate-skills.yml` stays as it is.
+
+Not applicable, by the pack's own shape:
+
+- **No version matrix.** The pack states one baseline (`COMPATIBILITY.md`), and
+  CI pins `go-version: '1.27.x'` to match it. A second entry would test the
+  toolchain, not the pack.
+- **No `govulncheck`, no `go mod tidy` drift check.** A zero-dependency module
+  has no reachable third-party CVE and no tidy drift to catch. Both become
+  applicable the first time `evals/go.mod` gains a `require`.
+
+Deliberate divergence, with the residual risk stated rather than argued away:
+
+- **Actions carry `@vN` tags, not full commit SHAs.** The `validate` job reads
+  public source only, but the opt-in `evals` job passes
+  `secrets.ANTHROPIC_API_KEY`, so a compromised tag in that job is a real
+  exposure. Accepted for now against the cost of re-pinning on every bump.
+- **No `permissions:` block in `validate-skills.yml`**, so the repository
+  default applies. `go-release-watch.yml` sets one at workflow level.
+- **Tests run `go test -count=1 ./...` without `-race -shuffle=on`**, although
+  `eval_test.go` has 45 `t.Parallel()` subtests that write files and exec
+  scripts. This is a gap in the pack's own gate, not a scope mismatch.
+
+`evals/evals.json` quality eval 45 grades a model on flagging exactly this
+shape in a *service* pipeline. That eval is correct as written; it does not
+describe this repository.

@@ -15,16 +15,19 @@ change. Code written fresh has nothing to preserve — there the reach-for table
 in [OVER-ENGINEERING.md](OVER-ENGINEERING.md#reach-for-what-go-ships) is the
 checklist and the shorter form simply wins.
 
+Work the tiers in order — Tier 1, then Tier 2, then report Tier 3. Safety
+before readability before gradual improvement; a Tier 3 item never rides
+inside a Tier 1 diff.
+
 ## Contents
 
 - [Start with `go fix`](#start-with-go-fix)
 - [Tier 1 — safe swaps](#tier-1--safe-swaps)
 - [Tier 2 — safe with a condition](#tier-2--safe-with-a-condition)
 - [Tier 3 — report, don't apply](#tier-3--report-dont-apply)
+- [Deprecated APIs and replacements](#deprecated-apis-and-replacements)
 - [Toolchain shifts that break tests on their own](#toolchain-shifts-that-break-tests-on-their-own)
 - [Tools worth running once](#tools-worth-running-once)
-
----
 
 ## Start with `go fix`
 
@@ -37,17 +40,13 @@ go fix -diff ./...   # inspect first
 go fix ./...         # then apply
 ```
 
-Run it before hand-editing. Whatever `go fix` handles is mechanical,
-reviewable, and attributable to a tool; your hand-written changes should be the
-ones that needed judgment. Mixing both into one unexplained blob is what makes
-reviewers distrust a refactor.
+Run `go fix` before hand-editing. Keep its mechanical changes distinguishable
+from transformations that need judgment so reviewers can attribute each edit.
 
 `go tool fix help` prints the set your toolchain actually has — trust that over
 any list, including this one. If a fixer produces something wrong, say so in
 the report instead of quietly reverting it.
 [go-linting](../../go-linting/SKILL.md) catalogues the current analyzers.
-
----
 
 ## Tier 1 — safe swaps
 
@@ -201,8 +200,6 @@ is provably unobserved.
 observers, so the bar is lower; a changed test is still worth mentioning. See
 [go-testing](../../go-testing/SKILL.md).
 
----
-
 ## Tier 2 — safe with a condition
 
 - **`net.JoinHostPort` over `fmt.Sprintf("%s:%d", host, port)`.** Identical for
@@ -226,8 +223,6 @@ observers, so the bar is lower; a changed test is still worth mentioning. See
 - **`slog.GroupAttrs`** replacing a manually built group. Same output; verify
   the attribute order your handler emits.
 
----
-
 ## Tier 3 — report, don't apply
 
 Genuinely better and genuinely observable. List them in the findings with a
@@ -247,7 +242,25 @@ one-line rationale so the user can schedule them.
 - **Bumping the `go` directive.** Enables new language semantics *and* new vet
   diagnostics at once. Its own change, never a rider.
 
----
+## Deprecated APIs and replacements
+
+**Deprecated in** marks the old API's deprecation, not the replacement's release.
+**Tier**: 1 apply, 2 apply if the stated condition holds, 3 report only.
+The target module must support the replacement; report unproven Tier 2 swaps.
+
+| Deprecated | Deprecated in | Use instead | Tier |
+|---|---|---|---|
+| `math/rand.Seed`, `math/rand.Read` — the package itself is not deprecated | 1.20 | `math/rand/v2` (1.22): different API, and a different value sequence for the same seed | 3 |
+| `crypto/elliptic` key-agreement helpers (`GenerateKey`, `Marshal`, `Unmarshal`, `Curve` arithmetic) | 1.21 | `crypto/ecdh` (1.20); custom-curve arithmetic has no replacement | 3 |
+| `reflect.SliceHeader`, `reflect.StringHeader` | 1.21 | `unsafe.Slice`, `unsafe.String` — recheck what keeps the backing memory alive | 2 |
+| `reflect.PtrTo` | 1.22 | `reflect.PointerTo` | 1 |
+| `runtime.GOROOT()` | 1.24 | `go env GOROOT` — a subprocess, not an in-process constant | 2 |
+| `crypto/cipher` `NewOFB`, `NewCFBEncrypter`, `NewCFBDecrypter` | 1.24 | AEAD modes, or `NewCTR` when the ciphertext size must not change | 3 |
+| `golang.org/x/crypto/sha3` — not deprecated | — | `crypto/sha3` (1.24); verify constructor signatures and exposed types remain compatible; `NewLegacyKeccak256`/`512` stay in `x/crypto` | 2 |
+| `golang.org/x/crypto/hkdf` — not deprecated | — | `crypto/hkdf` (1.24); replace streaming reads only when the total output length is known and read/error behavior is preserved; adapt the new error returns and `info` argument | 2 |
+| `golang.org/x/crypto/pbkdf2` — not deprecated | — | `crypto/pbkdf2` (1.24); adapt argument order, password type, and the new error return; prove reachable inputs satisfy the new validation and preserve failure behavior | 2 |
+| `ReverseProxy.Director` | 1.26 | `ReverseProxy.Rewrite` — different `X-Forwarded-*` defaults | 3 |
+| `crypto/tls.Config.Rand` | 1.27 | nil in production; `testing/cryptotest.SetGlobalRandom` (1.26) in tests | 2 |
 
 ## Toolchain shifts that break tests on their own
 
@@ -262,6 +275,11 @@ Attribute before rewriting. Verified against go1.27.0:
 - **`GOMAXPROCS` is cgroup-aware since Go 1.25.** Under a container CPU limit,
   effective parallelism changes, which changes timing-dependent behavior.
   `runtime.SetDefaultGOMAXPROCS()` restores the default after an override.
+- **Seven `GODEBUG` keys were removed in Go 1.27** (`asynctimerchan`,
+  `gotypesalias`, `tlsunsafeekm`, `tlsrsakex`, `tls3des`, `tls10server`,
+  `x509keypairleaf`). A `godebug` line or `//go:debug` comment pinning any of
+  them to its old value now fails the build — delete the pin rather than
+  carrying it forward.
 - **Float results can move across a toolchain bump.** At `GOAMD64=v3` and above
   the compiler may fuse `a*b + c` into a single FMA. `float64(a*b) + c`
   prevents fusing. Relevant wherever money or aggregates are compared exactly.
@@ -270,8 +288,6 @@ Anything else you suspect is a toolchain change rather than yours: confirm it
 before saying so. `git stash` the diff and re-run the failing test on the new
 toolchain — if it still fails, it was never yours. Reporting a guess here is
 how a refactor loses the reviewer's trust.
-
----
 
 ## Tools worth running once
 

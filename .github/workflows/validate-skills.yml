@@ -1,3 +1,8 @@
+# This workflow deliberately diverges from the CI checklist in
+# skills/go-linting/SKILL.md, which is written for a Go service. The reasons,
+# and the parts that are a real gap rather than a scope mismatch, are recorded
+# in docs/RULE_OWNERSHIP.md under "Scope Exceptions". Do not "fix" it to match
+# the checklist without updating that record.
 name: Validate Skills
 
 on:
@@ -26,7 +31,7 @@ on:
 
 env:
   AGENTSKILLS_VALIDATE_VERSION: 1.0.1
-  GOLANGCI_LINT_VERSION: v2.13.1
+  GOLANGCI_LINT_VERSION: v2.13.2
 
 jobs:
   validate:

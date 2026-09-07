@@ -1,6 +1,6 @@
 ---
 name: go-logging
-description: Use when choosing a logging approach, configuring slog, writing structured log statements, or deciding log levels in Go. Also use when setting up production logging, adding request-scoped context to logs, or migrating from log to slog, even if the user doesn't explicitly mention logging. Does not cover error handling strategy (see go-error-handling).
+description: Use when choosing a logging approach, configuring slog, writing structured log statements, or deciding log levels in Go. Also use when making a Go service observable — request-scoped context, trace correlation, metric shape and label cardinality, dashboards and alerts as done-criteria — or when setting up production logging or migrating from log to slog, even if the user doesn't explicitly mention logging. Does not cover error handling strategy (see go-error-handling).
 ---
 
 # Go Logging
@@ -128,6 +128,15 @@ pass the enriched logger downstream via context or as an explicit parameter.
 Keep the full context-key and middleware implementation in the logging patterns
 reference so request-scoped logging has one owner.
 
+Log through the `*Context` variants (`slog.InfoContext`, `slog.ErrorContext`)
+so the context reaches `Handler.Handle`. That call alone adds nothing:
+`TextHandler` and `JSONHandler` ignore the context. A trace or request ID
+reaches the record only from a logger already enriched with it, or from a
+handler that reads it out of the context. For the existing enriched-logger
+approach, see "HTTP Request Logging Middleware" and "Retrieving the Logger
+from Context" in [LOGGING-PATTERNS.md](references/LOGGING-PATTERNS.md).
+Use that retrieved logger's `InfoContext` method downstream.
+
 ---
 
 ## Log or Return, Not Both
@@ -149,6 +158,31 @@ if err != nil {
 
 See [go-error-handling](../go-error-handling/SKILL.md) for the full
 handle-once pattern and error wrapping guidance.
+
+---
+
+## Production Observability Checklist
+
+> **Advisory**: for a production service, in the stack the project already
+> runs. The metric shapes below are Prometheus terms because that is the
+> common case — translate them for OpenTelemetry or a vendor agent rather
+> than adding a second stack, and skip the checklist for a library or CLI.
+
+A feature in a service is not done until an operator can see it fail:
+
+- **Metrics** — counters for operations and errors, histograms for latency
+  (histograms aggregate across instances; summaries do not). Keep the query
+  that reads a metric next to its declaration.
+- **Cardinality** — label values stay bounded (method, route pattern, status);
+  never user IDs, full URLs, or request bodies.
+- **Logs** — structured key-value records carrying the request or trace ID,
+  which needs the enriched logger or context handler described above.
+- **Dashboards and alerts** — a metric nobody queries is not observability:
+  land each one in the project's dashboards and alert rules, or say plainly
+  that it shipped unwired.
+- **Profiles** — guard the `pprof` endpoint with auth (see
+  [go-security](../go-security/SKILL.md)); never expose it unauthenticated.
+  [go-troubleshooting](../go-troubleshooting/SKILL.md) owns reading them.
 
 ---
 

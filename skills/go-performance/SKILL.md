@@ -122,6 +122,22 @@ go test -bench=. -benchmem -count=10 ./...
 > unmeasured optimization is a readability cost with no benefit. Report the
 > before/after numbers; do not describe a change as "faster" without them.
 
+### Benchmark discipline
+
+- Keep benchmarks in a file of their own beside the source, ordered to mirror
+  the functions they measure. Go only requires some `_test.go` file; the
+  `*_bench_test.go` suffix is this pack's convention, and an existing project
+  layout outranks it.
+- Implement competing variants in isolation, then measure serially on the same
+  machine and toolchain; concurrent runs share CPUs and contaminate `ns/op`.
+- Compare with `benchstat` (see
+  [BENCHMARKS.md](references/BENCHMARKS.md)) and claim only deltas it calls
+  significant — never a single run, never a `~` row.
+- A comparison that straddles a toolchain bump measures the toolchain, not the
+  code — re-run the baseline on the new toolchain first.
+- Perf-only changes use a `perf(scope):` subject and paste the benchstat table
+  plus hardware context (`goos`/`goarch`/`cpu`) in the body.
+
 ### Before reaching for a faster library
 
 Check the standard library first — `encoding/json/v2` (Go 1.27+) and the

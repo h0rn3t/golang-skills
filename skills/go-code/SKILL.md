@@ -102,8 +102,8 @@ does not require another skill load.
 | declaration, enum, or initialization decisions | [go-style-core references](../go-style-core/SKILL.md#resource-routing) | — |
 | loop/switch mechanics or statement scoping decisions | [go-style-core references](../go-style-core/SKILL.md#resource-routing) | — |
 | type parameters, constraints, generic methods | [go-generics](../go-generics/SKILL.md) | — |
-| `slog`, log levels, request-scoped fields | [go-logging](../go-logging/SKILL.md) | [go-security](../go-security/SKILL.md) if a secret or PII could reach a log line |
-| `defer` cleanup, boundary copies, mutable globals | [go-defensive](../go-defensive/SKILL.md) | — |
+| `slog`, log levels, request-scoped fields, metrics and trace correlation | [go-logging](../go-logging/SKILL.md) | [go-security](../go-security/SKILL.md) if a secret or PII could reach a log line |
+| `defer` cleanup, boundary copies, mutable globals, nil/aliasing/overflow traps | [go-defensive](../go-defensive/SKILL.md) | — |
 | hot paths, allocations, benchmarks | [go-performance](../go-performance/SKILL.md) | [go-troubleshooting](../go-troubleshooting/SKILL.md) if the cause of slowness is unknown |
 | package layout, imports, dependencies | [go-packages](../go-packages/SKILL.md) | — |
 | restructuring or deleting existing code | [go-code-refactor](../go-code-refactor/SKILL.md) | — |
@@ -128,6 +128,21 @@ thoroughness — the rules that do not apply crowd out the ones that do; the
 If exactly one row matches and its third column is empty, invoke that skill
 directly and skip this one; a router in front of a single destination is
 overhead.
+
+### Boundaries
+
+When two rows both look right, the narrower owner wins: slowness with a named
+hot path is [go-performance](../go-performance/SKILL.md) and its benchmarks
+reference owns the measurement, while an unknown cause — profile capture
+included — is [go-troubleshooting](../go-troubleshooting/SKILL.md) first.
+Internal correctness (nil, aliasing, overflow) is
+[go-defensive](../go-defensive/SKILL.md); an adversary, secret, or untrusted
+input is [go-security](../go-security/SKILL.md).
+Adopting a newer API is the modernization catalog in
+[go-code-refactor](../go-code-refactor/references/MODERNIZATION.md); moving code
+is its structural references. Semantic rename, references, and diagnostics
+during a refactor go through
+[go-code-refactor](../go-code-refactor/references/GOPLS.md).
 
 ## Close With The Gate
 

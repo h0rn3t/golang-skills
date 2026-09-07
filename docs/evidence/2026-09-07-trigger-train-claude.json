@@ -1,0 +1,663 @@
+{
+  "set": "train",
+  "trigger": [
+    {
+      "query": "Write a Go function that processes items concurrently using goroutines and channels",
+      "want": [
+        "go-concurrency"
+      ],
+      "got": [
+        "go-concurrency"
+      ],
+      "pass": true
+    },
+    {
+      "query": "I have a race condition in my Go service, can you help fix it?",
+      "want": [
+        "go-concurrency"
+      ],
+      "got": [
+        "go-concurrency"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Review this Go PR for me before I submit it",
+      "want": [
+        "go-code-review"
+      ],
+      "got": [
+        "go-code-review"
+      ],
+      "pass": true
+    },
+    {
+      "query": "How should I name this Go package that handles user authentication?",
+      "want": [
+        "go-naming",
+        "go-packages"
+      ],
+      "got": [
+        "go-naming"
+      ],
+      "pass": false
+    },
+    {
+      "query": "Write a test for this Go function that calculates shipping costs",
+      "want": [
+        "go-testing"
+      ],
+      "got": [
+        "go-testing"
+      ],
+      "pass": true
+    },
+    {
+      "query": "This Go error handling feels messy, should I wrap errors or use sentinel values?",
+      "want": [
+        "go-error-handling"
+      ],
+      "got": [
+        "go-error-handling"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Set up linting for our new Go project",
+      "want": [
+        "go-linting"
+      ],
+      "got": [
+        "go-linting"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Add proper doc comments to these exported Go types",
+      "want": [
+        "go-documentation"
+      ],
+      "got": [],
+      "pass": false
+    },
+    {
+      "query": "This Go function is slow when concatenating strings in a loop",
+      "want": [
+        "go-performance"
+      ],
+      "got": [
+        "go-performance"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Refactor this Go code to use interfaces instead of concrete types for testability",
+      "want": [
+        "go-interfaces"
+      ],
+      "got": [],
+      "pass": false
+    },
+    {
+      "query": "Write a Python script to parse CSV files",
+      "want": [],
+      "got": [],
+      "pass": true
+    },
+    {
+      "query": "What's the best database for my project?",
+      "want": [],
+      "got": [],
+      "pass": true
+    },
+    {
+      "query": "Fix the CSS layout on our login page",
+      "want": [],
+      "got": [],
+      "pass": true
+    },
+    {
+      "query": "Optimize our Go microservice that handles 10k requests per second",
+      "want": [
+        "go-performance",
+        "go-concurrency"
+      ],
+      "got": [
+        "go-performance"
+      ],
+      "pass": false
+    },
+    {
+      "query": "What's the idiomatic way to declare variables in Go — should I use var or := for each case?",
+      "want": [
+        "go-style-core"
+      ],
+      "got": [
+        "go-style-core"
+      ],
+      "pass": true
+    },
+    {
+      "query": "How do I prevent callers from mutating a slice returned from my Go API?",
+      "want": [
+        "go-defensive",
+        "go-data-structures"
+      ],
+      "got": [
+        "go-defensive"
+      ],
+      "pass": false
+    },
+    {
+      "query": "What's the best way to implement a set in Go using maps?",
+      "want": [
+        "go-data-structures"
+      ],
+      "got": [
+        "go-data-structures"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Refactor this Go function that has 5 levels of nested if-else into guard clauses with early returns",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [],
+      "pass": false
+    },
+    {
+      "query": "How should I organize the parameter list for a Go function with 6 arguments — should I group them into a struct?",
+      "want": [
+        "go-functions"
+      ],
+      "got": [
+        "go-functions"
+      ],
+      "pass": true
+    },
+    {
+      "query": "When should I use a type switch versus an if-else chain with type assertions in Go?",
+      "want": [
+        "go-interfaces"
+      ],
+      "got": [
+        "go-interfaces"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Set up structured logging with slog in our Go microservice",
+      "want": [
+        "go-logging"
+      ],
+      "got": [
+        "go-logging"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Should I use log.Printf or slog in this new Go project?",
+      "want": [
+        "go-logging"
+      ],
+      "got": [
+        "go-logging"
+      ],
+      "pass": true
+    },
+    {
+      "query": "My Go service logs the same error three times — once in the repository, once in the service layer, and once in the handler",
+      "want": [
+        "go-logging",
+        "go-error-handling"
+      ],
+      "got": [
+        "go-error-handling",
+        "go-logging"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Migrate our Go codebase from log.Printf to structured logging",
+      "want": [
+        "go-logging"
+      ],
+      "got": [
+        "go-logging"
+      ],
+      "pass": true
+    },
+    {
+      "query": "I need to preallocate a large Go map — should I use make with a size hint, and how do I estimate capacity?",
+      "want": [
+        "go-data-structures",
+        "go-performance"
+      ],
+      "got": [
+        "go-data-structures",
+        "go-performance"
+      ],
+      "pass": true
+    },
+    {
+      "query": "How do I constrain a Go generic type parameter to types that implement both fmt.Stringer and encoding.TextMarshaler?",
+      "want": [
+        "go-generics",
+        "go-interfaces"
+      ],
+      "got": [
+        "go-generics"
+      ],
+      "pass": false
+    },
+    {
+      "query": "Review this Go code for style — it uses single-letter variables for everything and has inconsistent casing",
+      "want": [
+        "go-style-core",
+        "go-naming"
+      ],
+      "got": [
+        "go-code-review"
+      ],
+      "pass": false
+    },
+    {
+      "query": "How do I propagate cancellation and deadlines through a chain of Go HTTP middleware?",
+      "want": [
+        "go-context",
+        "go-concurrency"
+      ],
+      "got": [
+        "go-context"
+      ],
+      "pass": false
+    },
+    {
+      "query": "Write a Go struct with iota-based enum constants for order status (Pending, Confirmed, Shipped, Delivered)",
+      "want": [
+        "go-style-core"
+      ],
+      "got": [
+        "go-code",
+        "go-code-refactor",
+        "go-documentation",
+        "go-naming",
+        "go-style-core"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Write a Go function that retries HTTP requests with exponential backoff using context for timeout",
+      "want": [
+        "go-resilience",
+        "go-context",
+        "go-error-handling"
+      ],
+      "got": [
+        "go-http",
+        "go-resilience"
+      ],
+      "pass": false
+    },
+    {
+      "query": "Build a complete Go REST API microservice with user authentication, PostgreSQL database, and Redis caching",
+      "want": [],
+      "got": [
+        "go-code",
+        "go-code-refactor",
+        "go-database",
+        "go-error-handling",
+        "go-http",
+        "go-security",
+        "go-style-core"
+      ],
+      "pass": false
+    },
+    {
+      "query": "Convert this Python Flask REST API to idiomatic Go with the same endpoints and behavior",
+      "want": [],
+      "got": [],
+      "pass": true
+    },
+    {
+      "query": "Compare Go and Rust for building a high-performance network proxy — which should I choose?",
+      "want": [],
+      "got": [],
+      "pass": true
+    },
+    {
+      "query": "Refactor this Go file, it's 400 lines and nobody can follow it",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Clean up this Go package without changing what it does",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor"
+      ],
+      "pass": true
+    },
+    {
+      "query": "This handler is a mess — can you make it readable?",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [],
+      "pass": false
+    },
+    {
+      "query": "Audit this Go repo for over-engineering — what can we delete?",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor"
+      ],
+      "pass": true
+    },
+    {
+      "query": "List the shortcuts we deliberately left in this codebase",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [],
+      "pass": false
+    },
+    {
+      "query": "Add a POST /orders endpoint to our Go service that decodes a JSON body and returns 201 with the created order",
+      "want": [
+        "go-http"
+      ],
+      "got": [
+        "go-http"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Write a Go client for the payments API with timeouts and retries",
+      "want": [
+        "go-http"
+      ],
+      "got": [
+        "go-code",
+        "go-context",
+        "go-error-handling",
+        "go-http",
+        "go-resilience",
+        "go-style-core"
+      ],
+      "pass": true
+    },
+    {
+      "query": "This Go handler runs a SELECT for every order in the list and it's slow",
+      "want": [
+        "go-database"
+      ],
+      "got": [
+        "go-database"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Set up connection pooling for database/sql in our Go service",
+      "want": [
+        "go-database"
+      ],
+      "got": [
+        "go-database"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Write a Go function that parses a CSV file into structs",
+      "want": [],
+      "got": [
+        "go-code",
+        "go-code-refactor",
+        "go-error-handling",
+        "go-generics",
+        "go-naming",
+        "go-style-core"
+      ],
+      "pass": false
+    },
+    {
+      "query": "Add an endpoint to our Go service that downloads a file by the name the client passes in the query string",
+      "want": [
+        "go-http",
+        "go-security"
+      ],
+      "got": [
+        "go-code",
+        "go-error-handling",
+        "go-http",
+        "go-security",
+        "go-style-core"
+      ],
+      "pass": true
+    },
+    {
+      "query": "How should I store user passwords and verify API keys in Go?",
+      "want": [
+        "go-security"
+      ],
+      "got": [
+        "go-security"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Our Go service slowly climbs to 8 GB RSS over two days and gets OOM-killed. Heap profile looks flat. Where do I start?",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Сервіс на Go перестає відповідати після кількох годин, CPU нульовий, логів немає. Як зрозуміти, що зависло?",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Make this Go JSON encoder allocate less; benchmark shows 40 allocs/op",
+      "want": [
+        "go-performance"
+      ],
+      "got": [
+        "go-performance"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Разбери тикет по Go API: список счетов иногда теряет записи одного tenant, причина неизвестна. Есть request ID и ответ сервиса.",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true
+    },
+    {
+      "query": "The ticket says Redis is stale, but our Go endpoint returns another tenant's record. Can you trace where the wrong value first appears?",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Translate this bug report into Ukrainian only: \"The Go service drops invoice rows on stage\".",
+      "want": [],
+      "got": [],
+      "pass": true
+    },
+    {
+      "query": "Add retry budgets and jittered backoff to our Go SDK wrapper without multiplying its built-in retries.",
+      "want": [
+        "go-resilience"
+      ],
+      "got": [
+        "go-resilience"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Design backpressure and per-tenant bulkheads for a Go worker fleet sharing one upstream rate quota.",
+      "want": [
+        "go-resilience"
+      ],
+      "got": [
+        "go-resilience"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Improve the grammar of this sentence only: \"our Go service need retry with backoff\".",
+      "want": [],
+      "got": [],
+      "pass": true
+    },
+    {
+      "query": "Modernize this Go service: it still uses math/rand with rand.Seed and interface{} — what should change first?",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor"
+      ],
+      "pass": true
+    },
+    {
+      "query": "My Go benchmark compares two JSON encoders — how do I lay out the bench files and prove the win is real?",
+      "want": [
+        "go-performance"
+      ],
+      "got": [
+        "go-performance"
+      ],
+      "pass": true
+    },
+    {
+      "query": "What checks should run on every PR for our Go service — tests, lint, vulnerability scan?",
+      "want": [
+        "go-linting"
+      ],
+      "got": [
+        "go-linting"
+      ],
+      "pass": true
+    },
+    {
+      "query": "I have a Go package where every exported function and its doc comment is already written and every body panics with not implemented. Fill in the implementations so the package does what the docs say.",
+      "want": [
+        "go-code"
+      ],
+      "got": [
+        "go-code"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Implement a small Go package from a written spec: it validates its input, keeps results in a map, returns errors the caller can match on, and exposes one function.",
+      "want": [
+        "go-code"
+      ],
+      "got": [
+        "go-code"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Write the Go function that builds the JSON response for one account's activity feed: the account, the list of events, and the distinct event kinds present.",
+      "want": [
+        "go-data-structures"
+      ],
+      "got": [
+        "go-code",
+        "go-data-structures",
+        "go-defensive",
+        "go-style-core"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Write a Go constructor that takes a slice of entries and returns a type reporting on them. The type is an immutable snapshot: nothing a caller does afterwards may change what it reports.",
+      "want": [
+        "go-defensive"
+      ],
+      "got": [
+        "go-code",
+        "go-code-refactor",
+        "go-data-structures",
+        "go-defensive",
+        "go-documentation",
+        "go-functions",
+        "go-naming",
+        "go-style-core"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Write the Go function that returns the *http.Server for our public API. It is published straight to the internet with no proxy in front of it and anonymous clients that stall mid-request.",
+      "want": [
+        "go-http"
+      ],
+      "got": [
+        "go-http"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Write a Go lookup function whose failure names the record that could not be resolved and still lets the caller tell which of the store's failure reasons it was.",
+      "want": [
+        "go-error-handling"
+      ],
+      "got": [
+        "go-code",
+        "go-error-handling",
+        "go-style-core"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Write a new Go package that turns a list of postings into a per-account balance report. Nothing exists yet.",
+      "want": [
+        "go-code"
+      ],
+      "got": [
+        "go-code",
+        "go-code-refactor",
+        "go-data-structures",
+        "go-documentation",
+        "go-naming",
+        "go-packages",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true
+    }
+  ],
+  "quality": null,
+  "summary": "trigger 50/64, quality 0/0",
+  "finished": "2026-09-07T12:11:28.096107+03:00"
+}

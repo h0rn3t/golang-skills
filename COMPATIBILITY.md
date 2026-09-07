@@ -105,6 +105,12 @@ method and wildcard patterns with `r.PathValue` (1.22), `http.ServeFileFS` and
 iterator forms in `slices` (`All`, `Values`, `Collect`, `Sorted`) and `maps`
 (`All`, `Keys`, `Values`, `Collect`) (1.23) — the `strings` `*Seq` forms are 1.24.
 
+### Deprecated APIs and replacements
+
+The [modernization catalog](skills/go-code-refactor/references/MODERNIZATION.md#deprecated-apis-and-replacements)
+owns the replacement table, deprecation versions, and risk conditions. It ships
+inside the skill so these rules remain available in skill-only installations.
+
 ## Fallback policy
 
 State a fallback only when it is real:

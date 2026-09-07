@@ -21,6 +21,38 @@ All notable changes to this repository are documented here.
 - Record the new rule areas in `docs/RULE_OWNERSHIP.md` and attribute the topic
   selection to `samber/cc-skills-golang` (MIT) in `THIRD_PARTY_NOTICES.md`.
 
+### Adopted from samber/cc-skills-golang
+
+- Add a deprecated-API replacement table to
+  `go-code-refactor/references/MODERNIZATION.md`, linked from `COMPATIBILITY.md`
+  so it also ships with skill-only installations. Rows carry the deprecation
+  version and risk conditions; crypto migrations require API and failure-path
+  checks. Tier definitions and the Go 1.27 removed-`GODEBUG` checklist live in
+  the same catalog.
+- Add a safety-pitfall table to `go-defensive`, an observability definition of
+  done to `go-logging` (advisory, scoped to a service in the stack the project
+  already runs), benchmark discipline to `go-performance`, tool-directive and
+  audit guidance to `go-packages`, a CI pipeline checklist to `go-linting`, and
+  routing boundaries to `go-code`. Mid-refactor test scope in `GOPLS.md` is
+  affected packages including consumers, matching the `go-linting` gate; CI
+  flags and the `govulncheck` trigger contract have one owner in `go-linting`.
+- Widen `go-logging`'s description to metrics and trace correlation, and
+  `go-defensive`'s to the silent-correctness traps its new table covers, so
+  both rule sets are reachable by their own triggers rather than only through
+  the `go-code` router.
+- Record the new rule areas in `docs/RULE_OWNERSHIP.md` and attribute the topic
+  selection to Samuel Berthe (`samber`) in `THIRD_PARTY_NOTICES.md`. Add six
+  trigger evals (modernization priority, benchmark evidence, tool directives,
+  CI shape, observability routing, safety pitfalls) and three quality evals
+  covering the full-slice-expression trap, `slog` context handling, and Actions
+  SHA pinning. `TestManifestCounts` now pins both eval counts to the READMEs.
+- Add a **Scope Exceptions** section to `docs/RULE_OWNERSHIP.md` recording why
+  `.github/workflows/validate-skills.yml` does not follow the new `go-linting`
+  CI checklist: no version matrix, `govulncheck`, or tidy-drift check for a
+  zero-dependency pack, and unpinned action tags, a missing `permissions:`
+  block, and tests without `-race -shuffle=on` accepted as known gaps. The
+  workflow carries a header comment pointing at that record.
+
 ### Evals
 
 - Add `evals/cmd/abrun`: runs one refactoring prompt against fixtures under the
@@ -33,6 +65,15 @@ All notable changes to this repository are documented here.
   plugin roots before a result is published. Record the first compliant Opus 5
   control: 40/40 valid runs, 4.15 fewer lines per run overall, and 49.7% less
   growth on the `report` over-engineering trap with the skill.
+
+### Toolchain
+
+- Bump the pinned golangci-lint from v2.13.1 to v2.13.2 in
+  `.github/workflows/validate-skills.yml`, `skills/go-linting/SKILL.md`, and
+  `docs/RELEASE_CHECKLIST.md`. The release carries dependency bumps and a cache
+  fix only — no new linters and no config schema change, so
+  `assets/golangci.yml` is unchanged and `golangci-lint config verify` passes
+  against it on 2.13.2.
 
 ## [0.9.0] - 2026-09-06
 

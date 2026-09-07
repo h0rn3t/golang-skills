@@ -256,7 +256,7 @@ func TestValidateOptions(t *testing.T) {
 		{name: "zero repetitions", in: options{corpus: corpusRefactor, runner: runnerClaude, parallel: 1, timeout: time.Second}},
 		{name: "zero parallelism", in: options{corpus: corpusRefactor, runner: runnerClaude, reps: 1, timeout: time.Second}},
 		{name: "zero timeout", in: options{corpus: corpusRefactor, runner: runnerClaude, reps: 1, parallel: 1}},
-		{name: "unknown runner", in: options{corpus: corpusRefactor, runner: "codex", reps: 1, parallel: 1, timeout: time.Second}},
+		{name: "unknown runner", in: options{corpus: corpusRefactor, runner: "cursor", reps: 1, parallel: 1, timeout: time.Second}},
 		{name: "opencode without a model", in: options{corpus: corpusRefactor, runner: runnerOpencode, reps: 1, parallel: 1, timeout: time.Second}},
 	}
 

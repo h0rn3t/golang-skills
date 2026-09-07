@@ -28,18 +28,57 @@ adding one.
 `-runner claude` is the default and loads the arm's plugin through
 `--plugin-dir`. `-runner opencode` drives the `opencode` CLI, which has no
 plugin flag: it discovers skills from HOME, so every arm gets its own HOME with
-that arm's `skills/` copied in. The `no-skill` arm needs one just as much as the
-others — run under the operator's own HOME it would load whatever `go-*` skills
-they have installed globally and stop being a control. `abrun` checks what each
-arm home actually loads before the first session and refuses to start if an arm
-sees the wrong set.
+that arm's `skills/` copied in. `-runner copilot` drives the GitHub Copilot CLI,
+which discovers personal skills from `COPILOT_HOME`, so every arm gets its own
+one of those instead — HOME itself is left alone there, because the credential
+store the CLI authenticates against is keyed to it and a redirected HOME fails
+every run unauthenticated. The `no-skill` arm needs an isolated home just as much
+as the others — run under the operator's own it would load whatever `go-*` skills
+they have installed globally and stop being a control. `-runner codex` drives the
+OpenAI Codex CLI, which needs HOME redirected rather than `CODEX_HOME`: Codex
+also discovers skills from host locations outside its own home, so a control arm
+with only `CODEX_HOME` moved still sees the operator's globally installed
+skills. `abrun` checks what each arm home actually loads before the first session
+and refuses to start if an arm sees the wrong set; for codex the check is
+`codex debug prompt-input`, which renders the prompt the model would really see
+without spending a request.
 
-Two differences between the runners are not cosmetic and belong in any claim
-that spans them. The claude arm restricts the session to
-`Skill,Read,Glob,Grep,Edit,Write`, while opencode keeps its own tool set, so
-those sessions also have a shell and can run `go test` on their own work. And
-the repository's PostToolUse gofmt/vet hook applies only under claude. Compare
-arms within one runner; compare runners only with both differences stated.
+Five differences between the runners are not cosmetic and belong in any claim
+that spans them.
+
+**How a skill fires.** claude, copilot and opencode all give the model a skill
+tool, and `abrun` records the calls. Codex has none: skills arrive as a listing
+in the system prompt and a skill fires when the model reads its `SKILL.md`
+through the shell, so the codex runner scores a skill from the command that
+opened it — and only from the command, never from its output, because a loaded
+`SKILL.md` names other skills and scanning the output would credit every one it
+mentions.
+
+**Tools.** The claude arm is restricted to `Skill,Read,Glob,Grep,Edit,Write` and
+the copilot arm to the same surface under copilot's names
+(`skill,view,create,edit,grep,glob`), while opencode and codex keep their own
+tool sets, so only those sessions have a shell and can run `go test` on their
+own work.
+
+**Plugin parts.** The repository's PostToolUse gofmt/vet hook and its
+`go-verify` subagent apply only under claude; the copilot, opencode and codex
+homes carry skills alone.
+
+**Cost.** Only claude and opencode report a session cost in dollars. Copilot
+bills in premium requests and AI credits and codex reports token counts, so
+their `$/run` column is empty rather than converted.
+
+**Step ceiling.** `maxSteps` bounds a session only where the CLI can express one
+(`--max-turns` for claude, the build agent's step count for opencode); copilot
+and codex sessions are bounded by `-timeout` alone.
+
+Compare arms within one runner; compare runners only with the differences
+stated.
+
+`-effort` sets the reasoning effort level and is accepted only by the runners
+whose CLI can ask for one, codex and copilot. It is rejected rather than ignored
+elsewhere, because a report that records `xhigh` for a run served at the model's
+default is a report that lies.
 
 ## Fixtures
 
@@ -126,6 +165,59 @@ reproduce. Correctness was tied again at 20/20 in both arms. See the
 including the two tool-set differences that keep the two files from being a
 clean model-to-model comparison.
 
+A third replication under `-runner copilot` with `mai-code-1.1-flash` does not
+reproduce it, and the reason is the control rather than the skill: unaided, that
+model grows `report` by only 16.2 lines against Opus 5's +33.4 and MiniMax M3's
++27.4, declares one type across 20 runs and no interfaces at all. With the bait
+untaken there is nothing to remove, every fixture's interval includes zero, and
+the corpus-wide direction is marginally against the skill at +1.1 lines per run.
+See the [analysis and raw report](../../docs/evidence/2026-09-07-go-refactor-control-mai-code-1.1-flash.md).
+The same model is the first to give the implementation corpus a live trap:
+`gateway` golden passes went 1/5 without the skill against 3/5 with it, and both
+sessions that reached `go-http` set every timeout —
+[analysis and raw report](../../docs/evidence/2026-09-07-go-implement-control-mai-code-1.1-flash.md).
+
+A fourth replication under `-runner codex` with `gpt-5.3-codex-spark -effort
+xhigh` is the first genuine negative result for the wording. The trap is live
+there — unaided, the model grows `report` by 30.6 lines, between Opus 5's +33.4
+and MiniMax M3's +27.4 — and the skill did not move it (+31.8), while `dispatch`
+got clearly worse. The skill was read in 18 of 20 sessions, so it is not a
+triggering failure. Correctness moved the other way: 15 of 20 control sessions
+produced a usable refactor against 18 of 20 skilled, with four sessions across
+both arms leaving a Go file that does not parse. See the
+[analysis and raw report](../../docs/evidence/2026-09-07-go-refactor-control-codex-spark-xhigh.md).
+The implementation corpus has not been run on codex; the account's quota ran out
+first, and the command to finish it is recorded in that file.
+
+A fifth model, `opencode-go/mimo-v2.5-pro` under `-runner opencode`, gives the
+cleanest replication yet and the most useful implementation run to date. On the
+refactor corpus it cuts `report` growth 68.0% (+16.4 to +5.2, the only fixture
+interval here that excludes zero) and is the first run where both structural
+mechanisms move at once, types −50% and functions −60%
+([analysis](../../docs/evidence/2026-09-07-go-refactor-control-mimo-v2.5-pro.md)).
+On the implementation corpus it is the first model to make three traps live at
+once — `gateway`, `feed` and `catalog` all fail unaided, and every failure in
+the run is a trap rather than a compile error. `gateway` goes 1/5 to 3/5, the
+same numbers as MAI-Code-1.1-Flash; `feed` and `catalog` are tied because the
+owning skill never fired
+([analysis](../../docs/evidence/2026-09-07-go-implement-control-mimo-v2.5-pro.md)).
+
+A sixth model, `gpt-5.6-luna` at `-effort medium` under `-runner codex`, is the
+strongest refactor result recorded and the first on which two fixtures separate
+the arms. On `report` the skill does not reduce growth, it removes it — the
+control writes +18.8 lines, the skilled arm +1.2, and four of its five sessions
+return a *smaller* package with the golden test still green — and `dispatch`
+moves the right way for the first time on any model, −5.8 with an interval that
+excludes zero. Helper growth falls 71.0%, correctness is tied at 20/20, and
+`go-code-refactor` reached every one of the 20 baseline sessions
+([analysis](../../docs/evidence/2026-09-07-go-refactor-control-gpt-5.6-luna-medium.md)).
+Its implementation run is the opposite and belongs beside it: every trap
+saturated at 20/20 in both arms and no fixture separating, despite the best
+skill routing the corpus has recorded
+([analysis](../../docs/evidence/2026-09-07-go-implement-control-gpt-5.6-luna-medium.md)).
+The pair is the clearest statement of where the plugin pays — removing structure
+from code that already works, not adding code to an empty body.
+
 ## Running it
 
 ```bash
@@ -141,6 +233,12 @@ go run ./cmd/abrun -reference-root ../golang-skills-before \
 # Replay the same corpus under a different agent and model.
 go run ./cmd/abrun -runner opencode -model opencode-go/minimax-m3 \
   -arms no-skill,baseline -n 5 -j 4 -seed 1 -out opencode.json
+
+go run ./cmd/abrun -runner copilot -model mai-code-1.1-flash \
+  -arms no-skill,baseline -n 5 -j 4 -seed 1 -out copilot.json
+
+go run ./cmd/abrun -runner codex -model gpt-5.3-codex-spark -effort xhigh \
+  -arms no-skill,baseline -n 5 -j 4 -seed 1 -out codex.json
 
 go run ./cmd/abrun -tasks report -n 1 -verbose     # one fixture, one pass
 ```

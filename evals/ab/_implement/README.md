@@ -93,7 +93,29 @@ On `gateway` the skilled arm also wrote the *same* amount every time —
 population standard deviation 4.4 lines against the control's 30.9 — which is
 the more useful of the two properties when the question is what a change costs
 to review. Correctness is tied at 5/5 golden in both arms there, and at 6/6 on
-the other fixtures, so nothing in this corpus is evidence about defect rates.
+the other fixtures, so none of the runs above is evidence about defect rates.
+
+One run is. Under `-runner copilot` with `mai-code-1.1-flash`, `gateway` passed
+1/5 without the skill and 3/5 with it, every failure in both arms being the
+fixture's own trap — a zero `ReadTimeout` or `ReadHeaderTimeout` — and both
+sessions that reached `go-http` setting all four. That makes this the first
+model to fall into a trap in this corpus at all, and the routing to the owning
+skill, not the skill's presence, is what separates the arms. At `n=5` Fisher's
+exact gives p = 0.52, so it is a direction and a reason to re-run `gateway`
+larger on that model, not a defect-rate claim. The line result inverts there:
+this model under-implements rather than over-engineers, and the skilled arm
+writes slightly more. See
+[the analysis](../../../docs/evidence/2026-09-07-go-implement-control-mai-code-1.1-flash.md).
+
+`opencode-go/mimo-v2.5-pro` then reproduced `gateway` at the same 1/5 → 3/5 from
+an unrelated runner, model and provider, and went further: it is the first model
+on which `feed` and `catalog` also fail unaided, and every failure in its 40
+sessions is a trap rather than a compile error. Those two did not separate the
+arms — both are tied, because not one of the ten `feed` sessions loaded
+`go-data-structures`, the skill whose rule is that fixture's entire trap. See
+[the analysis](../../../docs/evidence/2026-09-07-go-implement-control-mimo-v2.5-pro.md).
+That makes it the reference model for this corpus, and it retires the claim
+below that `feed` needs a different task: it needed a different model.
 
 Only `gateway` responded to the single-entry-point rebuild, and the reason is
 the fixture design rule this corpus learned the hard way: **room to
@@ -102,7 +124,10 @@ decisions, not from an unpinned API.** `gateway` is five routes, three status
 codes, an ordering rule and a filter with an error path. `feed` and `catalog`
 are each one data transformation, and a specification precise enough for a
 golden test to check mechanically is also precise enough to leave a single
-sensible shape. `feed` needs a different task, not a bigger `n`.
+sensible shape. That reasoning held only for the *line* metric. On correctness
+it was wrong, and `mimo-v2.5-pro` is what showed it: `feed` and `catalog` fail
+unaided there, so the room they lack is room to over-engineer, not room to get
+the thing wrong. `feed` needed a different model, not a different task.
 
 ## Why the first attempt measured nothing
 
@@ -114,8 +139,11 @@ every fixture: the unaided model reached for a non-nil slice, set all four
 server timeouts, and kept the error chain without being told. The traps are
 live — each golden test fails on the stub and passes against an idiomatic
 reference — the model simply does not fall into them. Since the control was
-perfect on a small, cheap model, a stronger one cannot do worse, so this is not
-a matter of picking a different model.
+perfect on a small, cheap model, a stronger one cannot do worse, so this was
+read at the time as not a matter of picking a different model. The
+`mai-code-1.1-flash` run above is the counterexample: saturation is a property
+of the model, and a weaker one on the `gateway` trap misses the timeouts in four
+of five unaided runs.
 
 Triggering ruled out that arm. A `go-*` skill loaded in only half the baseline
 runs, and in none of the three `feed` runs, so half the skilled arm was a

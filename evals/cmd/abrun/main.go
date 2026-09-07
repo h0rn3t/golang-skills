@@ -19,7 +19,8 @@
 //
 // It is opt-in: it needs the go toolchain plus the agent CLI named by -runner
 // on PATH — claude with either an authenticated session or ANTHROPIC_API_KEY,
-// or opencode with a logged-in provider.
+// opencode with a logged-in provider, copilot signed in to a GitHub account
+// whose plan serves -model, or codex signed in to an account that serves it.
 //
 //	go run ./cmd/abrun -n 3 -j 4 -out ab.json
 package main
@@ -87,10 +88,19 @@ const anchor = "## Workflow"
 const (
 	runnerClaude   = "claude"
 	runnerOpencode = "opencode"
+	runnerCopilot  = "copilot"
+	runnerCodex    = "codex"
 )
 
-// maxSteps bounds one session for either runner: --max-turns for claude, the
-// build agent's step ceiling for opencode.
+// effortRunners are the runners whose CLI can set a reasoning effort level. The
+// flag is rejected elsewhere rather than ignored, because a run recorded as
+// xhigh that was served at the model's default is a report that lies.
+var effortRunners = []string{runnerCodex, runnerCopilot}
+
+// maxSteps bounds one session where the runner can express a ceiling:
+// --max-turns for claude, the build agent's step ceiling for opencode. The
+// copilot CLI has no equivalent, so a copilot session is bounded by -timeout
+// alone.
 const maxSteps = 40
 
 // patternNames are identifier fragments that mark a design-pattern scaffold
@@ -111,6 +121,7 @@ type options struct {
 	variants      string
 	prompt        string
 	model         string
+	effort        string
 	runner        string
 	corpus        string
 	out           string
@@ -131,7 +142,8 @@ func main() {
 	flag.StringVar(&o.prompt, "prompt", "", "prompt template; %s is the fixture directory (default: the corpus prompt)")
 	flag.StringVar(&o.corpus, "corpus", corpusRefactor, "fixture corpus to run: refactor or implement")
 	flag.StringVar(&o.model, "model", "", "model for the evaluated run (default: the runner's own default; required for opencode)")
-	flag.StringVar(&o.runner, "runner", runnerClaude, "agent CLI to drive: claude or opencode")
+	flag.StringVar(&o.effort, "effort", "", "reasoning effort for the evaluated run, e.g. xhigh (codex and copilot only)")
+	flag.StringVar(&o.runner, "runner", runnerClaude, "agent CLI to drive: claude, opencode, copilot or codex")
 	flag.StringVar(&o.out, "out", "", "write the JSON report to this file")
 	flag.StringVar(&o.referenceRoot, "reference-root", "", "alternate plugin root for a reference arm")
 	flag.IntVar(&o.reps, "n", 2, "repetitions per fixture per arm")
@@ -251,6 +263,7 @@ type report struct {
 	Corpus   string    `json:"corpus"`
 	Runner   string    `json:"runner"`
 	Model    string    `json:"model,omitempty"`
+	Effort   string    `json:"effort,omitempty"`
 	Reps     int       `json:"reps"`
 	Seed     int64     `json:"seed"`
 	Arms     []arm     `json:"arms"`
@@ -300,8 +313,21 @@ func run(o options) error {
 	if err != nil {
 		return err
 	}
-	if o.runner == runnerOpencode {
+	switch o.runner {
+	case runnerOpencode:
 		homes, err := opencodeHomes(arms)
+		defer homes()
+		if err != nil {
+			return err
+		}
+	case runnerCopilot:
+		homes, err := copilotHomes(arms)
+		defer homes()
+		if err != nil {
+			return err
+		}
+	case runnerCodex:
+		homes, err := codexHomes(arms)
 		defer homes()
 		if err != nil {
 			return err
@@ -312,7 +338,7 @@ func run(o options) error {
 
 	jobs := buildJobs(arms, tasks, o.reps, o.seed)
 
-	rep := report{Prompt: o.prompt, Corpus: o.corpus, Runner: o.runner, Model: o.model, Reps: o.reps, Seed: o.seed, Arms: arms, Results: make([]result, len(jobs))}
+	rep := report{Prompt: o.prompt, Corpus: o.corpus, Runner: o.runner, Model: o.model, Effort: o.effort, Reps: o.reps, Seed: o.seed, Arms: arms, Results: make([]result, len(jobs))}
 	var mu sync.Mutex
 	forEach(o.parallel, len(jobs), func(i int) {
 		res := runOne(o, abDir, jobs[i].arm, jobs[i].task, jobs[i].rep)
@@ -344,7 +370,7 @@ func validateOptions(o options) error {
 		return exitError{2, fmt.Sprintf("-corpus must be %s or %s", corpusRefactor, corpusImplement)}
 	}
 	switch o.runner {
-	case runnerClaude:
+	case runnerClaude, runnerCopilot, runnerCodex:
 	case runnerOpencode:
 		// An arm home carries no model preference of its own, so opencode has
 		// nothing to fall back on and the model has to be named explicitly.
@@ -352,7 +378,10 @@ func validateOptions(o options) error {
 			return exitError{2, "-model is required for the opencode runner, e.g. -model opencode-go/minimax-m3"}
 		}
 	default:
-		return exitError{2, fmt.Sprintf("-runner must be %s or %s", runnerClaude, runnerOpencode)}
+		return exitError{2, fmt.Sprintf("-runner must be one of %s, %s, %s, %s", runnerClaude, runnerOpencode, runnerCopilot, runnerCodex)}
+	}
+	if o.effort != "" && !slices.Contains(effortRunners, o.runner) {
+		return exitError{2, fmt.Sprintf("-effort is only supported by the %s runners", strings.Join(effortRunners, " and "))}
 	}
 	if o.reps <= 0 {
 		return exitError{2, "-n must be greater than zero"}
@@ -368,8 +397,13 @@ func validateOptions(o options) error {
 
 func missingRunner(runner string) string {
 	hint := "install with: npm install -g @anthropic-ai/claude-code"
-	if runner == runnerOpencode {
+	switch runner {
+	case runnerOpencode:
 		hint = "install with: npm install -g opencode-ai"
+	case runnerCopilot:
+		hint = "install with: npm install -g @github/copilot"
+	case runnerCodex:
+		hint = "install with: npm install -g @openai/codex"
 	}
 	return runner + " CLI not found on PATH; " + hint
 }
@@ -656,10 +690,17 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 	prompt := fmt.Sprintf(o.prompt, taskName)
 	var out []byte
 	var sessionErr error
-	if o.runner == runnerOpencode {
+	switch o.runner {
+	case runnerOpencode:
 		out, sessionErr = opencodeSession(o, a.home, work, prompt)
 		res.Skills, res.Output, res.Cost = parseOpencodeStream(out)
-	} else {
+	case runnerCopilot:
+		out, sessionErr = copilotSession(o, a, work, prompt)
+		res.Skills, res.Output, res.Cost = parseCopilotStream(out)
+	case runnerCodex:
+		out, sessionErr = codexSession(o, a.home, work, prompt)
+		res.Skills, res.Output, res.Cost = parseCodexStream(out)
+	default:
 		out, sessionErr = claudeSession(o, a.dir, work, prompt)
 		res.Skills, res.Output, res.Cost = parseClaudeStream(out)
 	}

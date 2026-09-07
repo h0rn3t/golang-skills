@@ -148,6 +148,8 @@ or multiple branches — write separate test functions instead.
 > when the code under test starts a goroutine — tests that pass without it
 > prove nothing about concurrent code. The full package run belongs to the
 > [go-linting](../go-linting/SKILL.md) gate, once, at the end of the task.
+> The pipeline's own flags (`-shuffle=on`, and `-count=1` for suites that touch
+> real services) belong to that same [go-linting](../go-linting/SKILL.md) gate.
 
 ---
 

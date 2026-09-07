@@ -228,8 +228,8 @@ which works across multiple AI coding tools. When you're writing Go code:
 
 ## Running the Evals
 
-`evals/evals.json` holds 92 trigger evals (does the right skill fire for this
-prompt?) and 41 quality evals (does the answer satisfy each assertion?). The Go
+`evals/evals.json` holds 98 trigger evals (does the right skill fire for this
+prompt?) and 44 quality evals (does the answer satisfy each assertion?). The Go
 tests in `evals/` validate their schema on every push; running them against a
 model is opt-in because it costs tokens:
 

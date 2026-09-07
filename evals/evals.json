@@ -722,6 +722,55 @@
       ],
       "notes": "Variable-scope mechanics remain discoverable after declaration and control-flow consolidation",
       "set": "validation"
+    },
+    {
+      "query": "Modernize this Go service: it still uses math/rand with rand.Seed and interface{} — what should change first?",
+      "should_trigger": [
+        "go-code-refactor"
+      ],
+      "notes": "Modernization priority and deprecated-API routing belong to the refactor catalog",
+      "set": "train"
+    },
+    {
+      "query": "My Go benchmark compares two JSON encoders — how do I lay out the bench files and prove the win is real?",
+      "should_trigger": [
+        "go-performance"
+      ],
+      "notes": "Benchmark discipline and benchstat evidence",
+      "set": "train"
+    },
+    {
+      "query": "How do I pin golangci-lint and govulncheck so CI uses the same versions as my machine without changing application dependencies?",
+      "should_trigger": [
+        "go-packages",
+        "go-linting"
+      ],
+      "notes": "Tool directives and golangci-lint isolation belong to packages; the version-pinned gate belongs to linting",
+      "set": "validation"
+    },
+    {
+      "query": "What checks should run on every PR for our Go service — tests, lint, vulnerability scan?",
+      "should_trigger": [
+        "go-linting"
+      ],
+      "notes": "CI pipeline shape and verification gate",
+      "set": "train"
+    },
+    {
+      "query": "Our Go service needs request IDs in logs correlated with traces plus latency histograms — what is the checklist?",
+      "should_trigger": [
+        "go-logging"
+      ],
+      "notes": "Observability definition of done with trace correlation and histogram metrics",
+      "set": "validation"
+    },
+    {
+      "query": "Our Go reporting code casts an int64 row count down to int32 before returning it, and compares monetary totals with ==. Tests pass. What is wrong?",
+      "should_trigger": [
+        "go-defensive"
+      ],
+      "notes": "Narrowing-conversion overflow and float equality are boundary safety pitfalls owned by go-defensive; no untrusted input, so this is not go-security",
+      "set": "validation"
     }
   ],
   "quality_evals": [
@@ -1432,6 +1481,57 @@
         "Does not introduce goroutines, channels, or an intermediate slice of results"
       ],
       "set": "validation"
+    },
+    {
+      "id": 42,
+      "prompt": "Our Go type stores a slice a caller passes in: func (s *Store) Set(items []Item) { s.items = items }. A reviewer says to cut capacity with s.items = items[:len(items):len(items)] so callers cannot corrupt us. Is that enough? Show the fix.",
+      "expected_output": "An explanation that the full-slice expression only caps capacity — the backing array is still shared, so writes through the caller's slice still mutate the stored elements — plus a slices.Clone copy at the boundary, and the note that Clone stays shallow for pointer or slice elements.",
+      "target_skills": [
+        "go-defensive",
+        "go-data-structures"
+      ],
+      "assertions": [
+        "States that items[:len(items):len(items)] limits capacity only and does not copy the backing array",
+        "Notes that a later append reallocates but existing elements still alias the caller's slice",
+        "Uses slices.Clone (or an explicit make plus copy) to copy at the boundary",
+        "Mentions that the clone is shallow when elements are pointers or slices",
+        "Does not claim the full-slice expression makes the stored slice independent"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 43,
+      "prompt": "Our Go HTTP middleware puts a trace ID in the request context. We switched every log call to slog.InfoContext with the default JSON handler and the trace_id still is not in the output. Explain why and give the smallest fix.",
+      "expected_output": "An explanation that slog.JSONHandler ignores the context — the *Context variants only hand it to Handler.Handle — with a fix that either derives an enriched logger with slog.With and passes it down, or wraps the handler so Handle reads the trace ID from the context and adds it to the record.",
+      "target_skills": [
+        "go-logging",
+        "go-context"
+      ],
+      "assertions": [
+        "States that TextHandler and JSONHandler do not read values out of the context",
+        "Explains that the *Context variants only pass the context through to Handler.Handle",
+        "Fixes it with an enriched logger (slog.With) or a custom Handler that adds the attribute in Handle",
+        "Keeps using the *Context call sites rather than telling the reader to drop them",
+        "Does not claim slog correlates traces automatically"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 44,
+      "prompt": "Review this Go CI job for supply-chain and gate problems: it runs uses: actions/checkout@v4, uses: actions/setup-go@v5, then go install golang.org/x/vuln/cmd/govulncheck@latest && govulncheck ./... on every pull request, with no permissions block.",
+      "expected_output": "A review naming the moving @vN tags (pin to a full commit SHA), the unpinned govulncheck@latest install, the missing least-privilege permissions block, and the mismatch between scanning on every PR and the gate's trigger contract of dependency changes, release, or on request plus a schedule.",
+      "target_skills": [
+        "go-linting",
+        "go-packages"
+      ],
+      "assertions": [
+        "Says a @vN tag is mutable and pins each action to a full commit SHA instead",
+        "Flags govulncheck@latest and pins the tool version, noting the vulnerability database is still fetched at run time",
+        "Adds a least-privilege permissions block to the job",
+        "Ties the scan to dependency changes, release, or request plus a scheduled run rather than every PR",
+        "Does not present the @vN tag as sufficient pinning"
+      ],
+      "set": "train"
     }
   ]
 }

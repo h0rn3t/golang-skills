@@ -30,10 +30,12 @@ func TestResultStatus(t *testing.T) {
 		in   result
 		want string
 	}{
-		{name: "success", in: result{Build: true, Golden: true}, want: "ok "},
-		{name: "runner error", in: result{Build: true, Golden: true, Err: "failed"}, want: "ERR"},
-		{name: "build failure", in: result{Golden: true}, want: "ERR"},
-		{name: "golden failure", in: result{Build: true}, want: "ERR"},
+		{name: "success", in: result{Build: true, Golden: true, Edited: true}, want: "ok "},
+		{name: "runner error", in: result{Build: true, Golden: true, Edited: true, Err: "failed"}, want: "ERR"},
+		{name: "build failure", in: result{Golden: true, Edited: true}, want: "ERR"},
+		{name: "golden failure", in: result{Build: true, Edited: true}, want: "ERR"},
+		{name: "no edit", in: result{Build: true, Golden: true}, want: "ERR"},
+		{name: "repository reference", in: result{Build: true, Golden: true, Edited: true, Leaked: true}, want: "ERR"},
 	}
 
 	for _, tt := range tests {
@@ -47,14 +49,21 @@ func TestResultStatus(t *testing.T) {
 
 func TestSummarizeArmExcludesInvalidDeltas(t *testing.T) {
 	rep := report{Results: []result{
-		{Arm: "baseline", Build: true, Golden: true, Delta: metrics{Lines: -10}},
-		{Arm: "baseline", Build: true, Golden: false, Delta: metrics{Lines: -100}},
+		{Arm: "baseline", Build: true, Golden: true, Edited: true, Delta: metrics{Lines: -10}},
+		{Arm: "baseline", Build: true, Golden: false, Edited: true, Delta: metrics{Lines: -100}},
 		{Arm: "baseline", Err: "session failed", Delta: metrics{Lines: -200}},
+		// A session that edited nothing scores a zero delta on every metric,
+		// which would read as a behavior-preserving tie rather than a miss.
+		{Arm: "baseline", Build: true, Golden: true},
+		{Arm: "baseline", Build: true, Golden: true, Edited: true, Leaked: true, Delta: metrics{Lines: -400}},
 	}}
 
 	got := summarizeArm(rep, "baseline")
-	if got.Runs != 3 || got.Errors != 1 || got.Valid != 1 {
-		t.Fatalf("summarizeArm counts = runs:%d errors:%d valid:%d, want 3, 1, 1", got.Runs, got.Errors, got.Valid)
+	if got.Runs != 5 || got.Errors != 1 || got.Valid != 1 {
+		t.Fatalf("summarizeArm counts = runs:%d errors:%d valid:%d, want 5, 1, 1", got.Runs, got.Errors, got.Valid)
+	}
+	if got.NoEdit != 1 || got.Leaked != 1 {
+		t.Errorf("summarizeArm counts = noedit:%d leaked:%d, want 1, 1", got.NoEdit, got.Leaked)
 	}
 	if got.Lines != -10 {
 		t.Errorf("summarizeArm lines = %d, want -10 from the valid run only", got.Lines)
@@ -188,14 +197,16 @@ func TestBuildJobsIsSeededAndNotArmMajor(t *testing.T) {
 }
 
 func TestValidateOptions(t *testing.T) {
-	valid := options{reps: 1, parallel: 1, timeout: time.Second}
+	valid := options{runner: runnerClaude, reps: 1, parallel: 1, timeout: time.Second}
 	tests := []struct {
 		name string
 		in   options
 	}{
-		{name: "zero repetitions", in: options{parallel: 1, timeout: time.Second}},
-		{name: "zero parallelism", in: options{reps: 1, timeout: time.Second}},
-		{name: "zero timeout", in: options{reps: 1, parallel: 1}},
+		{name: "zero repetitions", in: options{runner: runnerClaude, parallel: 1, timeout: time.Second}},
+		{name: "zero parallelism", in: options{runner: runnerClaude, reps: 1, timeout: time.Second}},
+		{name: "zero timeout", in: options{runner: runnerClaude, reps: 1, parallel: 1}},
+		{name: "unknown runner", in: options{runner: "codex", reps: 1, parallel: 1, timeout: time.Second}},
+		{name: "opencode without a model", in: options{runner: runnerOpencode, reps: 1, parallel: 1, timeout: time.Second}},
 	}
 
 	if err := validateOptions(valid); err != nil {

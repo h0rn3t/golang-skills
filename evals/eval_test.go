@@ -1126,14 +1126,14 @@ func TestFrontmatterDescriptionsInvariant(t *testing.T) {
 		"go-concurrency":     "Use when writing concurrent Go code — goroutines, channels, mutexes, or thread-safety guarantees. Also use when parallelizing work, fixing data races, or protecting shared state, even if the user doesn't explicitly mention concurrency primitives. Does not cover context.Context patterns (see go-context).",
 		"go-context":         "Use when working with context.Context in Go — placement in signatures, propagating cancellation and deadlines, and storing values in context vs parameters. Also use when cancelling long-running operations, setting timeouts, or passing request-scoped data, even if they don't mention context.Context directly. Does not cover goroutine lifecycle or sync primitives (see go-concurrency).",
 		"go-data-structures": "Use when working with Go slices, maps, or arrays — choosing between new and make, using append, declaring empty slices (nil vs literal for JSON), implementing sets with maps, and copying data at boundaries. Also use when building or manipulating collections, even if the user doesn't ask about allocation idioms. Does not cover concurrent data structure safety (see go-concurrency).",
-		"go-defensive":       "Use when hardening Go code at API boundaries — copying slices/maps, verifying interface compliance, using defer for cleanup, time.Time/time.Duration, or avoiding mutable globals. Also use when reviewing for robustness concerns like missing cleanup or unsafe crypto usage, even if the user doesn't mention \"defensive programming.\" Does not cover error handling strategy (see go-error-handling).",
+		"go-defensive":       "Use when hardening Go code at API boundaries — copying slices/maps, verifying interface compliance, using defer for cleanup, time.Time/time.Duration, or avoiding mutable globals. Also use for silent-correctness traps in ordinary Go code — a typed nil in an interface, slices that still alias after append, a narrowing integer conversion that overflows, float equality, a nil channel that blocks forever, or defer inside a loop — and when reviewing for robustness concerns like missing cleanup or unsafe crypto usage, even if the user doesn't mention \"defensive programming.\" Does not cover error handling strategy (see go-error-handling).",
 		"go-documentation":   "Use when writing or reviewing documentation for Go packages, types, functions, or methods. Also use proactively when creating new exported types, functions, or packages, even if the user doesn't explicitly ask about documentation. Does not cover code comments for non-exported symbols (see go-style-core).",
 		"go-error-handling":  "Use when writing Go code that returns, wraps, or handles errors — choosing between sentinel errors, custom types, and fmt.Errorf (%w vs %v), structuring error flow, or deciding whether to log or return. Also use when propagating errors across package boundaries or using errors.Is/As, even if the user doesn't ask about error strategy. Does not cover panic/recover patterns (see go-defensive).",
 		"go-functions":       "Use when designing or reviewing Go function APIs — parameters, return values, signature readability, function ordering, Printf-style helpers, or constructors with optional configuration. Covers choosing ordinary parameters, config structs, or functional options. A routine function-body edit alone does not require this skill; route its actual topic to the relevant Go skill.",
 		"go-generics":        "Use when deciding whether to use Go generics, writing generic functions or types, choosing constraints, or picking between type aliases and type definitions. Also use when a user is writing a utility function that could work with multiple types, even if they don't mention generics explicitly. Does not cover interface design without generics (see go-interfaces).",
 		"go-interfaces":      "Use when defining or implementing Go interfaces, designing abstractions, creating mockable boundaries for testing, or composing types through embedding. Also use when deciding whether to accept an interface or return a concrete type, or using type assertions or type switches, even if the user doesn't explicitly mention interfaces. Does not cover generics-based polymorphism (see go-generics).",
 		"go-linting":         "Use when setting up linting for a Go project, configuring golangci-lint, or adding Go checks to a CI/CD pipeline. Also use when starting a new Go project and deciding which linters to enable, even if the user only asks about \"code quality\" or \"static analysis\" without mentioning specific linter names. Does not cover code review process (see go-code-review).",
-		"go-logging":         "Use when choosing a logging approach, configuring slog, writing structured log statements, or deciding log levels in Go. Also use when setting up production logging, adding request-scoped context to logs, or migrating from log to slog, even if the user doesn't explicitly mention logging. Does not cover error handling strategy (see go-error-handling).",
+		"go-logging":         "Use when choosing a logging approach, configuring slog, writing structured log statements, or deciding log levels in Go. Also use when making a Go service observable — request-scoped context, trace correlation, metric shape and label cardinality, dashboards and alerts as done-criteria — or when setting up production logging or migrating from log to slog, even if the user doesn't explicitly mention logging. Does not cover error handling strategy (see go-error-handling).",
 		"go-naming":          "Use when naming any Go identifier — packages, types, functions, methods, variables, constants, or receivers — to ensure idiomatic, clear names. Also use when a user is creating new types, packages, or exported APIs, even if they don't explicitly ask about naming conventions. Does not cover package organization (see go-packages).",
 		"go-packages":        "Use when creating Go packages, organizing imports, managing dependencies, or deciding how to structure Go code into packages. Also use when starting a new Go project or splitting a growing codebase into packages, even if the user doesn't explicitly ask about package organization. Does not cover naming individual identifiers (see go-naming).",
 		"go-performance":     "Use when optimizing Go code, investigating slow performance, or writing performance-critical sections. Also use when a user mentions slow Go code, string concatenation in loops, or asks about benchmarking, even if the user doesn't explicitly mention performance patterns. Does not cover concurrent performance patterns (see go-concurrency).",
@@ -2088,6 +2088,18 @@ func TestManifestCounts(t *testing.T) {
 	scripts := countGlob("skills/*/scripts/*.sh")
 	assets := countGlob("skills/*/assets/*")
 
+	var evalCounts struct {
+		Trigger []json.RawMessage `json:"trigger_evals"`
+		Quality []json.RawMessage `json:"quality_evals"`
+	}
+	evalsJSON, err := os.ReadFile(filepath.Join(root, "evals", "evals.json"))
+	if err != nil {
+		t.Fatalf("read evals.json: %v", err)
+	}
+	if err := json.Unmarshal(evalsJSON, &evalCounts); err != nil {
+		t.Fatalf("parse evals.json: %v", err)
+	}
+
 	for _, tc := range []struct {
 		file    string
 		pattern string
@@ -2098,6 +2110,10 @@ func TestManifestCounts(t *testing.T) {
 		{"README.md", `(\d+) bundled scripts`, scripts},
 		{"README.md", `(\d+) scripts automate`, scripts},
 		{"README.md", `(\d+) asset templates`, assets},
+		{"README.md", `(\d+) trigger evals`, len(evalCounts.Trigger)},
+		{"README.md", `(\d+) quality evals`, len(evalCounts.Quality)},
+		{"README.uk.md", `(\d+) eval\S* на тригери`, len(evalCounts.Trigger)},
+		{"README.uk.md", `(\d+) eval\S* на якість`, len(evalCounts.Quality)},
 		{"README.uk.md", `(\d+) модульн\S+ скіл`, skills},
 		{"README.uk.md", `(\d+) довідков\S+ файл\S*`, references},
 		{"README.uk.md", `(\d+) вбудованих скриптів`, scripts},

@@ -45,6 +45,29 @@ not have (v1, v3, v5, custom sources).
 
 ---
 
+## Adding and Auditing Dependencies
+
+- **Ask before `go get`.** A new module is a maintenance commitment: confirm
+  the standard library does not cover it, the license is compatible, and the
+  project is maintained. Prefer `golang.org/x/...` and modules already in
+  `go.mod` over new ones.
+- **Pin executable tools with `go get -tool <package>@<version>`** (Go 1.24+),
+  then run them via `go tool <name>`. Tool dependencies share the module graph.
+  For golangci-lint, prefer a version-pinned release binary; if using `go tool`,
+  isolate it in a dedicated module or modfile to avoid dependency conflicts
+  ([upstream guidance](https://golangci-lint.run/docs/welcome/install/local/)).
+  The legacy `tools.go` blank-import file is only for modules below Go 1.24.
+- **Tidy before committing** dependency changes: check with `go mod tidy -diff`
+  (Go 1.23+), which prints what tidy would change and exits non-zero without
+  touching the module files or inspecting unrelated Git changes; then apply
+  `go mod tidy`. `go mod tidy && git diff --exit-code` is the clean-checkout
+  form for CI.
+- **Scan before releasing**: `govulncheck ./...` for reachable CVEs in the
+  module tree. The gate lives in [go-linting](../go-linting/SKILL.md); finding
+  triage routes to [go-security](../go-security/SKILL.md).
+
+---
+
 ## Package Organization
 
 ### Avoid Util Packages

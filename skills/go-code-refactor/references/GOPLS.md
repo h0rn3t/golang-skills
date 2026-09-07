@@ -58,7 +58,12 @@ found by the compiler, not before the edit.
 `go_diagnostics` on each changed file (automatic with the native tool). Fix
 compiler errors before moving to the next transformation; a half-applied
 rename across two files is the state in which `verify-refactor.sh after` lies
-to you — the package that failed to compile ran no tests at all.
+to you — the package that failed to compile ran no tests at all. Re-test the
+affected packages mid-step — the ones you changed plus the consumers of any
+shared API you touched (`go test` on those paths, `-race` when concurrency
+moved) — rather than the whole tree; the full suite belongs to the end of the
+task, under the [go-linting](../../go-linting/SKILL.md) gate that owns this
+scope rule.
 
 ## Gotchas
 

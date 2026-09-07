@@ -142,8 +142,9 @@ deliberate breaks), `testifylint` (only in repositories that use testify),
 golangci-lint).
 
 `govulncheck` is not a golangci-lint linter — install and run it separately:
-`go install golang.org/x/vuln/cmd/govulncheck@latest`. It reports only
-vulnerabilities on reachable call paths, so its findings are actionable.
+`go install golang.org/x/vuln/cmd/govulncheck@latest` locally, and a pinned
+`@vX.Y.Z` in CI like every other tool. It reports only vulnerabilities on
+reachable call paths, so its findings are actionable.
 
 ---
 
@@ -151,12 +152,12 @@ vulnerabilities on reachable call paths, so its findings are actionable.
 
 `assets/golangci.yml` is the maintained example and the only copy —
 `setup-lint.sh` emits it verbatim. It targets golangci-lint v2 (verified with
-2.13.1 on 2026-09-01), keeps `goimports` under `formatters`, and enables the
+2.13.2 on 2026-09-07), keeps `goimports` under `formatters`, and enables the
 core linters, the production additions, and the skill-enforcing set above.
 
 ```bash
 # Pin the version this skill is verified against
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.1
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
 
 golangci-lint run              # all linters
 golangci-lint run ./pkg/...    # specific paths
@@ -188,6 +189,29 @@ Actions.
 # .git/hooks/pre-commit — lint only changed code to keep the loop fast
 golangci-lint run --new-from-rev=HEAD~1
 ```
+
+A minimal Go pipeline runs test and lint on every PR:
+
+- **Matrix** covers the version in the `go` directive plus `stable`, with
+  `fail-fast: false` so one version never cancels the rest. While the directive
+  names the current release those two resolve to the same toolchain — the
+  second entry earns its minutes when the next minor ships. Older directives
+  add their supported minors.
+- **Test flags**: `go test -race -shuffle=on ./...`, plus `-count=1` for
+  suites that touch real services so caching cannot hide flakes.
+- **Hygiene**: `go mod tidy && git diff --exit-code` fails a PR that leaves
+  `go.mod` dirty.
+- **Vulnerability scan**: `govulncheck` keeps the trigger contract above —
+  dependency changes, release, or on request — plus a scheduled run, since a
+  new advisory lands against code that did not change.
+- **Pinning**: pin each GitHub Action to a full commit SHA. A `@vN` tag moves,
+  so it is a compatibility marker, not a supply-chain control — GitHub's
+  hardening guidance treats the SHA as the only immutable reference. Pin tool
+  versions to the ones local runs use, `govulncheck` included: its
+  vulnerability database is fetched at run time, so a pinned binary still
+  reports today's advisories.
+- **Permissions**: least-privilege `permissions:` on each job; only release
+  jobs get `contents: write`.
 
 ---
 

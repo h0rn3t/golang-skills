@@ -80,9 +80,60 @@ func TestAnalyzeIncludesNestedGoFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("analyze(%q) error = %v, want nil", root, err)
 	}
-	want := metrics{Lines: 7, Files: 2, TestFiles: 1, Types: 2, Interfaces: 1, Funcs: 2}
+	want := metrics{Lines: 7, Files: 2, TestFiles: 1, Types: 2, Interfaces: 1, Funcs: 2, Exported: 4}
 	if got != want {
 		t.Errorf("analyze(%q) = %+v, want %+v", root, got, want)
+	}
+}
+
+func TestAnalyzeCountsPublicSurfaceAndBranches(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "surface.go"), `package surface
+
+const Public = 1
+
+const private = 2
+
+var Exported, unexported = 3, 4
+
+type Kind int
+
+type hidden struct{}
+
+// Method is exported but hangs off an unexported type, so it adds no
+// reachable surface.
+func (hidden) Method() {}
+
+func Walk(items []int) int {
+	total := 0
+	for _, n := range items {
+		if n < 0 {
+			continue
+		}
+		switch n {
+		case 1, 2:
+			total += n
+		default:
+			total++
+		}
+	}
+	return total
+}
+`)
+
+	got, err := analyze(root)
+	if err != nil {
+		t.Fatalf("analyze(%q) error = %v, want nil", root, err)
+	}
+
+	// Public, Exported, Kind, Walk. private, unexported, hidden and the method
+	// on hidden are all unreachable from outside the package.
+	if got.Exported != 4 {
+		t.Errorf("analyze exported = %d, want 4", got.Exported)
+	}
+	// range, if, and the two values of the one non-default case.
+	if got.Branches != 4 {
+		t.Errorf("analyze branches = %d, want 4", got.Branches)
 	}
 }
 
@@ -197,16 +248,16 @@ func TestBuildJobsIsSeededAndNotArmMajor(t *testing.T) {
 }
 
 func TestValidateOptions(t *testing.T) {
-	valid := options{runner: runnerClaude, reps: 1, parallel: 1, timeout: time.Second}
+	valid := options{corpus: corpusRefactor, runner: runnerClaude, reps: 1, parallel: 1, timeout: time.Second}
 	tests := []struct {
 		name string
 		in   options
 	}{
-		{name: "zero repetitions", in: options{runner: runnerClaude, parallel: 1, timeout: time.Second}},
-		{name: "zero parallelism", in: options{runner: runnerClaude, reps: 1, timeout: time.Second}},
-		{name: "zero timeout", in: options{runner: runnerClaude, reps: 1, parallel: 1}},
-		{name: "unknown runner", in: options{runner: "codex", reps: 1, parallel: 1, timeout: time.Second}},
-		{name: "opencode without a model", in: options{runner: runnerOpencode, reps: 1, parallel: 1, timeout: time.Second}},
+		{name: "zero repetitions", in: options{corpus: corpusRefactor, runner: runnerClaude, parallel: 1, timeout: time.Second}},
+		{name: "zero parallelism", in: options{corpus: corpusRefactor, runner: runnerClaude, reps: 1, timeout: time.Second}},
+		{name: "zero timeout", in: options{corpus: corpusRefactor, runner: runnerClaude, reps: 1, parallel: 1}},
+		{name: "unknown runner", in: options{corpus: corpusRefactor, runner: "codex", reps: 1, parallel: 1, timeout: time.Second}},
+		{name: "opencode without a model", in: options{corpus: corpusRefactor, runner: runnerOpencode, reps: 1, parallel: 1, timeout: time.Second}},
 	}
 
 	if err := validateOptions(valid); err != nil {

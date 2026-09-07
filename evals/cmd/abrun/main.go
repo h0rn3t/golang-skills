@@ -1,10 +1,17 @@
-// Command abrun measures what a wording change to a skill does to the code the
-// model actually writes. It runs the same refactoring prompt against the same
-// fixtures with the current skills (the baseline arm), an optional complete
-// plugin tree from -reference-root, and Markdown variants spliced into the
-// current go-code-refactor/SKILL.md. It then reports mechanical deltas: lines,
-// declared types, interfaces, pattern-flavored names, and whether the golden
-// characterization test still passes.
+// Command abrun measures what a skill does to the code the model actually
+// writes. It runs one prompt against a corpus of fixtures with the current
+// skills (the baseline arm), an optional complete plugin tree from
+// -reference-root, and Markdown variants spliced into the current
+// go-code-refactor/SKILL.md. It then reports mechanical deltas: lines, declared
+// types, interfaces, pattern-flavored names, and whether the hidden golden test
+// passes.
+//
+// There are two corpora. -corpus refactor hands the model a working package and
+// asks it to improve the reading; the golden test characterizes the behavior
+// that already existed, so it can only be broken, and the score is how much
+// structure the refactor removed. -corpus implement hands the model documented
+// but unimplemented declarations; the golden test is the specification, so it
+// can be failed outright, and the score is whether the package works at all.
 //
 // Nothing here grades prose; the model edits real files in a scratch directory
 // and the files are what gets measured. A before/after claim requires the
@@ -39,11 +46,37 @@ import (
 	"time"
 )
 
-// defaultPrompt is shared by every arm; only the skill text differs between
-// them, so any difference in the resulting code is attributable to the wording.
-const defaultPrompt = "Refactor the Go package in ./%s so it reads better. " +
+// The corpus prompts are shared by every arm; only the skill text differs
+// between them, so any difference in the resulting code is attributable to the
+// wording.
+const refactorPrompt = "Refactor the Go package in ./%s so it reads better. " +
 	"Keep observable behavior identical: the exported API, error texts, and rendered output must not change. " +
 	"Apply the changes to the files."
+
+const implementPrompt = "Implement the Go package in ./%s. " +
+	"Every exported declaration is already there with its documentation; write the bodies so the package does what the documentation says. " +
+	"Do not change the exported signatures. Apply the changes to the files."
+
+// corpora are the two experiments the fixtures support, and they are kept apart
+// on purpose. A refactor is scored on how much structure it removes while
+// behavior holds, an implementation on whether the hidden test passes at all
+// and how much code it took; a mean over both is a number about neither.
+const (
+	corpusRefactor  = "refactor"
+	corpusImplement = "implement"
+)
+
+// implementDir holds the implementation corpus. The leading underscore keeps
+// findTasks from offering it as a refactor fixture.
+const implementDir = "_implement"
+
+// corpusPrompt returns the prompt a corpus is run with unless -prompt overrides it.
+func corpusPrompt(corpus string) string {
+	if corpus == corpusImplement {
+		return implementPrompt
+	}
+	return refactorPrompt
+}
 
 // anchor is the SKILL.md line a variant block is spliced in front of.
 const anchor = "## Workflow"
@@ -79,6 +112,7 @@ type options struct {
 	prompt        string
 	model         string
 	runner        string
+	corpus        string
 	out           string
 	referenceRoot string
 	reps          int
@@ -94,7 +128,8 @@ func main() {
 	flag.StringVar(&o.tasks, "tasks", "", "comma-separated fixture names to run (default: every directory under evals/ab)")
 	flag.StringVar(&o.arms, "arms", "", "comma-separated arms to run, e.g. \"no-skill,baseline\" (default: all)")
 	flag.StringVar(&o.variants, "variants", "", "directory of variant Markdown blocks (default: evals/ab/variants)")
-	flag.StringVar(&o.prompt, "prompt", defaultPrompt, "prompt template; %s is the fixture directory")
+	flag.StringVar(&o.prompt, "prompt", "", "prompt template; %s is the fixture directory (default: the corpus prompt)")
+	flag.StringVar(&o.corpus, "corpus", corpusRefactor, "fixture corpus to run: refactor or implement")
 	flag.StringVar(&o.model, "model", "", "model for the evaluated run (default: the runner's own default; required for opencode)")
 	flag.StringVar(&o.runner, "runner", runnerClaude, "agent CLI to drive: claude or opencode")
 	flag.StringVar(&o.out, "out", "", "write the JSON report to this file")
@@ -156,6 +191,15 @@ type metrics struct {
 	Interfaces int `json:"interfaces"`
 	Funcs      int `json:"funcs"`
 	Pattern    int `json:"pattern_names"`
+	// Exported counts the package's public surface. On an implementation task
+	// every exported declaration the specification needs is already there, so
+	// growth here is scope the task never asked for.
+	Exported int `json:"exported"`
+	// Branches counts decision points: if, for, range, and each non-default
+	// case. It stands in for hand-rolled control flow — the difference between
+	// leaning on what the standard library already decides and re-deciding it
+	// by hand — which the declaration counts cannot see when the API is fixed.
+	Branches int `json:"branches"`
 }
 
 func (m metrics) sub(o metrics) metrics {
@@ -167,6 +211,8 @@ func (m metrics) sub(o metrics) metrics {
 		Interfaces: m.Interfaces - o.Interfaces,
 		Funcs:      m.Funcs - o.Funcs,
 		Pattern:    m.Pattern - o.Pattern,
+		Exported:   m.Exported - o.Exported,
+		Branches:   m.Branches - o.Branches,
 	}
 }
 
@@ -202,6 +248,7 @@ type result struct {
 
 type report struct {
 	Prompt   string    `json:"prompt"`
+	Corpus   string    `json:"corpus"`
 	Runner   string    `json:"runner"`
 	Model    string    `json:"model,omitempty"`
 	Reps     int       `json:"reps"`
@@ -226,6 +273,12 @@ func run(o options) error {
 		return err
 	}
 	abDir := filepath.Join(root, "evals", "ab")
+	if o.corpus == corpusImplement {
+		abDir = filepath.Join(abDir, implementDir)
+	}
+	if o.prompt == "" {
+		o.prompt = corpusPrompt(o.corpus)
+	}
 	if o.variants == "" {
 		o.variants = filepath.Join(abDir, "variants")
 	}
@@ -259,7 +312,7 @@ func run(o options) error {
 
 	jobs := buildJobs(arms, tasks, o.reps, o.seed)
 
-	rep := report{Prompt: o.prompt, Runner: o.runner, Model: o.model, Reps: o.reps, Seed: o.seed, Arms: arms, Results: make([]result, len(jobs))}
+	rep := report{Prompt: o.prompt, Corpus: o.corpus, Runner: o.runner, Model: o.model, Reps: o.reps, Seed: o.seed, Arms: arms, Results: make([]result, len(jobs))}
 	var mu sync.Mutex
 	forEach(o.parallel, len(jobs), func(i int) {
 		res := runOne(o, abDir, jobs[i].arm, jobs[i].task, jobs[i].rep)
@@ -287,6 +340,9 @@ func run(o options) error {
 }
 
 func validateOptions(o options) error {
+	if o.corpus != corpusRefactor && o.corpus != corpusImplement {
+		return exitError{2, fmt.Sprintf("-corpus must be %s or %s", corpusRefactor, corpusImplement)}
+	}
 	switch o.runner {
 	case runnerClaude:
 	case runnerOpencode:
@@ -778,23 +834,65 @@ func countDecls(file *ast.File, m *metrics) {
 		case *ast.FuncDecl:
 			m.Funcs++
 			m.Pattern += patternHits(d.Name.Name)
-		case *ast.GenDecl:
-			if d.Tok != token.TYPE {
-				continue
+			// A method on an unexported type adds no reachable surface, so only
+			// plain functions count toward the public API here.
+			if d.Recv == nil && d.Name.IsExported() {
+				m.Exported++
 			}
-			for _, spec := range d.Specs {
-				ts, ok := spec.(*ast.TypeSpec)
-				if !ok {
-					continue
+		case *ast.GenDecl:
+			switch d.Tok {
+			case token.TYPE:
+				for _, spec := range d.Specs {
+					ts, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					m.Types++
+					m.Pattern += patternHits(ts.Name.Name)
+					if ts.Name.IsExported() {
+						m.Exported++
+					}
+					if _, ok := ts.Type.(*ast.InterfaceType); ok {
+						m.Interfaces++
+					}
 				}
-				m.Types++
-				m.Pattern += patternHits(ts.Name.Name)
-				if _, ok := ts.Type.(*ast.InterfaceType); ok {
-					m.Interfaces++
+			case token.VAR, token.CONST:
+				for _, spec := range d.Specs {
+					vs, ok := spec.(*ast.ValueSpec)
+					if !ok {
+						continue
+					}
+					for _, name := range vs.Names {
+						if name.IsExported() {
+							m.Exported++
+						}
+					}
 				}
 			}
 		}
 	}
+	m.Branches += branchCount(file)
+}
+
+// branchCount counts the decision points in a file: if, for, range, and each
+// case that names a value. A switch or select statement is not counted itself,
+// because its cases already are, and a default clause is not a decision.
+func branchCount(file *ast.File) int {
+	count := 0
+	ast.Inspect(file, func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.IfStmt, *ast.ForStmt, *ast.RangeStmt:
+			count++
+		case *ast.CaseClause:
+			count += len(node.List)
+		case *ast.CommClause:
+			if node.Comm != nil {
+				count++
+			}
+		}
+		return true
+	})
+	return count
 }
 
 // patternHits reports how many pattern-scaffold fragments name contains.
@@ -956,8 +1054,8 @@ func firstLine(s string) string {
 
 func printResult(r result, verbose bool) {
 	status := resultStatus(r)
-	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  iface %+d  funcs %+d  pattern %+d  build=%v golden=%v skills=%v",
-		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Interfaces, r.Delta.Funcs, r.Delta.Pattern, r.Build, r.Golden, r.Skills)
+	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  exp %+d  branch %+d  build=%v golden=%v skills=%v",
+		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Funcs, r.Delta.Exported, r.Delta.Branches, r.Build, r.Golden, r.Skills)
 	if r.Err != "" {
 		fmt.Printf("  error: %s", r.Err)
 	}
@@ -984,12 +1082,14 @@ type armSummary struct {
 	Valid      int
 	Build      int
 	Golden     int
-	Refactor   int
+	SkillFired int
 	Lines      int
 	Types      int
 	Interfaces int
 	Funcs      int
 	Pattern    int
+	Exported   int
+	Branches   int
 	NoEdit     int
 	Leaked     int
 	// Cost covers every session that reported one, including the invalid runs:
@@ -997,6 +1097,19 @@ type armSummary struct {
 	// what the corpus costs to replay.
 	Cost   float64
 	Costed int
+}
+
+// skillFired reports whether a run reached the skill its corpus is about. The
+// refactor corpus has one owner for every fixture, go-code-refactor. An
+// implementation task instead routes to whichever go-* skill owns its topic —
+// go-http for a server, go-defensive for a boundary copy — so there the only
+// question the summary can ask of every fixture at once is whether the plugin
+// was reached at all. Which skill it was stays per-run in the report.
+func skillFired(corpus string, skills []string) bool {
+	if corpus == corpusImplement {
+		return len(skills) > 0
+	}
+	return slices.Contains(skills, "go-code-refactor")
 }
 
 func summarizeArm(rep report, name string) armSummary {
@@ -1020,8 +1133,8 @@ func summarizeArm(rep report, name string) armSummary {
 		if r.Golden {
 			summary.Golden++
 		}
-		if slices.Contains(r.Skills, "go-code-refactor") {
-			summary.Refactor++
+		if skillFired(rep.Corpus, r.Skills) {
+			summary.SkillFired++
 		}
 		if !r.Edited {
 			summary.NoEdit++
@@ -1038,6 +1151,8 @@ func summarizeArm(rep report, name string) armSummary {
 		summary.Interfaces += r.Delta.Interfaces
 		summary.Funcs += r.Delta.Funcs
 		summary.Pattern += r.Delta.Pattern
+		summary.Exported += r.Delta.Exported
+		summary.Branches += r.Delta.Branches
 	}
 	return summary
 }
@@ -1045,8 +1160,8 @@ func summarizeArm(rep report, name string) armSummary {
 // printSummary averages structural deltas only over runs that both build and
 // pass their hidden golden test. Failed sessions remain visible in the counts.
 func printSummary(rep report) {
-	fmt.Printf("%-24s %5s %6s %5s %8s %7s %7s %7s %9s %7s %7s %9s %8s\n",
-		"arm", "runs", "errors", "valid", "Δlines", "Δtypes", "Δiface", "Δfuncs", "Δpattern", "build", "golden", "refactor", "$/run")
+	fmt.Printf("%-24s %5s %6s %5s %8s %7s %7s %7s %9s %6s %8s %7s %7s %6s %8s\n",
+		"arm", "runs", "errors", "valid", "Δlines", "Δtypes", "Δiface", "Δfuncs", "Δpattern", "Δexp", "Δbranch", "build", "golden", "skill", "$/run")
 	for _, a := range rep.Arms {
 		summary := summarizeArm(rep, a.Name)
 		completed := summary.Runs - summary.Errors
@@ -1065,10 +1180,11 @@ func printSummary(rep report) {
 		if summary.Costed > 0 {
 			cost = summary.Cost / float64(summary.Costed)
 		}
-		fmt.Printf("%-24s %5d %6d %5d %8.1f %7.2f %7.2f %7.2f %9.2f %6d%% %6d%% %8d%% %8.4f\n",
+		fmt.Printf("%-24s %5d %6d %5d %8.1f %7.2f %7.2f %7.2f %9.2f %6.2f %8.2f %6d%% %6d%% %5d%% %8.4f\n",
 			a.Name, summary.Runs, summary.Errors, summary.Valid,
 			mean(summary.Lines), mean(summary.Types), mean(summary.Interfaces), mean(summary.Funcs), mean(summary.Pattern),
-			percent(summary.Build), percent(summary.Golden), percent(summary.Refactor), cost)
+			mean(summary.Exported), mean(summary.Branches),
+			percent(summary.Build), percent(summary.Golden), percent(summary.SkillFired), cost)
 		// Neither of these belongs in a column: they are not a worse score, they
 		// are a reason to distrust the row above them and go read the report.
 		if summary.NoEdit > 0 {

@@ -771,6 +771,62 @@
       ],
       "notes": "Narrowing-conversion overflow and float equality are boundary safety pitfalls owned by go-defensive; no untrusted input, so this is not go-security",
       "set": "validation"
+    },
+    {
+      "query": "I have a Go package where every exported function and its doc comment is already written and every body panics with not implemented. Fill in the implementations so the package does what the docs say.",
+      "should_trigger": [
+        "go-code"
+      ],
+      "notes": "Writing new Go code with no single obvious topic is what go-code routes; measured at 0/12 in the 2026-09-07 implementation discovery run",
+      "set": "train"
+    },
+    {
+      "query": "Implement a small Go package from a written spec: it validates its input, keeps results in a map, returns errors the caller can match on, and exposes one function.",
+      "should_trigger": [
+        "go-code"
+      ],
+      "notes": "Spans validation, collections and error strategy at once, so the router is the correct entry rather than any single owner",
+      "set": "train"
+    },
+    {
+      "query": "Write the Go function that builds the JSON response for one account's activity feed: the account, the list of events, and the distinct event kinds present.",
+      "should_trigger": [
+        "go-data-structures"
+      ],
+      "notes": "Building JSON array members is where the nil-versus-empty-slice rule lives; go-data-structures fired 0/3 on this task in the discovery run",
+      "set": "train"
+    },
+    {
+      "query": "Write a Go constructor that takes a slice of entries and returns a type reporting on them. The type is an immutable snapshot: nothing a caller does afterwards may change what it reports.",
+      "should_trigger": [
+        "go-defensive"
+      ],
+      "notes": "An immutable snapshot over a caller's slice is the boundary-copy rule stated as a contract instead of a technique; fired 1/3 in the discovery run",
+      "set": "train"
+    },
+    {
+      "query": "Write the Go function that returns the *http.Server for our public API. It is published straight to the internet with no proxy in front of it and anonymous clients that stall mid-request.",
+      "should_trigger": [
+        "go-http"
+      ],
+      "notes": "An edge server with stalling clients is the server-timeout rule; fired 2/3 in the discovery run",
+      "set": "train"
+    },
+    {
+      "query": "Write a Go lookup function whose failure names the record that could not be resolved and still lets the caller tell which of the store's failure reasons it was.",
+      "should_trigger": [
+        "go-error-handling"
+      ],
+      "notes": "Context in the message plus a reachable reason is the %w rule stated as an obligation to two audiences",
+      "set": "train"
+    },
+    {
+      "query": "Write a new Go package that turns a list of postings into a per-account balance report. Nothing exists yet.",
+      "should_trigger": [
+        "go-code"
+      ],
+      "notes": "Greenfield package with no named topic; the control for whether from-scratch phrasing reaches the router at all",
+      "set": "train"
     }
   ],
   "quality_evals": [

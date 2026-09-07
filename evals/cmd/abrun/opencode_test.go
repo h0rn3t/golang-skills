@@ -10,7 +10,7 @@ import (
 )
 
 func TestValidateOptionsAcceptsOpencodeWithModel(t *testing.T) {
-	o := options{runner: runnerOpencode, model: "opencode-go/minimax-m3", reps: 1, parallel: 1, timeout: time.Second}
+	o := options{corpus: corpusRefactor, runner: runnerOpencode, model: "opencode-go/minimax-m3", reps: 1, parallel: 1, timeout: time.Second}
 
 	if err := validateOptions(o); err != nil {
 		t.Fatalf("validateOptions(%+v) error = %v, want nil", o, err)

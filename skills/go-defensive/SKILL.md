@@ -1,6 +1,6 @@
 ---
 name: go-defensive
-description: Use when hardening Go code at API boundaries — copying slices/maps, verifying interface compliance, using defer for cleanup, time.Time/time.Duration, or avoiding mutable globals. Also use for silent-correctness traps in ordinary Go code — a typed nil in an interface, slices that still alias after append, a narrowing integer conversion that overflows, float equality, a nil channel that blocks forever, or defer inside a loop — and when reviewing for robustness concerns like missing cleanup or unsafe crypto usage, even if the user doesn't mention "defensive programming." Does not cover error handling strategy (see go-error-handling).
+description: Use when hardening Go API boundaries or checking slice/map copies, aliasing, typed nils, cleanup/defer, narrowing overflow, float equality, nil channels, time, globals, interface compliance, or filesystem/crypto safety. Error strategy belongs to go-error-handling.
 ---
 
 # Go Defensive Programming Patterns

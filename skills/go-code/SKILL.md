@@ -1,6 +1,6 @@
 ---
 name: go-code
-description: Use when writing, fixing, or refactoring Go code without a single obvious topic, and whenever this skill is named as a modifier on another workflow (for example "/opsx:apply /go-code" or "/commit /go-code") — it routes the task to the go-* skills it actually needs, then closes with the verification gate. Passed as an argument to another command it is NOT a change name, a file path, or a topic — it means "run that workflow under the Go rules below". Does not carry rules of its own; every rule lives in the skill it routes to.
+description: Use when writing, fixing, or refactoring Go code without one clear topic, or when /go-code modifies another workflow (e.g. /opsx:apply /go-code). As a modifier it selects Go rules, not a change name or path.
 ---
 
 # Go Code Profile

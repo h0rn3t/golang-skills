@@ -1,6 +1,6 @@
 ---
 name: go-resilience
-description: Use when designing, implementing, or reviewing Go behavior under dependency failures or overload — retries, backoff and jitter, retry budgets, idempotency or duplicate delivery, circuit breakers, bulkheads, rate limiting, backpressure, or graceful degradation. Also use when retries amplify an outage or timed-out operations risk duplicate side effects. Does not cover an unknown failure's root cause (see go-troubleshooting), basic context propagation (see go-context), or server shutdown alone (see go-http).
+description: Use when handling Go dependency failures or overload with retries, backoff/jitter, budgets, idempotency, duplicate delivery, circuit breakers, bulkheads, rate limits, backpressure, or degradation. Unknown root causes belong to go-troubleshooting.
 ---
 
 # Go Resilience

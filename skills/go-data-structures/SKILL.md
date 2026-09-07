@@ -1,6 +1,6 @@
 ---
 name: go-data-structures
-description: Use when working with Go slices, maps, or arrays — choosing between new and make, using append, declaring empty slices (nil vs literal for JSON), implementing sets with maps, and copying data at boundaries. Also use when building or manipulating collections, even if the user doesn't ask about allocation idioms. Does not cover concurrent data structure safety (see go-concurrency).
+description: Use when creating or manipulating Go slices, maps, arrays, or sets, including new/make, append, copies, and nil versus empty JSON collections. Thread safety belongs to go-concurrency.
 ---
 
 # Go Data Structures

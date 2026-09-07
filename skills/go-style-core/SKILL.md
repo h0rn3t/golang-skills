@@ -1,6 +1,6 @@
 ---
 name: go-style-core
-description: Use when resolving Go style or language-mechanics questions about formatting, nesting, declarations, initialization, variable scope, shadowing, loops, switches, or enum zero values. Provides the baseline for go-code and the fallback for style questions without a specialized owner. Function API design, naming, error strategy, and testing belong to their specialized skills.
+description: Use when resolving Go style or language mechanics such as formatting, nesting, declarations, initialization, scope, shadowing, loops, switches, or enum zero values. API design, naming, errors, and tests have specialized skills.
 ---
 
 # Go Style and Language Mechanics

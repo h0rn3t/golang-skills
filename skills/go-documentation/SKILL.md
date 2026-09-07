@@ -1,6 +1,6 @@
 ---
 name: go-documentation
-description: Use when writing or reviewing documentation for Go packages, types, functions, or methods. Also use proactively when creating new exported types, functions, or packages, even if the user doesn't explicitly ask about documentation. Does not cover code comments for non-exported symbols (see go-style-core).
+description: Use when writing or reviewing Go doc comments, or creating exported types, functions, or packages even without a documentation request. Internal code comments belong to go-style-core.
 allowed-tools: Bash(bash:*)
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: go-generics
-description: Use when deciding whether to use Go generics, writing generic functions or types, choosing constraints, or picking between type aliases and type definitions. Also use when a user is writing a utility function that could work with multiple types, even if they don't mention generics explicitly. Does not cover interface design without generics (see go-interfaces).
+description: Use when choosing or writing Go generics, constraints, type aliases versus definitions, or utilities for multiple types. Non-generic interface design belongs to go-interfaces.
 ---
 
 # Go Generics and Type Parameters

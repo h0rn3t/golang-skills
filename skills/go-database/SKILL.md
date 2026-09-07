@@ -1,6 +1,6 @@
 ---
 name: go-database
-description: Use when writing or reviewing Go code that talks to a SQL database — database/sql or pgx queries, transactions, repositories, connection pools, migrations, or an ORM such as gorm. Also use when a handler is slow because of its queries, when a query sits inside a loop, or when mapping rows to structs, even if the user never says "database". Does not cover the HTTP handler around the query (see go-http) or context placement (see go-context).
+description: Use when writing or reviewing Go SQL queries, transactions, repositories, pools, migrations, or row mapping with database/sql, pgx, or an ORM; also for slow queries and queries in loops.
 ---
 
 # Go Database Access

@@ -1,0 +1,4769 @@
+{
+  "experiment": "description compression, trigger recognition on the codex runner",
+  "runner": "codex 0.153.4",
+  "model": "gpt-5.6-luna",
+  "effort": "medium",
+  "sandbox": "read-only",
+  "approval_policy": "never",
+  "timeout_seconds": 240,
+  "parallel": 5,
+  "cases": 105,
+  "set": "all",
+  "arms": {
+    "before": {
+      "descriptions": "HEAD 8337ba3, original",
+      "developer_prompt_chars": 23128,
+      "skills_block_chars": 13930,
+      "skills_sha256": "546f221e3e350d742cddf2a673a3f8ded1953d170a900f785182496ccf5cc176",
+      "sessions": 105,
+      "errors": 0,
+      "pass": 88,
+      "pass_positive": 75,
+      "positive_cases": 87,
+      "pass_negative": 13,
+      "negative_cases": 18,
+      "expected_skill_reads": 98,
+      "expected_skills": 110,
+      "extra_skill_reads": 180,
+      "mean_input_tokens": 90406,
+      "mean_cached_input_tokens": 74225,
+      "mean_output_tokens": 1479,
+      "mean_seconds": 36.7,
+      "skill_read_sessions": {
+        "go-code": 30,
+        "go-code-refactor": 9,
+        "go-code-review": 9,
+        "go-concurrency": 7,
+        "go-context": 12,
+        "go-data-structures": 8,
+        "go-database": 6,
+        "go-defensive": 4,
+        "go-documentation": 13,
+        "go-error-handling": 20,
+        "go-functions": 14,
+        "go-generics": 3,
+        "go-http": 15,
+        "go-interfaces": 6,
+        "go-linting": 12,
+        "go-logging": 9,
+        "go-naming": 12,
+        "go-packages": 9,
+        "go-performance": 5,
+        "go-resilience": 6,
+        "go-security": 5,
+        "go-style-core": 33,
+        "go-testing": 18,
+        "go-troubleshooting": 13
+      }
+    },
+    "after": {
+      "descriptions": "working tree, 18 of 24 shortened",
+      "developer_prompt_chars": 19536,
+      "skills_block_chars": 10338,
+      "skills_sha256": "9f6fba3ef9f4c9cbeec0b0dff5db73204e6617ce54bd971d99c241f1d7280d15",
+      "sessions": 105,
+      "errors": 0,
+      "pass": 84,
+      "pass_positive": 71,
+      "positive_cases": 87,
+      "pass_negative": 13,
+      "negative_cases": 18,
+      "expected_skill_reads": 94,
+      "expected_skills": 110,
+      "extra_skill_reads": 140,
+      "mean_input_tokens": 75832,
+      "mean_cached_input_tokens": 60782,
+      "mean_output_tokens": 1324,
+      "mean_seconds": 33.1,
+      "skill_read_sessions": {
+        "go-code": 29,
+        "go-code-refactor": 9,
+        "go-code-review": 5,
+        "go-concurrency": 5,
+        "go-context": 9,
+        "go-data-structures": 7,
+        "go-database": 6,
+        "go-defensive": 7,
+        "go-documentation": 11,
+        "go-error-handling": 12,
+        "go-functions": 17,
+        "go-generics": 2,
+        "go-http": 15,
+        "go-interfaces": 4,
+        "go-linting": 8,
+        "go-logging": 9,
+        "go-naming": 8,
+        "go-packages": 4,
+        "go-performance": 6,
+        "go-resilience": 6,
+        "go-security": 8,
+        "go-style-core": 27,
+        "go-testing": 11,
+        "go-troubleshooting": 9
+      }
+    }
+  },
+  "mcnemar_exact_p": {
+    "case_pass": 0.424,
+    "expected_skill_reads": 0.454
+  },
+  "results": [
+    {
+      "arm": "before",
+      "query": "Review this Go PR for me before I submit it",
+      "set": "train",
+      "want": [
+        "go-code-review"
+      ],
+      "got": [],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 49943,
+        "cached_input_tokens": 39168,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 676,
+        "reasoning_output_tokens": 161
+      },
+      "seconds": 19.4
+    },
+    {
+      "arm": "before",
+      "query": "I have a race condition in my Go service, can you help fix it?",
+      "set": "train",
+      "want": [
+        "go-concurrency"
+      ],
+      "got": [
+        "go-concurrency",
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 72338,
+        "cached_input_tokens": 55296,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1140,
+        "reasoning_output_tokens": 97
+      },
+      "seconds": 31.1
+    },
+    {
+      "arm": "after",
+      "query": "I have a race condition in my Go service, can you help fix it?",
+      "set": "train",
+      "want": [
+        "go-concurrency"
+      ],
+      "got": [
+        "go-concurrency",
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 70022,
+        "cached_input_tokens": 57344,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1190,
+        "reasoning_output_tokens": 96
+      },
+      "seconds": 32.2
+    },
+    {
+      "arm": "after",
+      "query": "Write a Go function that processes items concurrently using goroutines and channels",
+      "set": "train",
+      "want": [
+        "go-concurrency"
+      ],
+      "got": [
+        "go-code",
+        "go-concurrency",
+        "go-functions"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 46405,
+        "cached_input_tokens": 34048,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1478,
+        "reasoning_output_tokens": 590
+      },
+      "seconds": 35.1
+    },
+    {
+      "arm": "after",
+      "query": "Review this Go PR for me before I submit it",
+      "set": "train",
+      "want": [
+        "go-code-review"
+      ],
+      "got": [],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 48008,
+        "cached_input_tokens": 35072,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 590,
+        "reasoning_output_tokens": 57
+      },
+      "seconds": 18.6
+    },
+    {
+      "arm": "before",
+      "query": "How should I name this Go package that handles user authentication?",
+      "set": "train",
+      "want": [
+        "go-naming",
+        "go-packages"
+      ],
+      "got": [
+        "go-naming"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 29219,
+        "cached_input_tokens": 22016,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 306,
+        "reasoning_output_tokens": 29
+      },
+      "seconds": 14.0
+    },
+    {
+      "arm": "after",
+      "query": "How should I name this Go package that handles user authentication?",
+      "set": "train",
+      "want": [
+        "go-naming",
+        "go-packages"
+      ],
+      "got": [
+        "go-naming"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 27858,
+        "cached_input_tokens": 24064,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 417,
+        "reasoning_output_tokens": 121
+      },
+      "seconds": 14.3
+    },
+    {
+      "arm": "before",
+      "query": "Write a Go function that processes items concurrently using goroutines and channels",
+      "set": "train",
+      "want": [
+        "go-concurrency"
+      ],
+      "got": [
+        "go-code",
+        "go-concurrency",
+        "go-context",
+        "go-error-handling",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 62245,
+        "cached_input_tokens": 40192,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2097,
+        "reasoning_output_tokens": 1041
+      },
+      "seconds": 47.7
+    },
+    {
+      "arm": "before",
+      "query": "Write a test for this Go function that calculates shipping costs",
+      "set": "train",
+      "want": [
+        "go-testing"
+      ],
+      "got": [
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 45913,
+        "cached_input_tokens": 41216,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 487,
+        "reasoning_output_tokens": 91
+      },
+      "seconds": 16.4
+    },
+    {
+      "arm": "after",
+      "query": "Write a test for this Go function that calculates shipping costs",
+      "set": "train",
+      "want": [
+        "go-testing"
+      ],
+      "got": [
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 43900,
+        "cached_input_tokens": 39168,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 495,
+        "reasoning_output_tokens": 91
+      },
+      "seconds": 18.7
+    },
+    {
+      "arm": "after",
+      "query": "This Go error handling feels messy, should I wrap errors or use sentinel values?",
+      "set": "train",
+      "want": [
+        "go-error-handling"
+      ],
+      "got": [
+        "go-error-handling"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 27933,
+        "cached_input_tokens": 17920,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 608,
+        "reasoning_output_tokens": 147
+      },
+      "seconds": 18.4
+    },
+    {
+      "arm": "before",
+      "query": "This Go error handling feels messy, should I wrap errors or use sentinel values?",
+      "set": "train",
+      "want": [
+        "go-error-handling"
+      ],
+      "got": [
+        "go-error-handling"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 47276,
+        "cached_input_tokens": 37120,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 743,
+        "reasoning_output_tokens": 118
+      },
+      "seconds": 20.1
+    },
+    {
+      "arm": "after",
+      "query": "My Go constructor has 8 optional parameters, what's the cleanest API?",
+      "set": "validation",
+      "want": [
+        "go-functions"
+      ],
+      "got": [
+        "go-functions"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 43749,
+        "cached_input_tokens": 35072,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 698,
+        "reasoning_output_tokens": 31
+      },
+      "seconds": 20.4
+    },
+    {
+      "arm": "before",
+      "query": "Add proper doc comments to these exported Go types",
+      "set": "train",
+      "want": [
+        "go-documentation"
+      ],
+      "got": [
+        "go-documentation"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 97799,
+        "cached_input_tokens": 75264,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1475,
+        "reasoning_output_tokens": 342
+      },
+      "seconds": 37.7
+    },
+    {
+      "arm": "before",
+      "query": "My Go constructor has 8 optional parameters, what's the cleanest API?",
+      "set": "validation",
+      "want": [
+        "go-functions"
+      ],
+      "got": [
+        "go-functions"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 106535,
+        "cached_input_tokens": 86272,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1405,
+        "reasoning_output_tokens": 122
+      },
+      "seconds": 46.2
+    },
+    {
+      "arm": "after",
+      "query": "Add proper doc comments to these exported Go types",
+      "set": "train",
+      "want": [
+        "go-documentation"
+      ],
+      "got": [
+        "go-documentation"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 57124,
+        "cached_input_tokens": 50176,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 667,
+        "reasoning_output_tokens": 95
+      },
+      "seconds": 20.6
+    },
+    {
+      "arm": "before",
+      "query": "Set up linting for our new Go project",
+      "set": "train",
+      "want": [
+        "go-linting"
+      ],
+      "got": [
+        "go-linting",
+        "go-packages"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 143772,
+        "cached_input_tokens": 119040,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2606,
+        "reasoning_output_tokens": 621
+      },
+      "seconds": 63.5
+    },
+    {
+      "arm": "after",
+      "query": "Set up linting for our new Go project",
+      "set": "train",
+      "want": [
+        "go-linting"
+      ],
+      "got": [
+        "go-linting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 139228,
+        "cached_input_tokens": 118784,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2211,
+        "reasoning_output_tokens": 546
+      },
+      "seconds": 59.8
+    },
+    {
+      "arm": "before",
+      "query": "Should I use context.Background() or context.TODO() here?",
+      "set": "validation",
+      "want": [
+        "go-context"
+      ],
+      "got": [
+        "go-context"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 28604,
+        "cached_input_tokens": 22016,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 406,
+        "reasoning_output_tokens": 97
+      },
+      "seconds": 14.2
+    },
+    {
+      "arm": "before",
+      "query": "This Go function is slow when concatenating strings in a loop",
+      "set": "train",
+      "want": [
+        "go-performance"
+      ],
+      "got": [
+        "go-performance"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 45738,
+        "cached_input_tokens": 37120,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 632,
+        "reasoning_output_tokens": 80
+      },
+      "seconds": 19.1
+    },
+    {
+      "arm": "after",
+      "query": "This Go function is slow when concatenating strings in a loop",
+      "set": "train",
+      "want": [
+        "go-performance"
+      ],
+      "got": [
+        "go-performance"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 43826,
+        "cached_input_tokens": 38144,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 702,
+        "reasoning_output_tokens": 112
+      },
+      "seconds": 22.1
+    },
+    {
+      "arm": "after",
+      "query": "Should I use context.Background() or context.TODO() here?",
+      "set": "validation",
+      "want": [
+        "go-context"
+      ],
+      "got": [
+        "go-context"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 40732,
+        "cached_input_tokens": 34048,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 529,
+        "reasoning_output_tokens": 118
+      },
+      "seconds": 17.4
+    },
+    {
+      "arm": "before",
+      "query": "Write a Python script to parse CSV files",
+      "set": "train",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 13639,
+        "cached_input_tokens": 8960,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 243,
+        "reasoning_output_tokens": 77
+      },
+      "seconds": 9.3
+    },
+    {
+      "arm": "after",
+      "query": "Write a Python script to parse CSV files",
+      "set": "train",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 12966,
+        "cached_input_tokens": 8960,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 315,
+        "reasoning_output_tokens": 68
+      },
+      "seconds": 10.0
+    },
+    {
+      "arm": "before",
+      "query": "What's the best database for my project?",
+      "set": "train",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 13637,
+        "cached_input_tokens": 8960,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 223,
+        "reasoning_output_tokens": 56
+      },
+      "seconds": 8.2
+    },
+    {
+      "arm": "before",
+      "query": "Refactor this Go code to use interfaces instead of concrete types for testability",
+      "set": "train",
+      "want": [
+        "go-interfaces"
+      ],
+      "got": [
+        "go-code-refactor",
+        "go-interfaces",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 152567,
+        "cached_input_tokens": 131328,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1452,
+        "reasoning_output_tokens": 183
+      },
+      "seconds": 39.1
+    },
+    {
+      "arm": "after",
+      "query": "Refactor this Go code to use interfaces instead of concrete types for testability",
+      "set": "train",
+      "want": [
+        "go-interfaces"
+      ],
+      "got": [
+        "go-code-refactor",
+        "go-interfaces",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 84781,
+        "cached_input_tokens": 64512,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1097,
+        "reasoning_output_tokens": 96
+      },
+      "seconds": 30.8
+    },
+    {
+      "arm": "before",
+      "query": "Help me set up a React frontend with TypeScript",
+      "set": "validation",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 59979,
+        "cached_input_tokens": 48128,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 854,
+        "reasoning_output_tokens": 287
+      },
+      "seconds": 25.3
+    },
+    {
+      "arm": "after",
+      "query": "What's the best database for my project?",
+      "set": "train",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 26181,
+        "cached_input_tokens": 20992,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 439,
+        "reasoning_output_tokens": 79
+      },
+      "seconds": 14.9
+    },
+    {
+      "arm": "after",
+      "query": "Deploy my service to Kubernetes",
+      "set": "validation",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 26319,
+        "cached_input_tokens": 17920,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 380,
+        "reasoning_output_tokens": 119
+      },
+      "seconds": 13.3
+    },
+    {
+      "arm": "before",
+      "query": "Fix the CSS layout on our login page",
+      "set": "train",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 41737,
+        "cached_input_tokens": 35072,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 452,
+        "reasoning_output_tokens": 128
+      },
+      "seconds": 15.2
+    },
+    {
+      "arm": "before",
+      "query": "Deploy my service to Kubernetes",
+      "set": "validation",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 41945,
+        "cached_input_tokens": 39168,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 612,
+        "reasoning_output_tokens": 127
+      },
+      "seconds": 19.7
+    },
+    {
+      "arm": "after",
+      "query": "Fix the CSS layout on our login page",
+      "set": "train",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 39670,
+        "cached_input_tokens": 30976,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 417,
+        "reasoning_output_tokens": 109
+      },
+      "seconds": 15.8
+    },
+    {
+      "arm": "after",
+      "query": "Help me set up a React frontend with TypeScript",
+      "set": "validation",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 41963,
+        "cached_input_tokens": 37120,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2691,
+        "reasoning_output_tokens": 166
+      },
+      "seconds": 58.1
+    },
+    {
+      "arm": "after",
+      "query": "Optimize our Go microservice that handles 10k requests per second",
+      "set": "train",
+      "want": [
+        "go-performance",
+        "go-concurrency"
+      ],
+      "got": [
+        "go-performance"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 42988,
+        "cached_input_tokens": 38144,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 652,
+        "reasoning_output_tokens": 166
+      },
+      "seconds": 22.5
+    },
+    {
+      "arm": "before",
+      "query": "Optimize our Go microservice that handles 10k requests per second",
+      "set": "train",
+      "want": [
+        "go-performance",
+        "go-concurrency"
+      ],
+      "got": [
+        "go-code",
+        "go-linting",
+        "go-performance",
+        "go-style-core",
+        "go-troubleshooting"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 105629,
+        "cached_input_tokens": 78592,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1195,
+        "reasoning_output_tokens": 106
+      },
+      "seconds": 31.3
+    },
+    {
+      "arm": "before",
+      "query": "Write a Rust program to process JSON data",
+      "set": "validation",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 13637,
+        "cached_input_tokens": 8960,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 577,
+        "reasoning_output_tokens": 82
+      },
+      "seconds": 15.0
+    },
+    {
+      "arm": "after",
+      "query": "Write a Rust program to process JSON data",
+      "set": "validation",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 12968,
+        "cached_input_tokens": 8960,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 366,
+        "reasoning_output_tokens": 67
+      },
+      "seconds": 10.6
+    },
+    {
+      "arm": "before",
+      "query": "Write a Go function that reads config from environment variables and validates it at startup",
+      "set": "validation",
+      "want": [
+        "go-error-handling",
+        "go-defensive"
+      ],
+      "got": [
+        "go-code",
+        "go-documentation",
+        "go-error-handling",
+        "go-functions",
+        "go-naming",
+        "go-style-core"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 87436,
+        "cached_input_tokens": 70400,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1918,
+        "reasoning_output_tokens": 451
+      },
+      "seconds": 45.8
+    },
+    {
+      "arm": "before",
+      "query": "What's the idiomatic way to declare variables in Go — should I use var or := for each case?",
+      "set": "train",
+      "want": [
+        "go-style-core"
+      ],
+      "got": [
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 45619,
+        "cached_input_tokens": 41216,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 508,
+        "reasoning_output_tokens": 43
+      },
+      "seconds": 18.2
+    },
+    {
+      "arm": "after",
+      "query": "Write a Go function that reads config from environment variables and validates it at startup",
+      "set": "validation",
+      "want": [
+        "go-error-handling",
+        "go-defensive"
+      ],
+      "got": [
+        "go-code",
+        "go-defensive",
+        "go-documentation",
+        "go-error-handling",
+        "go-functions",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 108761,
+        "cached_input_tokens": 86784,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2443,
+        "reasoning_output_tokens": 808
+      },
+      "seconds": 55.3
+    },
+    {
+      "arm": "after",
+      "query": "What's the idiomatic way to declare variables in Go — should I use var or := for each case?",
+      "set": "train",
+      "want": [
+        "go-style-core"
+      ],
+      "got": [
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 57280,
+        "cached_input_tokens": 48128,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 669,
+        "reasoning_output_tokens": 79
+      },
+      "seconds": 21.1
+    },
+    {
+      "arm": "before",
+      "query": "How do I prevent callers from mutating a slice returned from my Go API?",
+      "set": "train",
+      "want": [
+        "go-defensive",
+        "go-data-structures"
+      ],
+      "got": [
+        "go-data-structures",
+        "go-defensive"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 67740,
+        "cached_input_tokens": 59392,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 689,
+        "reasoning_output_tokens": 50
+      },
+      "seconds": 25.0
+    },
+    {
+      "arm": "after",
+      "query": "How do I prevent callers from mutating a slice returned from my Go API?",
+      "set": "train",
+      "want": [
+        "go-defensive",
+        "go-data-structures"
+      ],
+      "got": [
+        "go-defensive"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 75521,
+        "cached_input_tokens": 60160,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 819,
+        "reasoning_output_tokens": 93
+      },
+      "seconds": 24.2
+    },
+    {
+      "arm": "before",
+      "query": "Write a generic Map function in Go that transforms a slice of any type into another type",
+      "set": "validation",
+      "want": [
+        "go-generics"
+      ],
+      "got": [
+        "go-data-structures",
+        "go-generics"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 30664,
+        "cached_input_tokens": 26112,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 578,
+        "reasoning_output_tokens": 127
+      },
+      "seconds": 15.7
+    },
+    {
+      "arm": "after",
+      "query": "What's the best way to implement a set in Go using maps?",
+      "set": "train",
+      "want": [
+        "go-data-structures"
+      ],
+      "got": [
+        "go-data-structures"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 27699,
+        "cached_input_tokens": 20992,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 659,
+        "reasoning_output_tokens": 214
+      },
+      "seconds": 19.0
+    },
+    {
+      "arm": "before",
+      "query": "What's the best way to implement a set in Go using maps?",
+      "set": "train",
+      "want": [
+        "go-data-structures"
+      ],
+      "got": [
+        "go-data-structures"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 57716,
+        "cached_input_tokens": 49152,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 729,
+        "reasoning_output_tokens": 157
+      },
+      "seconds": 25.0
+    },
+    {
+      "arm": "before",
+      "query": "Refactor this Go function that has 5 levels of nested if-else into guard clauses with early returns",
+      "set": "train",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 62755,
+        "cached_input_tokens": 52224,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 691,
+        "reasoning_output_tokens": 132
+      },
+      "seconds": 22.2
+    },
+    {
+      "arm": "after",
+      "query": "Refactor this Go function that has 5 levels of nested if-else into guard clauses with early returns",
+      "set": "train",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 45768,
+        "cached_input_tokens": 37120,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 488,
+        "reasoning_output_tokens": 89
+      },
+      "seconds": 16.5
+    },
+    {
+      "arm": "after",
+      "query": "Write a generic Map function in Go that transforms a slice of any type into another type",
+      "set": "validation",
+      "want": [
+        "go-generics"
+      ],
+      "got": [
+        "go-code",
+        "go-data-structures",
+        "go-documentation",
+        "go-functions",
+        "go-generics",
+        "go-naming",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 72334,
+        "cached_input_tokens": 53248,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1007,
+        "reasoning_output_tokens": 268
+      },
+      "seconds": 27.0
+    },
+    {
+      "arm": "after",
+      "query": "What's the recommended max line length in Go, and how should I break long function signatures?",
+      "set": "validation",
+      "want": [
+        "go-style-core"
+      ],
+      "got": [
+        "go-functions",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 29099,
+        "cached_input_tokens": 20992,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 520,
+        "reasoning_output_tokens": 114
+      },
+      "seconds": 15.8
+    },
+    {
+      "arm": "before",
+      "query": "What's the recommended max line length in Go, and how should I break long function signatures?",
+      "set": "validation",
+      "want": [
+        "go-style-core"
+      ],
+      "got": [
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 75940,
+        "cached_input_tokens": 69376,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 843,
+        "reasoning_output_tokens": 206
+      },
+      "seconds": 25.1
+    },
+    {
+      "arm": "before",
+      "query": "How should I organize the parameter list for a Go function with 6 arguments — should I group them into a struct?",
+      "set": "train",
+      "want": [
+        "go-functions"
+      ],
+      "got": [
+        "go-functions"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 44850,
+        "cached_input_tokens": 36096,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 516,
+        "reasoning_output_tokens": 41
+      },
+      "seconds": 16.5
+    },
+    {
+      "arm": "after",
+      "query": "Should I use named return values in this Go function, or is that considered bad practice?",
+      "set": "validation",
+      "want": [
+        "go-functions"
+      ],
+      "got": [
+        "go-style-core"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 27912,
+        "cached_input_tokens": 20992,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 422,
+        "reasoning_output_tokens": 109
+      },
+      "seconds": 13.2
+    },
+    {
+      "arm": "after",
+      "query": "How should I organize the parameter list for a Go function with 6 arguments — should I group them into a struct?",
+      "set": "train",
+      "want": [
+        "go-functions"
+      ],
+      "got": [
+        "go-functions"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 73665,
+        "cached_input_tokens": 63232,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 774,
+        "reasoning_output_tokens": 70
+      },
+      "seconds": 23.2
+    },
+    {
+      "arm": "before",
+      "query": "Should I use named return values in this Go function, or is that considered bad practice?",
+      "set": "validation",
+      "want": [
+        "go-functions"
+      ],
+      "got": [
+        "go-functions",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 63608,
+        "cached_input_tokens": 56320,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1011,
+        "reasoning_output_tokens": 73
+      },
+      "seconds": 29.0
+    },
+    {
+      "arm": "before",
+      "query": "When should I use a type switch versus an if-else chain with type assertions in Go?",
+      "set": "train",
+      "want": [
+        "go-interfaces"
+      ],
+      "got": [
+        "go-interfaces"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 57422,
+        "cached_input_tokens": 47104,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 899,
+        "reasoning_output_tokens": 151
+      },
+      "seconds": 25.3
+    },
+    {
+      "arm": "after",
+      "query": "Write a Go logging function that accepts Printf-style variadic format arguments",
+      "set": "validation",
+      "want": [
+        "go-functions"
+      ],
+      "got": [
+        "go-logging"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 28251,
+        "cached_input_tokens": 17920,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 461,
+        "reasoning_output_tokens": 203
+      },
+      "seconds": 15.4
+    },
+    {
+      "arm": "after",
+      "query": "When should I use a type switch versus an if-else chain with type assertions in Go?",
+      "set": "train",
+      "want": [
+        "go-interfaces"
+      ],
+      "got": [
+        "go-style-core"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 43598,
+        "cached_input_tokens": 38144,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 986,
+        "reasoning_output_tokens": 271
+      },
+      "seconds": 27.1
+    },
+    {
+      "arm": "before",
+      "query": "Write a Go logging function that accepts Printf-style variadic format arguments",
+      "set": "validation",
+      "want": [
+        "go-functions"
+      ],
+      "got": [
+        "go-functions",
+        "go-logging"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 80217,
+        "cached_input_tokens": 66304,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1301,
+        "reasoning_output_tokens": 354
+      },
+      "seconds": 32.7
+    },
+    {
+      "arm": "before",
+      "query": "Should I use log.Printf or slog in this new Go project?",
+      "set": "train",
+      "want": [
+        "go-logging"
+      ],
+      "got": [
+        "go-logging"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 43690,
+        "cached_input_tokens": 30976,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 630,
+        "reasoning_output_tokens": 200
+      },
+      "seconds": 18.4
+    },
+    {
+      "arm": "after",
+      "query": "Should I use log.Printf or slog in this new Go project?",
+      "set": "train",
+      "want": [
+        "go-logging"
+      ],
+      "got": [
+        "go-logging"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 57579,
+        "cached_input_tokens": 46080,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 855,
+        "reasoning_output_tokens": 150
+      },
+      "seconds": 23.8
+    },
+    {
+      "arm": "before",
+      "query": "Set up structured logging with slog in our Go microservice",
+      "set": "train",
+      "want": [
+        "go-logging"
+      ],
+      "got": [
+        "go-code",
+        "go-logging",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 121021,
+        "cached_input_tokens": 97024,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1471,
+        "reasoning_output_tokens": 152
+      },
+      "seconds": 36.1
+    },
+    {
+      "arm": "after",
+      "query": "Set up structured logging with slog in our Go microservice",
+      "set": "train",
+      "want": [
+        "go-logging"
+      ],
+      "got": [
+        "go-code",
+        "go-logging"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 90903,
+        "cached_input_tokens": 73472,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1368,
+        "reasoning_output_tokens": 169
+      },
+      "seconds": 32.8
+    },
+    {
+      "arm": "before",
+      "query": "What log level should I use for retry attempts that eventually succeed in Go?",
+      "set": "validation",
+      "want": [
+        "go-logging"
+      ],
+      "got": [
+        "go-logging"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 29520,
+        "cached_input_tokens": 22016,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 371,
+        "reasoning_output_tokens": 106
+      },
+      "seconds": 11.6
+    },
+    {
+      "arm": "after",
+      "query": "My Go service logs the same error three times — once in the repository, once in the service layer, and once in the handler",
+      "set": "train",
+      "want": [
+        "go-logging",
+        "go-error-handling"
+      ],
+      "got": [
+        "go-error-handling",
+        "go-logging"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 48750,
+        "cached_input_tokens": 37120,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 880,
+        "reasoning_output_tokens": 122
+      },
+      "seconds": 23.1
+    },
+    {
+      "arm": "before",
+      "query": "My Go service logs the same error three times — once in the repository, once in the service layer, and once in the handler",
+      "set": "train",
+      "want": [
+        "go-logging",
+        "go-error-handling"
+      ],
+      "got": [
+        "go-error-handling",
+        "go-logging"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 51967,
+        "cached_input_tokens": 39168,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 898,
+        "reasoning_output_tokens": 91
+      },
+      "seconds": 24.0
+    },
+    {
+      "arm": "after",
+      "query": "What log level should I use for retry attempts that eventually succeed in Go?",
+      "set": "validation",
+      "want": [
+        "go-logging"
+      ],
+      "got": [
+        "go-logging"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 41663,
+        "cached_input_tokens": 34048,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 471,
+        "reasoning_output_tokens": 105
+      },
+      "seconds": 16.4
+    },
+    {
+      "arm": "after",
+      "query": "Add request ID logging to our Go HTTP middleware so we can trace requests",
+      "set": "validation",
+      "want": [
+        "go-logging",
+        "go-context"
+      ],
+      "got": [
+        "go-code",
+        "go-http",
+        "go-logging",
+        "go-style-core"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 185402,
+        "cached_input_tokens": 152832,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1901,
+        "reasoning_output_tokens": 353
+      },
+      "seconds": 47.2
+    },
+    {
+      "arm": "before",
+      "query": "Add request ID logging to our Go HTTP middleware so we can trace requests",
+      "set": "validation",
+      "want": [
+        "go-logging",
+        "go-context"
+      ],
+      "got": [
+        "go-code",
+        "go-context",
+        "go-http",
+        "go-linting",
+        "go-logging",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 278704,
+        "cached_input_tokens": 242432,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2261,
+        "reasoning_output_tokens": 249
+      },
+      "seconds": 59.0
+    },
+    {
+      "arm": "before",
+      "query": "Migrate our Go codebase from log.Printf to structured logging",
+      "set": "train",
+      "want": [
+        "go-logging"
+      ],
+      "got": [
+        "go-logging"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 59863,
+        "cached_input_tokens": 48128,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1065,
+        "reasoning_output_tokens": 178
+      },
+      "seconds": 27.4
+    },
+    {
+      "arm": "before",
+      "query": "I need to preallocate a large Go map — should I use make with a size hint, and how do I estimate capacity?",
+      "set": "train",
+      "want": [
+        "go-data-structures",
+        "go-performance"
+      ],
+      "got": [
+        "go-data-structures",
+        "go-performance"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 60981,
+        "cached_input_tokens": 54272,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 908,
+        "reasoning_output_tokens": 145
+      },
+      "seconds": 29.5
+    },
+    {
+      "arm": "before",
+      "query": "How do I constrain a Go generic type parameter to types that implement both fmt.Stringer and encoding.TextMarshaler?",
+      "set": "train",
+      "want": [
+        "go-generics",
+        "go-interfaces"
+      ],
+      "got": [
+        "go-generics",
+        "go-interfaces"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 48824,
+        "cached_input_tokens": 38144,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 842,
+        "reasoning_output_tokens": 240
+      },
+      "seconds": 24.1
+    },
+    {
+      "arm": "after",
+      "query": "I need to preallocate a large Go map — should I use make with a size hint, and how do I estimate capacity?",
+      "set": "train",
+      "want": [
+        "go-data-structures",
+        "go-performance"
+      ],
+      "got": [
+        "go-data-structures",
+        "go-performance"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 58172,
+        "cached_input_tokens": 46080,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 910,
+        "reasoning_output_tokens": 233
+      },
+      "seconds": 28.0
+    },
+    {
+      "arm": "after",
+      "query": "How do I constrain a Go generic type parameter to types that implement both fmt.Stringer and encoding.TextMarshaler?",
+      "set": "train",
+      "want": [
+        "go-generics",
+        "go-interfaces"
+      ],
+      "got": [
+        "go-generics"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 57664,
+        "cached_input_tokens": 44032,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 681,
+        "reasoning_output_tokens": 106
+      },
+      "seconds": 21.0
+    },
+    {
+      "arm": "after",
+      "query": "Migrate our Go codebase from log.Printf to structured logging",
+      "set": "train",
+      "want": [
+        "go-logging"
+      ],
+      "got": [
+        "go-code",
+        "go-linting",
+        "go-logging",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 161040,
+        "cached_input_tokens": 126464,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2447,
+        "reasoning_output_tokens": 204
+      },
+      "seconds": 58.1
+    },
+    {
+      "arm": "before",
+      "query": "Add compile-time interface compliance checks for my Go types — I want to make sure *Server implements Handler",
+      "set": "validation",
+      "want": [
+        "go-defensive",
+        "go-interfaces"
+      ],
+      "got": [
+        "go-interfaces"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 85491,
+        "cached_input_tokens": 71424,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1299,
+        "reasoning_output_tokens": 247
+      },
+      "seconds": 33.7
+    },
+    {
+      "arm": "before",
+      "query": "Review this Go code for style — it uses single-letter variables for everything and has inconsistent casing",
+      "set": "train",
+      "want": [
+        "go-style-core",
+        "go-naming"
+      ],
+      "got": [
+        "go-code-review",
+        "go-naming",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 114463,
+        "cached_input_tokens": 99840,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1389,
+        "reasoning_output_tokens": 127
+      },
+      "seconds": 39.2
+    },
+    {
+      "arm": "before",
+      "query": "How do I propagate cancellation and deadlines through a chain of Go HTTP middleware?",
+      "set": "train",
+      "want": [
+        "go-context",
+        "go-concurrency"
+      ],
+      "got": [
+        "go-context",
+        "go-http"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 49583,
+        "cached_input_tokens": 42240,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1003,
+        "reasoning_output_tokens": 161
+      },
+      "seconds": 25.8
+    },
+    {
+      "arm": "after",
+      "query": "Review this Go code for style — it uses single-letter variables for everything and has inconsistent casing",
+      "set": "train",
+      "want": [
+        "go-style-core",
+        "go-naming"
+      ],
+      "got": [
+        "go-code-review",
+        "go-naming",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 139045,
+        "cached_input_tokens": 121088,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1398,
+        "reasoning_output_tokens": 122
+      },
+      "seconds": 39.0
+    },
+    {
+      "arm": "after",
+      "query": "How do I propagate cancellation and deadlines through a chain of Go HTTP middleware?",
+      "set": "train",
+      "want": [
+        "go-context",
+        "go-concurrency"
+      ],
+      "got": [
+        "go-context",
+        "go-http"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 47631,
+        "cached_input_tokens": 37120,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1308,
+        "reasoning_output_tokens": 446
+      },
+      "seconds": 30.5
+    },
+    {
+      "arm": "after",
+      "query": "Write a test for a Go service that calls an external HTTP API — I need to mock the HTTP client",
+      "set": "validation",
+      "want": [
+        "go-testing",
+        "go-interfaces"
+      ],
+      "got": [
+        "go-http",
+        "go-interfaces",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 32054,
+        "cached_input_tokens": 24064,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1173,
+        "reasoning_output_tokens": 260
+      },
+      "seconds": 26.3
+    },
+    {
+      "arm": "after",
+      "query": "Add compile-time interface compliance checks for my Go types — I want to make sure *Server implements Handler",
+      "set": "validation",
+      "want": [
+        "go-defensive",
+        "go-interfaces"
+      ],
+      "got": [
+        "go-code",
+        "go-defensive",
+        "go-interfaces"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 226497,
+        "cached_input_tokens": 178688,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 3001,
+        "reasoning_output_tokens": 657
+      },
+      "seconds": 73.5
+    },
+    {
+      "arm": "before",
+      "query": "Write a test for a Go service that calls an external HTTP API — I need to mock the HTTP client",
+      "set": "validation",
+      "want": [
+        "go-testing",
+        "go-interfaces"
+      ],
+      "got": [
+        "go-http",
+        "go-interfaces",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 73906,
+        "cached_input_tokens": 64512,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1666,
+        "reasoning_output_tokens": 400
+      },
+      "seconds": 38.1
+    },
+    {
+      "arm": "before",
+      "query": "Write a Go struct with iota-based enum constants for order status (Pending, Confirmed, Shipped, Delivered)",
+      "set": "train",
+      "want": [
+        "go-style-core"
+      ],
+      "got": [
+        "go-code",
+        "go-documentation",
+        "go-naming",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 93327,
+        "cached_input_tokens": 69376,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1418,
+        "reasoning_output_tokens": 516
+      },
+      "seconds": 35.3
+    },
+    {
+      "arm": "after",
+      "query": "How should I organize imports in my Go file — I have stdlib, internal, and third-party packages?",
+      "set": "validation",
+      "want": [
+        "go-packages",
+        "go-style-core"
+      ],
+      "got": [
+        "go-style-core"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 27861,
+        "cached_input_tokens": 20992,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 519,
+        "reasoning_output_tokens": 149
+      },
+      "seconds": 15.0
+    },
+    {
+      "arm": "before",
+      "query": "How should I organize imports in my Go file — I have stdlib, internal, and third-party packages?",
+      "set": "validation",
+      "want": [
+        "go-packages",
+        "go-style-core"
+      ],
+      "got": [
+        "go-packages"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 77422,
+        "cached_input_tokens": 59136,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 742,
+        "reasoning_output_tokens": 83
+      },
+      "seconds": 24.3
+    },
+    {
+      "arm": "after",
+      "query": "Write a Go struct with iota-based enum constants for order status (Pending, Confirmed, Shipped, Delivered)",
+      "set": "train",
+      "want": [
+        "go-style-core"
+      ],
+      "got": [
+        "go-code",
+        "go-documentation",
+        "go-naming",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 112882,
+        "cached_input_tokens": 93696,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1639,
+        "reasoning_output_tokens": 473
+      },
+      "seconds": 39.7
+    },
+    {
+      "arm": "after",
+      "query": "Write a Go function that retries HTTP requests with exponential backoff using context for timeout",
+      "set": "train",
+      "want": [
+        "go-resilience",
+        "go-context",
+        "go-error-handling"
+      ],
+      "got": [
+        "go-context",
+        "go-functions",
+        "go-http",
+        "go-resilience"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 53323,
+        "cached_input_tokens": 39168,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1823,
+        "reasoning_output_tokens": 606
+      },
+      "seconds": 41.0
+    },
+    {
+      "arm": "after",
+      "query": "Build a complete Go REST API microservice with user authentication, PostgreSQL database, and Redis caching",
+      "set": "train",
+      "want": [],
+      "got": [
+        "go-code",
+        "go-context",
+        "go-database",
+        "go-error-handling",
+        "go-http",
+        "go-security",
+        "go-testing"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 76815,
+        "cached_input_tokens": 62464,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1452,
+        "reasoning_output_tokens": 313
+      },
+      "seconds": 35.1
+    },
+    {
+      "arm": "before",
+      "query": "Write a Go function that retries HTTP requests with exponential backoff using context for timeout",
+      "set": "train",
+      "want": [
+        "go-resilience",
+        "go-context",
+        "go-error-handling"
+      ],
+      "got": [
+        "go-context",
+        "go-error-handling",
+        "go-http",
+        "go-resilience"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 58385,
+        "cached_input_tokens": 46336,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2714,
+        "reasoning_output_tokens": 929
+      },
+      "seconds": 56.4
+    },
+    {
+      "arm": "before",
+      "query": "Convert this Python Flask REST API to idiomatic Go with the same endpoints and behavior",
+      "set": "train",
+      "want": [],
+      "got": [
+        "go-code",
+        "go-error-handling",
+        "go-http",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 115550,
+        "cached_input_tokens": 89856,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1555,
+        "reasoning_output_tokens": 162
+      },
+      "seconds": 37.1
+    },
+    {
+      "arm": "after",
+      "query": "Convert this Python Flask REST API to idiomatic Go with the same endpoints and behavior",
+      "set": "train",
+      "want": [],
+      "got": [
+        "go-code",
+        "go-http",
+        "go-style-core"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 81619,
+        "cached_input_tokens": 66560,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1390,
+        "reasoning_output_tokens": 243
+      },
+      "seconds": 32.9
+    },
+    {
+      "arm": "before",
+      "query": "Set up a Go project with a Dockerfile, Makefile, and GitHub Actions CI/CD pipeline",
+      "set": "validation",
+      "want": [],
+      "got": [
+        "go-code",
+        "go-code-review",
+        "go-linting",
+        "go-packages",
+        "go-style-core"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 159112,
+        "cached_input_tokens": 128512,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 3663,
+        "reasoning_output_tokens": 870
+      },
+      "seconds": 78.8
+    },
+    {
+      "arm": "after",
+      "query": "Set up a Go project with a Dockerfile, Makefile, and GitHub Actions CI/CD pipeline",
+      "set": "validation",
+      "want": [],
+      "got": [
+        "go-code",
+        "go-linting",
+        "go-packages",
+        "go-style-core"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 120579,
+        "cached_input_tokens": 97024,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2930,
+        "reasoning_output_tokens": 414
+      },
+      "seconds": 61.7
+    },
+    {
+      "arm": "before",
+      "query": "What IDE plugins and editor settings should I install for the best Go development experience?",
+      "set": "validation",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 35414,
+        "cached_input_tokens": 22016,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1052,
+        "reasoning_output_tokens": 275
+      },
+      "seconds": 26.2
+    },
+    {
+      "arm": "after",
+      "query": "What IDE plugins and editor settings should I install for the best Go development experience?",
+      "set": "validation",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 33912,
+        "cached_input_tokens": 24064,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1161,
+        "reasoning_output_tokens": 457
+      },
+      "seconds": 28.2
+    },
+    {
+      "arm": "before",
+      "query": "Build a complete Go REST API microservice with user authentication, PostgreSQL database, and Redis caching",
+      "set": "train",
+      "want": [],
+      "got": [
+        "go-code",
+        "go-context",
+        "go-database",
+        "go-documentation",
+        "go-error-handling",
+        "go-http",
+        "go-packages",
+        "go-security",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 177673,
+        "cached_input_tokens": 144640,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 5840,
+        "reasoning_output_tokens": 444
+      },
+      "seconds": 115.9
+    },
+    {
+      "arm": "before",
+      "query": "Compare Go and Rust for building a high-performance network proxy — which should I choose?",
+      "set": "train",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 63293,
+        "cached_input_tokens": 39168,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 912,
+        "reasoning_output_tokens": 160
+      },
+      "seconds": 28.6
+    },
+    {
+      "arm": "before",
+      "query": "Help me debug a segfault in my Go CGO code that wraps a C shared library",
+      "set": "validation",
+      "want": [],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 64958,
+        "cached_input_tokens": 58368,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 763,
+        "reasoning_output_tokens": 156
+      },
+      "seconds": 23.4
+    },
+    {
+      "arm": "after",
+      "query": "Compare Go and Rust for building a high-performance network proxy — which should I choose?",
+      "set": "train",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 61592,
+        "cached_input_tokens": 44288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1137,
+        "reasoning_output_tokens": 302
+      },
+      "seconds": 32.0
+    },
+    {
+      "arm": "after",
+      "query": "Help me debug a segfault in my Go CGO code that wraps a C shared library",
+      "set": "validation",
+      "want": [],
+      "got": [
+        "go-code",
+        "go-defensive",
+        "go-troubleshooting"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 78724,
+        "cached_input_tokens": 66560,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1283,
+        "reasoning_output_tokens": 122
+      },
+      "seconds": 31.5
+    },
+    {
+      "arm": "before",
+      "query": "Refactor this Go file, it's 400 lines and nobody can follow it",
+      "set": "train",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor",
+        "go-code-review",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 81718,
+        "cached_input_tokens": 62464,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1078,
+        "reasoning_output_tokens": 133
+      },
+      "seconds": 31.3
+    },
+    {
+      "arm": "after",
+      "query": "Clean up this Go package without changing what it does",
+      "set": "train",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 75957,
+        "cached_input_tokens": 67328,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 979,
+        "reasoning_output_tokens": 192
+      },
+      "seconds": 28.7
+    },
+    {
+      "arm": "after",
+      "query": "Refactor this Go file, it's 400 lines and nobody can follow it",
+      "set": "train",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 131732,
+        "cached_input_tokens": 99840,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1459,
+        "reasoning_output_tokens": 207
+      },
+      "seconds": 38.3
+    },
+    {
+      "arm": "before",
+      "query": "Clean up this Go package without changing what it does",
+      "set": "train",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code",
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 127457,
+        "cached_input_tokens": 110080,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1309,
+        "reasoning_output_tokens": 231
+      },
+      "seconds": 36.2
+    },
+    {
+      "arm": "after",
+      "query": "This handler is a mess — can you make it readable?",
+      "set": "train",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 62603,
+        "cached_input_tokens": 52224,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 672,
+        "reasoning_output_tokens": 84
+      },
+      "seconds": 20.7
+    },
+    {
+      "arm": "after",
+      "query": "Modernize this old Go service to use newer standard library APIs",
+      "set": "validation",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 86909,
+        "cached_input_tokens": 61440,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1130,
+        "reasoning_output_tokens": 198
+      },
+      "seconds": 29.7
+    },
+    {
+      "arm": "after",
+      "query": "Split this 200-line function into smaller ones",
+      "set": "validation",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 62437,
+        "cached_input_tokens": 53248,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 612,
+        "reasoning_output_tokens": 92
+      },
+      "seconds": 18.3
+    },
+    {
+      "arm": "before",
+      "query": "This handler is a mess — can you make it readable?",
+      "set": "train",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code",
+        "go-code-refactor"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 230189,
+        "cached_input_tokens": 185088,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1946,
+        "reasoning_output_tokens": 251
+      },
+      "seconds": 51.6
+    },
+    {
+      "arm": "before",
+      "query": "Split this 200-line function into smaller ones",
+      "set": "validation",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 80230,
+        "cached_input_tokens": 66304,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 961,
+        "reasoning_output_tokens": 135
+      },
+      "seconds": 28.4
+    },
+    {
+      "arm": "before",
+      "query": "Modernize this old Go service to use newer standard library APIs",
+      "set": "validation",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code",
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 187544,
+        "cached_input_tokens": 165120,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1712,
+        "reasoning_output_tokens": 217
+      },
+      "seconds": 44.2
+    },
+    {
+      "arm": "after",
+      "query": "We have a UserRepository interface with one implementation and a util package — is this over-abstracted?",
+      "set": "validation",
+      "want": [
+        "go-code-refactor",
+        "go-interfaces"
+      ],
+      "got": [
+        "go-interfaces",
+        "go-packages"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 46943,
+        "cached_input_tokens": 40192,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 811,
+        "reasoning_output_tokens": 197
+      },
+      "seconds": 22.9
+    },
+    {
+      "arm": "before",
+      "query": "Audit this Go repo for over-engineering — what can we delete?",
+      "set": "train",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor",
+        "go-code-review"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 135729,
+        "cached_input_tokens": 121088,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1419,
+        "reasoning_output_tokens": 171
+      },
+      "seconds": 40.1
+    },
+    {
+      "arm": "before",
+      "query": "List the shortcuts we deliberately left in this codebase",
+      "set": "train",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-review"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 88198,
+        "cached_input_tokens": 70400,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 975,
+        "reasoning_output_tokens": 168
+      },
+      "seconds": 28.1
+    },
+    {
+      "arm": "before",
+      "query": "We have a UserRepository interface with one implementation and a util package — is this over-abstracted?",
+      "set": "validation",
+      "want": [
+        "go-code-refactor",
+        "go-interfaces"
+      ],
+      "got": [
+        "go-code-review",
+        "go-interfaces",
+        "go-packages"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 91281,
+        "cached_input_tokens": 77568,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1543,
+        "reasoning_output_tokens": 185
+      },
+      "seconds": 37.8
+    },
+    {
+      "arm": "after",
+      "query": "Audit this Go repo for over-engineering — what can we delete?",
+      "set": "train",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor",
+        "go-code-review"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 210014,
+        "cached_input_tokens": 173056,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2164,
+        "reasoning_output_tokens": 475
+      },
+      "seconds": 55.6
+    },
+    {
+      "arm": "after",
+      "query": "List the shortcuts we deliberately left in this codebase",
+      "set": "train",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code",
+        "go-code-refactor",
+        "go-code-review"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 205125,
+        "cached_input_tokens": 163072,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2239,
+        "reasoning_output_tokens": 530
+      },
+      "seconds": 53.1
+    },
+    {
+      "arm": "before",
+      "query": "Write a new Go function that parses a duration string",
+      "set": "validation",
+      "want": [
+        "go-code"
+      ],
+      "got": [
+        "go-code",
+        "go-documentation",
+        "go-error-handling",
+        "go-functions",
+        "go-naming",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 101684,
+        "cached_input_tokens": 62208,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1984,
+        "reasoning_output_tokens": 525
+      },
+      "seconds": 45.5
+    },
+    {
+      "arm": "after",
+      "query": "Add a POST /orders endpoint to our Go service that decodes a JSON body and returns 201 with the created order",
+      "set": "train",
+      "want": [
+        "go-http"
+      ],
+      "got": [
+        "go-code",
+        "go-error-handling",
+        "go-http",
+        "go-security",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 127430,
+        "cached_input_tokens": 102144,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1372,
+        "reasoning_output_tokens": 149
+      },
+      "seconds": 34.8
+    },
+    {
+      "arm": "after",
+      "query": "Write a new Go function that parses a duration string",
+      "set": "validation",
+      "want": [
+        "go-code"
+      ],
+      "got": [
+        "go-code",
+        "go-documentation",
+        "go-functions",
+        "go-naming",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 142533,
+        "cached_input_tokens": 118016,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2856,
+        "reasoning_output_tokens": 700
+      },
+      "seconds": 62.0
+    },
+    {
+      "arm": "before",
+      "query": "Add a POST /orders endpoint to our Go service that decodes a JSON body and returns 201 with the created order",
+      "set": "train",
+      "want": [
+        "go-http"
+      ],
+      "got": [
+        "go-code",
+        "go-error-handling",
+        "go-http",
+        "go-linting",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 264391,
+        "cached_input_tokens": 228096,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2854,
+        "reasoning_output_tokens": 355
+      },
+      "seconds": 70.4
+    },
+    {
+      "arm": "after",
+      "query": "Kubernetes kills our Go HTTP server before in-flight requests finish, how do I shut it down cleanly?",
+      "set": "validation",
+      "want": [
+        "go-http",
+        "go-context"
+      ],
+      "got": [
+        "go-concurrency",
+        "go-context",
+        "go-http"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 87277,
+        "cached_input_tokens": 72448,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2158,
+        "reasoning_output_tokens": 344
+      },
+      "seconds": 49.2
+    },
+    {
+      "arm": "before",
+      "query": "Kubernetes kills our Go HTTP server before in-flight requests finish, how do I shut it down cleanly?",
+      "set": "validation",
+      "want": [
+        "go-http",
+        "go-context"
+      ],
+      "got": [
+        "go-concurrency",
+        "go-context",
+        "go-http"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 88969,
+        "cached_input_tokens": 72448,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2528,
+        "reasoning_output_tokens": 619
+      },
+      "seconds": 57.3
+    },
+    {
+      "arm": "before",
+      "query": "Add middleware to our Go API that attaches a request ID and logs every request",
+      "set": "validation",
+      "want": [
+        "go-http",
+        "go-logging"
+      ],
+      "got": [
+        "go-code",
+        "go-context",
+        "go-error-handling",
+        "go-http",
+        "go-linting",
+        "go-logging",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 159911,
+        "cached_input_tokens": 134656,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1844,
+        "reasoning_output_tokens": 225
+      },
+      "seconds": 43.0
+    },
+    {
+      "arm": "before",
+      "query": "This Go handler runs a SELECT for every order in the list and it's slow",
+      "set": "train",
+      "want": [
+        "go-database"
+      ],
+      "got": [
+        "go-database",
+        "go-http",
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 93545,
+        "cached_input_tokens": 82688,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1327,
+        "reasoning_output_tokens": 200
+      },
+      "seconds": 32.9
+    },
+    {
+      "arm": "after",
+      "query": "This Go handler runs a SELECT for every order in the list and it's slow",
+      "set": "train",
+      "want": [
+        "go-database"
+      ],
+      "got": [
+        "go-database"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 43857,
+        "cached_input_tokens": 39168,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 719,
+        "reasoning_output_tokens": 125
+      },
+      "seconds": 20.3
+    },
+    {
+      "arm": "after",
+      "query": "Add middleware to our Go API that attaches a request ID and logs every request",
+      "set": "validation",
+      "want": [
+        "go-http",
+        "go-logging"
+      ],
+      "got": [
+        "go-context",
+        "go-http",
+        "go-logging"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 92803,
+        "cached_input_tokens": 74496,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1938,
+        "reasoning_output_tokens": 359
+      },
+      "seconds": 46.1
+    },
+    {
+      "arm": "before",
+      "query": "Wrap these three inserts in a transaction in our Go repository",
+      "set": "validation",
+      "want": [
+        "go-database"
+      ],
+      "got": [
+        "go-database",
+        "go-error-handling"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 68051,
+        "cached_input_tokens": 60416,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 772,
+        "reasoning_output_tokens": 105
+      },
+      "seconds": 21.7
+    },
+    {
+      "arm": "after",
+      "query": "Set up connection pooling for database/sql in our Go service",
+      "set": "train",
+      "want": [
+        "go-database"
+      ],
+      "got": [
+        "go-database"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 43865,
+        "cached_input_tokens": 39168,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 617,
+        "reasoning_output_tokens": 158
+      },
+      "seconds": 18.2
+    },
+    {
+      "arm": "before",
+      "query": "Set up connection pooling for database/sql in our Go service",
+      "set": "train",
+      "want": [
+        "go-database"
+      ],
+      "got": [
+        "go-code",
+        "go-context",
+        "go-database",
+        "go-error-handling",
+        "go-linting",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 123218,
+        "cached_input_tokens": 104192,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1248,
+        "reasoning_output_tokens": 210
+      },
+      "seconds": 32.4
+    },
+    {
+      "arm": "after",
+      "query": "Wrap these three inserts in a transaction in our Go repository",
+      "set": "validation",
+      "want": [
+        "go-database"
+      ],
+      "got": [
+        "go-database"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 156728,
+        "cached_input_tokens": 135168,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1520,
+        "reasoning_output_tokens": 226
+      },
+      "seconds": 39.4
+    },
+    {
+      "arm": "after",
+      "query": "Write a Go client for the payments API with timeouts and retries",
+      "set": "train",
+      "want": [
+        "go-http"
+      ],
+      "got": [
+        "go-code",
+        "go-context",
+        "go-documentation",
+        "go-error-handling",
+        "go-functions",
+        "go-http",
+        "go-linting",
+        "go-packages",
+        "go-resilience",
+        "go-security",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 195708,
+        "cached_input_tokens": 156160,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 5890,
+        "reasoning_output_tokens": 559
+      },
+      "seconds": 120.1
+    },
+    {
+      "arm": "before",
+      "query": "Write a Go client for the payments API with timeouts and retries",
+      "set": "train",
+      "want": [
+        "go-http"
+      ],
+      "got": [
+        "go-code",
+        "go-context",
+        "go-documentation",
+        "go-error-handling",
+        "go-functions",
+        "go-http",
+        "go-linting",
+        "go-naming",
+        "go-packages",
+        "go-resilience",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 300241,
+        "cached_input_tokens": 250624,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 7321,
+        "reasoning_output_tokens": 1099
+      },
+      "seconds": 155.9
+    },
+    {
+      "arm": "before",
+      "query": "Write a Go function that parses a CSV file into structs",
+      "set": "train",
+      "want": [],
+      "got": [
+        "go-code",
+        "go-data-structures",
+        "go-documentation",
+        "go-error-handling",
+        "go-functions",
+        "go-linting",
+        "go-naming",
+        "go-style-core"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 89195,
+        "cached_input_tokens": 69376,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1631,
+        "reasoning_output_tokens": 653
+      },
+      "seconds": 40.3
+    },
+    {
+      "arm": "after",
+      "query": "Write a Go function that parses a CSV file into structs",
+      "set": "train",
+      "want": [],
+      "got": [
+        "go-code",
+        "go-documentation",
+        "go-error-handling",
+        "go-functions",
+        "go-style-core"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 99906,
+        "cached_input_tokens": 86528,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1897,
+        "reasoning_output_tokens": 700
+      },
+      "seconds": 46.8
+    },
+    {
+      "arm": "after",
+      "query": "Напиши репозиторій на Go для таблиці users через database/sql з методами Create та ByID",
+      "set": "validation",
+      "want": [
+        "go-database",
+        "go-error-handling"
+      ],
+      "got": [
+        "go-code",
+        "go-database",
+        "go-documentation",
+        "go-error-handling",
+        "go-functions",
+        "go-naming",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 141551,
+        "cached_input_tokens": 103936,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 3009,
+        "reasoning_output_tokens": 422
+      },
+      "seconds": 67.5
+    },
+    {
+      "arm": "after",
+      "query": "Add an endpoint to our Go service that downloads a file by the name the client passes in the query string",
+      "set": "train",
+      "want": [
+        "go-http",
+        "go-security"
+      ],
+      "got": [
+        "go-defensive",
+        "go-http",
+        "go-security",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 79417,
+        "cached_input_tokens": 54272,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 886,
+        "reasoning_output_tokens": 148
+      },
+      "seconds": 27.2
+    },
+    {
+      "arm": "before",
+      "query": "Add an endpoint to our Go service that downloads a file by the name the client passes in the query string",
+      "set": "train",
+      "want": [
+        "go-http",
+        "go-security"
+      ],
+      "got": [
+        "go-defensive",
+        "go-http",
+        "go-security"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 78561,
+        "cached_input_tokens": 66560,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1678,
+        "reasoning_output_tokens": 614
+      },
+      "seconds": 39.0
+    },
+    {
+      "arm": "before",
+      "query": "Напиши репозиторій на Go для таблиці users через database/sql з методами Create та ByID",
+      "set": "validation",
+      "want": [
+        "go-database",
+        "go-error-handling"
+      ],
+      "got": [
+        "go-code",
+        "go-database",
+        "go-documentation",
+        "go-error-handling",
+        "go-naming",
+        "go-packages",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 147658,
+        "cached_input_tokens": 123392,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 4275,
+        "reasoning_output_tokens": 791
+      },
+      "seconds": 87.8
+    },
+    {
+      "arm": "after",
+      "query": "How should I store user passwords and verify API keys in Go?",
+      "set": "train",
+      "want": [
+        "go-security"
+      ],
+      "got": [
+        "go-security"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 46116,
+        "cached_input_tokens": 36096,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1229,
+        "reasoning_output_tokens": 307
+      },
+      "seconds": 29.8
+    },
+    {
+      "arm": "before",
+      "query": "How should I store user passwords and verify API keys in Go?",
+      "set": "train",
+      "want": [
+        "go-security"
+      ],
+      "got": [
+        "go-security"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 48161,
+        "cached_input_tokens": 41216,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1534,
+        "reasoning_output_tokens": 529
+      },
+      "seconds": 35.3
+    },
+    {
+      "arm": "before",
+      "query": "Our Go service slowly climbs to 8 GB RSS over two days and gets OOM-killed. Heap profile looks flat. Where do I start?",
+      "set": "train",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 54521,
+        "cached_input_tokens": 38144,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1491,
+        "reasoning_output_tokens": 418
+      },
+      "seconds": 34.9
+    },
+    {
+      "arm": "before",
+      "query": "Зроби на Go проксі-ручку, яка забирає картинку за URL, що передає клієнт, і повертає її",
+      "set": "validation",
+      "want": [
+        "go-http",
+        "go-security"
+      ],
+      "got": [
+        "go-code",
+        "go-error-handling",
+        "go-http",
+        "go-security",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 127313,
+        "cached_input_tokens": 88832,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 3396,
+        "reasoning_output_tokens": 695
+      },
+      "seconds": 73.1
+    },
+    {
+      "arm": "before",
+      "query": "Write a Go helper that runs ffmpeg on an uploaded video with options the user chose in the form",
+      "set": "validation",
+      "want": [
+        "go-security"
+      ],
+      "got": [
+        "go-code",
+        "go-documentation",
+        "go-error-handling",
+        "go-functions",
+        "go-naming",
+        "go-security",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 134223,
+        "cached_input_tokens": 111104,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 5024,
+        "reasoning_output_tokens": 1057
+      },
+      "seconds": 103.9
+    },
+    {
+      "arm": "after",
+      "query": "Write a Go helper that runs ffmpeg on an uploaded video with options the user chose in the form",
+      "set": "validation",
+      "want": [
+        "go-security"
+      ],
+      "got": [
+        "go-code",
+        "go-context",
+        "go-documentation",
+        "go-error-handling",
+        "go-functions",
+        "go-http",
+        "go-linting",
+        "go-naming",
+        "go-security",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 156525,
+        "cached_input_tokens": 114944,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 4891,
+        "reasoning_output_tokens": 1878
+      },
+      "seconds": 100.0
+    },
+    {
+      "arm": "after",
+      "query": "Our Go service slowly climbs to 8 GB RSS over two days and gets OOM-killed. Heap profile looks flat. Where do I start?",
+      "set": "train",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-performance",
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 55778,
+        "cached_input_tokens": 41216,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1408,
+        "reasoning_output_tokens": 280
+      },
+      "seconds": 31.8
+    },
+    {
+      "arm": "after",
+      "query": "This test passes locally but fails about one run in twenty on CI with -race. Here is the output: WARNING: DATA RACE ...",
+      "set": "validation",
+      "want": [
+        "go-troubleshooting",
+        "go-concurrency"
+      ],
+      "got": [
+        "go-concurrency",
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 31332,
+        "cached_input_tokens": 24064,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 461,
+        "reasoning_output_tokens": 57
+      },
+      "seconds": 13.8
+    },
+    {
+      "arm": "before",
+      "query": "This test passes locally but fails about one run in twenty on CI with -race. Here is the output: WARNING: DATA RACE ...",
+      "set": "validation",
+      "want": [
+        "go-troubleshooting",
+        "go-concurrency"
+      ],
+      "got": [
+        "go-concurrency",
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 71484,
+        "cached_input_tokens": 63488,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 727,
+        "reasoning_output_tokens": 147
+      },
+      "seconds": 22.6
+    },
+    {
+      "arm": "before",
+      "query": "panic: runtime error: invalid memory address or nil pointer dereference — goroutine 42 [running]: main.(*Server).handle(0xc000010000, {0x0, 0x0}) — what does this mean?",
+      "set": "validation",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 30464,
+        "cached_input_tokens": 26112,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 655,
+        "reasoning_output_tokens": 202
+      },
+      "seconds": 17.1
+    },
+    {
+      "arm": "after",
+      "query": "Зроби на Go проксі-ручку, яка забирає картинку за URL, що передає клієнт, і повертає її",
+      "set": "validation",
+      "want": [
+        "go-http",
+        "go-security"
+      ],
+      "got": [
+        "go-error-handling",
+        "go-http",
+        "go-security"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 132844,
+        "cached_input_tokens": 107776,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 4259,
+        "reasoning_output_tokens": 617
+      },
+      "seconds": 92.4
+    },
+    {
+      "arm": "after",
+      "query": "panic: runtime error: invalid memory address or nil pointer dereference — goroutine 42 [running]: main.(*Server).handle(0xc000010000, {0x0, 0x0}) — what does this mean?",
+      "set": "validation",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 29068,
+        "cached_input_tokens": 20992,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 585,
+        "reasoning_output_tokens": 168
+      },
+      "seconds": 16.1
+    },
+    {
+      "arm": "before",
+      "query": "Сервіс на Go перестає відповідати після кількох годин, CPU нульовий, логів немає. Як зрозуміти, що зависло?",
+      "set": "train",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 54854,
+        "cached_input_tokens": 35072,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1691,
+        "reasoning_output_tokens": 271
+      },
+      "seconds": 38.2
+    },
+    {
+      "arm": "after",
+      "query": "Сервіс на Go перестає відповідати після кількох годин, CPU нульовий, логів немає. Як зрозуміти, що зависло?",
+      "set": "train",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 48661,
+        "cached_input_tokens": 39168,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1549,
+        "reasoning_output_tokens": 351
+      },
+      "seconds": 36.8
+    },
+    {
+      "arm": "before",
+      "query": "Разбери тикет по Go API: список счетов иногда теряет записи одного tenant, причина неизвестна. Есть request ID и ответ сервиса.",
+      "set": "train",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 69903,
+        "cached_input_tokens": 55296,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 842,
+        "reasoning_output_tokens": 93
+      },
+      "seconds": 24.2
+    },
+    {
+      "arm": "after",
+      "query": "Make this Go JSON encoder allocate less; benchmark shows 40 allocs/op",
+      "set": "train",
+      "want": [
+        "go-performance"
+      ],
+      "got": [
+        "go-performance"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 110869,
+        "cached_input_tokens": 94720,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1236,
+        "reasoning_output_tokens": 181
+      },
+      "seconds": 32.4
+    },
+    {
+      "arm": "before",
+      "query": "Make this Go JSON encoder allocate less; benchmark shows 40 allocs/op",
+      "set": "train",
+      "want": [
+        "go-performance"
+      ],
+      "got": [
+        "go-performance",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 114988,
+        "cached_input_tokens": 99840,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1326,
+        "reasoning_output_tokens": 98
+      },
+      "seconds": 35.6
+    },
+    {
+      "arm": "after",
+      "query": "Разбери тикет по Go API: список счетов иногда теряет записи одного tenant, причина неизвестна. Есть request ID и ответ сервиса.",
+      "set": "train",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 67402,
+        "cached_input_tokens": 57344,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1000,
+        "reasoning_output_tokens": 166
+      },
+      "seconds": 26.8
+    },
+    {
+      "arm": "before",
+      "query": "Our Go service works locally but stage ignores the same query parameter. Investigate the ticket before proposing a patch.",
+      "set": "validation",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 110995,
+        "cached_input_tokens": 95744,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1294,
+        "reasoning_output_tokens": 192
+      },
+      "seconds": 33.7
+    },
+    {
+      "arm": "after",
+      "query": "Our Go service works locally but stage ignores the same query parameter. Investigate the ticket before proposing a patch.",
+      "set": "validation",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 67370,
+        "cached_input_tokens": 45056,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 982,
+        "reasoning_output_tokens": 150
+      },
+      "seconds": 27.9
+    },
+    {
+      "arm": "before",
+      "query": "Rewrite this ticket title in clear English, without investigating it: \"Go endpoint hangs sometimes\".",
+      "set": "validation",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 13645,
+        "cached_input_tokens": 13056,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 11,
+        "reasoning_output_tokens": 0
+      },
+      "seconds": 4.3
+    },
+    {
+      "arm": "after",
+      "query": "Rewrite this ticket title in clear English, without investigating it: \"Go endpoint hangs sometimes\".",
+      "set": "validation",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 12980,
+        "cached_input_tokens": 12032,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 11,
+        "reasoning_output_tokens": 0
+      },
+      "seconds": 4.4
+    },
+    {
+      "arm": "before",
+      "query": "The ticket says Redis is stale, but our Go endpoint returns another tenant's record. Can you trace where the wrong value first appears?",
+      "set": "train",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 70319,
+        "cached_input_tokens": 55296,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1075,
+        "reasoning_output_tokens": 152
+      },
+      "seconds": 28.5
+    },
+    {
+      "arm": "before",
+      "query": "Translate this bug report into Ukrainian only: \"The Go service drops invoice rows on stage\".",
+      "set": "train",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 13647,
+        "cached_input_tokens": 13056,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 114,
+        "reasoning_output_tokens": 88
+      },
+      "seconds": 6.7
+    },
+    {
+      "arm": "after",
+      "query": "Translate this bug report into Ukrainian only: \"The Go service drops invoice rows on stage\".",
+      "set": "train",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 12978,
+        "cached_input_tokens": 12032,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 74,
+        "reasoning_output_tokens": 46
+      },
+      "seconds": 5.3
+    },
+    {
+      "arm": "after",
+      "query": "Знайди першопричину регресії в Go: після релізу JSON-звіт повертає неправильну суму. Поки тільки аналіз, без змін коду.",
+      "set": "validation",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 220997,
+        "cached_input_tokens": 177408,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1853,
+        "reasoning_output_tokens": 201
+      },
+      "seconds": 48.4
+    },
+    {
+      "arm": "after",
+      "query": "The ticket says Redis is stale, but our Go endpoint returns another tenant's record. Can you trace where the wrong value first appears?",
+      "set": "train",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 151244,
+        "cached_input_tokens": 100864,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1334,
+        "reasoning_output_tokens": 204
+      },
+      "seconds": 36.5
+    },
+    {
+      "arm": "after",
+      "query": "Add retry budgets and jittered backoff to our Go SDK wrapper without multiplying its built-in retries.",
+      "set": "train",
+      "want": [
+        "go-resilience"
+      ],
+      "got": [
+        "go-code",
+        "go-resilience"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 78856,
+        "cached_input_tokens": 64256,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1254,
+        "reasoning_output_tokens": 113
+      },
+      "seconds": 34.3
+    },
+    {
+      "arm": "before",
+      "query": "Знайди першопричину регресії в Go: після релізу JSON-звіт повертає неправильну суму. Поки тільки аналіз, без змін коду.",
+      "set": "validation",
+      "want": [
+        "go-troubleshooting"
+      ],
+      "got": [
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 484283,
+        "cached_input_tokens": 410880,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 3869,
+        "reasoning_output_tokens": 528
+      },
+      "seconds": 90.6
+    },
+    {
+      "arm": "before",
+      "query": "Add retry budgets and jittered backoff to our Go SDK wrapper without multiplying its built-in retries.",
+      "set": "train",
+      "want": [
+        "go-resilience"
+      ],
+      "got": [
+        "go-code",
+        "go-error-handling",
+        "go-resilience",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 320805,
+        "cached_input_tokens": 271616,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2279,
+        "reasoning_output_tokens": 218
+      },
+      "seconds": 58.9
+    },
+    {
+      "arm": "after",
+      "query": "Наш Go consumer повторно создаёт отправку после таймаута. Нужна идемпотентная обработка повторных событий между репликами.",
+      "set": "validation",
+      "want": [
+        "go-resilience"
+      ],
+      "got": [
+        "go-code",
+        "go-database",
+        "go-resilience",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 129239,
+        "cached_input_tokens": 109056,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1944,
+        "reasoning_output_tokens": 390
+      },
+      "seconds": 47.0
+    },
+    {
+      "arm": "before",
+      "query": "Наш Go consumer повторно создаёт отправку после таймаута. Нужна идемпотентная обработка повторных событий между репликами.",
+      "set": "validation",
+      "want": [
+        "go-resilience"
+      ],
+      "got": [
+        "go-code",
+        "go-concurrency",
+        "go-database",
+        "go-resilience",
+        "go-style-core",
+        "go-testing",
+        "go-troubleshooting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 118055,
+        "cached_input_tokens": 96000,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2309,
+        "reasoning_output_tokens": 408
+      },
+      "seconds": 50.2
+    },
+    {
+      "arm": "before",
+      "query": "Translate only: \"Go retry budget and circuit breaker configuration\" into Ukrainian.",
+      "set": "validation",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 13644,
+        "cached_input_tokens": 13056,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 23,
+        "reasoning_output_tokens": 0
+      },
+      "seconds": 4.2
+    },
+    {
+      "arm": "after",
+      "query": "Translate only: \"Go retry budget and circuit breaker configuration\" into Ukrainian.",
+      "set": "validation",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 12973,
+        "cached_input_tokens": 12032,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 22,
+        "reasoning_output_tokens": 0
+      },
+      "seconds": 4.2
+    },
+    {
+      "arm": "before",
+      "query": "Improve the grammar of this sentence only: \"our Go service need retry with backoff\".",
+      "set": "train",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 13647,
+        "cached_input_tokens": 8960,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 13,
+        "reasoning_output_tokens": 0
+      },
+      "seconds": 5.2
+    },
+    {
+      "arm": "after",
+      "query": "Потрібен circuit breaker для Go-клієнта: обмежені half-open запити та коректна деградація під час збою залежності.",
+      "set": "validation",
+      "want": [
+        "go-resilience"
+      ],
+      "got": [
+        "go-code",
+        "go-resilience"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 49860,
+        "cached_input_tokens": 42240,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 910,
+        "reasoning_output_tokens": 335
+      },
+      "seconds": 24.1
+    },
+    {
+      "arm": "after",
+      "query": "Improve the grammar of this sentence only: \"our Go service need retry with backoff\".",
+      "set": "train",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 12978,
+        "cached_input_tokens": 12032,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 13,
+        "reasoning_output_tokens": 0
+      },
+      "seconds": 5.4
+    },
+    {
+      "arm": "before",
+      "query": "Translate only into Ukrainian: \"Go constructors, functional options, and variable shadowing\".",
+      "set": "validation",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 13644,
+        "cached_input_tokens": 12032,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 21,
+        "reasoning_output_tokens": 0
+      },
+      "seconds": 4.6
+    },
+    {
+      "arm": "after",
+      "query": "Translate only into Ukrainian: \"Go constructors, functional options, and variable shadowing\".",
+      "set": "validation",
+      "want": [],
+      "got": [],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 12975,
+        "cached_input_tokens": 12032,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 21,
+        "reasoning_output_tokens": 0
+      },
+      "seconds": 5.3
+    },
+    {
+      "arm": "before",
+      "query": "In Go, why does := inside my if block leave the outer err unchanged, and how do I assign to that outer variable?",
+      "set": "validation",
+      "want": [
+        "go-style-core"
+      ],
+      "got": [],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 13655,
+        "cached_input_tokens": 13056,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 251,
+        "reasoning_output_tokens": 66
+      },
+      "seconds": 8.4
+    },
+    {
+      "arm": "before",
+      "query": "Design backpressure and per-tenant bulkheads for a Go worker fleet sharing one upstream rate quota.",
+      "set": "train",
+      "want": [
+        "go-resilience"
+      ],
+      "got": [
+        "go-concurrency",
+        "go-resilience"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 51566,
+        "cached_input_tokens": 43264,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1988,
+        "reasoning_output_tokens": 566
+      },
+      "seconds": 44.0
+    },
+    {
+      "arm": "after",
+      "query": "In Go, why does := inside my if block leave the outer err unchanged, and how do I assign to that outer variable?",
+      "set": "validation",
+      "want": [
+        "go-style-core"
+      ],
+      "got": [
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 43941,
+        "cached_input_tokens": 38144,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 596,
+        "reasoning_output_tokens": 45
+      },
+      "seconds": 18.4
+    },
+    {
+      "arm": "after",
+      "query": "Design backpressure and per-tenant bulkheads for a Go worker fleet sharing one upstream rate quota.",
+      "set": "train",
+      "want": [
+        "go-resilience"
+      ],
+      "got": [
+        "go-concurrency",
+        "go-resilience"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 49701,
+        "cached_input_tokens": 38144,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2523,
+        "reasoning_output_tokens": 210
+      },
+      "seconds": 53.0
+    },
+    {
+      "arm": "before",
+      "query": "Потрібен circuit breaker для Go-клієнта: обмежені half-open запити та коректна деградація під час збою залежності.",
+      "set": "validation",
+      "want": [
+        "go-resilience"
+      ],
+      "got": [
+        "go-code",
+        "go-concurrency",
+        "go-context",
+        "go-resilience"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 137985,
+        "cached_input_tokens": 112896,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 4377,
+        "reasoning_output_tokens": 1028
+      },
+      "seconds": 92.6
+    },
+    {
+      "arm": "before",
+      "query": "Modernize this Go service: it still uses math/rand with rand.Seed and interface{} — what should change first?",
+      "set": "train",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code-refactor",
+        "go-code-review",
+        "go-generics",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 130681,
+        "cached_input_tokens": 112128,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1875,
+        "reasoning_output_tokens": 404
+      },
+      "seconds": 47.8
+    },
+    {
+      "arm": "after",
+      "query": "Modernize this Go service: it still uses math/rand with rand.Seed and interface{} — what should change first?",
+      "set": "train",
+      "want": [
+        "go-code-refactor"
+      ],
+      "got": [
+        "go-code",
+        "go-code-review",
+        "go-style-core"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 116110,
+        "cached_input_tokens": 93952,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1762,
+        "reasoning_output_tokens": 531
+      },
+      "seconds": 43.8
+    },
+    {
+      "arm": "after",
+      "query": "My Go benchmark compares two JSON encoders — how do I lay out the bench files and prove the win is real?",
+      "set": "train",
+      "want": [
+        "go-performance"
+      ],
+      "got": [
+        "go-performance",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 48877,
+        "cached_input_tokens": 37120,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1718,
+        "reasoning_output_tokens": 576
+      },
+      "seconds": 38.9
+    },
+    {
+      "arm": "before",
+      "query": "My Go benchmark compares two JSON encoders — how do I lay out the bench files and prove the win is real?",
+      "set": "train",
+      "want": [
+        "go-performance"
+      ],
+      "got": [
+        "go-performance",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 71297,
+        "cached_input_tokens": 62464,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2077,
+        "reasoning_output_tokens": 586
+      },
+      "seconds": 48.3
+    },
+    {
+      "arm": "before",
+      "query": "How do I pin golangci-lint and govulncheck so CI uses the same versions as my machine without changing application dependencies?",
+      "set": "validation",
+      "want": [
+        "go-packages",
+        "go-linting"
+      ],
+      "got": [
+        "go-linting"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 61138,
+        "cached_input_tokens": 48128,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1357,
+        "reasoning_output_tokens": 612
+      },
+      "seconds": 32.3
+    },
+    {
+      "arm": "after",
+      "query": "How do I pin golangci-lint and govulncheck so CI uses the same versions as my machine without changing application dependencies?",
+      "set": "validation",
+      "want": [
+        "go-packages",
+        "go-linting"
+      ],
+      "got": [
+        "go-linting"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 29391,
+        "cached_input_tokens": 24064,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1085,
+        "reasoning_output_tokens": 489
+      },
+      "seconds": 24.8
+    },
+    {
+      "arm": "after",
+      "query": "What checks should run on every PR for our Go service — tests, lint, vulnerability scan?",
+      "set": "train",
+      "want": [
+        "go-linting"
+      ],
+      "got": [
+        "go-linting"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 29374,
+        "cached_input_tokens": 24064,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 835,
+        "reasoning_output_tokens": 372
+      },
+      "seconds": 21.0
+    },
+    {
+      "arm": "before",
+      "query": "What checks should run on every PR for our Go service — tests, lint, vulnerability scan?",
+      "set": "train",
+      "want": [
+        "go-linting"
+      ],
+      "got": [
+        "go-code-review",
+        "go-linting",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 68141,
+        "cached_input_tokens": 48128,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1370,
+        "reasoning_output_tokens": 259
+      },
+      "seconds": 32.9
+    },
+    {
+      "arm": "before",
+      "query": "Our Go reporting code casts an int64 row count down to int32 before returning it, and compares monetary totals with ==. Tests pass. What is wrong?",
+      "set": "validation",
+      "want": [
+        "go-defensive"
+      ],
+      "got": [
+        "go-code-review",
+        "go-defensive",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 36399,
+        "cached_input_tokens": 26112,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 816,
+        "reasoning_output_tokens": 265
+      },
+      "seconds": 21.0
+    },
+    {
+      "arm": "after",
+      "query": "Our Go reporting code casts an int64 row count down to int32 before returning it, and compares monetary totals with ==. Tests pass. What is wrong?",
+      "set": "validation",
+      "want": [
+        "go-defensive"
+      ],
+      "got": [
+        "go-code-review",
+        "go-defensive"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 32486,
+        "cached_input_tokens": 20992,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 781,
+        "reasoning_output_tokens": 243
+      },
+      "seconds": 22.5
+    },
+    {
+      "arm": "after",
+      "query": "Our Go service needs request IDs in logs correlated with traces plus latency histograms — what is the checklist?",
+      "set": "validation",
+      "want": [
+        "go-logging"
+      ],
+      "got": [
+        "go-context",
+        "go-http",
+        "go-logging"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 55767,
+        "cached_input_tokens": 42240,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1752,
+        "reasoning_output_tokens": 376
+      },
+      "seconds": 38.1
+    },
+    {
+      "arm": "before",
+      "query": "Our Go service needs request IDs in logs correlated with traces plus latency histograms — what is the checklist?",
+      "set": "validation",
+      "want": [
+        "go-logging"
+      ],
+      "got": [
+        "go-context",
+        "go-http",
+        "go-logging"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 73953,
+        "cached_input_tokens": 59392,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2238,
+        "reasoning_output_tokens": 617
+      },
+      "seconds": 50.2
+    },
+    {
+      "arm": "before",
+      "query": "I have a Go package where every exported function and its doc comment is already written and every body panics with not implemented. Fill in the implementations so the package does what the docs say.",
+      "set": "train",
+      "want": [
+        "go-code"
+      ],
+      "got": [
+        "go-code"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 157350,
+        "cached_input_tokens": 138240,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1895,
+        "reasoning_output_tokens": 367
+      },
+      "seconds": 46.6
+    },
+    {
+      "arm": "after",
+      "query": "Implement a small Go package from a written spec: it validates its input, keeps results in a map, returns errors the caller can match on, and exposes one function.",
+      "set": "train",
+      "want": [
+        "go-code"
+      ],
+      "got": [
+        "go-code",
+        "go-data-structures",
+        "go-error-handling",
+        "go-functions"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 86687,
+        "cached_input_tokens": 73472,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1486,
+        "reasoning_output_tokens": 160
+      },
+      "seconds": 35.5
+    },
+    {
+      "arm": "before",
+      "query": "Implement a small Go package from a written spec: it validates its input, keeps results in a map, returns errors the caller can match on, and exposes one function.",
+      "set": "train",
+      "want": [
+        "go-code"
+      ],
+      "got": [
+        "go-code",
+        "go-data-structures",
+        "go-documentation",
+        "go-error-handling",
+        "go-functions",
+        "go-linting",
+        "go-naming",
+        "go-packages",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 101949,
+        "cached_input_tokens": 79616,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1593,
+        "reasoning_output_tokens": 244
+      },
+      "seconds": 39.5
+    },
+    {
+      "arm": "before",
+      "query": "Write the Go function that builds the JSON response for one account's activity feed: the account, the list of events, and the distinct event kinds present.",
+      "set": "train",
+      "want": [
+        "go-data-structures"
+      ],
+      "got": [
+        "go-code"
+      ],
+      "pass": false,
+      "error": "",
+      "usage": {
+        "input_tokens": 78753,
+        "cached_input_tokens": 70400,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1212,
+        "reasoning_output_tokens": 306
+      },
+      "seconds": 35.1
+    },
+    {
+      "arm": "after",
+      "query": "I have a Go package where every exported function and its doc comment is already written and every body panics with not implemented. Fill in the implementations so the package does what the docs say.",
+      "set": "train",
+      "want": [
+        "go-code"
+      ],
+      "got": [
+        "go-code"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 199442,
+        "cached_input_tokens": 159488,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2613,
+        "reasoning_output_tokens": 596
+      },
+      "seconds": 61.1
+    },
+    {
+      "arm": "before",
+      "query": "Write a Go constructor that takes a slice of entries and returns a type reporting on them. The type is an immutable snapshot: nothing a caller does afterwards may change what it reports.",
+      "set": "train",
+      "want": [
+        "go-defensive"
+      ],
+      "got": [
+        "go-code",
+        "go-data-structures",
+        "go-defensive",
+        "go-documentation",
+        "go-functions",
+        "go-naming"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 53197,
+        "cached_input_tokens": 39168,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1566,
+        "reasoning_output_tokens": 558
+      },
+      "seconds": 36.6
+    },
+    {
+      "arm": "after",
+      "query": "Write a Go constructor that takes a slice of entries and returns a type reporting on them. The type is an immutable snapshot: nothing a caller does afterwards may change what it reports.",
+      "set": "train",
+      "want": [
+        "go-defensive"
+      ],
+      "got": [
+        "go-code",
+        "go-data-structures",
+        "go-defensive",
+        "go-documentation",
+        "go-functions"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 65357,
+        "cached_input_tokens": 51200,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1669,
+        "reasoning_output_tokens": 604
+      },
+      "seconds": 40.1
+    },
+    {
+      "arm": "after",
+      "query": "Write the Go function that builds the JSON response for one account's activity feed: the account, the list of events, and the distinct event kinds present.",
+      "set": "train",
+      "want": [
+        "go-data-structures"
+      ],
+      "got": [
+        "go-code",
+        "go-data-structures",
+        "go-functions",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 124382,
+        "cached_input_tokens": 107008,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2362,
+        "reasoning_output_tokens": 868
+      },
+      "seconds": 51.9
+    },
+    {
+      "arm": "after",
+      "query": "Write the Go function that returns the *http.Server for our public API. It is published straight to the internet with no proxy in front of it and anonymous clients that stall mid-request.",
+      "set": "train",
+      "want": [
+        "go-http"
+      ],
+      "got": [
+        "go-http",
+        "go-security"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 48888,
+        "cached_input_tokens": 41216,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1543,
+        "reasoning_output_tokens": 680
+      },
+      "seconds": 35.4
+    },
+    {
+      "arm": "before",
+      "query": "Write the Go function that returns the *http.Server for our public API. It is published straight to the internet with no proxy in front of it and anonymous clients that stall mid-request.",
+      "set": "train",
+      "want": [
+        "go-http"
+      ],
+      "got": [
+        "go-documentation",
+        "go-functions",
+        "go-http"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 84884,
+        "cached_input_tokens": 71424,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1828,
+        "reasoning_output_tokens": 732
+      },
+      "seconds": 44.4
+    },
+    {
+      "arm": "after",
+      "query": "Write a Go lookup function whose failure names the record that could not be resolved and still lets the caller tell which of the store's failure reasons it was.",
+      "set": "train",
+      "want": [
+        "go-error-handling"
+      ],
+      "got": [
+        "go-code",
+        "go-error-handling",
+        "go-functions"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 46549,
+        "cached_input_tokens": 36096,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1364,
+        "reasoning_output_tokens": 492
+      },
+      "seconds": 32.4
+    },
+    {
+      "arm": "before",
+      "query": "Write a Go lookup function whose failure names the record that could not be resolved and still lets the caller tell which of the store's failure reasons it was.",
+      "set": "train",
+      "want": [
+        "go-error-handling"
+      ],
+      "got": [
+        "go-code",
+        "go-error-handling",
+        "go-functions",
+        "go-style-core"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 126168,
+        "cached_input_tokens": 104704,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2495,
+        "reasoning_output_tokens": 699
+      },
+      "seconds": 57.9
+    },
+    {
+      "arm": "before",
+      "query": "Write a new Go package that turns a list of postings into a per-account balance report. Nothing exists yet.",
+      "set": "train",
+      "want": [
+        "go-code"
+      ],
+      "got": [
+        "go-code",
+        "go-data-structures",
+        "go-documentation",
+        "go-functions",
+        "go-naming",
+        "go-packages",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 119862,
+        "cached_input_tokens": 87808,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2568,
+        "reasoning_output_tokens": 621
+      },
+      "seconds": 57.9
+    },
+    {
+      "arm": "after",
+      "query": "Write a new Go package that turns a list of postings into a per-account balance report. Nothing exists yet.",
+      "set": "train",
+      "want": [
+        "go-code"
+      ],
+      "got": [
+        "go-code",
+        "go-data-structures",
+        "go-documentation",
+        "go-functions",
+        "go-linting",
+        "go-naming",
+        "go-packages",
+        "go-style-core",
+        "go-testing"
+      ],
+      "pass": true,
+      "error": "",
+      "usage": {
+        "input_tokens": 191396,
+        "cached_input_tokens": 152576,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 4067,
+        "reasoning_output_tokens": 856
+      },
+      "seconds": 87.7
+    }
+  ],
+  "finished": "2026-09-07T19:52:57+03:00"
+}

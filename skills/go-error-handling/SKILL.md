@@ -1,6 +1,6 @@
 ---
 name: go-error-handling
-description: Use when writing Go code that returns, wraps, or handles errors — choosing between sentinel errors, custom types, and fmt.Errorf (%w vs %v), structuring error flow, or deciding whether to log or return. Also use when propagating errors across package boundaries or using errors.Is/As, even if the user doesn't ask about error strategy. Does not cover panic/recover patterns (see go-defensive).
+description: Use when returning, wrapping, or handling Go errors; choosing sentinels or custom errors; using errors.Is/As or %w; or deciding whether to log or return. Panic/recover belongs to go-defensive.
 allowed-tools: Bash(bash:*)
 ---
 

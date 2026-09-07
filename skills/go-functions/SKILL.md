@@ -1,6 +1,6 @@
 ---
 name: go-functions
-description: Use when designing or reviewing Go function APIs — parameters, return values, signature readability, function ordering, Printf-style helpers, or constructors with optional configuration. Covers choosing ordinary parameters, config structs, or functional options. A routine function-body edit alone does not require this skill; route its actual topic to the relevant Go skill.
+description: Use when designing or reviewing Go function APIs, parameters, returns, ordering, Printf helpers, or constructor configuration via parameters, structs, or functional options. Routine body edits alone do not qualify.
 ---
 
 # Go Function Design

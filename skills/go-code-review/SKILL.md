@@ -1,6 +1,6 @@
 ---
 name: go-code-review
-description: Use when reviewing Go code or checking code against community style standards. Also use proactively before submitting a Go PR or when reviewing any Go code changes, even if the user doesn't explicitly request a style review. Does not cover language-specific syntax — delegates to specialized skills.
+description: Use when reviewing Go code, checking community style, or preparing to submit a Go PR, including a final review of Go changes without an explicit style-review request.
 allowed-tools: Bash(bash:*)
 ---
 

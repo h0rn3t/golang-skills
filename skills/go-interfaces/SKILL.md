@@ -1,6 +1,6 @@
 ---
 name: go-interfaces
-description: Use when defining or implementing Go interfaces, designing abstractions, creating mockable boundaries for testing, or composing types through embedding. Also use when deciding whether to accept an interface or return a concrete type, or using type assertions or type switches, even if the user doesn't explicitly mention interfaces. Does not cover generics-based polymorphism (see go-generics).
+description: Use when designing or implementing Go interfaces, abstractions, mockable boundaries, embedding, assertions, type switches, or interface versus concrete API types. Generics belong to go-generics.
 allowed-tools: Bash(bash:*)
 ---
 

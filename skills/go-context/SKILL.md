@@ -1,6 +1,6 @@
 ---
 name: go-context
-description: Use when working with context.Context in Go — placement in signatures, propagating cancellation and deadlines, and storing values in context vs parameters. Also use when cancelling long-running operations, setting timeouts, or passing request-scoped data, even if they don't mention context.Context directly. Does not cover goroutine lifecycle or sync primitives (see go-concurrency).
+description: Use when handling Go context.Context, cancellation, deadlines, timeouts, or request-scoped values and parameter placement. Goroutine lifecycle and synchronization belong to go-concurrency.
 ---
 
 # Go Context Usage

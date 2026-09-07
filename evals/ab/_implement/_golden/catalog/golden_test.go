@@ -6,103 +6,104 @@ import (
 	"testing"
 )
 
-// goldenSource serves a fixed table and a fixed failure.
+var errTransport = errors.New("dial tcp: connection refused")
+
+// goldenSource serves a fixed table and a fixed set of failures, and counts
+// what it was asked for.
 type goldenSource struct {
-	names map[string]string
-	fail  map[string]error
+	calls map[string]int
 }
 
-func (s goldenSource) Get(sku string) (string, error) {
-	if err, ok := s.fail[sku]; ok {
-		return "", err
-	}
-	if name, ok := s.names[sku]; ok {
-		return name, nil
+func newGoldenSource() *goldenSource {
+	return &goldenSource{calls: map[string]int{}}
+}
+
+func (s *goldenSource) Get(sku string) (string, error) {
+	s.calls[sku]++
+	switch sku {
+	case "sku-1":
+		return "Widget", nil
+	case "sku-2":
+		return "Sprocket", nil
+	case "sku-boom":
+		return "", errTransport
+	case "sku-shut":
+		return "", ErrClosed
 	}
 	return "", ErrNotFound
 }
 
-var errTransport = errors.New("dial tcp: connection refused")
-
-func newGoldenSource() goldenSource {
-	return goldenSource{
-		names: map[string]string{"sku-1": "Widget", "sku-2": "Sprocket"},
-		fail:  map[string]error{"sku-boom": errTransport, "sku-shut": ErrClosed},
-	}
-}
-
-// TestLookupErrorReachesEveryReason is the trap. Adding the SKU to the message
-// with %v satisfies the operator and silently cuts the caller off from the
-// reason, so both obligations have to be met by one error.
-func TestLookupErrorReachesEveryReason(t *testing.T) {
-	src := newGoldenSource()
+// TestResolveErrorReachesEveryReason is the trap. Adding the SKU to the
+// message with %v satisfies the operator and silently cuts the caller off from
+// the reason, so one error has to meet both obligations.
+func TestResolveErrorReachesEveryReason(t *testing.T) {
 	tests := []struct {
 		name string
 		sku  string
 		want error
 	}{
-		{name: "unknown sku", sku: "sku-404", want: ErrNotFound},
 		{name: "closed source", sku: "sku-shut", want: ErrClosed},
 		{name: "transport failure", sku: "sku-boom", want: errTransport},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Lookup(src, tt.sku)
+			_, err := Resolve(newGoldenSource(), []string{"sku-1", tt.sku, "sku-2"})
 			if err == nil {
-				t.Fatalf("Lookup(%q) error = nil, want non-nil", tt.sku)
+				t.Fatalf("Resolve(%q) error = nil, want non-nil", tt.sku)
 			}
 			if !errors.Is(err, tt.want) {
-				t.Errorf("errors.Is(Lookup(%q) error, %v) = false, want true; error was %q", tt.sku, tt.want, err)
+				t.Errorf("errors.Is(Resolve(%q) error, %v) = false, want true; error was %q", tt.sku, tt.want, err)
 			}
 			if !strings.Contains(err.Error(), tt.sku) {
-				t.Errorf("Lookup(%q) error = %q, want the SKU in the message", tt.sku, err)
+				t.Errorf("Resolve(%q) error = %q, want the SKU in the message", tt.sku, err)
 			}
 		})
 	}
 }
 
-func TestLookupAllPropagatesReason(t *testing.T) {
-	src := newGoldenSource()
-
-	_, err := LookupAll(src, []string{"sku-1", "sku-boom", "sku-2"})
-	if err == nil {
-		t.Fatal("LookupAll(with a transport failure) error = nil, want non-nil")
-	}
-	if !errors.Is(err, errTransport) {
-		t.Errorf("errors.Is(LookupAll error, errTransport) = false, want true; error was %q", err)
-	}
-	if !strings.Contains(err.Error(), "sku-boom") {
-		t.Errorf("LookupAll error = %q, want the failing SKU in the message", err)
-	}
-}
-
-func TestLookupResolves(t *testing.T) {
-	src := newGoldenSource()
-
-	got, err := Lookup(src, "sku-1")
+func TestResolveSkipsUnknownAndKeepsGoing(t *testing.T) {
+	got, err := Resolve(newGoldenSource(), []string{"sku-2", "sku-404", "sku-1"})
 	if err != nil {
-		t.Fatalf("Lookup(sku-1) error = %v, want nil", err)
+		t.Fatalf("Resolve error = %v, want nil", err)
 	}
-	if want := (Product{SKU: "sku-1", Name: "Widget"}); got != want {
-		t.Errorf("Lookup(sku-1) = %+v, want %+v", got, want)
-	}
-}
 
-func TestLookupAllSkipsUnknown(t *testing.T) {
-	src := newGoldenSource()
-
-	got, err := LookupAll(src, []string{"sku-2", "sku-404", "sku-1"})
-	if err != nil {
-		t.Fatalf("LookupAll error = %v, want nil", err)
-	}
-	want := []Product{{SKU: "sku-2", Name: "Sprocket"}, {SKU: "sku-1", Name: "Widget"}}
+	want := map[string]string{"sku-2": "Sprocket", "sku-1": "Widget"}
 	if len(got) != len(want) {
-		t.Fatalf("LookupAll returned %d products, want %d", len(got), len(want))
+		t.Fatalf("Resolve returned %d entries, want %d: %v", len(got), len(want), got)
 	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Errorf("LookupAll[%d] = %+v, want %+v", i, got[i], want[i])
+	for sku, name := range want {
+		if got[sku] != name {
+			t.Errorf("Resolve()[%q] = %q, want %q", sku, got[sku], name)
 		}
+	}
+}
+
+// TestResolveCostsOneRoundTripPerSKU pins the documented cost. A plain walk
+// over skus asks the source twice for a SKU that appears twice.
+func TestResolveCostsOneRoundTripPerSKU(t *testing.T) {
+	src := newGoldenSource()
+
+	got, err := Resolve(src, []string{"sku-1", "sku-2", "sku-1", "sku-404", "sku-1", "sku-404"})
+	if err != nil {
+		t.Fatalf("Resolve error = %v, want nil", err)
+	}
+	if len(got) != 2 {
+		t.Errorf("Resolve returned %d entries, want 2: %v", len(got), got)
+	}
+	for sku, calls := range src.calls {
+		if calls != 1 {
+			t.Errorf("the source was asked for %q %d times, want 1", sku, calls)
+		}
+	}
+}
+
+func TestResolveEmptyInput(t *testing.T) {
+	got, err := Resolve(newGoldenSource(), nil)
+	if err != nil {
+		t.Fatalf("Resolve(nil) error = %v, want nil", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("Resolve(nil) = %v, want no entries", got)
 	}
 }

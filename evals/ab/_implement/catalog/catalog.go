@@ -13,31 +13,24 @@ var ErrClosed = errors.New("catalog: source closed")
 type Source interface {
 	// Get returns the product name for sku. It reports ErrNotFound when the
 	// SKU is unknown and ErrClosed when the store is shut down; any other
-	// error is a transport failure.
+	// error is a transport failure. Every call is a network round trip.
 	Get(sku string) (string, error)
 }
 
-// Product is one resolved catalog entry.
-type Product struct {
-	SKU  string
-	Name string
-}
-
-// Lookup resolves one SKU.
+// Resolve resolves skus in order and returns the product name for each SKU it
+// resolved, keyed by SKU.
+//
+// A SKU the source does not know is left out of the result rather than being
+// fatal. Any other failure abandons the walk and is returned.
+//
+// The same SKU may appear in skus more than once, and a round trip is the
+// expensive part of this function, so a repeated SKU costs one.
 //
 // A failure is reported to two audiences at once and has to serve both. The
 // operator reads it in a log line and needs to see which SKU failed and what
 // went wrong underneath. The caller does not read it: the caller inspects it,
-// decides whether this failure is worth a retry or a 404, and must be able to
-// reach every reason the Source can report.
-func Lookup(src Source, sku string) (Product, error) {
-	panic("not implemented")
-}
-
-// LookupAll resolves every SKU in order and returns the products it resolved.
-//
-// An unknown SKU is skipped rather than fatal. Any other failure stops the
-// walk and is reported with the same obligations Lookup has.
-func LookupAll(src Source, skus []string) ([]Product, error) {
+// decides whether the failure is worth a retry, and must be able to reach
+// every reason the Source can report.
+func Resolve(src Source, skus []string) (map[string]string, error) {
 	panic("not implemented")
 }

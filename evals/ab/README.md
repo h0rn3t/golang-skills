@@ -109,12 +109,13 @@ the only strong over-engineering trap, `report`, it reduced mean growth from
 +33.4 to +16.8 lines (49.7%). Correctness was tied at 20/20 build and golden
 passes in both arms. See the [full analysis and raw report](../../docs/evidence/2026-09-07-go-refactor-control-opus5.md).
 
-The implementation corpus has one admitted fixture. Under `-runner claude`,
-`gateway` separates the arms completely on how much code a passing
-implementation costs: 162.0 lines without the skill against 107.0 with it, with
-functions down 52% and branches down 42% and correctness tied at 6/6. See
-[`_implement/README.md`](_implement/README.md) and the
-[analysis](../../docs/evidence/2026-09-07-go-implement-gateway-ledger-claude.md).
+The implementation corpus has one admitted fixture. On Opus 5 with `n=5`,
+`gateway` separates the arms completely on what a working implementation costs:
+152.6 lines without the skill against 99.8 with it, control at 109/124/169/170/191
+against 94/97/100/101/107, with functions down 44% and branches down 38% and
+correctness tied at 5/5. The skilled arm's spread is also seven times smaller.
+See [`_implement/README.md`](_implement/README.md) and the
+[full analysis](../../docs/evidence/2026-09-07-go-implement-gateway-opus5.md).
 
 The same refactor corpus under `-runner opencode` with `opencode-go/minimax-m3`, also
 2026-09-07, completed 40/40 valid runs. It reproduces the direction and, on

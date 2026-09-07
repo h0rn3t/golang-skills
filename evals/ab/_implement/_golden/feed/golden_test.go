@@ -2,6 +2,7 @@ package feed
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -9,59 +10,51 @@ import (
 // goldenAt is the reference instant every case formats.
 var goldenAt = time.Date(2026, 9, 7, 8, 30, 0, 0, time.UTC)
 
-// members decodes a Document to its raw JSON members, so a case can ask what a
-// member actually rendered as without depending on field order.
-func members(t *testing.T, doc Document, label string) map[string]json.RawMessage {
+// members decodes the document to its raw JSON members, so a case can ask what
+// a member actually rendered as without depending on the order the
+// implementation happens to emit them in.
+func members(t *testing.T, account string, events []Event) map[string]json.RawMessage {
 	t.Helper()
-	data, err := json.Marshal(doc)
+	data, err := Render(account, events)
 	if err != nil {
-		t.Fatalf("json.Marshal(%s) error = %v, want nil", label, err)
+		t.Fatalf("Render(%q) error = %v, want nil", account, err)
 	}
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
-		t.Fatalf("json.Unmarshal(%s) error = %v, want nil", label, err)
+		t.Fatalf("json.Unmarshal(Render(%q)) error = %v, document was %s", account, err, data)
 	}
 	return raw
 }
 
-// TestBuildEmptyRendersArrays is the trap. A nil slice marshals to null, and
-// the documented client walks the members as arrays, so an account with no
-// activity has to render as [] rather than null.
-func TestBuildEmptyRendersArrays(t *testing.T) {
+// TestRenderEmptyKeepsEveryMemberTyped is the trap. A nil slice marshals to
+// null and so does a nil map, and the documented client walks these members as
+// an array and an object in every response.
+func TestRenderEmptyKeepsEveryMemberTyped(t *testing.T) {
 	cases := []struct {
 		name   string
 		events []Event
 	}{
 		{name: "no events"},
 		// The other route to a null: every event is filtered out, so the
-		// members are built but stay empty.
+		// members are reached but stay empty.
 		{name: "every event dropped", events: []Event{{Kind: "login", At: goldenAt}}},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			doc := Build("acct-1", tt.events)
-			if doc.Events == nil {
-				t.Error("Build().Events is nil, want an empty non-nil slice so JSON renders []")
-			}
-			if doc.Kinds == nil {
-				t.Error("Build().Kinds is nil, want an empty non-nil slice so JSON renders []")
-			}
+			raw := members(t, "acct-1", tt.events)
 
-			raw := members(t, doc, "Build "+tt.name)
-			for _, member := range []string{"events", "kinds"} {
-				if got := string(raw[member]); got != "[]" {
-					t.Errorf("marshalled %q = %s, want []", member, got)
+			want := map[string]string{"events": "[]", "kinds": "[]", "counts": "{}", "account": `"acct-1"`}
+			for member, wantJSON := range want {
+				if got := string(raw[member]); got != wantJSON {
+					t.Errorf("member %q rendered as %s, want %s", member, got, wantJSON)
 				}
-			}
-			if got := string(raw["account"]); got != `"acct-1"` {
-				t.Errorf("marshalled %q = %s, want %q", "account", got, `"acct-1"`)
 			}
 		})
 	}
 }
 
-func TestBuildRendersEventsInOrderWithSortedKinds(t *testing.T) {
+func TestRenderDocument(t *testing.T) {
 	events := []Event{
 		{ID: "e3", Kind: "logout", At: goldenAt},
 		{ID: "", Kind: "dropped", At: goldenAt},
@@ -69,33 +62,53 @@ func TestBuildRendersEventsInOrderWithSortedKinds(t *testing.T) {
 		{ID: "e2", Kind: "login", At: goldenAt},
 	}
 
-	doc := Build("acct-2", events)
+	raw := members(t, "acct-2", events)
 
-	wantEntries := []Entry{
-		{ID: "e3", Kind: "logout", At: "2026-09-07T08:30:00Z"},
-		{ID: "e1", Kind: "login", At: "2026-09-07T09:30:00Z"},
-		{ID: "e2", Kind: "login", At: "2026-09-07T08:30:00Z"},
+	wantMembers := map[string]string{
+		"account": `"acct-2"`,
+		"events": `[{"id":"e3","kind":"logout","at":"2026-09-07T08:30:00Z"},` +
+			`{"id":"e1","kind":"login","at":"2026-09-07T09:30:00Z"},` +
+			`{"id":"e2","kind":"login","at":"2026-09-07T08:30:00Z"}]`,
+		"kinds":  `["login","logout"]`,
+		"counts": `{"login":2,"logout":1}`,
 	}
-	if len(doc.Events) != len(wantEntries) {
-		t.Fatalf("Build().Events has length %d, want %d: %+v", len(doc.Events), len(wantEntries), doc.Events)
-	}
-	for i := range wantEntries {
-		if doc.Events[i] != wantEntries[i] {
-			t.Errorf("Build().Events[%d] = %+v, want %+v", i, doc.Events[i], wantEntries[i])
+	for member, wantJSON := range wantMembers {
+		got := string(raw[member])
+		if member == "events" || member == "counts" {
+			// Order inside events is specified; key order inside counts is not,
+			// so compare those two through a decode rather than byte for byte.
+			assertJSONEqual(t, member, got, wantJSON)
+			continue
+		}
+		if got != wantJSON {
+			t.Errorf("member %q rendered as %s, want %s", member, got, wantJSON)
 		}
 	}
+}
 
-	wantKinds := []string{"login", "logout"}
-	if len(doc.Kinds) != len(wantKinds) {
-		t.Fatalf("Build().Kinds = %v, want %v", doc.Kinds, wantKinds)
+func assertJSONEqual(t *testing.T, member, got, want string) {
+	t.Helper()
+	var gotValue, wantValue any
+	if err := json.Unmarshal([]byte(got), &gotValue); err != nil {
+		t.Errorf("member %q is not valid JSON: %s", member, got)
+		return
 	}
-	for i := range wantKinds {
-		if doc.Kinds[i] != wantKinds[i] {
-			t.Errorf("Build().Kinds = %v, want %v", doc.Kinds, wantKinds)
-			break
-		}
+	if err := json.Unmarshal([]byte(want), &wantValue); err != nil {
+		t.Fatalf("the test's own expectation for %q is not valid JSON: %s", member, want)
 	}
-	if doc.Account != "acct-2" {
-		t.Errorf("Build().Account = %q, want %q", doc.Account, "acct-2")
+	gotNorm, _ := json.Marshal(gotValue)
+	wantNorm, _ := json.Marshal(wantValue)
+	if string(gotNorm) != string(wantNorm) {
+		t.Errorf("member %q rendered as %s, want %s", member, gotNorm, wantNorm)
+	}
+}
+
+func TestRenderRejectsEmptyAccount(t *testing.T) {
+	_, err := Render("", nil)
+	if err == nil {
+		t.Fatal("Render(empty account) error = nil, want non-nil")
+	}
+	if !strings.Contains(err.Error(), "account") {
+		t.Errorf("Render(empty account) error = %q, want the field named in the message", err)
 	}
 }

@@ -1,0 +1,561 @@
+{
+  "prompt": "Implement the Go package in ./%s. Every exported declaration is already there with its documentation; write the bodies so the package does what the documentation says. Do not change the exported signatures. Apply the changes to the files.",
+  "corpus": "implement",
+  "runner": "claude",
+  "model": "claude-opus-5",
+  "reps": 3,
+  "seed": 20260907,
+  "arms": [
+    {
+      "name": "no-skill"
+    },
+    {
+      "name": "baseline",
+      "source": "/Users/eugeneshershen/golang-skills",
+      "sha256": "6443a658f74cd465b98f0065cdb7c117bcde52c64af1acc1a5ef7f3a67369d3c"
+    }
+  ],
+  "results": [
+    {
+      "arm": "no-skill",
+      "task": "catalog",
+      "rep": 0,
+      "skills": [],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 60,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 24,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.14549600000000001,
+      "output": "Implemented `Resolve` in `catalog/catalog.go:37`.\n\nDecisions the doc drove:\n\n- **Order + abandon**: SKUs are walked in slice order, so the first fatal failure encountered is the one returned, and the partial map is discarded (`nil` map with the error).\n- **One round trip per distinct SKU**: an `asked` set, not the result map, does the deduping. A not-found SKU never lands in the result map, so deduping off the result alone would re-pay for a repeated unknown SKU.\n- **Not-found is not fatal**: matched with `errors.Is`, so a Source that wraps `ErrNotFound` with its own context still gets skipped.\n- **Two audiences**: `fmt.Errorf` with `%w` gives the operator a log line naming the SKU (`catalog: resolve \"ABC-1\": catalog: source closed`) while keeping the chain intact, so a caller can reach `ErrClosed`, a transport sentinel, or a concrete transport type via `errors.Is`/`errors.As` to decide on a retry.\n\nNote: I have no shell in this session, so I could not run `go build`/`go vet` or any test against it — the code is unverified by compilation."
+    },
+    {
+      "arm": "baseline",
+      "task": "catalog",
+      "rep": 0,
+      "skills": [
+        "go-code"
+      ],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 55,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 19,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.340707,
+      "output": "Done. `catalog/catalog.go:37`:\n\n```go\nfunc Resolve(src Source, skus []string) (map[string]string, error) {\n\tnames := make(map[string]string, len(skus))\n\tunknown := make(map[string]bool)\n\tfor _, sku := range skus {\n\t\tif _, ok := names[sku]; ok || unknown[sku] {\n\t\t\tcontinue\n\t\t}\n\t\tname, err := src.Get(sku)\n\t\tswitch {\n\t\tcase errors.Is(err, ErrNotFound):\n\t\t\tunknown[sku] = true\n\t\tcase err != nil:\n\t\t\treturn nil, fmt.Errorf(\"resolve sku %q: %w\", sku, err)\n\t\tdefault:\n\t\t\tnames[sku] = name\n\t\t}\n\t}\n\treturn names, nil\n}\n```\n\nDecisions worth naming:\n\n- **One round trip per distinct SKU.** `names` memoizes hits, and the separate `unknown` set memoizes misses — without it a SKU that repeats and isn't in the catalog would cost a round trip every time it appears, since a miss leaves no trace in the result map. Storing misses as an empty string in `names` was the alternative, but that would leak into the returned map.\n- **`errors.Is`, not `==`.** A Source may wrap `ErrNotFound` from its own transport layer.\n- **`%w`, not `%v`.** The doc's two audiences: the message names the failing SKU and the underlying cause for the log line, and wrapping keeps `errors.Is(err, ErrClosed)` and `errors.As` to a transport error type working for the caller deciding on a retry. I left the package name out of the format string because both sentinels already carry a `catalog:` prefix; a wrapped `ErrClosed` reads `resolve sku \"ABC-1\": catalog: source closed`.\n- **`nil` map on failure**, since the walk is abandoned and a partial result isn't part of the documented contract.\n\nVerification: the repo's `go vet ./catalog` edit hook passes (it caught the unused `fmt` import on my first edit and was silent after the body landed). I could not run tests or `gofmt` myself — no shell tool in this session — and the package ships no tests. Also, the `go-code` skill's sibling references (`go-style-core`, `OVER-ENGINEERING.md`) live outside the sandboxed working directory and were unreadable, so this follows standard Go idiom rather than those house rules."
+    },
+    {
+      "arm": "baseline",
+      "task": "catalog",
+      "rep": 2,
+      "skills": [
+        "go-code"
+      ],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 56,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 20,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.3232045,
+      "output": "Implemented `Resolve` in `catalog/catalog.go:37`:\n\n- **Ordered walk with dedupe** — an `asked` set records every SKU queried, so a repeated SKU costs exactly one round trip, including one that came back `ErrNotFound` (tracking only the result map would re-query misses).\n- **Misses are skipped** — `errors.Is(err, ErrNotFound)` continues instead of failing, and the SKU is absent from the result.\n- **Any other error abandons the walk** — returned as `fmt.Errorf(\"resolve sku %q: %w\", sku, err)`. The `%q` SKU plus the underlying message serves the operator's log line; `%w` keeps `errors.Is`/`errors.As` reaching `ErrClosed` and any transport sentinel or error type the `Source` reports, which is what the caller's retry decision needs. No `catalog:` prefix on the wrapper, since the sentinels already carry it and it would double up.\n\nVerification: the repo's `go vet ./catalog` hook ran on the edits and passed. I did not run tests — the package has none, and no Bash tool is available in this session, so `gofmt`/build confirmation beyond vet is unavailable. One gap to flag: the `go-code` router asks for `go-style-core` and `go-error-handling` rule files, but they live outside the sandboxed working directory and couldn't be read, so the above follows standard Go idiom rather than those specific house rules."
+    },
+    {
+      "arm": "no-skill",
+      "task": "feed",
+      "rep": 2,
+      "skills": [],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 85,
+        "files": 1,
+        "test_files": 0,
+        "types": 3,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 50,
+        "files": 0,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.1325345,
+      "output": "Implemented `Render` in `feed/feed.go:56`.\n\nKey decisions from the doc:\n\n- **Stable JSON types.** `events`, `kinds`, and `counts` are allocated up front, so an account with no activity still encodes as `[]`, `[]`, and `{}` — never `null`. That's what the generated decoder needs when it walks members directly.\n- **`at` as a string field.** `encoding/json` marshals `time.Time` as RFC 3339 *Nano*, which drops to a different shape for sub-second timestamps. A `renderedEvent` struct with `At string` formatted via `time.RFC3339` keeps the form the example shows.\n- **Empty ID.** Skipped before anything else, so such an event contributes to neither `events`, `kinds`, nor `counts`.\n- **`kinds`.** Distinct kinds collected via a first-sighting check against the counts map, then sorted; `events` keeps input order.\n- **Empty account.** `errors.New(\"feed: account is empty\")` — names the field.\n\nOne thing I could not do: there's no shell tool in this session, so I have not run `go build` or `go vet` against it. The code uses only `encoding/json`, `errors`, `sort`, and `time`, and the exported signature is unchanged, but it is unverified by a compiler."
+    },
+    {
+      "arm": "baseline",
+      "task": "feed",
+      "rep": 0,
+      "skills": [
+        "go-code"
+      ],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 83,
+        "files": 1,
+        "test_files": 1,
+        "types": 3,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 48,
+        "files": 0,
+        "test_files": 1,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.462293,
+      "output": "`go vet ./feed` passes (the edit hook runs it on every write). I could not run `go test` — no shell tool is available in this session, so the test's expected JSON strings are hand-derived from `encoding/json`'s deterministic ordering (struct fields in declaration order, map keys sorted).\n\n**`feed/feed.go`** — `Render` now:\n\n- Rejects an empty account with `errors.New(\"account must not be empty\")`, naming the field.\n- Marshals an unexported `document` struct, so member order matches the documented example and every member is always present with a stable JSON type: `Events` and `Kinds` are built with `make(..., 0, n)` and `Counts` with `make(map...)`, so a no-activity account renders `\"events\":[],\"kinds\":[],\"counts\":{}` rather than three `null`s.\n- Walks `events` once in input order, skipping any event with an empty `ID` before it reaches `events` *or* the counts, which also keeps that kind out of `kinds` when nothing else carried it.\n- Formats `At` explicitly with `time.RFC3339` via a small `wireEvent` type, rather than letting `time.Time` marshal itself — `time.Time.MarshalJSON` emits RFC 3339 *Nano*, which would leak sub-second digits into the field for any event with non-zero nanoseconds.\n- Derives `kinds` from the counts map keys and `slices.Sort`s them, so the two members can't disagree.\n\n**`feed/feed_test.go`** (new) — table test for the no-activity shape and for order-preservation plus the empty-ID skip, and a check that the empty-account error names `account`.\n\nTwo notes on scope: the doc doesn't say what an event with a non-empty `ID` but empty `Kind` should do, so I treated `\"\"` as an ordinary kind — it appears in `kinds` and `counts` like any other. And the router skill directed me to load sibling rule files (`go-style-core`, the restraint rules); those live outside the working directory and `--restricted` blocked reading them, so the style choices here are plain Go idiom rather than that house style."
+    },
+    {
+      "arm": "no-skill",
+      "task": "catalog",
+      "rep": 2,
+      "skills": [],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 60,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 24,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.12109249999999999,
+      "output": "I don't have a shell tool in this session, so I couldn't compile or vet the package — the code below is reviewed by hand.\n\n`catalog/catalog.go:34`:\n\n```go\nfunc Resolve(src Source, skus []string) (map[string]string, error) {\n\tfound := make(map[string]string)\n\tasked := make(map[string]struct{}, len(skus))\n\n\tfor _, sku := range skus {\n\t\tif _, ok := asked[sku]; ok {\n\t\t\tcontinue\n\t\t}\n\t\tasked[sku] = struct{}{}\n\n\t\tname, err := src.Get(sku)\n\t\tswitch {\n\t\tcase err == nil:\n\t\t\tfound[sku] = name\n\t\tcase errors.Is(err, ErrNotFound):\n\t\t\t// An unknown SKU is simply absent from the result.\n\t\tdefault:\n\t\t\treturn nil, fmt.Errorf(\"catalog: resolve %q: %w\", sku, err)\n\t\t}\n\t}\n\treturn found, nil\n}\n```\n\nDecisions worth flagging:\n\n- **One round trip per distinct SKU.** The `asked` set is separate from `found` rather than reusing it, because a SKU the source didn't know has no entry in `found` — keying the dedupe off `found` would re-query every unknown SKU on each repeat, which is exactly the round trip the doc says to avoid.\n- **Both error audiences.** `%w` on the source's error keeps `ErrClosed`, `ErrNotFound`, and any transport error reachable via `errors.Is`/`errors.As`, so the caller can inspect and decide about retrying; the `%q` SKU and the wrapped message give the operator the failing SKU and underlying cause in one log line. Matching with `errors.Is(err, ErrNotFound)` rather than `==` means a Source that wraps its own sentinels still gets the skip behavior.\n- **Return values on failure.** A partial map plus an error invites callers to use half a result, so an abandoned walk returns `nil`. On success the map is always non-nil, including for empty or nil `skus`.\n\n`src` is dereferenced without a nil check: a nil `Source` panics at the first SKU, and an empty `skus` returns an empty map without touching it. The docs don't say what a nil source means, and a nil-check that returned an error would need a sentinel that isn't in the exported API, so I left the panic."
+    },
+    {
+      "arm": "baseline",
+      "task": "feed",
+      "rep": 1,
+      "skills": [
+        "go-code"
+      ],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 83,
+        "files": 1,
+        "test_files": 0,
+        "types": 3,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 48,
+        "files": 0,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.3589005,
+      "output": "Implemented in `feed/feed.go:33`. Details:\n\n- **Empty account** → `errors.New(\"feed: account is empty\")`, message names the field.\n- **Stable JSON types.** `events`, `kinds`, and `counts` are all allocated non-nil before use, so a no-activity account renders `\"events\": [], \"kinds\": [], \"counts\": {}` rather than `null` — that's what the generated decoder needs, since it walks members directly.\n- **`at`** is a `string` field formatted with `time.RFC3339` (via an unexported `renderedEvent` DTO), not a bare `time.Time`. Marshalling `time.Time` directly would emit RFC 3339 *Nano*, so the field's shape would shift with an event's sub-second precision.\n- **Empty `ID` skipped** before appending and before the count increment, so such an event is absent from all three members.\n- **Order:** `events` follows input order via `append`; `kinds` is collected from the `counts` keys and `slices.Sort`ed.\n\nTwo notes:\n\n- I built `kinds` with an explicit loop instead of `slices.Sorted(maps.Keys(...))`. The one-liner is nicer, but `slices.Sorted` collects into a nil slice for an empty map, which would marshal `kinds` as `null` and break the invariant above.\n- An event with a non-empty `ID` but an empty `Kind` is counted under the `\"\"` key and contributes `\"\"` to `kinds`. The doc only calls out empty `ID` as \"never happened\", so I took it literally; say the word if empty `Kind` should be dropped or bucketed too.\n\nVerification: `go vet ./feed` runs on every edit here via a hook and passed on the final state. I have no shell in this session, so I could not run `gofmt -l`, `go build`, or a test — the gate is only partly covered. Two skill references the workflow wants loaded (`go-style-core/SKILL.md` and `go-code-refactor/references/OVER-ENGINEERING.md`) live outside the sandboxed working directory and were unreadable, so I wrote to standard Go idiom rather than their specific rules."
+    },
+    {
+      "arm": "baseline",
+      "task": "feed",
+      "rep": 2,
+      "skills": [
+        "go-code"
+      ],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 86,
+        "files": 1,
+        "test_files": 0,
+        "types": 3,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 51,
+        "files": 0,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.521273,
+      "output": "Implemented in `feed/feed.go:38`.\n\n**How each documented rule maps to the code**\n\n- **Empty account** → `errors.New(\"feed: account must not be empty\")`, message names the field (`feed/feed.go:40`).\n- **Stable JSON types** — this is the load-bearing requirement, since the client's generated decoder walks the members directly. `events`, `kinds`, and `counts` are initialized as empty (not nil) values, so a zero-activity account renders `\"events\": []`, `\"kinds\": []`, `\"counts\": {}` — never `null` (`feed/feed.go:45`). An account with no activity is therefore just an ordinary response, no branch of its own.\n- **Member order** — `document`'s field order (`account`, `events`, `kinds`, `counts`) is the emitted member order, matching the example.\n- **Empty ID never happened** — a single `continue` at the top of the loop keeps such events out of `events`, `kinds`, and `counts` at once, so the three can't disagree.\n- **Input order preserved**; `at` via `e.At.Format(time.RFC3339)`, so output is fixed-precision seconds as in the example rather than the RFC3339Nano that `time.Time`'s own marshaler would emit.\n- **kinds/counts** — `counts` doubles as the seen-set: it only ever increments, so a zero lookup means the kind is new, and no separate `map[string]bool` is needed. `kinds` is then sorted in place. I avoided `slices.Sorted(maps.Keys(...))` here deliberately: it returns `nil` for an empty map, which would emit `\"kinds\": null` and break the decoder guarantee.\n\nBoth helper types are unexported and no exported signature changed.\n\n**Verification:** `gofmt` and `go vet ./feed` both pass — reported by the edit hook against the final diff. I could not run `go build`/`go test` myself (no shell tool in this session), and I did not add tests, since I'd have no way to execute them.\n\nOne gap to flag: the `go-code` router asks to load `go-style-core` and the restraint rules from its sibling skill directories, but those files sit outside the working directory and the file tools are `--restricted` to it, so both reads failed. I applied ordinary Go house style from the surrounding file instead."
+    },
+    {
+      "arm": "baseline",
+      "task": "catalog",
+      "rep": 1,
+      "skills": [
+        "go-code"
+      ],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 58,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 22,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.40823200000000004,
+      "output": "`catalog/catalog.go:37` is implemented; the edit hook's `go vet ./catalog` passed on the final file (the earlier failure was the intermediate state between my two edits, when the `fmt` import existed before its use).\n\nHow the body meets each documented promise:\n\n- **Order and shape** — walks `skus` in order, returning a `map[string]string` of SKU → product name.\n- **One round trip per distinct SKU** — an `asked` set records every SKU handed to `src.Get`, *including* ones that came back `ErrNotFound`. Deduping on the result map alone would re-query every unknown SKU, so misses have to be tracked too.\n- **Unknown SKUs are not fatal** — `errors.Is(err, ErrNotFound)` skips the SKU, leaving it out of the result. `errors.Is` rather than `==` so a Source that wraps the sentinel still works.\n- **Any other failure abandons the walk** — returns immediately with a nil map.\n- **The two audiences** — `fmt.Errorf(\"catalog: resolve %q: %w\", sku, err)` gives the operator the failing SKU plus the underlying message in one log line, and `%w` (not `%v`) keeps the chain intact, so a caller can reach every reason the Source reports: `errors.Is(err, ErrClosed)` to decide retry-vs-give-up, and `errors.As` for a transport error's concrete type.\n\nTwo notes:\n\n- The error text carries a `catalog:` prefix to match the sentinels, which means a wrapped sentinel reads slightly doubled (`catalog: resolve \"AB-1\": catalog: source closed`). I kept the prefix so transport failures — which carry no package identity of their own — are still attributable in a log. Dropping it is a one-word change if you'd rather avoid the stutter.\n- The doc doesn't say whether a failed walk should return the partial results gathered so far. I return `nil`, the conventional Go reading of \"abandons the walk,\" rather than a half-filled map a caller could mistake for complete. If callers should keep the partial map, say so and I'll return `names` alongside the error.\n\nI couldn't load the `go-style-core` / `go-error-handling` rule files — they live outside the sandboxed working directory and the file tools are restricted to it, so the above follows standard idiomatic Go rather than those specific house rules. There are also no tests in the module; I didn't add any since you asked only for the bodies, but I'm happy to write a table-driven test covering dedupe-across-misses, the not-found skip, and `errors.Is(err, ErrClosed)` reachability."
+    },
+    {
+      "arm": "no-skill",
+      "task": "catalog",
+      "rep": 1,
+      "skills": [],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 66,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 5
+      },
+      "delta": {
+        "lines": 30,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 5
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.15102100000000002,
+      "output": "Implemented in `catalog/catalog.go:38`.\n\nHow each documented requirement is met:\n\n- **In-order walk, keyed result**: iterates `skus` in order, returning `map[string]string` of SKU → name (non-nil, empty when nothing resolves).\n- **Unknown SKUs aren't fatal**: `errors.Is(err, ErrNotFound)` skips the SKU and continues. Matching with `errors.Is` rather than `==` so a `Source` may wrap the sentinel.\n- **One round trip per distinct SKU**: a `resolved` map plus an `unknown` set short-circuit repeats. The negative cache matters — without it a duplicate of a missing SKU would pay for a second `Get`. Lookup uses `_, ok :=` so a legitimately empty product name still counts as resolved.\n- **Other failures abandon the walk**: returns `nil, fmt.Errorf(\"catalog: resolve %q: %w\", sku, err)`.\n- **The two audiences**: the message names the failing SKU and includes the underlying text for the operator's log line; `%w` (not `%v`) keeps the chain intact so a caller can reach *every* reason via `errors.Is(err, ErrClosed)` or `errors.As` on a transport error type to decide about retrying.\n\nOne note: I had no shell tool in this session, so the package is not compiled or test-run — the code is reviewed by eye only. Both imports (`errors`, `fmt`) are used and no exported signature changed."
+    },
+    {
+      "arm": "no-skill",
+      "task": "feed",
+      "rep": 0,
+      "skills": [],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 85,
+        "files": 1,
+        "test_files": 0,
+        "types": 3,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 50,
+        "files": 0,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.15974300000000002,
+      "output": "Implemented `Render` in `feed/feed.go:38`, plus two unexported helper types for the JSON shape.\n\nDecisions worth naming:\n\n- **Empty account** returns `errors.New(\"feed: account is empty\")` — the message names the field.\n- **Stable JSON types**: `events` and `kinds` are built with `make(..., 0)` and `counts` with `make(map...)`, so an account with no activity marshals as `\"events\": [], \"kinds\": [], \"counts\": {}` rather than `null`. That's what the generated decoder needs.\n- **Empty-ID events** are skipped before anything is recorded, so they touch none of the three members.\n- `kinds` is collected in first-seen order (using `counts` as the seen-set) then sorted with `slices.Sort`; `counts` keys are sorted by `encoding/json` itself, so output is deterministic.\n- `at` uses `e.At.Format(time.RFC3339)`, preserving whatever location the event carries — a UTC time renders as `2026-09-07T08:30:00Z` as in the doc example.\n\nOne thing I could not verify: there's no shell tool available in this session, so I did not compile the package or run `go vet`/tests (the package has no test file). The code is plain library code against `encoding/json`, `errors`, `slices`, and `time`, all of which are in the Go 1.27 standard library per `go.mod`, but treat it as unbuilt until you run `go build ./feed`."
+    },
+    {
+      "arm": "no-skill",
+      "task": "feed",
+      "rep": 1,
+      "skills": [],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 85,
+        "files": 1,
+        "test_files": 0,
+        "types": 3,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 50,
+        "files": 0,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.14944849999999998,
+      "output": "Implemented `Render` in `feed/feed.go:38`.\n\nBehavior:\n- Empty `account` returns an error naming the field (`\"account is empty\"`); no document is produced.\n- The document is marshaled from an unexported struct so the members appear in the documented order (`account`, `events`, `kinds`, `counts`) rather than map-sorted.\n- `events`, `kinds`, and `counts` are initialized empty, so a no-activity account renders `[]`/`[]`/`{}` instead of `null` — the generated decoder sees the same JSON types in every response.\n- Events with an empty `ID` are skipped before anything else, so they contribute to none of the three members.\n- `events` preserves input order; `at` uses `t.Format(time.RFC3339)`, keeping each event's own offset (`Z` for UTC).\n- `kinds` collects each kind on first sight (using the counts map as the seen-set) and is sorted; `counts` tallies every kept event.\n\nI could not compile or run tests here — no shell tool is available in this session — so the code is verified by inspection only."
+    }
+  ],
+  "finished": "2026-09-07T12:48:01.765855+03:00"
+}

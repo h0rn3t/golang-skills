@@ -33,19 +33,18 @@ skill, and checkable by a test that never reaches the model.
 
 | Fixture | Owner | The trap | What the golden test does |
 | --- | --- | --- | --- |
-| `feed` | go-data-structures | A nil slice marshals to `null`, not `[]`, so an account with no activity changes the shape of a JSON response the client parses strictly | Marshals the empty and fully-filtered documents and asserts both members render as `[]` |
+| `feed` | go-data-structures | A nil slice marshals to `null` and a nil map to `null`, so an account with no activity changes the JSON type of a member the client parses strictly | Renders the empty and fully-filtered documents and asserts `events` is `[]`, `kinds` is `[]` and `counts` is `{}` |
 | `ledger` | go-defensive | Keeping the caller's slice means the documented snapshot is not immutable, because the caller still owns the backing array | Mutates the input slice after `New`, then asserts the rendered report did not move |
-| `catalog` | go-error-handling | Putting the SKU in the message with `%v` serves the operator and silently cuts the caller off from the reason | Asserts `errors.Is` reaches all three sentinels the Source reports and that the message still names the SKU |
+| `catalog` | go-error-handling | Putting the SKU in the message with `%v` serves the operator and silently cuts the caller off from the reason | Asserts `errors.Is` reaches the sentinel and the transport failure, and that the message still names the SKU |
 | `gateway` | go-http | A zero timeout is no timeout, so an edge server built as `&http.Server{Addr: addr, Handler: h}` holds stalled and idle connections until it runs out | Asserts `ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout` and `IdleTimeout` are all non-zero |
 
-`ledger` and `gateway` also carry the bait, which is a separate thing from the
-trap. `ledger` renders two formats and says a third has never been asked for,
-which is the `report` fixture's temptation to grow a `Formatter` interface with
-one implementation per format. `gateway` pins only `NewServer`, so how the
-routing, filtering and encoding behind it are decomposed — a handler struct, a
-repository interface, one mux with three closures — is entirely the model's
-choice. `feed` and `catalog` still pin every declaration and therefore carry no
-bait; that is the reason the numbers below have nothing to say about them.
+Every fixture pins one entry point and leaves the internals free. Two also
+carry bait, which is a separate thing from the trap: `ledger` renders two
+formats and says a third has never been asked for, which is the `report`
+fixture's temptation to grow a `Formatter` interface per format, and `catalog`
+must not pay for a repeated SKU twice, which tempts a cache where a `seen` map
+does. Neither bait has ever been taken in either arm — `Δiface` is zero across
+every run of this corpus — so the line count is what carries the results below.
 
 Every fixture was checked in both directions before it was committed: the
 golden test compiles against the stub and fails on its panic, and it passes
@@ -83,19 +82,27 @@ separately.
 
 ## Status
 
-`gateway` is admitted. On the [2026-09-07 claude run](../../../docs/evidence/2026-09-07-go-implement-gateway-ledger-claude.md)
-the arms separate completely on how much code a passing implementation costs:
-162.0 lines without the skill against 107.0 with it, control at 149/153/184
-against 99/105/117, with functions down 52% and branches down 42%. Correctness
-is tied at 6/6 golden, so the fixture measures conciseness, not whether the
-package works.
+| Fixture | Status | Lines, no skill → skill | Evidence |
+| --- | --- | --- | --- |
+| `gateway` | **admitted** | 152.6 → 99.8 (−34.6%), ranges disjoint, 95% CI −96 to −10 | [Opus 5, n=5](../../../docs/evidence/2026-09-07-go-implement-gateway-opus5.md) |
+| `ledger` | directional | 47.0 → 38.0 (−19.1%), CI includes zero | [claude, n=3](../../../docs/evidence/2026-09-07-go-implement-gateway-ledger-claude.md) |
+| `catalog` | directional | 26.0 → 20.3 (−21.8%), CI includes zero | [Opus 5, n=3](../../../docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md) |
+| `feed` | not admitted | 50.0 → 49.0; the control wrote exactly 50 lines in all three runs | [Opus 5, n=3](../../../docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md) |
 
-`ledger` points the same way — 47.0 against 38.0 lines — without separating;
-its interval includes zero at `n=3`. Its `Formatter` bait is inert: no session
-in either arm grew an interface, so only the line count is doing work.
+On `gateway` the skilled arm also wrote the *same* amount every time —
+population standard deviation 4.4 lines against the control's 30.9 — which is
+the more useful of the two properties when the question is what a change costs
+to review. Correctness is tied at 5/5 golden in both arms there, and at 6/6 on
+the other fixtures, so nothing in this corpus is evidence about defect rates.
 
-`feed` and `catalog` are not admitted. They pin every declaration, which is
-what the run below found to be the problem.
+Only `gateway` responded to the single-entry-point rebuild, and the reason is
+the fixture design rule this corpus learned the hard way: **room to
+over-engineer comes from a task with many small independent placement
+decisions, not from an unpinned API.** `gateway` is five routes, three status
+codes, an ordering rule and a filter with an error path. `feed` and `catalog`
+are each one data transformation, and a specification precise enough for a
+golden test to check mechanically is also precise enough to leave a single
+sensible shape. `feed` needs a different task, not a bigger `n`.
 
 ## Why the first attempt measured nothing
 
@@ -118,11 +125,9 @@ written from the exact phrasings that missed were added to the `train` set in
 `evals.json` and all seven pass against the `claude` CLI. An implementation run
 therefore belongs on a runner where the skill reliably loads.
 
-`ledger` and `gateway` were rebuilt after that run to pin a single entry point
-instead of every declaration, which is what produced the effect recorded above.
-`feed` and `catalog` were left alone and remain saturated: correctness has no
-room there and neither does structure, so they measure nothing until they are
-rebuilt the same way.
+All four fixtures were rebuilt after that run to pin a single entry point
+instead of every declaration. That is what produced the `gateway` result; on
+`feed` and `catalog` it changed nothing, for the reason recorded above.
 
 ## Adding a fixture
 

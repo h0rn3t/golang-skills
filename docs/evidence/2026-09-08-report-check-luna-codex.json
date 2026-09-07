@@ -1,0 +1,916 @@
+{
+  "prompt": "Refactor the Go package in ./%s so it reads better. Keep observable behavior identical: the exported API, error texts, and rendered output must not change. Apply the changes to the files.",
+  "corpus": "refactor",
+  "runner": "codex",
+  "model": "gpt-5.6-luna",
+  "effort": "medium",
+  "reps": 10,
+  "seed": 1,
+  "arms": [
+    {
+      "name": "no-skill"
+    },
+    {
+      "name": "baseline",
+      "source": "/Users/eugeneshershen/golang-skills",
+      "sha256": "a7c2e22cc60e4d3cab95883569adc32f55a47e34ef3506af74bd28bfbc2aab89"
+    }
+  ],
+  "results": [
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 4,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 73,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 8
+      },
+      "delta": {
+        "lines": 23,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3407512278/report/report.go) for clearer separation of validation, headers, rows, and totals.\n\nVerified:\n\n- `go test ./...` passes\n- `go vet ./...` passes\n- Exported API, error text, and formatting strings remain unchanged"
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 4,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored the package for clearer guard-clause control flow while preserving API, errors, and output.\n\nAdded characterization coverage in [report/report_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3052029146/report/report_test.go).\n\nValidation passed:\n\n- `go test ./...`\n- `go test -race ./...`\n- `go vet ./...`\n- `go fix -diff ./...`"
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 3,
+      "skills": [
+        "go-code-refactor",
+        "go-code-review",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "## Summary\n\nRefactored `Render` into flatter guard-based control flow while preserving API, errors, and output. Added characterization tests. Net: -2 production lines, 0 dependencies.\n\n## Changes\n\n- [report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-657286223/report/report.go): flattened nested validation and formatting branches.\n- [report_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-657286223/report/report_test.go): added output and exact-error coverage.\n\n## Verification\n\n- `gofmt`: pass\n- Build: pass\n- `go vet ./...`: pass\n- `go test -race ./...`: pass\n- `go fix -diff`: no changes\n- Debt markers: clean\n- Lint: unavailable; installed golangci-lint targets Go 1.26 and cannot load this Go 1.27 module."
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 9,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 74,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 8
+      },
+      "delta": {
+        "lines": 24,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `report/report.go` for readability by separating header rendering, row validation, row rendering, and total rendering.\n\nObservable behavior, exported API, error messages, and output formats remain unchanged.\n\nVerified with:\n\n```text\ngo test ./...\n```"
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 5,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4247899682/report/report.go) for clearer control flow:\n\n- Flattened nested validation with early returns.\n- Renamed the loop variable for readability.\n- Preserved exported API, error text, formatting, and output behavior.\n\nVerified with `gofmt`, build, vet, tests, race detection, and lint checks—all pass."
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 8,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3515439630/report/report.go) for clearer control flow and naming while preserving the exported API, error text, and output formats.\n\nVerified with:\n\n- `go test ./...`\n- `go vet ./...`"
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 9,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 63,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 13,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](\u003c/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2982081702/report/report.go\u003e):\n\n- Flattened validation with early returns.\n- Extracted header, row, and total rendering helpers.\n- Preserved exported API, error texts, and output formatting.\n- Verified with `gofmt`, `go test ./...`, and `go vet ./...`."
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 8,
+      "skills": [
+        "go-code-refactor",
+        "go-code-review",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `report.Render` for clearer control flow while preserving exported API, error text, and output formatting.\n\nAdded characterization tests covering CSV/text output, totals, empty rows, and validation errors.\n\nVerification passed:\n\n- `go test ./...`\n- `go test -race ./...`\n- `go vet`\n- `gofmt`\n- `go fix -diff`\n\n`golangci-lint` was unavailable because its build targets Go 1.26 while the module requires Go 1.27.\n\nFiles:\n- [report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1043317632/report/report.go)\n- [report_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1043317632/report/report_test.go)"
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 6,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3067945006/report/report.go) to flatten validation and rendering logic while preserving the exported API, error text, and output formatting.\n\nVerified with:\n\n```text\ngo test ./...\n? abe.../report [no test files]\n```"
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 5,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 63,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 13,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1542913542/report/report.go) for readability by:\n\n- Flattening validation logic.\n- Extracting header, row, and total rendering helpers.\n- Preserving all exported APIs, error messages, and formatting.\n\nChecks passed:\n\n- `go test ./...`\n- `go vet ./...`"
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 3,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 63,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 13,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `report/report.go` for readability by extracting header, row, and total rendering helpers while preserving the exported API, error messages, and output formats.\n\nVerified with:\n\n```text\ngo test ./...\n?   \tabeval/report\t[no test files]\n```"
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 1,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 74,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 8
+      },
+      "delta": {
+        "lines": 24,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1641805454/report/report.go) for readability by separating validation, header, row, and total rendering.\n\nObservable behavior, exported API, errors, and formatting remain unchanged.\n\nVerified with:\n\n```text\ngo test ./...\n```"
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 2,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 70,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 8
+      },
+      "delta": {
+        "lines": 20,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [`report/report.go`](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4250758589/report/report.go).\n\n- Split rendering and validation into private helpers.\n- Preserved exported API, error text, and output formatting.\n- Verified with `go test ./...` and `go vet ./...`."
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 0,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 51,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4198513197/report/report.go) for clearer control flow while preserving the exported API, error text, and formatting strings.\n\nVerified with:\n\n- `go test ./...`\n- `go vet ./...`"
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2096332328/report/report.go):\n\n- Flattened validation with early returns.\n- Improved row naming and reduced nesting.\n- Preserved exported API, errors, arithmetic, and rendering.\n\nVerified: `gofmt`, build, vet, tests, race checks, and refactor baseline comparison all pass."
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 6,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 70,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 8
+      },
+      "delta": {
+        "lines": 20,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2825210375/report/report.go) for clearer separation of validation, headers, rows, and totals.\n\nObservable behavior, exported API, error text, and formatting remain unchanged.\n\nVerified with:\n\n```text\ngo test ./...\n```"
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 7,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 63,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 13,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1914037766/report/report.go) for clearer control flow and separated header, row, and total rendering.\n\nBehavior, exported API, errors, and output formatting remain unchanged.\n\nValidation: `go test ./...` passes."
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 1,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4050987047/report/report.go).\n\n- Flattened validation and rendering control flow.\n- Preserved exported API, error text, formatting, and totals.\n- `gofmt`, build, vet, tests, race checks, and refactor verification all pass."
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 7,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [`report/report.go`](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1444976259/report/report.go) for clearer control flow using guard clauses.\n\nPreserved:\n\n- Exported API\n- Error text and validation order\n- CSV/text rendering and totals\n\nVerified with `gofmt`, build, vet, tests, race checks, and lint checks—all passed."
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 2,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `Render` to use early validation and a flatter rendering path while preserving exported APIs, error text, formatting, and arithmetic.\n\nAdded characterization tests covering text/CSV output and exact errors:\n\n- [report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1048144691/report/report.go)\n- [report_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1048144691/report/report_test.go)\n\nVerified with `go test`, `go test -race`, `go vet`, formatting, build, and lint checks. Coverage is 100% for `report`."
+    }
+  ],
+  "finished": "2026-09-08T00:48:19.437912+03:00"
+}

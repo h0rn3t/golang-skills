@@ -85,6 +85,97 @@ and reflection-based dispatch — an exported symbol may have callers outside th
 module. When you cannot prove it, it is a finding, not a deletion. Deletions
 belong at the top of the report; reviewers approve them at a glance.
 
+### Duplication that differs only in values
+
+Branches that carry different constants around the same shape are a deletion
+waiting to happen, not a restructuring. Two functions that each select over
+the same key are one selection written twice:
+
+```go
+// before: the selection lives in every function, the literals twice over
+func Rate(zone string) (int64, error) {
+    if zone == "domestic" {
+        return 499, nil
+    } else if zone == "regional" {
+        return 899, nil
+    } else if zone == "overseas" {
+        return 1899, nil
+    }
+    return 0, fmt.Errorf("rate %q: %w", zone, ErrUnknownZone)
+}
+
+func Surcharge(zone string, kg int) (int, error) {
+    if zone == "domestic" {
+        if kg >= 20 {
+            return 10, nil
+        }
+        return 0, nil
+    } else if zone == "regional" {
+        if kg >= 20 {
+            return 15, nil
+        }
+        return 0, nil
+    } else if zone == "overseas" {
+        if kg >= 20 {
+            return 25, nil
+        }
+        return 0, nil
+    }
+    return 0, fmt.Errorf("surcharge %q: %w", zone, ErrUnknownZone)
+}
+```
+
+```go
+// after: one selection, one ladder, every literal once
+type zone struct {
+    rate  int64
+    heavy int // surcharge percent at 20 kg and above
+}
+
+var zones = map[string]zone{
+    "domestic": {rate: 499, heavy: 10},
+    "regional": {rate: 899, heavy: 15},
+    "overseas": {rate: 1899, heavy: 25},
+}
+
+func Rate(name string) (int64, error) {
+    z, ok := zones[name]
+    if !ok {
+        return 0, fmt.Errorf("rate %q: %w", name, ErrUnknownZone)
+    }
+    return z.rate, nil
+}
+
+func Surcharge(name string, kg int) (int, error) {
+    z, ok := zones[name]
+    if !ok {
+        return 0, fmt.Errorf("surcharge %q: %w", name, ErrUnknownZone)
+    }
+    if kg >= 20 {
+        return z.heavy, nil
+    }
+    return 0, nil
+}
+```
+
+The step is done when each literal appears once in the code (not once under a
+constant's name), each selection over the key appears once, and each condition
+ladder appears once — `SKILL.md` states the three checks. Rewriting the
+`if` chain as a `switch` satisfies none of them. Half-measures to watch for:
+a shared helper for the ladder while the selection stays in every function;
+a `switch` helper for the values while the ladder stays in every case; nine
+named constants in place of nine literals.
+
+The shape follows the final code. An exported accessor that already performs
+the selection is reused before a new unexported helper is written. Cases that
+carry logic stay a `switch`; cases that carry only values become a `map` or
+slice literal indexed by the key. The table exists to delete the branches, not
+to be serviced: a search function, a method, or a loop that rebuilds a list
+which was already a literal costs what the table saved, and then the `switch`
+was shorter. Map iteration order is not source order, so a function returning
+the keys in order keeps its literal. Error texts and the point where an unknown
+key fails do not move.
+
 ---
 
 ## 1. Flatten with early returns

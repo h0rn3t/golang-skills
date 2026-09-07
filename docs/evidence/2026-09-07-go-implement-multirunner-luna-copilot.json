@@ -1,0 +1,1857 @@
+{
+  "prompt": "Implement the Go package in ./%s. Every exported declaration is already there with its documentation; write the bodies so the package does what the documentation says. Do not change the exported signatures. Apply the changes to the files.",
+  "corpus": "implement",
+  "runner": "copilot",
+  "model": "gpt-5.6-luna",
+  "effort": "medium",
+  "reps": 5,
+  "seed": 1,
+  "arms": [
+    {
+      "name": "no-skill"
+    },
+    {
+      "name": "baseline",
+      "source": "/Users/eugeneshershen/golang-skills",
+      "sha256": "7132af941e9b82ed5ca7528fcde29d7dcfe7d3a2f4160ad59ad553984ba8d681"
+    }
+  ],
+  "results": [
+    {
+      "arm": "baseline",
+      "task": "gateway",
+      "rep": 1,
+      "skills": [
+        "go-code",
+        "go-data-structures",
+        "go-error-handling",
+        "go-http",
+        "go-linting",
+        "go-security"
+      ],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 145,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 17
+      },
+      "delta": {
+        "lines": 108,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 17
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `gateway.NewServer` in `gateway/gateway.go`.\n\nIt now provides:\n\n- Sorted account listings and ID lookups\n- `active=true|false` filtering with validation\n- Health, account, 404, and 405 responses\n- JSON response encoding\n- Snapshot isolation from the input account slice\n- Production HTTP timeouts and header limits for public-facing traffic"
+    },
+    {
+      "arm": "baseline",
+      "task": "gateway",
+      "rep": 4,
+      "skills": [
+        "go-code",
+        "go-code-review",
+        "go-data-structures",
+        "go-defensive",
+        "go-http",
+        "go-security"
+      ],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 141,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 15
+      },
+      "delta": {
+        "lines": 104,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 15
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./gateway/gateway.go`.\n\nThe package now provides:\n\n- `/healthz`, `/accounts`, and `/accounts/{id}` routes\n- Account lookup and ID ordering\n- `active=true|false` filtering with validation\n- Correct 404 and 405 responses\n- JSON responses with appropriate content types\n- Defensive account snapshots that do not mutate caller data\n- Production-safe HTTP server timeouts and header limits\n- Server-side logging for response write failures"
+    },
+    {
+      "arm": "no-skill",
+      "task": "ledger",
+      "rep": 3,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 0
+      },
+      "after": {
+        "lines": 101,
+        "files": 1,
+        "test_files": 0,
+        "types": 3,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 6
+      },
+      "delta": {
+        "lines": 51,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 6
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./ledger/ledger.go`:\n\n- `New` snapshots and aggregates entries by account.\n- Account balances are sorted by account name.\n- `Report` supports the documented `text` and `csv` formats.\n- Includes the required `TOTAL` row, including for empty ledgers.\n- Unsupported formats return an error naming the requested format.\n- Ledger state is independent of later changes to the input slice."
+    },
+    {
+      "arm": "no-skill",
+      "task": "gateway",
+      "rep": 2,
+      "skills": [],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 121,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 13
+      },
+      "delta": {
+        "lines": 84,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 13
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./gateway/gateway.go`:\n\n- Added sorted, immutable account storage and ID lookup.\n- Implemented `/healthz`, `/accounts`, and `/accounts/{id}` routes.\n- Added `active=true|false` filtering and invalid-query handling.\n- Added correct 404 and 405 behavior with `Allow` headers.\n- Added JSON responses and production-safe HTTP timeouts/header limits for an internet-facing server."
+    },
+    {
+      "arm": "baseline",
+      "task": "ledger",
+      "rep": 2,
+      "skills": [
+        "go-code",
+        "go-error-handling",
+        "go-linting"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 0
+      },
+      "after": {
+        "lines": 95,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 45,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 7
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./ledger`:\n\n- `New` snapshots entries into per-account balances and a total.\n- `Report` supports sorted `text` and `csv` output formats.\n- Empty ledgers produce only the `TOTAL` row.\n- Unsupported formats return an error naming the requested format.\n- Ledger state remains independent of the input slice after construction."
+    },
+    {
+      "arm": "baseline",
+      "task": "gateway",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-review",
+        "go-data-structures",
+        "go-error-handling",
+        "go-http",
+        "go-linting",
+        "go-security"
+      ],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 123,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 10
+      },
+      "delta": {
+        "lines": 86,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 10
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./gateway`:\n\n- Added sorted account listing and ID lookup.\n- Added `/healthz`, `/accounts`, and `/accounts/{id}` routing.\n- Added method validation with `405` responses.\n- Added `active=true|false` filtering and invalid-parameter handling.\n- Added JSON responses and defensive account snapshotting.\n- Configured production-safe HTTP timeouts and header limits."
+    },
+    {
+      "arm": "baseline",
+      "task": "ledger",
+      "rep": 3,
+      "skills": [
+        "go-code",
+        "go-data-structures",
+        "go-defensive",
+        "go-error-handling",
+        "go-linting"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 0
+      },
+      "after": {
+        "lines": 91,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 6
+      },
+      "delta": {
+        "lines": 41,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 6
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./ledger/ledger.go`.\n\n- `New` now creates an immutable snapshot of the input entries.\n- `Report` aggregates balances by account, sorts account names, computes totals, and renders both documented text and CSV formats.\n- Unsupported formats return a descriptive error naming the requested format."
+    },
+    {
+      "arm": "no-skill",
+      "task": "catalog",
+      "rep": 1,
+      "skills": [],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 60,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 24,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `catalog.Resolve` in `catalog/catalog.go`.\n\nIt now:\n- Resolves unique SKUs in input order.\n- Caches repeated lookups, including not-found results.\n- Omits `ErrNotFound` SKUs without failing.\n- Returns partial results on fatal errors.\n- Wraps failures with the failed SKU while preserving `errors.Is` access to the underlying cause."
+    },
+    {
+      "arm": "no-skill",
+      "task": "catalog",
+      "rep": 0,
+      "skills": [],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 58,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 22,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `catalog.Resolve` with:\n\n- Ordered SKU resolution.\n- Deduplication to ensure repeated SKUs cost one source lookup.\n- Omission of unknown SKUs via `ErrNotFound`.\n- Immediate return on other errors with the failed SKU in the message.\n- Wrapped errors preserving `errors.Is`/`errors.As` inspection.\n- Partial results returned when a lookup fails."
+    },
+    {
+      "arm": "baseline",
+      "task": "feed",
+      "rep": 2,
+      "skills": [
+        "go-code",
+        "go-data-structures",
+        "go-error-handling",
+        "go-packages"
+      ],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 81,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 46,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `feed.Render` in `feed/feed.go`.\n\nIt now validates the account, filters events without IDs, preserves event order, formats timestamps through JSON encoding, computes sorted distinct kinds and counts, and guarantees empty collections serialize as `[]` and `{}`."
+    },
+    {
+      "arm": "no-skill",
+      "task": "feed",
+      "rep": 2,
+      "skills": [],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 79,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 44,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `feed.Render` in `feed/feed.go`.\n\nIt now validates the account, filters events with empty IDs, preserves event order, formats timestamps as RFC 3339, aggregates sorted kinds and counts, guarantees stable JSON types for empty feeds, and returns the encoded JSON document."
+    },
+    {
+      "arm": "no-skill",
+      "task": "gateway",
+      "rep": 3,
+      "skills": [],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 129,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 13
+      },
+      "delta": {
+        "lines": 92,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 13
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `gateway.NewServer` with:\n\n- Deterministic account ordering by ID\n- Immutable account snapshots\n- `/healthz`, `/accounts`, and `/accounts/{id}` routing\n- Active-status filtering and invalid-query handling\n- Correct 404 and 405 responses\n- JSON response formatting\n- Defensive HTTP timeouts and header limits for public internet exposure"
+    },
+    {
+      "arm": "baseline",
+      "task": "gateway",
+      "rep": 3,
+      "skills": [
+        "go-code",
+        "go-http",
+        "go-linting"
+      ],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 125,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 11
+      },
+      "delta": {
+        "lines": 88,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 11
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./gateway/gateway.go`:\n\n- Added exact routing for `/healthz`, `/accounts`, and `/accounts/{id}`\n- Enforced GET-only behavior with 405 responses and `Allow: GET`\n- Added account lookup, filtering by `active`, ID ordering, and JSON responses\n- Preserved caller data by copying the account slice\n- Added defensive HTTP server timeouts and header limits\n- Added 404 handling for unknown paths and accounts"
+    },
+    {
+      "arm": "no-skill",
+      "task": "ledger",
+      "rep": 2,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 0
+      },
+      "after": {
+        "lines": 97,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 47,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 7
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./ledger/ledger.go` with:\n\n- Immutable snapshotting of entries at construction\n- Per-account aggregation and total calculation\n- Deterministic alphabetical account ordering\n- Documented text and CSV report formats\n- Explicit errors for unsupported formats\n- Empty and nil ledger handling with a total-only report"
+    },
+    {
+      "arm": "baseline",
+      "task": "feed",
+      "rep": 4,
+      "skills": [
+        "go-code",
+        "go-data-structures",
+        "go-error-handling",
+        "go-linting"
+      ],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 81,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 46,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `feed.Render` in `feed/feed.go`.\n\nIt now validates the account, filters events with empty IDs, preserves event order, formats timestamps as RFC 3339, produces sorted distinct kinds and counts, and guarantees `events`, `kinds`, and `counts` retain consistent JSON types for empty feeds."
+    },
+    {
+      "arm": "no-skill",
+      "task": "ledger",
+      "rep": 4,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 0
+      },
+      "after": {
+        "lines": 89,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 6
+      },
+      "delta": {
+        "lines": 39,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 6
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./ledger`:\n\n- `New` now creates an immutable snapshot of the provided entries.\n- `Report` aggregates balances by account, sorts accounts, calculates totals, and supports the documented `text` and `csv` formats.\n- Unsupported formats return an error containing the requested format."
+    },
+    {
+      "arm": "baseline",
+      "task": "catalog",
+      "rep": 1,
+      "skills": [
+        "go-code",
+        "go-code-review",
+        "go-data-structures",
+        "go-error-handling",
+        "go-linting"
+      ],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 58,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 22,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `catalog.Resolve` in `catalog/catalog.go`.\n\nIt now:\n- Resolves SKUs in input order.\n- Caches repeated SKU lookups.\n- Omits unknown products.\n- Returns partial results on transport errors.\n- Wraps failures with the SKU and preserves the underlying error via `%w`."
+    },
+    {
+      "arm": "baseline",
+      "task": "feed",
+      "rep": 1,
+      "skills": [
+        "go-code",
+        "go-data-structures",
+        "go-defensive",
+        "go-error-handling"
+      ],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 78,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 43,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./feed/feed.go`.\n\n`Render` now validates the account, filters events with empty IDs, preserves event order, formats timestamps as RFC 3339, produces sorted distinct kinds and counts, preserves empty JSON arrays/maps, and returns the documented JSON structure."
+    },
+    {
+      "arm": "baseline",
+      "task": "catalog",
+      "rep": 2,
+      "skills": [
+        "go-code",
+        "go-data-structures",
+        "go-error-handling",
+        "go-linting"
+      ],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 60,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 24,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `catalog.Resolve` in `catalog/catalog.go`.\n\nIt now:\n- Resolves SKUs in order.\n- Deduplicates source lookups, including unknown SKUs.\n- Omits `ErrNotFound` entries.\n- Stops on other errors while preserving partial results.\n- Wraps failures with the SKU and `%w` so callers can inspect underlying errors."
+    },
+    {
+      "arm": "baseline",
+      "task": "catalog",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-review",
+        "go-data-structures",
+        "go-error-handling"
+      ],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 62,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 5
+      },
+      "delta": {
+        "lines": 26,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 5
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `catalog.Resolve` in `catalog/catalog.go`.\n\nIt now:\n- Resolves SKUs in input order.\n- Caches repeated successful and `ErrNotFound` lookups.\n- Omits unknown SKUs without failing.\n- Returns partial results on other failures.\n- Wraps errors with the failing SKU while preserving `errors.Is` access to the underlying cause."
+    },
+    {
+      "arm": "no-skill",
+      "task": "catalog",
+      "rep": 4,
+      "skills": [],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 58,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 22,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `catalog.Resolve` in `catalog/catalog.go`.\n\nIt now:\n- Resolves SKUs in input order.\n- Caches repeated SKU lookups.\n- Omits unknown products reported as `ErrNotFound`.\n- Stops and returns wrapped errors for other failures while preserving `errors.Is` compatibility.\n- Returns resolved products keyed by SKU."
+    },
+    {
+      "arm": "no-skill",
+      "task": "gateway",
+      "rep": 4,
+      "skills": [],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 124,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 12
+      },
+      "delta": {
+        "lines": 87,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 12
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./gateway/gateway.go`:\n\n- Added exact routing for `/healthz`, `/accounts`, and `/accounts/{id}`\n- Added JSON responses, sorting by account ID, lookups, and active filtering\n- Added strict validation for the `active` query parameter\n- Added correct 404 and 405 handling\n- Snapshot-copied input accounts to prevent caller mutation\n- Configured server timeouts and header limits for public internet exposure\n- Preserved all exported declarations and signatures"
+    },
+    {
+      "arm": "baseline",
+      "task": "feed",
+      "rep": 3,
+      "skills": [
+        "go-code",
+        "go-data-structures",
+        "go-defensive",
+        "go-error-handling",
+        "go-packages"
+      ],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 78,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 43,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `feed.Render` in `feed/feed.go`.\n\nIt now validates the account, filters events without IDs, preserves event order, formats timestamps as RFC 3339, aggregates and sorts kinds, counts events, emits stable JSON field types for empty results, and returns JSON encoding errors."
+    },
+    {
+      "arm": "no-skill",
+      "task": "feed",
+      "rep": 1,
+      "skills": [],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 78,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 43,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `feed.Render` in `feed/feed.go`.\n\nIt now validates the account, filters events with empty IDs, preserves event order, formats timestamps as RFC 3339, builds sorted distinct kinds and counts, guarantees empty arrays/objects are encoded with consistent JSON types, and returns the rendered JSON document."
+    },
+    {
+      "arm": "no-skill",
+      "task": "gateway",
+      "rep": 1,
+      "skills": [],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 137,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "delta": {
+        "lines": 100,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 14
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `gateway.NewServer` with:\n\n- `/healthz`, `/accounts`, and `/accounts/{id}` routing\n- Account sorting by ID and active-state filtering\n- JSON responses and appropriate HTTP status codes\n- 404 handling for unknown paths/accounts\n- 405 handling for unsupported methods\n- Defensive copying of the input accounts\n- Production-oriented header, read, write, and idle timeouts\n- Maximum header size protection"
+    },
+    {
+      "arm": "no-skill",
+      "task": "feed",
+      "rep": 3,
+      "skills": [],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 79,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 44,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `feed.Render` in `feed/feed.go`.\n\nIt now validates the account, filters events with empty IDs, preserves event order, formats timestamps as RFC 3339, computes sorted distinct kinds and counts, and consistently emits empty arrays/objects for accounts without activity."
+    },
+    {
+      "arm": "no-skill",
+      "task": "gateway",
+      "rep": 0,
+      "skills": [],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 115,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 10
+      },
+      "delta": {
+        "lines": 78,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 10
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `gateway.NewServer` with:\n\n- ID-sorted, immutable account data\n- `GET /healthz`, `/accounts`, and `/accounts/{id}` routing\n- Active-state filtering with validation\n- JSON responses and correct 404/405/400 handling\n- Read-only method enforcement\n- HTTP timeouts and header limits suitable for an internet-facing server"
+    },
+    {
+      "arm": "baseline",
+      "task": "gateway",
+      "rep": 2,
+      "skills": [
+        "go-code",
+        "go-data-structures",
+        "go-defensive",
+        "go-error-handling",
+        "go-http"
+      ],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 137,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 13
+      },
+      "delta": {
+        "lines": 100,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 13
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./gateway/gateway.go`:\n\n- Added sorted account snapshots with defensive input copying.\n- Implemented `/healthz`, `/accounts`, and `/accounts/{id}` routes.\n- Added strict `active=true|false` filtering and 400 handling.\n- Added 404 and 405 behavior with `Allow: GET`.\n- Added JSON responses and production server timeouts/header limits."
+    },
+    {
+      "arm": "baseline",
+      "task": "catalog",
+      "rep": 3,
+      "skills": [
+        "go-code",
+        "go-code-review",
+        "go-data-structures",
+        "go-error-handling",
+        "go-linting"
+      ],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 58,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 22,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `catalog.Resolve` in `catalog/catalog.go`.\n\nIt now:\n- Resolves SKUs in order.\n- Deduplicates repeated SKUs to avoid extra source calls.\n- Omits `ErrNotFound` results.\n- Returns partial results on other failures.\n- Wraps failures with the SKU while preserving `errors.Is`/`errors.As` inspection."
+    },
+    {
+      "arm": "baseline",
+      "task": "ledger",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-review",
+        "go-data-structures",
+        "go-error-handling",
+        "go-linting",
+        "go-packages"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 0
+      },
+      "after": {
+        "lines": 91,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 41,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 7
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./ledger/ledger.go`.\n\n- Added immutable input snapshotting in `New`.\n- Implemented sorted per-account aggregation and total calculation.\n- Added documented text and CSV report formats.\n- Added errors for unsupported formats.\n- Handles empty and nil ledgers with a `TOTAL` row."
+    },
+    {
+      "arm": "no-skill",
+      "task": "feed",
+      "rep": 4,
+      "skills": [],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 81,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 46,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `feed.Render` in `feed/feed.go`.\n\nIt now validates the account, filters events with empty IDs, preserves event order, formats timestamps as RFC 3339, builds sorted distinct kinds and counts, and returns consistently typed JSON including empty arrays and objects."
+    },
+    {
+      "arm": "no-skill",
+      "task": "catalog",
+      "rep": 3,
+      "skills": [],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 58,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 22,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `catalog.Resolve` in `catalog/catalog.go`.\n\nIt now:\n- Resolves SKUs in order.\n- Deduplicates repeated SKU lookups, including not-found SKUs.\n- Omits `ErrNotFound` results.\n- Returns partial results when a later lookup fails.\n- Wraps failures with the failing SKU while preserving the underlying error for inspection."
+    },
+    {
+      "arm": "no-skill",
+      "task": "feed",
+      "rep": 0,
+      "skills": [],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 81,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 46,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `feed.Render` in `feed/feed.go`.\n\nIt now validates the account, renders stable JSON with non-null empty collections, preserves valid event order, formats timestamps as RFC 3339, excludes events with empty IDs, sorts distinct kinds, and computes per-kind counts."
+    },
+    {
+      "arm": "no-skill",
+      "task": "catalog",
+      "rep": 2,
+      "skills": [],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 58,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 22,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `catalog.Resolve` in `catalog/catalog.go`.\n\nIt now:\n\n- Resolves SKUs in input order.\n- Avoids repeated source lookups for duplicate SKUs.\n- Omits unknown products reported via `ErrNotFound`.\n- Returns partial results when a later lookup fails.\n- Wraps other errors with the failing SKU while preserving `errors.Is` compatibility."
+    },
+    {
+      "arm": "baseline",
+      "task": "ledger",
+      "rep": 4,
+      "skills": [
+        "go-code",
+        "go-code-review",
+        "go-data-structures",
+        "go-defensive",
+        "go-error-handling",
+        "go-linting"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 0
+      },
+      "after": {
+        "lines": 87,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 5
+      },
+      "delta": {
+        "lines": 37,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 5
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./ledger`:\n\n- Aggregates entries by account and computes the overall total.\n- Preserves immutability by snapshotting totals in `New`.\n- Supports sorted `text` and `csv` reports, including empty ledgers.\n- Returns an error naming unsupported formats.\n"
+    },
+    {
+      "arm": "no-skill",
+      "task": "ledger",
+      "rep": 0,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 0
+      },
+      "after": {
+        "lines": 91,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 6
+      },
+      "delta": {
+        "lines": 41,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 6
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./ledger`:\n\n- Added immutable snapshot storage with per-account and total balances.\n- Implemented sorted text and CSV reports.\n- Added validation errors for unsupported formats.\n- Preserved zero-value account entries and empty-ledger behavior."
+    },
+    {
+      "arm": "no-skill",
+      "task": "ledger",
+      "rep": 1,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 0
+      },
+      "after": {
+        "lines": 92,
+        "files": 1,
+        "test_files": 0,
+        "types": 3,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 6
+      },
+      "delta": {
+        "lines": 42,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 6
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./ledger/ledger.go`.\n\n`New` now creates an immutable snapshot with per-account aggregation, totals, and sorted account names. `Report` supports the documented text and CSV formats, handles empty ledgers, and returns a descriptive error for unsupported formats."
+    },
+    {
+      "arm": "baseline",
+      "task": "feed",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-data-structures",
+        "go-defensive",
+        "go-error-handling",
+        "go-linting"
+      ],
+      "before": {
+        "lines": 35,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 78,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 43,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `feed.Render` in `feed/feed.go`.\n\nIt now validates the account, filters events with empty IDs, preserves event order, formats timestamps as RFC 3339, generates sorted distinct kinds and counts, guarantees stable JSON array/object types for empty feeds, and returns the encoded JSON document."
+    },
+    {
+      "arm": "baseline",
+      "task": "ledger",
+      "rep": 1,
+      "skills": [
+        "go-code",
+        "go-code-review",
+        "go-data-structures",
+        "go-error-handling",
+        "go-linting"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 0
+      },
+      "after": {
+        "lines": 90,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 3,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 40,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 7
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `./ledger`:\n\n- `New` snapshots the input entries for immutability.\n- `Report` aggregates per-account balances and the overall total.\n- Accounts are sorted alphabetically.\n- Added documented text and CSV renderings.\n- Invalid formats return an error naming the requested format."
+    },
+    {
+      "arm": "baseline",
+      "task": "catalog",
+      "rep": 4,
+      "skills": [
+        "go-code",
+        "go-data-structures",
+        "go-error-handling"
+      ],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 58,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 22,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Implemented `catalog.Resolve` in `catalog/catalog.go`.\n\nIt now:\n\n- Resolves SKUs in input order.\n- Caches repeated SKU lookups.\n- Omits `ErrNotFound` results.\n- Returns partial results with contextual, unwrapable errors for other failures.\n- Preserves underlying errors for `errors.Is`/`errors.As` inspection."
+    }
+  ],
+  "finished": "2026-09-07T20:49:20.860526+03:00"
+}

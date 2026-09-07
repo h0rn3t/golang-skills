@@ -141,6 +141,39 @@ bounds check is a bug, not laziness. These stay even when the diff gets uglier.
 
 ---
 
+## Remove Duplication to the End
+
+When several branches differ only in the constants they carry — a rate, a
+percentage, a threshold — the duplication has two axes: the **selection**
+(which case applies) and the **computation** (what is done with the value).
+Separate them, then check three things before calling the step done:
+
+1. Each literal appears once in the code — once, not once under a name. Nine
+   constants standing in for nine literals are the same duplication plus nine
+   lines.
+2. Each selection over the same key appears once. Three functions that each
+   switch on the same argument are one selection written three times; fold
+   them into one lookup and let the functions read from it.
+3. Each condition ladder appears once. Four copies of the same
+   `if x >= a … if x >= b` ladder are one ladder with four pairs of values.
+
+Removing one axis and leaving the other is the most common unfinished
+refactor on this kind of code, and rewriting the `if` chain as a `switch`
+removes neither. Stop only when all three hold, or the remaining copy has a
+reason in the report.
+
+Pick the shape by the final code, call sites included: an exported accessor
+that already performs the selection, before a new unexported helper; a
+`switch` when the cases carry logic; a `map` or slice literal indexed by the
+key when they carry only values. A table exists to delete the branches, not
+to be serviced — no search helper, no method, no loop to rebuild a list that
+was already a literal. If the lookup needs those, the `switch` was shorter.
+Map iteration order is not source order, so an ordered literal stays a
+literal. Error texts and the point where an unknown key fails do not move.
+`references/PLAYBOOK.md` §0 shows the fold.
+
+---
+
 ## Workflow
 
 ### 1. Orient
@@ -202,7 +235,8 @@ For independent packages, follow the host's delegation policy and
 `references/PLAYBOOK.md` has the transformations. The high-value ones: delete
 dead code, extract until each function has one job, flatten with early returns,
 name things after what they mean, name magic values, remove duplication that
-has a name. Renames and extractions go through gopls (`references/GOPLS.md`):
+has a name, fold branches that differ only in values into one selection
+(see [Remove Duplication to the End](#remove-duplication-to-the-end)). Renames and extractions go through gopls (`references/GOPLS.md`):
 find references semantically first, inspect reflection and string-based uses,
 then let rename refuse compilation hazards such as a directly observed broken
 interface implementation — grep cannot see those semantic references.

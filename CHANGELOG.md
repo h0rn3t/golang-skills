@@ -4,6 +4,26 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### go-code-refactor
+
+- Add «Remove Duplication to the End» to `SKILL.md` and a matching fold in
+  `references/PLAYBOOK.md` §0: when branches differ only in the constants
+  they carry, the step is done when each literal, each selection over the
+  key, and each condition ladder appears once; the shape follows the final
+  code, and a table is not to be serviced. Measured as the `selection-once`
+  A/B variant under `gpt-5.6-luna`: on copilot, where baseline stopped at a
+  `switch` in 4/10 `pricing` sessions, −11.6 lines vs baseline (95% CI
+  −18.9 … −4.3, n=10) with `report` unchanged at −1; on opencode, where
+  baseline had no gap, +0.1 (−7.7 … +7.9). On codex, measured after the
+  port with the new tree as baseline: −12.4 lines vs no-skill (95% CI
+  −18.0 … −6.8, n=10), data table in 9/10 `pricing` sessions, where the
+  2026-09-07 tree had trailed the control by +11.4 (n=5); `report` at −1 in
+  8/10 and, in a separate `report`-only check, 9/10 (−14.6 vs no-skill, CI
+  −21.5 … −7.7); the outliers are helper extraction, a tail that predates
+  the change and does not involve the new criterion.
+- Add a percent summary of the measured effect to `README.md` and
+  `README.uk.md`, and a block on the three-runner run and the change it led to.
+
 ## [1.0.0] - 2026-09-07
 
 ### Skill descriptions

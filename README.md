@@ -262,8 +262,31 @@ actually writes. `evals/ab` answers that: it hands the same fixture to the same
 model twice, once with no plugin loaded and once with the whole skill tree, then
 measures the resulting Go — not the prose — against a golden test the model
 never sees. Every table below is computed from the raw JSON reports in
-[`docs/evidence/`](docs/evidence), 5 repetitions per fixture per arm, seed `1`,
-40 sessions per model per corpus.
+[`docs/evidence/`](docs/evidence), seed `1`, 5 repetitions per fixture per arm
+in the per-model runs and 10 in the runner and wording runs.
+
+### Summary in percent
+
+One row per thing a skill is supposed to do to the code. "Control" is the arm
+with no plugin loaded; every percentage is skill relative to control on the
+same model, runner and fixtures.
+
+| What the skills do | Effect | Basis |
+| --- | --- | --- |
+| **Refactor: stop the model adding structure** on the trap fixture `report` | Growth cut by **50–68%** on Opus 5, MiniMax M3, MiMo v2.5 Pro and by **94%** on GPT-5.6-Luna at n=5; **84–106%** on GPT-5.6-Luna across codex, copilot and opencode at n=10 (above 100% = the package ends smaller than it was handed) | 5 models, 4 runners; [per-model](docs/evidence/2026-09-07-go-refactor-control-gpt-5.6-luna-medium.md), [multirunner](docs/evidence/2026-09-07-go-multirunner-gpt-5.6-luna-medium.uk.md), [codex n=10](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md) |
+| **Refactor: stop helper sprawl** (new functions across 20 sessions) | **−38% to −71%** per model at n=5; **−84% to −88%** on GPT-5.6-Luna on each of three runners | 4 of 5 models; MAI-Code-1.1-Flash +27%, the one model that never took the bait |
+| **Refactor: finish removing duplication** on `pricing`, lines removed vs control | Before the 2026-09-08 change the skill removed **32–40% less** than control on all three runners; after it, **36% more** on codex, **11% more** on copilot, **±0%** on opencode where control already got there | GPT-5.6-Luna, n=5 before / n=10 after; [copilot](docs/evidence/2026-09-07-selection-once-luna-copilot.uk.md), [codex](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md), [opencode](docs/evidence/2026-09-07-selection-once-luna-opencode.uk.md) |
+| **Refactor: keep behavior** | Build and hidden golden test **100%** in both arms on every model and runner (95% both arms on MiMo) | 199 + 240 + 230 sessions; the corpus measures size, not defects |
+| **Implement: catch the hidden defect** (packages passing the golden spec) | **75% → 90%** on MAI-Code-1.1-Flash, **63% → 75%** on MiMo v2.5 Pro; `gateway` alone **20% → 60%** on both; **100% → 100%** on GPT-5.6-Luna and Opus 5, which never fall in | n=5 per cell, Fisher p ≈ 0.5 — a direction, not a demonstration |
+| **Implement: size of a working implementation** where correctness is tied | **−35% lines, −44% functions** on Opus 5 `gateway`, spread seven times tighter; **±0%** on GPT-5.6-Luna, no interval excludes zero | [Opus 5](docs/evidence/2026-09-07-go-implement-gateway-opus5.md), [multirunner](docs/evidence/2026-09-07-go-multirunner-gpt-5.6-luna-medium.uk.md) |
+
+Read it as two findings and one repair. The skills reliably prevent growth —
+that is the effect with intervals excluding zero on every runner. They did not,
+until 2026-09-08, make the model delete more than it would alone, and on
+duplication that wants a data table they made it delete less; the
+«Remove Duplication to the End» section in `go-code-refactor` closes that gap on
+the two runners where it existed. On new code the skills help the models that
+fall into the trap and are neutral on the ones that do not.
 
 ### Refactor corpus: does the skill remove structure?
 
@@ -315,6 +338,36 @@ pattern-flavored name. Correctness was tied on every model: 20/20 build and
 golden passes in both arms, 19/20 in both arms on MiMo. The refactor corpus is
 evidence about code size, not about defect rates.
 
+#### The same model on three runners, and what it changed in the skill
+
+Running GPT-5.6-Luna through codex, opencode and copilot on the same fixtures
+([report](docs/evidence/2026-09-07-go-multirunner-gpt-5.6-luna-medium.uk.md),
+n=5) kept the two effects above — `report` growth removed on every runner,
+helper sprawl down 84–88% — and broke the per-fixture means: `pricing` and
+`store` changed sign between runners, and the corpus mean is not a number to
+publish at n=5. It also surfaced the one result against the plugin: on
+`pricing`, a package whose duplication wants one data table, the skill stopped
+the model at a `switch` and removed fewer lines than control on all three
+runners, with all three intervals excluding zero.
+
+Two wordings were tried as variant arms at n=10. A permission to add a table
+moved nothing. A completion criterion — each literal once, each selection over
+the same key once, each condition ladder once, table not to be serviced —
+became the «Remove Duplication to the End» section of `go-code-refactor` on
+2026-09-08:
+
+| Runner | `pricing`, skill vs control, before | After | `report` after |
+| --- | ---: | ---: | ---: |
+| [codex](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md) | +11.4 (+3.6 … +19.2) | **−12.4 (−18.0 … −6.8)**, table in 9/10 | −1 in 17/20, three helper-extraction outliers |
+| [copilot](docs/evidence/2026-09-07-selection-once-luna-copilot.uk.md) | +13.8 (+4.1 … +23.5) | **−11.6 vs old skill (−18.9 … −4.3)**, table in 7/10 | −1 in 9/10 |
+| [opencode](docs/evidence/2026-09-07-selection-once-luna-opencode.uk.md) | +16.8 (+5.5 … +28.1) | +0.1 vs old skill (−7.7 … +7.9) | −1 in 9/10 |
+
+The opencode row is not a failure of the text: three later n=10 samples showed
+the old skill never trailed control there (+1.3, −0.4), so there was nothing to
+repair. The codex comparison with the old skill is across runs; the copilot one
+is the same-run variant arm. `report` stayed under protection on all three
+(−10.8 to −16.5 vs control, intervals excluding zero).
+
 ### Implementation corpus: does the skill make the code work?
 
 Documented but unimplemented packages, where the golden test *is* the
@@ -348,9 +401,12 @@ numbers is why `gateway` is the fixture worth a larger `n`.
 ### What this does and does not establish
 
 It compares the complete current skill tree against no skill at all, which is
-what decides whether a fixture contains a trap the plugin can catch. It is not a
-before/after measurement of a wording change; that claim needs the `reference`
-arm and a second checkout. The runners differ in ways that matter across files —
+what decides whether a fixture contains a trap the plugin can catch. With one
+exception it is not a before/after measurement of a wording change; that claim
+needs a variant or `reference` arm, and the 2026-09-08 change above is the one
+that has it. Percentages in the summary are ratios of means at n=5 or n=10 and
+carry the intervals of the tables they come from; a single cell without an
+interval is a direction. The runners differ in ways that matter across files —
 tool sets, whether the session has a shell, whether the plugin's hook and
 subagent apply — and those differences are recorded in
 [`evals/ab/README.md`](evals/ab/README.md). Every table here has its raw JSON

@@ -1,0 +1,2738 @@
+{
+  "prompt": "Refactor the Go package in ./%s so it reads better. Keep observable behavior identical: the exported API, error texts, and rendered output must not change. Apply the changes to the files.",
+  "corpus": "refactor",
+  "runner": "codex",
+  "model": "gpt-5.6-luna",
+  "effort": "medium",
+  "reps": 10,
+  "seed": 1,
+  "arms": [
+    {
+      "name": "no-skill"
+    },
+    {
+      "name": "baseline",
+      "source": "/Users/eugeneshershen/golang-skills",
+      "sha256": "a7c2e22cc60e4d3cab95883569adc32f55a47e34ef3506af74bd28bfbc2aab89"
+    },
+    {
+      "name": "selection-once",
+      "text": "## Remove Duplication to the End\n\nWhen several branches differ only in the constants they carry — a rate, a\npercentage, a threshold — the duplication has two axes: the **selection**\n(which case applies) and the **computation** (what is done with the value).\nSeparate them, then check three things before calling the step done:\n\n1. Each literal appears once in the package.\n2. Each selection over the same key appears once. Three functions that each\n   switch on the same argument are one selection written three times; fold\n   them into one lookup and let the functions read from it.\n3. Each condition ladder appears once. Four copies of the same\n   `if x \u003e= a … if x \u003e= b` ladder are one ladder with four pairs of values.\n\nRemoving one axis and leaving the other is the most common unfinished\nrefactor on this kind of code. Stop only when all three hold, or the remaining\ncopy has a reason in the report.\n\nPick the shape by the final code, call sites included: an exported accessor\nthat already performs the selection, before a new unexported helper; a\n`switch` when the cases carry logic; a `map` or slice literal indexed by the\nkey when they carry only values. A table exists to delete the branches, not\nto be serviced — no search helper, no method, no loop to rebuild a list that\nwas already a literal. If the lookup needs those, the `switch` was shorter.\nMap iteration order is not source order, so an ordered literal stays a\nliteral. Error texts and the point where an unknown key fails do not move.",
+      "source": "/Users/eugeneshershen/golang-skills",
+      "sha256": "9762315dafaba163e29e274041868a3f73f0323c310fbfa7ed6d632a09ca6c33"
+    }
+  ],
+  "results": [
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 2,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 83,
+        "files": 2,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 9
+      },
+      "delta": {
+        "lines": -48,
+        "files": 0,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -20
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `pricing` for readability:\n\n- Centralized plan pricing and discount data.\n- Removed duplicated branching in `Price`, `SeatCost`, and `Discount`.\n- Preserved exported API, error text, calculation behavior, and plan ordering.\n- Added characterization tests in [pricing_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1665904163/pricing/pricing_test.go).\n\nVerification passed: formatting, build, vet, tests, race, and lint."
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 8,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 67,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 8
+      },
+      "delta": {
+        "lines": 17,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3544790663/report/report.go) for readability by extracting validation, headers, row rendering, and total rendering.\n\nBehavior, exported API, error messages, and output formatting remain unchanged.\n\nVerification passed:\n\n- `go test ./...`\n- `go vet ./...`"
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 1,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3168189681/report/report.go) for clearer control flow while preserving API, errors, and output.\n\nValidation and rendering are now flatter and easier to follow.\n\nVerified with:\n\n- `gofmt`\n- `go test ./...`\n- `go vet ./...`"
+    },
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 6,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 84,
+        "files": 2,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 9
+      },
+      "delta": {
+        "lines": -47,
+        "files": 0,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -20
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `pricing` for readability:\n\n- Consolidated plan rates and discounts into one internal catalog.\n- Simplified `Price`, `SeatCost`, and `Discount`.\n- Preserved exported APIs, error text, arithmetic, and plan ordering.\n- Added characterization tests.\n\nValidation passes: `gofmt`, build, vet, tests, race detection, and lint.\n\nFiles:\n- [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1376225615/pricing/pricing.go)\n- [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1376225615/pricing/discount.go)\n- [pricing_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1376225615/pricing/pricing_test.go)"
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `./report` for readability:\n\n- Flattened nested validation with early returns.\n- Renamed the loop variable to `row`.\n- Preserved exported API, exact errors, and rendered output.\n- Added characterization tests.\n\nVerified with `gofmt`, `go test ./...`, `go vet ./...`, and `go test -race ./...`."
+    },
+    {
+      "arm": "selection-once",
+      "task": "report",
+      "rep": 1,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1166257412/report/report.go) to flatten validation and simplify rendering flow without changing the API, errors, or output.\n\nVerification passed:\n\n- `gofmt`\n- build\n- vet\n- tests\n- race detector\n- lint checks"
+    },
+    {
+      "arm": "selection-once",
+      "task": "pricing",
+      "rep": 1,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 99,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 18
+      },
+      "delta": {
+        "lines": -32,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -11
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `pricing` for readability:\n\n- Consolidated duplicated plan-rate logic.\n- Simplified discount selection.\n- Preserved exported APIs, error text, arithmetic, and output behavior.\n\nValidation passed:\n\n- `go test -count=1 ./...`\n- `go vet ./...`\n- Race/build checks via refactor harness."
+    },
+    {
+      "arm": "selection-once",
+      "task": "report",
+      "rep": 8,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-139193350/report/report.go):\n\n- Flattened nested validation with early returns.\n- Removed duplicated control flow while preserving exact output and errors.\n- Preserved exported API and formatting strings.\n\nVerification: gofmt, build, vet, tests, and race checks pass. Lint could not load because the installed linter targets Go 1.26 while the module targets Go 1.27."
+    },
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 2,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 97,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 17
+      },
+      "delta": {
+        "lines": -34,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -12
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `./pricing` for readability:\n\n- Centralized plan rates.\n- Simplified repeated pricing and discount logic.\n- Preserved exported API, error text, and calculations.\n\nVerified with:\n\n```text\ngo test ./...\n?   \tabeval/pricing\t[no test files]\n```\n\nFiles changed: [pricing.go](\u003c/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2065596816/pricing/pricing.go), [discount.go](\u003c/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2065596816/pricing/discount.go)"
+    },
+    {
+      "arm": "selection-once",
+      "task": "pricing",
+      "rep": 8,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 83,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 9
+      },
+      "delta": {
+        "lines": -48,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -20
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `./pricing` for readability:\n\n- Consolidated plan prices and discounts into one internal catalog.\n- Removed repeated branching in `Price`, `SeatCost`, and `Discount`.\n- Preserved exported APIs, validation order, error text, and rendering behavior.\n\nChanged files:\n\n- [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-83540898/pricing/pricing.go)\n- [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-83540898/pricing/discount.go)\n\nVerified with `gofmt`, build, vet, tests, race checks, and the refactor baseline comparison."
+    },
+    {
+      "arm": "selection-once",
+      "task": "pricing",
+      "rep": 2,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 84,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 9
+      },
+      "delta": {
+        "lines": -47,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -20
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `pricing` for readability:\n\n- Centralized plan prices and discounts in one catalog.\n- Removed duplicated branching and discount calculations.\n- Preserved exported APIs, error text, arithmetic, and output behavior.\n\nFiles changed:\n\n- [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2712244177/pricing/pricing.go)\n- [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2712244177/pricing/discount.go)\n\nVerification passed: formatting, build, vet, tests, race checks, and behavior comparison."
+    },
+    {
+      "arm": "selection-once",
+      "task": "pricing",
+      "rep": 6,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 84,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 9
+      },
+      "delta": {
+        "lines": -47,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -20
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `pricing` for readability:\n\n- Centralized plan rates and discount tiers.\n- Removed duplicated pricing and discount branches.\n- Preserved exported APIs, validation order, error text, plan order, and arithmetic.\n\nVerification passed:\n\n- `go test -race ./...`\n- `go vet ./...`\n- `go test -cover ./...`\n\nFiles changed: [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1788935823/pricing/pricing.go), [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1788935823/pricing/discount.go)"
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 3,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 74,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 8
+      },
+      "delta": {
+        "lines": 24,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1963473859/report/report.go) for readability by separating validation, headers, rows, and totals into helpers.\n\nBehavior and formatting remain unchanged. Verified with:\n\n- `gofmt`\n- `go test ./...`\n- `go vet ./...`"
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 9,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 70,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 8
+      },
+      "delta": {
+        "lines": 20,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [`report/report.go`](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2175259960/report/report.go) for readability by separating validation, headers, rows, and totals.\n\nObservable behavior and formatting remain unchanged. Verified with:\n\n```text\ngo test ./...\n```"
+    },
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 7,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 91,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 10
+      },
+      "delta": {
+        "lines": -40,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -19
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `pricing` for readability by:\n\n- Centralizing seat costs and discount rates.\n- Removing repeated pricing calculations and conditionals.\n- Preserving exported APIs, error text, arithmetic, and output behavior.\n\nValidation passed:\n\n- `go test ./...`\n- `go vet ./...`\n\nChanged files: [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-407310878/pricing/pricing.go), [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-407310878/pricing/discount.go)"
+    },
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 81,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -50,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -22
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `./pricing` for readability:\n\n- Centralized plan rates and discount thresholds.\n- Removed duplicated plan selection and pricing logic.\n- Preserved exported API, error text, arithmetic, and output behavior.\n\nFiles changed:\n\n- [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3113209264/pricing/pricing.go)\n- [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3113209264/pricing/discount.go)\n\nVerification passed: formatting, build, vet, tests, race checks, and baseline comparison."
+    },
+    {
+      "arm": "selection-once",
+      "task": "report",
+      "rep": 9,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1536355677/report/report.go:18) for clearer control flow:\n\n- Flattened validation with early returns.\n- Simplified CSV/text rendering branches.\n- Preserved exported API, errors, totals, and output formatting.\n\nAll verification checks pass: `gofmt`, build, vet, tests, race, and lint."
+    },
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 9,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 98,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 18
+      },
+      "delta": {
+        "lines": -33,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -11
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `./pricing` for readability while preserving the exported API, error text, and behavior.\n\nChanges:\n- Consolidated discount tier selection.\n- Added shared internal seat-cost lookup.\n- Simplified price calculation flow.\n\nValidation passed:\n\n- `go test ./...`\n- `go vet ./...`\n- `gofmt` clean"
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 4,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `./report` for clearer control flow:\n\n- Flattened row validation with early returns.\n- Removed nested rendering branches.\n- Preserved exported API, error text, totals, and output formatting.\n- Added characterization tests in [report_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2027775339/report/report_test.go).\n\nVerification: `gofmt`, `go test`, `go vet`, race tests, and `go fix` checks all pass. Coverage: 95%."
+    },
+    {
+      "arm": "selection-once",
+      "task": "report",
+      "rep": 3,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [`report/report.go`](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3602336353/report/report.go).\n\n- Flattened nested validation and rendering logic.\n- Clarified the row variable name.\n- Preserved exported API, error text, totals, and rendered output.\n\nVerification passed: gofmt, build, vet, tests, race, and lint checks."
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 2,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4108155093/report/report.go).\n\n- Flattened nested validation with early returns.\n- Improved row variable naming.\n- Preserved API, errors, arithmetic, and rendered output.\n- Verification passed: gofmt, build, vet, tests, race, and lint checks."
+    },
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 9,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 84,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 9
+      },
+      "delta": {
+        "lines": -47,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -20
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `pricing` for readability:\n\n- Centralized plan rates and discounts in one internal table.\n- Removed duplicated plan branches and calculations.\n- Preserved exported APIs, error text, validation order, and rendered plan order.\n- Kept the `free` plan’s early-return behavior unchanged.\n\nUpdated:\n\n- [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4162880214/pricing/pricing.go)\n- [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4162880214/pricing/discount.go)\n\nVerification passed: `gofmt`, build, vet, tests, race checks, and refactor comparison."
+    },
+    {
+      "arm": "selection-once",
+      "task": "report",
+      "rep": 6,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3244504110/report/report.go):\n\n- Flattened validation control flow.\n- Removed redundant `fmt.Sprintf` for the static header.\n- Preserved exported API, errors, arithmetic, and output formatting.\n\nVerified with formatting, build, vet, tests, race checks, and refactor baseline comparison—all pass."
+    },
+    {
+      "arm": "selection-once",
+      "task": "report",
+      "rep": 7,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4123638679/report/report.go):\n\n- Flattened nested validation with early returns.\n- Preserved exported API, error messages, validation order, and rendered output.\n- Replaced explicit zero initialization with idiomatic `var total int64`.\n\nVerification passed: formatting, build, vet, tests, race checks, and lint; before/after results were identical."
+    },
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 1,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 101,
+        "files": 2,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 12
+      },
+      "delta": {
+        "lines": -30,
+        "files": 0,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -17
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `pricing` for readability:\n\n- Centralized plan rates and discount metadata.\n- Removed duplicated pricing and discount logic.\n- Preserved exported API, error messages, plan order, and calculations.\n- Kept `Plans()` returning a fresh slice.\n\nValidation passed:\n\n- `go test ./...`\n- `go vet ./...`\n\nUpdated files: [pricing.go](\u003c/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1393805618/pricing/pricing.go), [discount.go](\u003c/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1393805618/pricing/discount.go)"
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 3,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `report.Render` for clearer validation and rendering flow while preserving the exported API, errors, and output.\n\nAdded characterization tests covering text/CSV output, totals, empty rows, and exact errors.\n\nChecks passed: `gofmt`, `go test ./...`, `go vet ./...`, race, and lint verification.\n\nFiles:\n- [report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-745364776/report/report.go)\n- [report_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-745364776/report/report_test.go)"
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 6,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 74,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 8
+      },
+      "delta": {
+        "lines": 24,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3559053933/report/report.go) for clearer separation of validation, headers, rows, and totals.\n\nBehavior, exported API, error messages, and output formats are unchanged.\n\nVerified with:\n\n- `go test ./...`\n- `go vet ./...`"
+    },
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 4,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 95,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 10
+      },
+      "delta": {
+        "lines": -36,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -19
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `./pricing` to use a shared internal plan catalog, removing duplicated pricing, discount, and seat-cost branches while preserving:\n\n- Exported API\n- Error text and validation order\n- Pricing arithmetic and rendered values\n- `Plans()` ordering and fresh-slice behavior\n\nVerified with:\n\n- `go test ./...`\n- `go vet ./...`\n- `gofmt` on both files"
+    },
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 0,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 99,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 18
+      },
+      "delta": {
+        "lines": -32,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -11
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored the `pricing` package for readability while preserving its API, error text, and calculations.\n\nUpdated:\n\n- [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1376551435/pricing/pricing.go)\n- [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1376551435/pricing/discount.go)\n\nVerification: `go test ./...` passes."
+    },
+    {
+      "arm": "selection-once",
+      "task": "report",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [`report/report.go`]( /private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3954393357/report/report.go ) to flatten nested validation with early returns.\n\nPreserved:\n\n- Exported API\n- Error text and validation order\n- CSV/text formatting and totals\n\nVerification passed: `gofmt`, build, vet, tests, race checks, and refactor baseline comparison. The package has no tests, so reported coverage remains 0%."
+    },
+    {
+      "arm": "selection-once",
+      "task": "report",
+      "rep": 4,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2098738606/report/report.go):\n\n- Flattened nested validation/rendering logic with guard clauses.\n- Improved local naming (`r` → `row`).\n- Preserved exported API, error text, formatting, and output behavior.\n\nVerified with `gofmt`, `go test`, `go vet`, race checks, and lint checks—all pass."
+    },
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 7,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 83,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 9
+      },
+      "delta": {
+        "lines": -48,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -20
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "## Summary\n\nRefactored `./pricing` to use one shared internal plan table, removing duplicated pricing and discount branches. Exported API and behavior remain unchanged. Net: -48 lines.\n\n## Changes\n\n| Location | Change |\n|---|---|\n| [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3634593725/pricing/pricing.go) | Consolidated plan lookup and price calculation |\n| [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3634593725/pricing/discount.go) | Centralized seat costs and term discounts |\n\n## Verification\n\n- `gofmt`: pass\n- `go test ./...`: pass\n- `go vet ./...`: pass\n- `go test -race ./...`: pass\n- `go fix -diff ./...`: no changes\n- Lint findings: 0\n\nDiff reporting was unavailable because the workspace is not a Git repository."
+    },
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 6,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 105,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 19
+      },
+      "delta": {
+        "lines": -26,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -10
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `./pricing` for readability while preserving the public API, error messages, and behavior.\n\n- Consolidated repeated plan-rate logic.\n- Simplified discount selection.\n- Kept validation and calculation semantics unchanged.\n\nVerified with:\n\n- `go test ./...`\n- `go vet ./...`\n- `gofmt` clean"
+    },
+    {
+      "arm": "selection-once",
+      "task": "pricing",
+      "rep": 9,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 80,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 8
+      },
+      "delta": {
+        "lines": -51,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -21
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `pricing` for readability:\n\n- Centralized plan rates and discount tiers.\n- Removed duplicated pricing and discount branches.\n- Preserved exported APIs, error texts, validation order, arithmetic, and output.\n\nUpdated:\n\n- [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1086085252/pricing/pricing.go)\n- [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1086085252/pricing/discount.go)\n\nVerified with `gofmt`, `go test`, `go test -race`, and `go vet`. The package has no tests, so coverage remains 0%."
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 5,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1689137622/report/report.go):\n\n- Flattened nested validation with early returns.\n- Simplified CSV/text rendering flow.\n- Preserved exported API, error text, and output formatting.\n\nVerified with `gofmt`, build, vet, tests, race checks, and refactor comparison—all pass."
+    },
+    {
+      "arm": "selection-once",
+      "task": "pricing",
+      "rep": 7,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 92,
+        "files": 2,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 14
+      },
+      "delta": {
+        "lines": -39,
+        "files": 0,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -15
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `pricing` for readability:\n\n- Centralized plan pricing and discount data.\n- Removed repeated branches and calculations.\n- Preserved exported APIs, error text, arithmetic, and behavior.\n- Added characterization tests.\n\nVerified with `gofmt`, build, vet, tests, and race tests—all pass.\n\nFiles:\n- [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4259316467/pricing/pricing.go)\n- [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4259316467/pricing/discount.go)\n- [pricing_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4259316467/pricing/pricing_test.go)"
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 1,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1964692046/report/report.go):\n\n- Flattened validation and rendering control flow.\n- Preserved exported API, error text, formatting, and output behavior.\n- Ran `gofmt`, `go test ./...`, `go vet ./...`, and `go test -race ./...` successfully."
+    },
+    {
+      "arm": "selection-once",
+      "task": "pricing",
+      "rep": 4,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 92,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 14
+      },
+      "delta": {
+        "lines": -39,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -15
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `./pricing` for readability:\n\n- Centralized plan rates and discount thresholds.\n- Removed duplicated pricing and discount branches.\n- Preserved exported APIs, validation order, error text, and output behavior.\n\nUpdated:\n\n- [pricing/pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3888959338/pricing/pricing.go)\n- [pricing/discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3888959338/pricing/discount.go)\n\nVerification passed: `gofmt`, build, vet, tests, race checks, and lint checks."
+    },
+    {
+      "arm": "selection-once",
+      "task": "pricing",
+      "rep": 5,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 107,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 21
+      },
+      "delta": {
+        "lines": -24,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -8
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `./pricing` for readability while preserving exported APIs, error text, arithmetic, and output behavior.\n\nUpdated:\n\n- [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2014008756/pricing/pricing.go)\n- [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2014008756/pricing/discount.go)\n\nVerified with:\n\n- `gofmt`\n- `go test ./...`\n- `go vet ./...`"
+    },
+    {
+      "arm": "selection-once",
+      "task": "pricing",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 98,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 18
+      },
+      "delta": {
+        "lines": -33,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -11
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored the `pricing` package for readability:\n\n- Centralized plan-rate lookup.\n- Consolidated repeated pricing calculations.\n- Simplified discount selection while preserving thresholds and errors.\n- Preserved exported APIs, error text, arithmetic, and output behavior.\n\nFiles changed:\n\n- [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3867837272/pricing/pricing.go)\n- [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3867837272/pricing/discount.go)\n\nVerified with `go test`, `go vet`, `go test -race`, formatting, and full refactor checks—all pass."
+    },
+    {
+      "arm": "selection-once",
+      "task": "report",
+      "rep": 2,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `./report` for readability:\n\n- Flattened nested validation with early returns.\n- Improved local naming and zero-value initialization.\n- Preserved exported API, error text, and rendered output.\n- Added characterization tests covering text/CSV output, totals, and errors.\n\nVerification passed: `gofmt`, build, vet, tests, race detector, and 100% statement coverage for `Render`."
+    },
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 8,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 99,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 18
+      },
+      "delta": {
+        "lines": -32,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -11
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored the package for readability:\n\n- Centralized plan rate selection in [`pricing.go`](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-318467324/pricing/pricing.go:14).\n- Removed repeated pricing calculations.\n- Simplified discount selection in [`discount.go`](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-318467324/pricing/discount.go:8).\n- Preserved exported APIs, error text, arithmetic, and output behavior.\n\nVerified with `go test`, `go test -race`, `go vet`, formatting, and the refactor harness."
+    },
+    {
+      "arm": "selection-once",
+      "task": "pricing",
+      "rep": 3,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 83,
+        "files": 2,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 9
+      },
+      "delta": {
+        "lines": -48,
+        "files": 0,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -20
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `./pricing` for readability:\n\n- Consolidated plan prices and discounts into one internal catalog.\n- Removed duplicated pricing logic and conditional ladders.\n- Preserved exported APIs, errors, discount behavior, and plan ordering.\n- Added characterization tests.\n\nFiles:\n\n- [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-177148201/pricing/discount.go)\n- [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-177148201/pricing/pricing.go)\n- [pricing_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-177148201/pricing/pricing_test.go)\n\nVerified with `go test ./...`, race tests, vet, formatting, and lint checks."
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 2,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 74,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 8
+      },
+      "delta": {
+        "lines": 24,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3430732443/report/report.go) for readability by separating validation and formatting helpers.\n\nBehavior, exported API, error text, and output format remain unchanged.\n\nVerified with:\n\n- `go test ./...`\n- `go vet ./...`"
+    },
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 1,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 84,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 8
+      },
+      "delta": {
+        "lines": -47,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -21
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored the `pricing` package for readability:\n\n- Centralized plan rates and discount thresholds.\n- Removed repeated branching and discount arithmetic.\n- Preserved exported APIs, error text, validation order, and plan output order.\n\nUpdated:\n\n- [pricing.go](\u003c/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2292579595/pricing/pricing.go\u003e)\n- [discount.go](\u003c/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2292579595/pricing/discount.go\u003e)\n\nVerification passed: `gofmt`, build, vet, tests, race, and lint."
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 4,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 79,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 8
+      },
+      "delta": {
+        "lines": 29,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [`report/report.go`](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4049217970/report/report.go) for readability by separating header, row validation, row rendering, and total rendering.\n\nBehavior remains unchanged, including formatting and error text.\n\nValidation passed:\n\n- `go test ./...`\n- `go vet ./...`\n\nNo test files are currently present."
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 7,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 63,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 13,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [`report/report.go`](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3199391811/report/report.go) for clearer control flow and separated rendering helpers.\n\nBehavior, exported API, errors, and output formatting remain unchanged.\n\nChecks passed:\n\n- `go test ./...`\n- `go vet ./...`\n- `gofmt` clean"
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 0,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 70,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 8
+      },
+      "delta": {
+        "lines": 20,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3262604240/report/report.go) for readability by separating validation and header/row/total rendering. Exported API, errors, and output formats remain unchanged.\n\nVerified with:\n\n- `gofmt`\n- `go test ./...`\n- `go vet ./...`"
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 9,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `Render` to use early returns and a flatter control flow while preserving all API, errors, and output formatting.\n\nAdded characterization tests in [report/report_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-54083082/report/report_test.go).\n\nVerified with:\n\n- `go test ./...`\n- `go test -race ./...`\n- `go vet ./...`\n- 95% statement coverage"
+    },
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 5,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 80,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 8
+      },
+      "delta": {
+        "lines": -51,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -21
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `pricing` for readability:\n\n- Centralized plan rates and discount tiers.\n- Simplified `Price`, `SeatCost`, and `Discount`.\n- Preserved exported API, error text, ordering, arithmetic, and output behavior.\n\nVerification passed: `gofmt`, build, vet, tests, race checks, and lint."
+    },
+    {
+      "arm": "no-skill",
+      "task": "report",
+      "rep": 5,
+      "skills": [],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 65,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 15,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report/report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2391297116/report/report.go):\n\n- Flattened validation logic.\n- Extracted header, row, and total rendering helpers.\n- Preserved exported API, error text, and formatting strings exactly.\n\nVerification passed:\n\n- `go test ./...`\n- `go vet ./...`"
+    },
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 5,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 84,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 9
+      },
+      "delta": {
+        "lines": -47,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -20
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored the `pricing` package to centralize plan rates and discount tiers while preserving the exported API, error text, and behavior.\n\nUpdated:\n\n- [pricing/pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3626850226/pricing/pricing.go)\n- [pricing/discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3626850226/pricing/discount.go)\n\nVerified with:\n\n- `go test ./...`\n- `go vet ./...`"
+    },
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 8,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 93,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 10
+      },
+      "delta": {
+        "lines": -38,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -19
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored the `pricing` package for readability:\n\n- Consolidated duplicated pricing logic into shared lookup tables.\n- Simplified discount calculation.\n- Preserved exported APIs, error text, validation order, and output behavior.\n\nUpdated:\n\n- [pricing/discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3800987608/pricing/discount.go)\n- [pricing/pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3800987608/pricing/pricing.go)\n\nVerification passed: `go test ./...` and `go vet ./...`."
+    },
+    {
+      "arm": "no-skill",
+      "task": "pricing",
+      "rep": 3,
+      "skills": [],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 106,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 12
+      },
+      "delta": {
+        "lines": -25,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -17
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `./pricing` for readability while preserving:\n\n- Exported API\n- Error texts\n- Validation order\n- Pricing arithmetic\n- Rendered output\n\nChecks passed:\n\n- `gofmt`\n- `go vet ./...`\n- `go test ./...`"
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 7,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-error-handling",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored the package for readability:\n\n- Flattened nested validation/rendering logic in [report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3515231156/report/report.go:18).\n- Added characterization coverage for exact output and error text in [report_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3515231156/report/report_test.go:5).\n\nVerification passed: formatting, build, vet, tests, race detector, `go fix`, lint, and error-flow checks."
+    },
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 3,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 83,
+        "files": 2,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 9
+      },
+      "delta": {
+        "lines": -48,
+        "files": 0,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -20
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored `pricing` for readability:\n\n- Centralized plan prices and discounts in one catalog.\n- Removed repeated branching and preserved all APIs, error text, arithmetic, and plan ordering.\n- Added characterization tests covering outputs and errors.\n\nFiles:\n\n- [pricing.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3208785681/pricing/pricing.go)\n- [discount.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3208785681/pricing/discount.go)\n- [pricing_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3208785681/pricing/pricing_test.go)\n\nVerification passed: `gofmt`, build, vet, tests, race tests, and `go fix -diff`. Production code reduced by 43 lines."
+    },
+    {
+      "arm": "baseline",
+      "task": "pricing",
+      "rep": 4,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 131,
+        "files": 2,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 29
+      },
+      "after": {
+        "lines": 84,
+        "files": 2,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 9
+      },
+      "delta": {
+        "lines": -47,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -20
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored the `pricing` package:\n\n- Consolidated plan rates and discounts into one internal catalog.\n- Simplified `Price`, `SeatCost`, and `Discount`.\n- Preserved exported APIs, validation order, error text, discount math, and plan ordering.\n\nFiles changed:\n\n- [pricing.go](/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-496110546/pricing/pricing.go)\n- [discount.go](/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-496110546/pricing/discount.go)\n\nVerification passed: formatting, build, vet, tests, race detection, and refactor baseline comparison."
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 8,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 63,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 13,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "## Summary\n\nRefactored `report.Render` for clearer control flow and separated formatting helpers while preserving API, errors, arithmetic, and output. Net: +20 lines due to named helpers.\n\n## Changes\n\n- Flattened validation branches with early returns.\n- Extracted header, row, and total formatting into unexported helpers.\n- Preserved all formatting strings and error text.\n\nUpdated: [report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-474976076/report/report.go)\n\n## Verification\n\n- gofmt: pass\n- build: pass\n- vet: pass\n- tests: pass\n- race: pass\n- lint findings: 0\n- behavior comparison: identical baseline/after checks"
+    },
+    {
+      "arm": "selection-once",
+      "task": "report",
+      "rep": 5,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 49,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": -1,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [`report.go`](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-888859717/report/report.go:18) to flatten validation and simplify the rendering flow. Exported API, error text, and output formatting remain unchanged.\n\nAdded characterization coverage in [`report_test.go`](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-888859717/report/report_test.go:5).\n\nVerification: `go test ./...`, `go test -race ./report`, `gofmt`, build, vet, and lint checks all pass; `Render` has 100% statement coverage."
+    },
+    {
+      "arm": "baseline",
+      "task": "report",
+      "rep": 6,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 50,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "after": {
+        "lines": 74,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 8
+      },
+      "delta": {
+        "lines": 24,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "output": "Refactored [report.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2508751121/report/report.go) for readability by separating header, row validation/rendering, and total rendering.\n\nBehavior, exported API, error text, and output formatting remain unchanged.\n\nVerification passed:\n\n- `go test ./...`\n- `go vet ./...`"
+    }
+  ],
+  "finished": "2026-09-08T00:34:19.809085+03:00"
+}

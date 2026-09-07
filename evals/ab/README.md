@@ -22,6 +22,8 @@ adding one.
 | --- | --- |
 | `pattern-sentence.md` | "Apply a suitable design pattern, but only if it improves the solution." — an instruction whose condition the model itself judges |
 | `pattern-gate.md` | The same intent as a gate with externally checkable conditions: three existing duplicate sites, a shorter diff, no call site that reads worse |
+| `selection-once.md` | A completion criterion instead of a permission: each literal once, each selection over the same key once, each condition ladder once; shape chosen by the final code, table not to be serviced. Measured on `pricing` + `report`, 10 reps per arm: opencode +0.1 lines vs baseline, interval −7.7 … +7.9, where baseline had no gap ([report](../../docs/evidence/2026-09-07-selection-once-luna-opencode.uk.md)); copilot **−11.6**, interval −18.9 … −4.3, where baseline stopped at `switch` in 4/10 sessions ([report](../../docs/evidence/2026-09-07-selection-once-luna-copilot.uk.md)). `report` stayed at −1 on both. Ported into `go-code-refactor/SKILL.md` on 2026-09-08 as «Remove Duplication to the End», with the «once, not once under a name» clause added; the arm is now redundant against the current baseline and stays for `-reference-root` comparisons against `1e98819`. Codex with the ported text as baseline: −12.4 vs no-skill, interval −18.0 … −6.8, tables 9/10; the double-text arm was +5.7 vs baseline, interval crossing zero ([report](../../docs/evidence/2026-09-08-selection-once-luna-codex.uk.md)) |
+| `whole-transformation.md` | Evaluate a helper or data table together with the duplication it removes; the [pricing experiment](../../docs/evidence/2026-09-07-pricing-whole-transformation-luna-opencode.uk.md) did not establish an improvement |
 
 ## Runners
 

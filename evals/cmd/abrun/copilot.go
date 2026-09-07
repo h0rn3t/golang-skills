@@ -27,7 +27,15 @@ import (
 // difference between the two runners is not a difference in what the model was
 // allowed to do. Leaving bash out is the load-bearing part: with a shell the
 // session could run the fixture's tests, which no other arm can.
-var copilotTools = []string{"skill", "view", "create", "edit", "grep", "glob"}
+//
+// Copilot names the read and write tools per model family, so the list carries
+// every spelling of the same surface: create/edit/grep on the models that use
+// them, apply_patch/rg on the ones that use those. A name the session does not
+// have is reported as an unknown allowlist entry and ignored, while a missing
+// name costs the session its editor — with only create/edit allowlisted,
+// gpt-5.6-luna finishes every run explaining it has no way to write a file.
+// Nothing here grants a shell, so the surface stays what it claims to be.
+var copilotTools = []string{"skill", "view", "create", "edit", "grep", "glob", "apply_patch", "rg"}
 
 // copilotHomes gives every arm its own COPILOT_HOME and records it on the arm.
 //
@@ -138,6 +146,9 @@ func copilotSession(o options, a arm, work, prompt string) ([]byte, error) {
 	}
 	if o.model != "" {
 		args = append(args, "--model", o.model)
+	}
+	if o.effort != "" {
+		args = append(args, "--effort", o.effort)
 	}
 	return copilotCmd(o.timeout, work, a.home, args...)
 }

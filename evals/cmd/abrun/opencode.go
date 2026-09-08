@@ -54,7 +54,7 @@ func opencodeHomes(arms []arm) (func(), error) {
 		if err := writeOpencodeHome(home, a.dir, auth); err != nil {
 			return cleanup, fmt.Errorf("prepare %s arm home: %w", a.Name, err)
 		}
-		if err := checkOpencodeSkills(home, a.Name); err != nil {
+		if err := checkOpencodeSkills(home, a.Name, a.dir); err != nil {
 			return cleanup, err
 		}
 		arms[i].home = home
@@ -106,12 +106,12 @@ func writeOpencodeHome(home, armDir string, auth []byte) error {
 	return os.CopyFS(filepath.Join(config, "skills"), os.DirFS(filepath.Join(armDir, "skills")))
 }
 
-// checkOpencodeSkills asserts that an arm home loads the skills that arm is
-// supposed to have and nothing else, which is the one precondition the whole
-// comparison rests on. It doubles as a warm-up: opencode installs its plugin
-// dependencies into a fresh home on first use, and doing that once here keeps
-// concurrent runs from racing on the same install.
-func checkOpencodeSkills(home, armName string) error {
+// checkOpencodeSkills asserts that an arm home loads exactly the skills that arm
+// is supposed to have, which is the one precondition the whole comparison rests
+// on; checkArmSkills owns the comparison. It doubles as a warm-up: opencode
+// installs its plugin dependencies into a fresh home on first use, and doing that
+// once here keeps concurrent runs from racing on the same install.
+func checkOpencodeSkills(home, armName, armDir string) error {
 	out, err := opencodeCmd(opencodeSetupTimeout, home, home, "debug", "skill")
 	if err != nil {
 		return fmt.Errorf("list skills for %s arm: %w", armName, err)
@@ -122,19 +122,13 @@ func checkOpencodeSkills(home, armName string) error {
 	if err := json.Unmarshal(out, &skills); err != nil {
 		return fmt.Errorf("decode skills for %s arm: %w", armName, err)
 	}
-	loaded := 0
+	var loaded []string
 	for _, s := range skills {
 		if strings.HasPrefix(s.Name, "go-") {
-			loaded++
+			loaded = append(loaded, s.Name)
 		}
 	}
-	if armName == controlArm && loaded != 0 {
-		return fmt.Errorf("%s arm home loads %d go-* skills; skill discovery is not isolated", controlArm, loaded)
-	}
-	if armName != controlArm && loaded == 0 {
-		return fmt.Errorf("%s arm home loads no go-* skills", armName)
-	}
-	return nil
+	return checkArmSkills(armName, armDir, loaded, "")
 }
 
 // opencodeSetupTimeout bounds the per-home warm-up, which downloads and installs

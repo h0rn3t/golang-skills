@@ -4,6 +4,15 @@
 two or more versions of `go-code-refactor/SKILL.md` and reports what changed in
 the code the model wrote — not in the prose it produced.
 
+## Sonnet 5 control (2026-09-08)
+
+[Report](../../docs/evidence/2026-09-08-go-refactor-control-sonnet-5.md): Claude
+CLI, n=5 per fixture and arm, 40/40 valid. Mean production-line difference is
+−3.20; new functions total 34 → 20, types 6 → 10. `store` improves by 8.2 lines,
+while `report` grows 2.8 more. The `store` permutation p = 0.03968 is unadjusted
+(0.15873 for four comparisons with Bonferroni); investigate it as an exploratory
+signal. Cost is 3.28x, and the two-arm run does not isolate a wording change.
+
 ## Arms
 
 `no-skill` loads no plugin — the discovery control. `baseline` is the complete
@@ -40,10 +49,31 @@ they have installed globally and stop being a control. `-runner codex` drives th
 OpenAI Codex CLI, which needs HOME redirected rather than `CODEX_HOME`: Codex
 also discovers skills from host locations outside its own home, so a control arm
 with only `CODEX_HOME` moved still sees the operator's globally installed
-skills. `abrun` checks what each arm home actually loads before the first session
-and refuses to start if an arm sees the wrong set; for codex the check is
-`codex debug prompt-input`, which renders the prompt the model would really see
-without spending a request.
+skills. `abrun` checks what each arm home actually loads before the first
+session and refuses to start if an arm sees the wrong set.
+
+### Arm preconditions
+
+Two guards run before the first session, and both refuse to start the run rather
+than report a difference that turns out to be a missing skill.
+
+**Every SKILL.md must parse.** Each materialized arm is scanned for the failure
+mode that costs the most and shows the least: a frontmatter value with an
+unquoted colon-space, which YAML reads as a nested mapping and rejects. Every
+loader drops such a skill, most of them quietly. This guard runs for all four
+runners, including claude, which has no listing command to check an arm against,
+and it costs nothing — no CLI is involved.
+
+**Every skill in the tree must actually load.** For the three runners that
+discover skills from a home, `abrun` asks the CLI what it loaded and compares the
+result against the arm's own `skills/` directory, naming any skill that is
+missing. The earlier version of this check only rejected an *empty* listing,
+which is how a broken `go-code` passed it in a 24-skill tree; the set is what
+matters, not the count. The control arm must load none, or skill discovery is not
+isolated. For copilot the CLI's stderr is captured and quoted into the error,
+because that is where it explains what it could not parse while still exiting
+zero. For codex the listing is `codex debug prompt-input`, which renders the
+prompt the model would really see without spending a request.
 
 Five differences between the runners are not cosmetic and belong in any claim
 that spans them.
@@ -174,10 +204,35 @@ model grows `report` by only 16.2 lines against Opus 5's +33.4 and MiniMax M3's
 untaken there is nothing to remove, every fixture's interval includes zero, and
 the corpus-wide direction is marginally against the skill at +1.1 lines per run.
 See the [analysis and raw report](../../docs/evidence/2026-09-07-go-refactor-control-mai-code-1.1-flash.md).
-The same model is the first to give the implementation corpus a live trap:
+The same model was the first to give the implementation corpus a live trap:
 `gateway` golden passes went 1/5 without the skill against 3/5 with it, and both
 sessions that reached `go-http` set every timeout —
 [analysis and raw report](../../docs/evidence/2026-09-07-go-implement-control-mai-code-1.1-flash.md).
+
+Both were re-run on 2026-09-08 against the `go-code` rewrite and the
+`go-code-refactor` extraction rule, same seed and fixtures, and the pair is the
+sharpest lesson in the directory about what a control arm is worth. On refactor
+the helper-growth gap this model is the only one to show narrowed from +27% to
++12% and the corpus direction flipped to −1.8 lines, with no interval excluding
+zero and the control itself drifting 4.7 lines between the two runs
+([analysis](../../docs/evidence/2026-09-08-go-refactor-control-mai-code-1.1-flash.md)).
+On implement the live trap is gone: the control passed `gateway` 5/5 where a day
+earlier it passed 1/5, so the corpus's only correctness result was a property of
+that model version and not of the plugin
+([analysis](../../docs/evidence/2026-09-08-go-implement-control-mai-code-1.1-flash.md)).
+Date every control, and re-measure it before comparing a skill edit across runs.
+
+A harness lesson came out of the same day, and the guard it produced is
+described under [Arm preconditions](#arm-preconditions). The first attempt at
+those re-runs was invalid and looked normal: an unquoted colon-space in the
+rewritten `go-code` description made its YAML frontmatter unparseable, copilot
+dropped the skill from its listing and reported it on stderr with a zero exit
+status, and the arm pre-check passed because it only asserted that a baseline arm
+loads *at least one* `go-*` skill. Eighty sessions ran without the router. A 0%
+firing rate has two causes, model routing and a skill that never loaded; the
+pre-check now separates them before the first session, but comparing the firing
+rate against the previous run is still the cheapest way to notice that something
+moved.
 
 A fifth model, `gpt-5.6-luna` at `-effort medium` under `-runner codex`, is the
 strongest refactor result recorded and the first on which two fixtures separate

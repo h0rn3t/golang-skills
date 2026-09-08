@@ -254,159 +254,37 @@ prompts in fresh GPT-6/Codex sessions using the checked-out skills and record
 the answers separately; the [review](docs/CROSS_MODEL_REVIEW.md) distinguishes
 these application probes from a full cross-model benchmark.
 
-## Measured Effect Across Models
+## Do the skills help this model?
 
-Trigger and quality evals ask whether the right skill fires and whether the
-answer reads well. Neither says what the skills do to the code the model
-actually writes. `evals/ab` answers that: it hands the same fixture to the same
-model twice, once with no plugin loaded and once with the whole skill tree, then
-measures the resulting Go — not the prose — against a golden test the model
-never sees. Every table below is computed from the raw JSON reports in
-[`docs/evidence/`](docs/evidence), seed `1`, 5 repetitions per fixture per arm
-in the per-model runs and 10 in the runner and wording runs.
+**The clearest benefits are in refactoring with GPT-5.6-Luna, Opus 5, and
+MiniMax M3. There is no convincing benefit for writing new code yet.
+Sonnet 5 is mixed; benefits for MAI and DeepSeek remain unproven.**
 
-### Summary in percent
+✅ **Helps on tested tasks** · 🟡 **Mixed / weak signal** ·
+➖ **Benefit not established** · — **Not tested**.
+These are practical interpretations of the tests, not guarantees for every project.
 
-One row per thing a skill is supposed to do to the code. "Control" is the arm
-with no plugin loaded; every percentage is skill relative to control on the
-same model, runner and fixtures.
+| Model / tool | Refactoring existing code | Writing new code | Cost with skills | Practical takeaway |
+|---|---|---|---|---|
+| **GPT-5.6-Luna / Codex** | [✅ Helps: far fewer unnecessary helpers; latest test covers only `report`](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md) | [➖ No visible benefit: correctness and size nearly unchanged](docs/evidence/2026-09-07-go-multirunner-gpt-5.6-luna-medium.uk.md) | Not measured in USD | **Worth using for refactoring.** |
+| **Opus 5 / Claude** | [✅ Helps: less unnecessary structure, especially on `report`](docs/evidence/2026-09-07-go-refactor-control-opus5.md) | [➖ Small gain in the latest run; only two tasks tested](docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md) | New code ≈ **2.8×**; refactoring unavailable | **Worth using for refactoring.** |
+| **MiniMax M3 / OpenCode** | [✅ Helps: less code and fewer unnecessary helpers](docs/evidence/2026-09-07-go-refactor-control-minimax-m3.md) | [➖ Benefit unproven: fewer passing sessions](docs/evidence/2026-09-07-go-implement-discovery-minimax-m3.md) | Refactoring ≈ **2.5×**, new code ≈ **1.9×** | **Better refactoring, not a cost saving.** |
+| **Sonnet 5 / Claude** | [🟡 Fewer helpers, but some tasks improve and others worsen](docs/evidence/2026-09-08-go-refactor-control-sonnet-5.md) | [➖ Same correctness, more code and helpers](docs/evidence/2026-09-08-go-implement-control-sonnet-5.md) | Refactoring ≈ **3.3×**, new code ≈ **2.3×** | **Questionable benefit at this price.** |
+| **MAI-Code-1.1-Flash / Copilot** | [➖ No clear gain; more helpers](docs/evidence/2026-09-08-go-refactor-control-mai-code-1.1-flash.md) | [➖ Earlier gain did not reproduce; fewer passing sessions](docs/evidence/2026-09-08-go-implement-control-mai-code-1.1-flash.md) | Not measured in USD | **No basis to expect an improvement yet.** |
+| **DeepSeek V4 Flash / OpenCode** | — Not tested | [➖ Same number of passing sessions; only `gateway` tested](docs/evidence/2026-09-08-go-code-contract-gateway-deepseek-v4-flash.json) | New code ≈ **1.15×** | **Benefit not established yet.** |
 
-| What the skills do | Effect | Basis |
-| --- | --- | --- |
-| **Refactor: stop the model adding structure** on the trap fixture `report` | Growth cut by **50–60%** on Opus 5 and MiniMax M3 and by **94%** on GPT-5.6-Luna at n=5; **84–106%** on GPT-5.6-Luna across codex, copilot and opencode at n=10 (above 100% = the package ends smaller than it was handed) | 4 models, 4 runners; [per-model](docs/evidence/2026-09-07-go-refactor-control-gpt-5.6-luna-medium.md), [multirunner](docs/evidence/2026-09-07-go-multirunner-gpt-5.6-luna-medium.uk.md), [codex n=10](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md) |
-| **Refactor: stop helper sprawl** (new functions across 20 sessions) | **−38% to −71%** per model at n=5; **−84% to −88%** on GPT-5.6-Luna on each of three runners | 3 of 4 models; MAI-Code-1.1-Flash +27%, the one model that never took the bait |
-| **Refactor: finish removing duplication** on `pricing`, lines removed vs control | Before the 2026-09-08 change the skill removed **32–40% less** than control on all three runners; after it, **36% more** on codex, **11% more** on copilot, **±0%** on opencode where control already got there | GPT-5.6-Luna, n=5 before / n=10 after; [copilot](docs/evidence/2026-09-07-selection-once-luna-copilot.uk.md), [codex](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md), [opencode](docs/evidence/2026-09-07-selection-once-luna-opencode.uk.md) |
-| **Refactor: keep behavior** | Build and hidden golden test **100%** in both arms on every model and runner | 160 + 240 + 230 sessions; the corpus measures size, not defects |
-| **Implement: catch the hidden defect** (packages passing the golden spec) | **75% → 90%** on MAI-Code-1.1-Flash; `gateway` alone **20% → 60%**; **100% → 100%** on GPT-5.6-Luna and Opus 5, which never fall in | n=5 per cell, Fisher p ≈ 0.5 — a direction, not a demonstration |
-| **Implement: size of a working implementation** where correctness is tied | **−35% lines, −44% functions** on Opus 5 `gateway`, spread seven times tighter; **±0%** on GPT-5.6-Luna, no interval excludes zero | [Opus 5](docs/evidence/2026-09-07-go-implement-gateway-opus5.md), [multirunner](docs/evidence/2026-09-07-go-multirunner-gpt-5.6-luna-medium.uk.md) |
+Uses the latest available control run for each model + tool + work type by
+JSON `finished` (September 7–8, 2026, local time). A newer subset run does not
+cover the full corpus. In runs containing variants, this compares **baseline
+against no skills**, not the best variant. Historical results and detailed
+numbers remain in the linked reports.
 
-Read it as two findings and one repair. The skills reliably prevent growth —
-that is the effect with intervals excluding zero on every runner. They did not,
-until 2026-09-08, make the model delete more than it would alone, and on
-duplication that wants a data table they made it delete less; the
-«Remove Duplication to the End» section in `go-code-refactor` closes that gap on
-the two runners where it existed. On new code the skills help the models that
-fall into the trap and are neutral on the ones that do not.
-
-### Refactor corpus: does the skill remove structure?
-
-Four working packages, each with an honest refactor that removes structure and a
-tempting one that adds it. `report` is the trap fixture — two output formats that
-invite a `Formatter` interface no caller needs. Values are the mean line delta
-with the skill minus the mean without it, so **negative favors the skill**.
-
-| Model | Runner | `dispatch` | `pricing` | `report` | `store` | Corpus |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| [GPT-5.6-Luna (medium)](docs/evidence/2026-09-07-go-refactor-control-gpt-5.6-luna-medium.md) | codex | **−5.8** | +2.6 | **−17.6** | −3.6 | **−6.10** |
-| [MiniMax M3](docs/evidence/2026-09-07-go-refactor-control-minimax-m3.md) | opencode | +0.8 | −6.8 | **−16.4** | −9.4 | **−7.95** |
-| [Opus 5](docs/evidence/2026-09-07-go-refactor-control-opus5.md) | claude | +2.0 | −0.4 | **−16.6** | −1.6 | **−4.15** |
-| [MAI-Code-1.1-Flash](docs/evidence/2026-09-07-go-refactor-control-mai-code-1.1-flash.md) | copilot | +5.8 | −2.6 | −0.6 | +1.8 | +1.10 |
-
-The one model where nothing moved is the one that never took the bait. Read the
-control column first — it is how much there was to remove:
-
-| Model | `report` without the skill | With it | Removed |
-| --- | ---: | ---: | ---: |
-| Opus 5 | +33.4 | +16.8 | 50% |
-| MiniMax M3 | +27.4 | +11.0 | 60% |
-| GPT-5.6-Luna | +18.8 | **+1.2** | **94%** |
-| MAI-Code-1.1-Flash | +16.2 | +15.6 | 4% |
-
-MAI-Code-1.1-Flash grows the package half as much as Opus 5 does unaided and
-declares one new type across 20 sessions; there is no over-engineering there for
-the skill to prevent. On GPT-5.6-Luna the skill does not merely shrink the
-growth — four of its five `report` sessions returned a package *smaller* than
-the one they were handed, with the hidden golden test still green.
-
-The mechanism differs by model, and the pair of counts is what tells premature
-abstraction apart from helper sprawl:
-
-| Model | New types | New functions |
-| --- | --- | --- |
-| Opus 5 | 15 → 6 (**−60%**) | 32 → 20 (−38%) |
-| GPT-5.6-Luna | 1 → 1 | 31 → 9 (**−71%**) |
-| MiniMax M3 | 5 → 6 | 31 → 16 (−48%) |
-| MAI-Code-1.1-Flash | 1 → 0 | 37 → 47 (+27%) |
-
-Opus 5's failure mode is reaching for a type; everyone else's is reaching for a
-helper. Across all 160 valid sessions exactly one interface was declared — by
-Opus 5's control arm, none by any skilled arm — and no arm anywhere produced a
-pattern-flavored name. Correctness was tied on every model: 20/20 build and
-golden passes in both arms. The refactor corpus is
-evidence about code size, not about defect rates.
-
-#### The same model on three runners, and what it changed in the skill
-
-Running GPT-5.6-Luna through codex, opencode and copilot on the same fixtures
-([report](docs/evidence/2026-09-07-go-multirunner-gpt-5.6-luna-medium.uk.md),
-n=5) kept the two effects above — `report` growth removed on every runner,
-helper sprawl down 84–88% — and broke the per-fixture means: `pricing` and
-`store` changed sign between runners, and the corpus mean is not a number to
-publish at n=5. It also surfaced the one result against the plugin: on
-`pricing`, a package whose duplication wants one data table, the skill stopped
-the model at a `switch` and removed fewer lines than control on all three
-runners, with all three intervals excluding zero.
-
-Two wordings were tried as variant arms at n=10. A permission to add a table
-moved nothing. A completion criterion — each literal once, each selection over
-the same key once, each condition ladder once, table not to be serviced —
-became the «Remove Duplication to the End» section of `go-code-refactor` on
-2026-09-08:
-
-| Runner | `pricing`, skill vs control, before | After | `report` after |
-| --- | ---: | ---: | ---: |
-| [codex](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md) | +11.4 (+3.6 … +19.2) | **−12.4 (−18.0 … −6.8)**, table in 9/10 | −1 in 17/20, three helper-extraction outliers |
-| [copilot](docs/evidence/2026-09-07-selection-once-luna-copilot.uk.md) | +13.8 (+4.1 … +23.5) | **−11.6 vs old skill (−18.9 … −4.3)**, table in 7/10 | −1 in 9/10 |
-| [opencode](docs/evidence/2026-09-07-selection-once-luna-opencode.uk.md) | +16.8 (+5.5 … +28.1) | +0.1 vs old skill (−7.7 … +7.9) | −1 in 9/10 |
-
-The opencode row is not a failure of the text: three later n=10 samples showed
-the old skill never trailed control there (+1.3, −0.4), so there was nothing to
-repair. The codex comparison with the old skill is across runs; the copilot one
-is the same-run variant arm. `report` stayed under protection on all three
-(−10.8 to −16.5 vs control, intervals excluding zero).
-
-### Implementation corpus: does the skill make the code work?
-
-Documented but unimplemented packages, where the golden test *is* the
-specification and can be failed outright. Each fixture hides one defect a Go
-reviewer would send back — a nil slice that marshals to `null`, a server with no
-timeouts, an error chain cut with `%v`, a snapshot that still aliases the
-caller's slice — and the doc comments never name the technique.
-
-| Model | Runner | `catalog` | `feed` | `gateway` | `ledger` | All |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| [GPT-5.6-Luna (medium)](docs/evidence/2026-09-07-go-implement-control-gpt-5.6-luna-medium.md) | codex | 5/5 → 5/5 | 5/5 → 5/5 | 5/5 → 5/5 | 5/5 → 5/5 | 20/20 → 20/20 |
-| Opus 5 ([gateway](docs/evidence/2026-09-07-go-implement-gateway-opus5.md), [feed/catalog](docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md)) | claude | 3/3 → 3/3 | 3/3 → 3/3 | 5/5 → 5/5 | — | 11/11 → 11/11 |
-| [MAI-Code-1.1-Flash](docs/evidence/2026-09-07-go-implement-control-mai-code-1.1-flash.md) | copilot | 5/5 → 5/5 | 4/5 → 5/5 | **1/5 → 3/5** | 5/5 → 5/5 | 15/20 → 18/20 |
-
-Where the model already avoids the defect, the skill has nothing to add and the
-score is what a working implementation costs instead: on Opus 5 `gateway` went
-from 152.6 lines to 99.8 with correctness tied at 5/5, functions down 44% and the
-skilled arm's spread seven times tighter.
-
-Where the model falls in, the score is whether the package works at all.
-`gateway` — an edge server built as `&http.Server{Addr: addr, Handler: h}`, whose
-zero timeouts hold stalled connections until it runs out — goes 1/5 to 3/5 on
-MAI-Code-1.1-Flash. Every failure in both arms is that one defect: `ReadTimeout`
-or `ReadHeaderTimeout` left at zero.
-
-At `n=5` per cell Fisher's exact gives p ≈ 0.5, so that cell is a direction
-rather than a demonstrated result, and `gateway` is the fixture worth a larger
-`n`.
-
-### What this does and does not establish
-
-It compares the complete current skill tree against no skill at all, which is
-what decides whether a fixture contains a trap the plugin can catch. With one
-exception it is not a before/after measurement of a wording change; that claim
-needs a variant or `reference` arm, and the 2026-09-08 change above is the one
-that has it. Percentages in the summary are ratios of means at n=5 or n=10 and
-carry the intervals of the tables they come from; a single cell without an
-interval is a direction. The runners differ in ways that matter across files —
-tool sets, whether the session has a shell, whether the plugin's hook and
-subagent apply — and those differences are recorded in
-[`evals/ab/README.md`](evals/ab/README.md). Every table here has its raw JSON
-report and a SHA-256 beside it; the repository carries no result without one.
+“Helps” means observed reductions in unnecessary code or helpers without
+failures in the available checks; readability was not separately assessed by
+blind review. Samples are small: 3–10 repetitions per task. “Benefit not
+established” does not mean “always harmful.” Cost is the ratio of recorded USD
+for the whole run, not output-token savings. Sonnet's `store` result remains
+exploratory after accounting for multiple comparisons.
 
 ## Go 1.27
 

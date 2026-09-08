@@ -58,7 +58,7 @@ func codexHomes(arms []arm) (func(), error) {
 		if err := writeCodexHome(home, a.dir, auth); err != nil {
 			return cleanup, fmt.Errorf("prepare %s arm home: %w", a.Name, err)
 		}
-		if err := checkCodexSkills(home, a.Name); err != nil {
+		if err := checkCodexSkills(home, a.Name, a.dir); err != nil {
 			return cleanup, err
 		}
 		arms[i].home = home
@@ -106,26 +106,19 @@ func writeCodexHome(home, armDir string, auth []byte) error {
 	return os.CopyFS(filepath.Join(dir, "skills"), os.DirFS(filepath.Join(armDir, "skills")))
 }
 
-// checkCodexSkills asserts that an arm home puts the skills that arm is supposed
-// to have in front of the model and nothing else, which is the one precondition
-// the whole comparison rests on.
+// checkCodexSkills asserts that an arm home puts exactly the skills that arm is
+// supposed to have in front of the model, which is the one precondition the whole
+// comparison rests on; checkArmSkills owns the comparison.
 //
 // `codex debug prompt-input` renders the prompt the model would actually see
 // without spending a request, so the check is both free and the real thing
 // rather than a directory listing that stands in for it.
-func checkCodexSkills(home, armName string) error {
+func checkCodexSkills(home, armName, armDir string) error {
 	out, err := codexCmd(codexSetupTimeout, home, home, "debug", "prompt-input", "list skills")
 	if err != nil {
 		return fmt.Errorf("render prompt for %s arm: %w", armName, err)
 	}
-	loaded := len(skillsInPaths(string(out)))
-	if armName == controlArm && loaded != 0 {
-		return fmt.Errorf("%s arm home offers %d go-* skills; skill discovery is not isolated", controlArm, loaded)
-	}
-	if armName != controlArm && loaded == 0 {
-		return fmt.Errorf("%s arm home offers no go-* skills", armName)
-	}
-	return nil
+	return checkArmSkills(armName, armDir, skillsInPaths(string(out)), "")
 }
 
 // codexSetupTimeout bounds the per-home prompt render that runs before the first

@@ -6,6 +6,13 @@ All notable changes to this repository are documented here.
 
 ### go-code-refactor
 
+- Record the supplied Sonnet 5 refactor control: 40/40 valid, mean production
+  difference −3.20 lines, new functions 34 → 20, types 6 → 10, cost 3.28x.
+  `store` is an exploratory −8.2-line signal; `report` grows 2.8 more. Preserve
+  raw JSON and add English/Ukrainian reports and README comparisons. This is
+  plugin-versus-control evidence, not validation of an individual rule change
+  ([report](docs/evidence/2026-09-08-go-refactor-control-sonnet-5.md)).
+
 - Add «Remove Duplication to the End» to `SKILL.md` and a matching fold in
   `references/PLAYBOOK.md` §0: when branches differ only in the constants
   they carry, the step is done when each literal, each selection over the
@@ -23,6 +30,39 @@ All notable changes to this repository are documented here.
   the change and does not involve the new criterion.
 - Add a percent summary of the measured effect to `README.md` and
   `README.uk.md`, and a block on the three-runner run and the change it led to.
+- Measure the extraction rule («extract a helper when it removes repeated logic,
+  keep a short single-use sequence inline») on `mai-code-1.1-flash` under
+  `-runner copilot`, n=5, the one model whose skilled arm had been adding more
+  helpers than its control: the gap narrowed from +27% to +12% and the corpus
+  direction moved from +1.10 to −1.80 lines, with no interval excluding zero and
+  the control arm itself drifting 4.7 lines between the two runs
+  ([analysis](docs/evidence/2026-09-08-go-refactor-control-mai-code-1.1-flash.md)).
+
+### go-code
+
+- Fix the `description` frontmatter, which an unquoted colon-space made
+  unparseable. Copilot and any other YAML-parsing loader dropped the skill
+  silently, so the router did not load at all.
+- Re-run the implementation corpus on `mai-code-1.1-flash` after the rewrite:
+  `go-code` fires in 20 of 20 baseline sessions against 18 of 20 before, the best
+  the corpus has recorded, while `go-http` was reached in 0 of 5 `gateway`
+  sessions against 2 of 5 before. The corpus's only correctness result also
+  disappeared — the control arm now passes `gateway` 5/5 where it passed 1/5 on
+  2026-09-07 — so it is a property of that model version, not of the plugin
+  ([analysis](docs/evidence/2026-09-08-go-implement-control-mai-code-1.1-flash.md)).
+
+### Evals harness
+
+- Make the `abrun` arm pre-check reject a skill that fails to load. It compared
+  counts against zero, so one unparseable skill in a 24-skill tree passed it and
+  80 copilot sessions measured a baseline arm with no router; it now compares the
+  set the CLI reports against the arm's own `skills/` directory and names what is
+  missing. The copilot listing's stderr is captured and quoted into the error,
+  because `copilot skill list` reports a skill it could not parse there while
+  still exiting zero.
+- Add a frontmatter guard that runs for every runner, claude included, before any
+  CLI is invoked: a `SKILL.md` whose frontmatter carries an unquoted colon-space
+  fails the run instead of silently shrinking the arm.
 
 ## [1.0.0] - 2026-09-07
 

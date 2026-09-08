@@ -558,6 +558,9 @@ func buildArms(root, referenceRoot, variantsDir, only string) ([]arm, func(), er
 				return nil, cleanup, err
 			}
 		}
+		if err := checkArmFrontmatter(dir); err != nil {
+			return nil, cleanup, fmt.Errorf("%s arm: %w", a.Name, err)
+		}
 		digest, err := pluginDigest(dir)
 		if err != nil {
 			return nil, cleanup, fmt.Errorf("digest %s arm: %w", a.Name, err)
@@ -998,6 +1001,142 @@ func skillCalls(v any) []string {
 		}
 	}
 	return names
+}
+
+// checkArmFrontmatter rejects a materialized arm that carries a SKILL.md whose
+// frontmatter no YAML parser will accept, before any CLI is asked to load it.
+//
+// This runs for every runner, including claude, which has no listing command to
+// check an arm home against. It tests one failure mode rather than validating
+// YAML: an unquoted single-line scalar containing a colon followed by a space,
+// which YAML reads as a nested mapping key and rejects. That is what broke
+// `go-code` on 2026-09-08 and cost 80 sessions, and a description is the field
+// most likely to want a colon in it.
+func checkArmFrontmatter(armDir string) error {
+	root := filepath.Join(armDir, "skills")
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return fmt.Errorf("read arm skills: %w", err)
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		path := filepath.Join(root, e.Name(), "SKILL.md")
+		text, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		if err := checkFrontmatter(string(text)); err != nil {
+			return fmt.Errorf("%s/SKILL.md: %w", e.Name(), err)
+		}
+	}
+	return nil
+}
+
+// checkFrontmatter reports the first frontmatter line of a SKILL.md that a YAML
+// parser would reject. It returns nil when the file has no frontmatter at all,
+// which is a different problem and one every loader reports for itself.
+func checkFrontmatter(text string) error {
+	rest, ok := strings.CutPrefix(text, "---\n")
+	if !ok {
+		return nil
+	}
+	block, _, ok := strings.Cut(rest, "\n---")
+	if !ok {
+		return errors.New("frontmatter is not closed")
+	}
+	for line := range strings.SplitSeq(block, "\n") {
+		key, value, ok := strings.Cut(line, ": ")
+		if !ok || strings.HasPrefix(line, " ") || strings.HasPrefix(line, "#") {
+			continue
+		}
+		// A quoted or block scalar may contain anything; a plain one may not
+		// contain ": ", which starts a mapping the parser has nowhere to put.
+		if strings.ContainsAny(value[:1], `"'>|[{&*`) {
+			continue
+		}
+		if strings.Contains(value, ": ") {
+			return fmt.Errorf("%s value contains an unquoted colon-space and will not parse as YAML; quote it or use an em-dash", key)
+		}
+	}
+	return nil
+}
+
+// armSkillNames lists the go-* skills present in one materialized arm tree,
+// which is the set that arm's home is supposed to put in front of the model. It
+// returns nil for the control arm, whose tree is empty by construction.
+//
+// A directory counts only if it holds a SKILL.md, because that file is what
+// every runner discovers; a stray directory is not a skill.
+func armSkillNames(armDir string) ([]string, error) {
+	if armDir == "" {
+		return nil, nil
+	}
+	root := filepath.Join(armDir, "skills")
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, fmt.Errorf("read arm skills: %w", err)
+	}
+	var names []string
+	for _, e := range entries {
+		if !e.IsDir() || !strings.HasPrefix(e.Name(), "go-") {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(root, e.Name(), "SKILL.md")); err != nil {
+			continue
+		}
+		names = append(names, e.Name())
+	}
+	return names, nil
+}
+
+// checkArmSkills compares the go-* skills a runner's own listing reports against
+// the ones the arm tree contains, and is the precondition the whole comparison
+// rests on.
+//
+// The exact set matters, not the count. A skill the CLI cannot parse — one
+// unquoted `: ` in a description is enough to make its YAML frontmatter
+// invalid — is dropped from the listing silently, with the reason on stderr and
+// a zero exit status. An earlier version of this check only rejected an empty
+// set, so a broken skill in a 24-skill tree passed it, and 80 sessions of
+// 2026-09-08 measured a baseline arm with no router in it. reason carries
+// whatever the CLI wrote to stderr while listing, which is where it explains
+// itself; it is quoted back only when something is actually missing.
+func checkArmSkills(armName, armDir string, loaded []string, reason string) error {
+	want, err := armSkillNames(armDir)
+	if err != nil {
+		return fmt.Errorf("%s arm: %w", armName, err)
+	}
+	if armName == controlArm {
+		if len(loaded) != 0 {
+			return fmt.Errorf("%s arm home loads %d go-* skills (%s); skill discovery is not isolated",
+				controlArm, len(loaded), strings.Join(loaded, ", "))
+		}
+		return nil
+	}
+	if len(want) == 0 {
+		return fmt.Errorf("%s arm tree contains no go-* skills", armName)
+	}
+	have := map[string]bool{}
+	for _, name := range loaded {
+		have[name] = true
+	}
+	var missing []string
+	for _, name := range want {
+		if !have[name] {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	err = fmt.Errorf("%s arm home loads %d of %d go-* skills; missing %s",
+		armName, len(loaded), len(want), strings.Join(missing, ", "))
+	if reason = strings.TrimSpace(reason); reason != "" {
+		err = fmt.Errorf("%w: %s", err, reason)
+	}
+	return err
 }
 
 // normalizeSkill strips a plugin prefix ("golang-skills:go-http") and a leading

@@ -62,7 +62,7 @@ func copilotHomes(arms []arm) (func(), error) {
 		if err := writeCopilotHome(home, a.dir); err != nil {
 			return cleanup, fmt.Errorf("prepare %s arm home: %w", a.Name, err)
 		}
-		if err := checkCopilotSkills(home, a.Name); err != nil {
+		if err := checkCopilotSkills(home, a.Name, a.dir); err != nil {
 			return cleanup, err
 		}
 		arms[i].home = home
@@ -84,11 +84,16 @@ func writeCopilotHome(home, armDir string) error {
 	return os.CopyFS(filepath.Join(home, "skills"), os.DirFS(filepath.Join(armDir, "skills")))
 }
 
-// checkCopilotSkills asserts that an arm home loads the skills that arm is
-// supposed to have and nothing else, which is the one precondition the whole
-// comparison rests on.
-func checkCopilotSkills(home, armName string) error {
-	out, err := copilotCmd(copilotSetupTimeout, home, home, "skill", "list", "--json")
+// checkCopilotSkills asserts that an arm home loads exactly the skills that arm
+// is supposed to have, which is the one precondition the whole comparison rests
+// on. checkArmSkills owns the comparison; this function's job is to report what
+// copilot actually loaded, and why it dropped anything.
+//
+// `copilot skill list` exits zero when a skill fails to load and names it on
+// stderr, so the reason is captured and handed to the comparison rather than
+// discarded.
+func checkCopilotSkills(home, armName, armDir string) error {
+	out, stderr, err := copilotOutput(copilotSetupTimeout, home, home, "skill", "list", "--json")
 	if err != nil {
 		return fmt.Errorf("list skills for %s arm: %w", armName, err)
 	}
@@ -98,19 +103,13 @@ func checkCopilotSkills(home, armName string) error {
 	if err := json.Unmarshal(out, &skills); err != nil {
 		return fmt.Errorf("decode skills for %s arm: %w", armName, err)
 	}
-	loaded := 0
+	var loaded []string
 	for _, s := range skills {
 		if strings.HasPrefix(s.Name, "go-") {
-			loaded++
+			loaded = append(loaded, s.Name)
 		}
 	}
-	if armName == controlArm && loaded != 0 {
-		return fmt.Errorf("%s arm home loads %d go-* skills; skill discovery is not isolated", controlArm, loaded)
-	}
-	if armName != controlArm && loaded == 0 {
-		return fmt.Errorf("%s arm home loads no go-* skills", armName)
-	}
-	return nil
+	return checkArmSkills(armName, armDir, loaded, stderr)
 }
 
 // copilotSetupTimeout bounds the per-home skill listing that runs before the
@@ -154,16 +153,27 @@ func copilotSession(o options, a arm, work, prompt string) ([]byte, error) {
 }
 
 // copilotCmd runs one copilot invocation and returns everything it wrote to
-// stdout. The transcript is captured through a temporary file rather than a
-// pipe because a streaming session emits a few megabytes of tool-call deltas,
-// and the part this harness reads — the skill calls, the final message — is
-// spread across all of it.
+// stdout, discarding stderr on success the way a session does not need it.
 func copilotCmd(timeout time.Duration, dir, home string, args ...string) ([]byte, error) {
+	out, _, err := copilotOutput(timeout, dir, home, args...)
+	return out, err
+}
+
+// copilotOutput runs one copilot invocation and returns stdout and stderr
+// separately. The setup check needs both: `copilot skill list` reports a skill
+// it could not parse on stderr and still exits zero, so a caller that only reads
+// stdout cannot tell a complete listing from a truncated one.
+//
+// The transcript is captured through a temporary file rather than a pipe because
+// a streaming session emits a few megabytes of tool-call deltas, and the part
+// this harness reads — the skill calls, the final message — is spread across all
+// of it.
+func copilotOutput(timeout time.Duration, dir, home string, args ...string) ([]byte, string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	stdout, err := os.CreateTemp("", "abrun-transcript-")
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer func() {
 		_ = stdout.Close()           //nolint:errcheck // best-effort cleanup of the transcript buffer
@@ -178,18 +188,18 @@ func copilotCmd(timeout time.Duration, dir, home string, args ...string) ([]byte
 	runErr := cmd.Run()
 	out, err := os.ReadFile(stdout.Name())
 	if err != nil {
-		return nil, fmt.Errorf("read copilot transcript: %w", err)
+		return nil, stderr.String(), fmt.Errorf("read copilot transcript: %w", err)
 	}
 	if ctx.Err() != nil {
-		return out, fmt.Errorf("timed out after %s", timeout)
+		return out, stderr.String(), fmt.Errorf("timed out after %s", timeout)
 	}
 	if runErr != nil {
 		if message := strings.TrimSpace(stderr.String()); message != "" {
-			return out, fmt.Errorf("copilot: %w: %s", runErr, message)
+			return out, stderr.String(), fmt.Errorf("copilot: %w: %s", runErr, message)
 		}
-		return out, fmt.Errorf("copilot: %w", runErr)
+		return out, stderr.String(), fmt.Errorf("copilot: %w", runErr)
 	}
-	return out, nil
+	return out, stderr.String(), nil
 }
 
 // copilotEnv points copilot's configuration and state at the arm's own home and

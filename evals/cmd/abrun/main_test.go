@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -221,6 +222,62 @@ func TestBuildArmsUsesReferenceAndCurrentRoots(t *testing.T) {
 	}
 	if digests["reference"] == digests["baseline"] {
 		t.Errorf("reference digest = baseline digest = %q, want distinct plugin content", digests["reference"])
+	}
+}
+
+func TestCheckFrontmatter(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		want bool // true when the file is expected to be rejected
+	}{
+		{"em-dash description", "---\nname: go-code\ndescription: Use when writing Go — it routes.\n---\n", false},
+		{"unquoted colon-space", "---\nname: go-code\ndescription: Use when writing Go: it routes.\n---\n", true},
+		{"double-quoted colon-space", "---\nname: go-code\ndescription: \"Use when writing Go: it routes.\"\n---\n", false},
+		{"single-quoted colon-space", "---\nname: go-code\ndescription: 'Use when writing Go: it routes.'\n---\n", false},
+		{"colon without a space", "---\nname: go-code\ndescription: Use /opsx:apply with it.\n---\n", false},
+		{"indented continuation", "---\nname: go-code\nallowed-tools:\n  - Read: all\n---\n", false},
+		{"no frontmatter", "# Go Code\n\nA skill with no frontmatter at all.\n", false},
+		{"unclosed frontmatter", "---\nname: go-code\n", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkFrontmatter(tt.text)
+			if (err != nil) != tt.want {
+				t.Errorf("checkFrontmatter() error = %v, want rejected = %v", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestCheckArmSkillsRequiresEverySkillInTheTree(t *testing.T) {
+	armDir := t.TempDir()
+	for _, name := range []string{"go-code", "go-http", "go-testing"} {
+		writeTestFile(t, filepath.Join(armDir, "skills", name, "SKILL.md"), "---\nname: "+name+"\n---\n")
+	}
+
+	if err := checkArmSkills("baseline", armDir, []string{"go-code", "go-http", "go-testing"}, ""); err != nil {
+		t.Errorf("checkArmSkills(complete listing) error = %v, want nil", err)
+	}
+
+	// The bug this guards: one unloadable skill in a full tree used to pass,
+	// because the check only rejected an empty listing.
+	err := checkArmSkills("baseline", armDir, []string{"go-http", "go-testing"}, "failed to parse YAML frontmatter")
+	if err == nil {
+		t.Fatal("checkArmSkills(missing go-code) error = nil, want a rejection")
+	}
+	if !strings.Contains(err.Error(), "go-code") {
+		t.Errorf("checkArmSkills(missing go-code) error = %q, want the missing skill named", err)
+	}
+	if !strings.Contains(err.Error(), "failed to parse YAML frontmatter") {
+		t.Errorf("checkArmSkills(missing go-code) error = %q, want the CLI's own reason quoted", err)
+	}
+
+	if err := checkArmSkills(controlArm, "", nil, ""); err != nil {
+		t.Errorf("checkArmSkills(control, empty) error = %v, want nil", err)
+	}
+	if err := checkArmSkills(controlArm, "", []string{"go-code"}, ""); err == nil {
+		t.Error("checkArmSkills(control, leaked skill) error = nil, want a rejection")
 	}
 }
 

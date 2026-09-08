@@ -95,30 +95,21 @@ the more useful of the two properties when the question is what a change costs
 to review. Correctness is tied at 5/5 golden in both arms there, and at 6/6 on
 the other fixtures, so none of the runs above is evidence about defect rates.
 
-One run was. Under `-runner copilot` with `mai-code-1.1-flash` on 2026-09-07,
-`gateway` passed 1/5 without the skill and 3/5 with it, every failure in both
-arms being the fixture's own trap — a zero `ReadTimeout` or `ReadHeaderTimeout` —
-and both sessions that reached `go-http` setting all four. That made it the first
-model to fall into a trap in this corpus at all, and the routing to the owning
-skill, not the skill's presence, is what separated the arms. At `n=5` Fisher's
-exact gives p = 0.52, so it was a direction and a reason to re-run `gateway`
-larger on that model, not a defect-rate claim. The line result inverts there:
-this model under-implements rather than over-engineers, and the skilled arm
-writes slightly more. See
-[the analysis](../../../docs/evidence/2026-09-07-go-implement-control-mai-code-1.1-flash.md).
+No published run in this corpus is. On every model measured so far the control
+arm passes the hidden test in every session, which is what the corpus was
+designed to make visible and also what keeps it from producing a correctness
+claim. Read every `n=5` correctness cell here as a dated observation of a served
+model version, not a property of the fixtures.
 
-The re-run on 2026-09-08 — same fixtures, prompt, seed, runner and model name —
-took it back. The control arm passed `gateway` 5/5, and the skilled arm 4/5, the
-one failure again being a session that never reached `go-http` and left
-`ReadTimeout` at zero. The control loads no skills, so what moved is the served
-model, not the plugin: the corpus is back to having no live trap on any model in
-the set. Read `n=5` correctness cells here as dated observations of a model
-version. That run also recorded the corpus's best router firing rate, `go-code`
-in 20 of 20 baseline sessions after its description was rewritten, with
-`go-http` reached in 0 of 5 `gateway` sessions against 2 of 5 before — the
-firing rate and the routing that follows it are separate measurements, and only
-the first improved. See
-[the analysis](../../../docs/evidence/2026-09-08-go-implement-control-mai-code-1.1-flash.md).
+Routing is the one thing that has moved. The
+[2026-09-08 GPT-5.6-Luna re-run](../../../docs/evidence/2026-09-08-go-implement-control-gpt-5.6-luna-medium.md)
+reached `go-http` in 4 of 5 `gateway` sessions against 2 of 5 the day before,
+`go-error-handling` in 5 of 5 `catalog` and `go-data-structures` in 4 of 5
+`feed`, and produced exactly the same result as before: golden 20/20 in both
+arms and a corpus size difference under one line. The firing rate, the routing to
+the owning skill, and the measured outcome are three separate results; on a model
+whose control arm is already correct, improving the first two changes nothing in
+the third.
 
 Only `gateway` responded to the single-entry-point rebuild, and the reason is
 the fixture design rule this corpus learned the hard way: **room to
@@ -143,12 +134,11 @@ server timeouts, and kept the error chain without being told. The traps are
 live — each golden test fails on the stub and passes against an idiomatic
 reference — the model simply does not fall into them. Since the control was
 perfect on a small, cheap model, a stronger one cannot do worse, so this was
-read at the time as not a matter of picking a different model. The
-`mai-code-1.1-flash` run above is the counterexample: saturation is a property
-of the model, and a weaker one on the `gateway` trap missed the timeouts in four
-of five unaided runs — for one day. The same model, same seed, re-run on
-2026-09-08 passed 5/5 unaided, so saturation is a property of a model *version*
-and has to be re-measured, not inherited from an earlier file.
+read at the time as not a matter of picking a different model. Treat that
+reading as provisional: saturation is a property of a served model *version*,
+so it has to be re-measured on the model in front of you rather than inherited
+from an earlier file. Every model measured since has saturated too, which is why
+the corpus still has no correctness result.
 
 Triggering ruled out that arm. A `go-*` skill loaded in only half the baseline
 runs, and in none of the three `feed` runs, so half the skilled arm was a

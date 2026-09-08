@@ -38,9 +38,10 @@ and continue independent authorized work without inventing rules.
    variable or `if` does not trigger naming, documentation, or extra style
    references. For mixed tasks, route each area; add owners when new evidence
    requires them. There is no numerical cap. Reuse guidance already read.
-4. **Implement the authorized scope.** Apply the
-   [delete-first priority](../go-code-refactor/SKILL.md#delete-before-you-restructure):
-   after understanding the code, apply the ponytail ladder to each proposed
+4. **Implement the authorized scope.** For new functions, packages, or stub
+   bodies, use [Writing New Code](#writing-new-code). For behavior-preserving
+   restructuring, use the [delete-first priority](../go-code-refactor/SKILL.md#delete-before-you-restructure).
+   After understanding the code, apply the restraint ladder to each proposed
    helper, type, layer, option, or import: (1) omit speculative work,
    (2) reuse existing code, (3) use the standard library, (4) use language or
    platform features, (5) use an existing dependency, (6) use one clear line
@@ -52,6 +53,35 @@ and continue independent authorized work without inventing rules.
    that changes correctness, scope, or authorization.
 5. **Verify and report.** Follow the closing gate below and `go-style-core`'s
    communication guidance. Report outcomes, observed checks, and material gaps.
+
+## Writing New Code
+
+Start at the required entry point and its callers. Implement the documented
+success and failure paths within the existing API; design a new API only when
+the task calls for one. A stub's `panic("not implemented")` is missing behavior,
+not a refactor contract: replace it and satisfy the acceptance tests. Use
+baseline/after equivalence only for existing behavior the task must preserve.
+
+Choose the representation by what must survive the call and who may mutate it.
+Use local values for a one-shot computation; retain fields only for required
+state or dependencies. When several outputs need the same derived data,
+compute it once and render from it. Keep both raw and derived state only when
+the contract or measured workload needs both. Route ownership, empty-result,
+error-chain, and resource-lifetime decisions to their owners before coding.
+
+Write the operation directly first. Extract a helper for shared logic or a
+meaningful operation that makes its caller easier to read. Keep a short,
+single-use validation or field conversion inline when a helper merely renames
+it. Skill examples illustrate behavior; their `validate`, `toDomain`, or
+`writeError` methods are not a required list of helpers to create. Retain an
+interface or layer required by callers; add one only for a concrete boundary,
+not because a new package needs a service/factory/options scaffold.
+
+Check that an existing API's defaults satisfy the contract before wrapping or
+replacing it. Prefer a small adapter for a semantic mismatch. Verify observable
+results at the public boundary, including relevant empty/invalid inputs,
+dependency failures, ordering, and ownership. Use the task's actual cases;
+compiling a package with no tests does not verify these behaviors.
 
 ## Related Skills
 

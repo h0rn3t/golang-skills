@@ -1588,6 +1588,87 @@
         "Does not present the @vN tag as sufficient pinning"
       ],
       "set": "train"
+    },
+    {
+      "id": 45,
+      "prompt": "Use go-code-refactor for this command-selection exercise; do not edit files or run Go commands. User request: Simplify Load's nested branches in internal/cache/cache.go. The module uses Go 1.27, tests are green, and there are no additional repository instructions. Inspection reveals modernization suggestions in unrelated internal/billing and in other functions of cache.go. State your intended edit scope and modernization commands, distinguishing preview from application.",
+      "expected_output": "A function-scoped refactor; any modernization preview is package-scoped and unrelated suggested edits are left unapplied.",
+      "target_skills": [
+        "go-code-refactor"
+      ],
+      "assertions": [
+        "Limits edits to Load and directly necessary changes for the requested simplification",
+        "Does not propose mutating go fix ./... or blindly applying all cache-package rewrites",
+        "If modernization is useful, previews the affected package and applies only in-scope hunks; otherwise proceeds without modernization",
+        "Distinguishes verification scope from mutation scope and does not claim commands ran"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 46,
+      "prompt": "Use go-code-refactor for a snippet-only exercise; do not edit files or run commands. Refactor duplicated policy calculations below, preserving behavior and keeping policies easy to change separately. These are independently configured policies; their identical current numbers are coincidental. Provide the resulting snippet or explain retaining it.\n\nfunc UploadLimit(plan string) int { switch plan { case \"pro\": return 100; default: return 10 } }\nfunc RetryLimit(plan string) int { switch plan { case \"pro\": return 10; default: return 3 } }\nfunc GraceDays(plan string) int { switch plan { case \"pro\": return 10; default: return 3 } }",
+      "expected_output": "Independent policy values remain independently changeable; retaining the small functions is acceptable.",
+      "target_skills": [
+        "go-code-refactor"
+      ],
+      "assertions": [
+        "Preserves each function result, including the default for unknown plans",
+        "Does not make GraceDays call RetryLimit or share numeric constants solely because values match",
+        "Retains independent policy facts, whether as separate branches or distinctly named fields",
+        "Does not add a generic selector or abstraction solely to satisfy a literal-once rule",
+        "Does not claim execution or request approval for a no-change snippet result"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 47,
+      "prompt": "Use go-code-refactor for a snippet-only exercise; do not edit files or run commands. Rate and Surcharge below describe the same carrier-zone policy record and are maintained together. Simplify the repeated selection and threshold logic while preserving all results and error strings.\n\nfunc Rate(zone string) (int, error) { if zone == \"domestic\" { return 499, nil }; if zone == \"regional\" { return 899, nil }; if zone == \"overseas\" { return 1899, nil }; return 0, fmt.Errorf(\"rate %q: unknown zone\", zone) }\nfunc Surcharge(zone string, kg int) (int, error) { if zone == \"domestic\" { if kg >= 20 { return 10, nil }; return 0, nil }; if zone == \"regional\" { if kg >= 20 { return 15, nil }; return 0, nil }; if zone == \"overseas\" { if kg >= 20 { return 25, nil }; return 0, nil }; return 0, fmt.Errorf(\"surcharge %q: unknown zone\", zone) }",
+      "expected_output": "A shared zone policy representation and one surcharge threshold check, with caller-specific unknown-zone errors preserved.",
+      "target_skills": [
+        "go-code-refactor"
+      ],
+      "assertions": [
+        "Uses a shared representation for the related zone values instead of repeated branch bodies",
+        "Expresses the common kg >= 20 calculation once",
+        "Preserves rate and surcharge values and both distinct error strings",
+        "An unknown zone still errors for kg below 20; validation is not moved after an early zero return",
+        "Does not add a search loop or generic framework to maintain a direct zone lookup",
+        "Does not claim execution"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 48,
+      "prompt": "Use go-code for this implementation-planning exercise; do not run tools or edit files. A new Go package has documented exported signatures, bodies that panic(\"not implemented\"), and acceptance tests for the documented behavior. The package compiles, and the tests fail at those stubs. I authorize implementing all bodies and adding any focused tests needed, preserving the signatures. State how you proceed and what evidence counts as completion.",
+      "expected_output": "Implement the documented behavior and make acceptance tests pass; the stub panic is an expected implementation baseline, not behavior to preserve.",
+      "target_skills": [
+        "go-code"
+      ],
+      "assertions": [
+        "Proceeds with the authorized implementation without asking for a green behavior-preservation baseline",
+        "Does not preserve the not-implemented panic or require verify-refactor baseline/after equality for replacing the stubs",
+        "Uses documented behavior and acceptance assertions as completion criteria rather than compilation alone",
+        "Retains exported signatures and implements all required paths instead of a partial happy path",
+        "Does not claim tests or implementation ran in this planning exercise"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 49,
+      "prompt": "Use go-code to propose the smallest structure for a new Go HTTP handler; this is a design exercise, not a request to run commands. NewHandler(store Store) http.Handler must implement one POST endpoint accepting JSON {\"name\":string}, reject empty name, call store.Create(r.Context(), name), and return the created result. The Store interface is already specified by the application and is required for an in-memory adapter in tests and a SQL adapter in production. No other endpoints, configurable policies, or service layers are requested. The module uses Go 1.27 and net/http. Name the implementation pieces and focused checks you would use.",
+      "expected_output": "A direct handler using the required Store boundary, with local decoding/validation and contract-focused tests; no speculative intermediate service or constructor framework.",
+      "target_skills": [
+        "go-code",
+        "go-http"
+      ],
+      "assertions": [
+        "Keeps the existing Store interface and NewHandler API; does not replace an explicitly needed abstraction under a minimalism rule",
+        "Uses a handler closure or comparably simple handler structure with no forwarding service/factory/options layer",
+        "Keeps single-use decoding, simple name validation, and direct mapping local unless a concrete clarity or reuse reason justifies extraction",
+        "Bounds the decoded request body and passes the request context to Create",
+        "Includes success, invalid input before store effects, and dependency failure checks without claiming execution"
+      ],
+      "set": "train"
     }
   ]
 }

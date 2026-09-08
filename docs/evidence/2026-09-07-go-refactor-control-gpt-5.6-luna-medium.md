@@ -57,9 +57,8 @@ effect is −17.6 lines, the largest recorded, and its interval is the only one 
 the corpus that clears zero by more than a rounding error.
 
 `dispatch` is the surprise. It has gone the wrong way on every model measured
-before this one — Opus 5 +2.0, MiniMax M3 +0.8,
-MAI-Code-1.1-Flash +5.8 — and here it is −5.8 with an interval that excludes
-zero. The skilled arm is also far more consistent on it,
+before this one — Opus 5 +2.0, MiniMax M3 +0.8 — and here it is −5.8 with an
+interval that excludes zero. The skilled arm is also far more consistent on it,
 ±1.0 against the control's ±4.3.
 
 | Structural additions across 20 runs | No skill | Skill | Change |

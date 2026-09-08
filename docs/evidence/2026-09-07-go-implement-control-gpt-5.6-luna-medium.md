@@ -43,9 +43,8 @@ repository checkout. Skill routing is the best this corpus has recorded:
 Every trap is saturated. Unaided, this model reaches for a non-nil slice, sets
 all four server timeouts, keeps the error chain and copies the caller's slice —
 without being told, in every one of 20 sessions. That puts it with Opus 5 and
-the pinned-fixture claude run rather than with
-[MAI-Code-1.1-Flash](2026-09-07-go-implement-control-mai-code-1.1-flash.md),
-where `gateway` failed four times in five without the skill.
+the pinned-fixture claude run: no model measured in this corpus has an unaided
+arm that fails a trap.
 
 ### Code size
 

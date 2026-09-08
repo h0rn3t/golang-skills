@@ -22,7 +22,7 @@ func TestParseCopilotStream(t *testing.T) {
 	// The view line carries an argument shape that is not the skill tool's, and
 	// the truncated line is what a killed session leaves behind; neither may cost
 	// the parser the events around it.
-	transcript := `{"type":"session.info","data":{"model":"mai-code-1.1-flash"}}
+	transcript := `{"type":"session.info","data":{"model":"copilot-test-model"}}
 {"type":"tool.execution_start","data":{"toolCallId":"c1","toolName":"view","arguments":{"path":"/tmp/report.go"}}}
 {"type":"tool.execution_start","data":{"toolCallId":"c2","toolName":"skill","arguments":{"skill":"go-code-refactor"}}}
 {"type":"tool.execution_start","data":{"toolCallId":"c3","toolName":"skill","arguments":{"skill":"go-code-refactor"}}}

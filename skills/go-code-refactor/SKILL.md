@@ -147,24 +147,18 @@ bounds check is a bug, not laziness. These stay even when the diff gets uglier.
 
 ## Remove Duplication to the End
 
-When several branches differ only in the constants they carry — a rate, a
-percentage, a threshold — the duplication has two axes: the **selection**
-(which case applies) and the **computation** (what is done with the value).
-Separate them, then check three things before calling the step done:
+When branches repeat one policy or computation and differ only in its values,
+separate **selection** (which case applies) from **computation** (what is done
+with the selected values). Within that shared operation, aim to represent each
+policy fact, selection, and condition ladder once. Replacing literals with
+constants or changing `if` to `switch` alone does not remove repeated logic.
 
-1. Each literal appears once in the code — once, not once under a name. Nine
-   constants standing in for nine literals are the same duplication plus nine
-   lines.
-2. Each selection over the same key appears once. Three functions that each
-   switch on the same argument are one selection written three times; fold
-   them into one lookup and let the functions read from it.
-3. Each condition ladder appears once. Four copies of the same
-   `if x >= a … if x >= b` ladder are one ladder with four pairs of values.
-
-Removing one axis and leaving the other is the most common unfinished
-refactor on this kind of code, and rewriting the `if` chain as a `switch`
-removes neither. Stop only when all three hold, or the remaining copy has a
-reason in the report.
+Equal literals and matching switch keys do not establish a shared policy.
+For example, a retry limit of 3 and a grace period of 3 days remain independent
+facts. Keep independently changing policies separate; combine related values
+when they belong to one record and the final code becomes easier to follow.
+Stop when another fold would add more coupling or indirection than it removes;
+explain a material remaining duplication briefly in the report.
 
 Pick the shape by the final code, call sites included: an exported accessor
 that already performs the selection, before a new unexported helper; a
@@ -216,16 +210,16 @@ off-by-ones. **Do not fix them.** A diff that mixes "reads better" with
 "behaves differently" cannot be reviewed as a refactor. Collect them and hand
 them back. Report every severity; the user triages faster than you can filter.
 
-### 3. Let `go fix` do the mechanical work first
+### 3. Scope mechanical modernization
 
-```bash
-go fix -diff ./...   # read it
-go fix ./...         # then apply
-```
+When modernization helps the requested refactor, preview it for the affected
+packages, for example `go fix -diff ./internal/cache`. Use `./...` only for a
+module-wide scope. Apply `go fix` only when every proposed edit is in scope;
+for a function-only task, apply relevant hunks manually if the preview also
+changes neighboring functions. A broader verification gate does not widen the
+edit scope. If no relevant modernization helps, proceed to the hand edits.
 
-Running this first keeps mechanical changes attributable to the tool, so
-everything left is a judgment call you have to justify. Read the diff rather
-than trusting it. Then apply the Tier 1 hand edits from
+Keep mechanical edits attributable and respect `go.mod` and the risk tiers in
 `references/MODERNIZATION.md`; Tier 3 items go in the findings list.
 
 ### 4. Refactor in verifiable steps

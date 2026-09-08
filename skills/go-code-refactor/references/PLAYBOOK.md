@@ -87,9 +87,9 @@ belong at the top of the report; reviewers approve them at a glance.
 
 ### Duplication that differs only in values
 
-Branches that carry different constants around the same shape are a deletion
-waiting to happen, not a restructuring. Two functions that each select over
-the same key are one selection written twice:
+When several functions select fields of the same policy record, a shared
+table can remove repeated selection. Matching keys or equal numbers in
+independently changing policies alone do not justify combining them:
 
 ```go
 // before: the selection lives in every function, the literals twice over
@@ -126,7 +126,7 @@ func Surcharge(zone string, kg int) (int, error) {
 ```
 
 ```go
-// after: one selection, one ladder, every literal once
+// after: one policy table; callers preserve their own errors
 type zone struct {
     rate  int64
     heavy int // surcharge percent at 20 kg and above
@@ -158,13 +158,11 @@ func Surcharge(name string, kg int) (int, error) {
 }
 ```
 
-The step is done when each literal appears once in the code (not once under a
-constant's name), each selection over the key appears once, and each condition
-ladder appears once — `SKILL.md` states the three checks. Rewriting the
-`if` chain as a `switch` satisfies none of them. Half-measures to watch for:
-a shared helper for the ladder while the selection stays in every function;
-a `switch` helper for the values while the ladder stays in every case; nine
-named constants in place of nine literals.
+Here the zone facts live in one table, while the accessors retain their distinct
+error behavior. Use the completion criteria in
+[Remove Duplication to the End](../SKILL.md#remove-duplication-to-the-end);
+compare the entire result, including the table and accessors. Check for shared
+computation still repeated in callers before introducing another helper.
 
 The shape follows the final code. An exported accessor that already performs
 the selection is reused before a new unexported helper is written. Cases that

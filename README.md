@@ -229,7 +229,7 @@ which works across multiple AI coding tools. When you're writing Go code:
 ## Running the Evals
 
 `evals/evals.json` holds 105 trigger evals (does the right skill fire for this
-prompt?) and 44 quality evals (does the answer satisfy each assertion?). The Go
+prompt?) and 49 quality evals (does the answer satisfy each assertion?). The Go
 tests in `evals/` validate their schema on every push; running them against a
 model is opt-in because it costs tokens:
 
@@ -258,7 +258,7 @@ these application probes from a full cross-model benchmark.
 
 **The clearest benefits are in refactoring with GPT-5.6-Luna, Opus 5, and
 MiniMax M3. There is no convincing benefit for writing new code yet.
-Sonnet 5 is mixed; benefits for MAI and DeepSeek remain unproven.**
+Sonnet 5 is mixed.**
 
 ✅ **Helps on tested tasks** · 🟡 **Mixed / weak signal** ·
 ➖ **Benefit not established** · — **Not tested**.
@@ -266,12 +266,10 @@ These are practical interpretations of the tests, not guarantees for every proje
 
 | Model / tool | Refactoring existing code | Writing new code | Cost with skills | Practical takeaway |
 |---|---|---|---|---|
-| **GPT-5.6-Luna / Codex** | [✅ Helps: far fewer unnecessary helpers; latest test covers only `report`](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md) | [➖ No visible benefit: correctness and size nearly unchanged](docs/evidence/2026-09-07-go-multirunner-gpt-5.6-luna-medium.uk.md) | Not measured in USD | **Worth using for refactoring.** |
+| **GPT-5.6-Luna / Codex** | [✅ Helps: far fewer unnecessary helpers; latest test covers only `report`](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md) | [➖ No visible benefit: correctness and size unchanged on a re-run](docs/evidence/2026-09-08-go-implement-control-gpt-5.6-luna-medium.md) | Not measured in USD | **Worth using for refactoring.** |
 | **Opus 5 / Claude** | [✅ Helps: less unnecessary structure, especially on `report`](docs/evidence/2026-09-07-go-refactor-control-opus5.md) | [➖ Small gain in the latest run; only two tasks tested](docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md) | New code ≈ **2.8×**; refactoring unavailable | **Worth using for refactoring.** |
 | **MiniMax M3 / OpenCode** | [✅ Helps: less code and fewer unnecessary helpers](docs/evidence/2026-09-07-go-refactor-control-minimax-m3.md) | [➖ Benefit unproven: fewer passing sessions](docs/evidence/2026-09-07-go-implement-discovery-minimax-m3.md) | Refactoring ≈ **2.5×**, new code ≈ **1.9×** | **Better refactoring, not a cost saving.** |
 | **Sonnet 5 / Claude** | [🟡 Fewer helpers, but some tasks improve and others worsen](docs/evidence/2026-09-08-go-refactor-control-sonnet-5.md) | [➖ Same correctness, more code and helpers](docs/evidence/2026-09-08-go-implement-control-sonnet-5.md) | Refactoring ≈ **3.3×**, new code ≈ **2.3×** | **Questionable benefit at this price.** |
-| **MAI-Code-1.1-Flash / Copilot** | [➖ No clear gain; more helpers](docs/evidence/2026-09-08-go-refactor-control-mai-code-1.1-flash.md) | [➖ Earlier gain did not reproduce; fewer passing sessions](docs/evidence/2026-09-08-go-implement-control-mai-code-1.1-flash.md) | Not measured in USD | **No basis to expect an improvement yet.** |
-| **DeepSeek V4 Flash / OpenCode** | — Not tested | [➖ Same number of passing sessions; only `gateway` tested](docs/evidence/2026-09-08-go-code-contract-gateway-deepseek-v4-flash.json) | New code ≈ **1.15×** | **Benefit not established yet.** |
 
 Uses the latest available control run for each model + tool + work type by
 JSON `finished` (September 7–8, 2026, local time). A newer subset run does not

@@ -17,12 +17,14 @@ and inspected.
 Use `%v` when you want to:
 
 - Add context without preserving the error chain for programmatic inspection
-- Create fresh, independent errors (especially at system boundaries like
-  RPC/IPC)
+- Deliberately keep the cause opaque under the API's error contract
 - Log or display errors to humans
 
+`%v` preserves the error text, not its identity or type. It does not redact
+sensitive details; external responses may need a separate safe message.
+
 ```go
-// Good: %v at system boundary - hide internal details
+// Good: keep the cause opaque when that is the API's contract
 func (s *Server) SuggestFortune(ctx context.Context, req *pb.Request) (*pb.Response, error) {
     if err != nil {
         return nil, fmt.Errorf("couldn't find fortune database: %v", err)
@@ -55,7 +57,7 @@ if errors.Is(err, fs.ErrNotExist) {
 - You explicitly document and test the underlying errors you expose
 
 **Use %v when**:
-- At system boundaries (RPC, IPC, storage) to translate to canonical error space
+- The API deliberately omits the underlying cause from programmatic inspection
 - Logging or displaying to humans
 - Creating independent errors that hide implementation details
 
@@ -107,17 +109,21 @@ information the underlying error already provides:
 
 ```go
 // Good: Adds meaningful context
-if err := os.Open("settings.txt"); err != nil {
+f, err := os.Open("settings.txt")
+if err != nil {
     return fmt.Errorf("launch codes unavailable: %v", err)
 }
+defer f.Close()
 // Output: launch codes unavailable: open settings.txt: no such file or directory
 ```
 
 ```go
 // Bad: Duplicates the filename
-if err := os.Open("settings.txt"); err != nil {
+f, err := os.Open("settings.txt")
+if err != nil {
     return fmt.Errorf("could not open settings.txt: %v", err)
 }
+defer f.Close()
 // Output: could not open settings.txt: open settings.txt: no such file or directory
 ```
 
@@ -176,7 +182,7 @@ log sinks are not appropriate for sensitive user data.
 
 | Pattern | Guidance |
 |---------|----------|
-| `%v` | Use at system boundaries, for logging, to hide details |
+| `%v` | Display text or deliberately omit the chain; does not redact the message |
 | `%w` | Use to preserve error chain for programmatic inspection |
 | `%w` placement | Always at the end: `"context: %w"` |
 | Adding context | Add new info, don't duplicate existing info |

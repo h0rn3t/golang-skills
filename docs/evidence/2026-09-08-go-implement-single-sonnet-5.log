@@ -1,0 +1,21 @@
+1 fixtures x 1 arms x 1 reps = 1 runs
+
+[ok ] baseline                 gateway    #0  lines +67  types +0  funcs +2  exp +0  branch +7  build=true model_tests=skipped golden=true skills=[go-code]
+       source: /var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2017038999
+       --- output ---
+Vet passed. The implementation is complete.
+
+**Summary:**
+- `NewServer` builds a `net/http` `ServeMux` with method-qualified patterns (`GET /healthz`, `GET /accounts`, `GET /accounts/{id}`), which gives automatic 404s for unknown paths and 405s for known paths with the wrong method for free.
+- Accounts are cloned and sorted by ID once at construction; a `byID` map supports O(1) lookups. Both are read-only afterward, so no locking is needed.
+- `/accounts` filters by the optional `active` query parameter (`true`/`false`), returning 400 naming the parameter for any other value.
+- `/accounts/{id}` returns 404 via `http.NotFound` for unknown IDs.
+- Since this server sits directly on the open internet with no proxy, I set `ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout`, and `IdleTimeout` on the `http.Server` to bound slow/stalled clients and reap idle connections, per the doc comment's threat description.
+
+I ran `go vet ./gateway` (via the edit hook) after each change; it's now clean. Let me know if you'd like me to also run the test suite if one exists.
+
+arm                       runs errors valid   Δlines  Δtypes  Δiface  Δfuncs  Δpattern   Δexp  Δbranch   build  golden  skill    $/run
+baseline                     1      0     1     67.0    0.00    0.00    2.00      0.00   0.00     7.00    100%    100%   100%   0.2190
+
+report written to ../docs/evidence/2026-09-08-go-implement-single-sonnet-5.json
+

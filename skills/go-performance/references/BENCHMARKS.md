@@ -274,27 +274,19 @@ func BenchmarkCorrect(b *testing.B) {
 }
 ```
 
-### Not preventing compiler elision
+### Compiler Elision with `b.Loop`
 
-If the result of a function call is unused, the compiler may optimize the call
-away entirely. Assign results to a package-level variable:
+In the exact `for b.Loop() { ... }` form (Go 1.24+), the compiler keeps
+arguments and results of calls inside the loop alive. The call below does not
+need a package-level sink:
 
 ```go
-// Bad: Compiler may optimize away the call
-func BenchmarkElided(b *testing.B) {
+func BenchmarkWork(b *testing.B) {
     for b.Loop() {
         expensiveFunc()
     }
 }
-
-// Good: Assign to package-level var to prevent elision
-var benchResult int
-
-func BenchmarkKept(b *testing.B) {
-    var r int
-    for b.Loop() {
-        r = expensiveFunc()
-    }
-    benchResult = r
-}
 ```
+
+That guarantee does not cover manual `b.N` loops or `RunParallel`; ensure
+results stay observable there. See [B.Loop](https://pkg.go.dev/testing#B.Loop).

@@ -65,6 +65,7 @@ func withTx(ctx context.Context, db *sql.DB, fn func(tx *sql.Tx) error) error {
     if err != nil {
         return fmt.Errorf("begin: %w", err)
     }
+    defer tx.Rollback() // also releases the transaction if fn panics
     if err := fn(tx); err != nil {
         if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
             return errors.Join(err, fmt.Errorf("rollback: %w", rbErr))

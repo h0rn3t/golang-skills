@@ -71,7 +71,8 @@ func ExampleConfig_WriteTo() {
         Name: "example",
     }
     if err := cfg.WriteTo(os.Stdout); err != nil {
-        log.Exitf("Failed to write config: %s", err)
+        fmt.Println("write config:", err)
+        return
     }
     // Output:
     // {

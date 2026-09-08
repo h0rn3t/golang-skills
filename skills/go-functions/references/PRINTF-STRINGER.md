@@ -257,11 +257,9 @@ This trap also applies to:
 ```go
 type IPAddr [4]byte
 
-// BUG: %v calls String(), infinite recursion
+// Safe: the arguments are bytes, not the IPAddr receiver.
 func (ip IPAddr) String() string {
     return fmt.Sprintf("%v.%v.%v.%v", ip[0], ip[1], ip[2], ip[3])
-    // Safe here — ip[0] is a byte (uint8), which has no String() method.
-    // But if ip were a named type wrapping a Stringer, this would recurse.
 }
 ```
 

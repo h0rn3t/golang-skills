@@ -23,12 +23,11 @@ created by code and consumed by code.
 
 ## Choosing an Error Strategy
 
-1. System boundary (RPC, IPC, storage)? → Wrap with `%v` to avoid leaking internals
-2. Caller needs to match specific conditions? → Sentinel or typed error, wrap with `%w`
-3. Caller just needs debugging context? → `fmt.Errorf("...: %w", err)`
-4. Leaf function, no wrapping needed? → Return the error directly
-
-**Default**: wrap with `%w` and place it at the end of the format string.
+First distinguish propagating an existing cause from defining a new condition
+or structured payload; [Error Types](#error-types) owns that choice.
+When adding context to an existing error, use `%w` if callers should retain
+access to the cause; otherwise translate it to the API's documented error.
+Return `err` directly when no context or translation is needed.
 
 ---
 
@@ -151,15 +150,17 @@ Error encountered?
 
 > **Advisory**: Recommended best practice.
 
-| Caller needs to match? | Message type | Use |
-|------------------------|--------------|-----|
-| No | static | `errors.New("message")` |
-| No | dynamic | `fmt.Errorf("msg: %v", val)` |
-| Yes | static | `var ErrFoo = errors.New("...")` |
-| Yes | dynamic | custom `error` type |
+| Caller contract | Use |
+|-----------------|-----|
+| Preserve an existing cause while adding context | `fmt.Errorf("...: %w", err)` |
+| Match a stable condition without additional data | Reuse a suitable sentinel; define one for a new condition |
+| Inspect additional structured fields or type-specific behavior | Custom `error` type |
+| Message only, no stable matching contract | `errors.New` for static text; `fmt.Errorf` for dynamic text |
 
-**Default**: Wrap with `fmt.Errorf("...: %w", err)`. Escalate to sentinels for
-`errors.Is()`, to custom types for `errors.AsType[T]()`.
+Dynamic wording alone does not justify a new type. `%w` already preserves
+existing sentinels and typed causes for `errors.Is` and `errors.AsType`.
+Add a custom type when callers need new programmatic data or behavior beyond
+the existing cause and a contextual message.
 
 ### Matching a typed error
 
@@ -186,8 +187,8 @@ sentinel comparison — `AsType` replaces `As`, not `Is`.
 
 > **Advisory**: Recommended best practice.
 
-- **Use `%v`**: At system boundaries, for logging, to hide internal details
-- **Use `%w`**: To preserve error chain for `errors.Is`/`errors.As`
+- **Use `%v`**: For display or annotation that deliberately omits the error chain
+- **Use `%w`**: When the underlying cause is part of the caller-facing contract
 
 **Key rules**: Place `%w` at the end. Add context callers don't have. If
 annotation adds nothing, return `err` directly.

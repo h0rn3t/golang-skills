@@ -6,7 +6,7 @@ description: Use when choosing or writing Go generics, constraints, type aliases
 # Go Generics and Type Parameters
 
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Generic **methods**
-> and relaxed inference for partially instantiated functions require Go 1.27+;
+> and inference in function-type conversions require Go 1.27+;
 > generic type aliases require Go 1.24+; generics themselves, Go 1.18+.
 
 ## Resource Routing
@@ -70,9 +70,9 @@ Constraints:
 - Same restraint as generic functions: add the parameter when a second type
   actually appears, not in anticipation.
 
-Go 1.27 also relaxes inference for partially instantiated generic functions and
-allows a trailing comma in type parameter lists. Prefer inference; write
-explicit type arguments only where inference fails or the call site is unclear.
+Go 1.27 extends function type inference to all assignments and conversions to
+matching function types. Assignment to a typed variable already supported
+inference in Go 1.21. Prefer inference when the call site remains clear.
 
 ---
 
@@ -84,8 +84,7 @@ explicit type arguments only where inference fails or the call site is unclear.
 | `K` / `V` | Map key / value type |
 | `E` | Element/item type |
 
-For complex constraints, a short descriptive name is fine:
-`func Marshal[Opts encoding.MarshalOptions](v any, opts Opts) ([]byte, error)`.
+For complex constraints, a short descriptive name can clarify the parameter's role.
 
 ---
 

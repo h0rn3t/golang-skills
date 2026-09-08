@@ -99,7 +99,7 @@ that the implementation never needed.
 The compiler infers type parameters from function arguments:
 
 ```go
-result := slices.Contains[string](names, "alice")  // explicit — unnecessary
+result := slices.Contains[[]string](names, "alice") // explicit — unnecessary
 result := slices.Contains(names, "alice")           // inferred — preferred
 ```
 

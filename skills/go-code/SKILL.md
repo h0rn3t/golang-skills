@@ -70,13 +70,13 @@ the contract or measured workload needs both. Route ownership, empty-result,
 error-chain, and resource-lifetime decisions to their owners before coding.
 
 Write the required operation directly. Extract a helper when it centralizes a
-shared rule, isolates a distinct algorithm or resource lifetime, or lets the
-caller express the operation without exposing its mechanics. Keep short,
-single-use forwarding, validation, and field mapping local. Judge the caller
-and helper together, including parameters and shared state; a helper may be
-worthwhile without reducing line count. Skill examples illustrate behavior;
-their `validate`, `toDomain`, or `writeError` methods are not a required list
-of helpers to create.
+shared rule or isolates a distinct algorithm or resource lifetime. For other
+cases, compare the inline operation with the helper and all its call sites;
+choose the clearer whole, including parameters and shared state. Keep short,
+single-use forwarding, validation, and field mapping local. A useful helper
+need not reduce line count. Skill examples illustrate behavior; their
+`validate`, `toDomain`, or `writeError` methods are not a required list of
+helpers to create.
 
 Retain interfaces and layers required by callers. Add an interface for an
 identified consumer's substitution boundary, including a needed test double;
@@ -84,10 +84,12 @@ the number of production implementations alone does not decide. A new package
 does not itself need a service/factory/options scaffold.
 
 Check that an existing API's defaults satisfy the contract before wrapping or
-replacing it. Prefer a small adapter for a semantic mismatch. Verify observable
-results at the public boundary, including relevant empty/invalid inputs,
-dependency failures, ordering, and ownership. Use the task's actual cases;
-compiling a package with no tests does not verify these behaviors.
+replacing it. Prefer a small adapter for a semantic mismatch. Derive checks at
+the public boundary from the task's requirements: success and failure paths,
+including relevant empty/invalid inputs, dependency failures, ordering, and
+ownership. When rules overlap, test an input that distinguishes which rule
+takes precedence. Passing existing tests establishes only the cases they
+exercise; compilation alone does not verify behavior.
 
 Before closing, inspect the new code for unused public surface, redundant
 stored values, forwarding wrappers, and duplicated business rules. Simplify

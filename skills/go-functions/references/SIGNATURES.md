@@ -72,12 +72,12 @@ result := foo.Call(
 )
 
 // Good: factor out locals for clarity
-transformed := anotherPackage.Transform(data)
 computed := somePackage.ComplexFunction(arg1, arg2)
+transformed := anotherPackage.Transform(data)
 result := foo.Call(computed, transformed, defaultOptions)
 ```
 
-This improves readability and makes intermediate values available for debugging.
+Preserve the original left-to-right call order when introducing locals.
 
 ---
 

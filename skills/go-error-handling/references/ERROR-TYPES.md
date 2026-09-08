@@ -7,14 +7,14 @@ the right error type for your use case.
 
 ## Error Structure
 
-> The error-type decision table is in the parent skill (SKILL.md § Error Types).
+> The error-type decision table is in [the parent skill](../SKILL.md#error-types).
 > This reference covers: expanded code examples, sentinel errors, error checking
-> with `errors.Is`/`errors.As`, and structured error types.
+> with `errors.Is`/`errors.AsType`, and structured error types.
 
 **Key considerations**:
 
-- Does the caller need to match the error with `errors.Is` or `errors.As`?
-- Is the error message static or does it require runtime values?
+- Does the caller need to inspect an existing cause or a new condition?
+- Does the caller need additional structured fields, or just context in the message?
 - Exported error variables/types become part of your public API
 
 ```go
@@ -22,25 +22,21 @@ the right error type for your use case.
 func Open() error {
     return errors.New("could not open")
 }
+```
 
-// Matching needed, static message - export a sentinel
+```go
+// A new stable condition callers need to match - export a sentinel
 var ErrCouldNotOpen = errors.New("could not open")
 
 func Open() error {
     return ErrCouldNotOpen
 }
+```
 
-// Matching needed, dynamic message - use custom type
-type NotFoundError struct {
-    File string
-}
-
-func (e *NotFoundError) Error() string {
-    return fmt.Sprintf("file %q not found", e.File)
-}
-
-func Open(file string) error {
-    return &NotFoundError{File: file}
+```go
+// Existing cause plus dynamic context - retain the cause without a new type
+if err != nil {
+    return fmt.Errorf("open %q: %w", file, err)
 }
 ```
 
@@ -113,7 +109,10 @@ if regexp.MatchString(`marsupial`, err.Error()) {...}
 
 ## Structured Error Types
 
-For errors needing additional programmatic information, use struct types:
+Use a struct when callers need additional fields as programmatic information.
+If the operation and path are only message context, `%w` is sufficient to
+preserve an existing cause. Here the caller also needs to inspect `Op` and
+`Path` as fields:
 
 ```go
 // Good: Structured error with accessible fields
@@ -130,11 +129,10 @@ func (e *PathError) Error() string {
 func (e *PathError) Unwrap() error { return e.Err }
 ```
 
-Callers can use `errors.As` to extract the structured error:
+Callers can use `errors.AsType` (Go 1.26+) to extract the structured error:
 
 ```go
-var pathErr *os.PathError
-if errors.As(err, &pathErr) {
+if pathErr, ok := errors.AsType[*PathError](err); ok {
     fmt.Println("Failed path:", pathErr.Path)
 }
 ```
@@ -143,11 +141,9 @@ if errors.As(err, &pathErr) {
 
 ## Quick Reference
 
-| Scenario | Error Type |
-|----------|------------|
-| No matching needed, static message | `errors.New("message")` |
-| No matching needed, dynamic message | `fmt.Errorf("msg: %v", val)` |
-| Matching needed, static message | `var ErrFoo = errors.New(...)` |
-| Matching needed, dynamic message | custom struct type |
+Choose the representation with [Error Types](../SKILL.md#error-types).
+
+| Inspection | Use |
+|------------|-----|
 | Checking sentinel errors | `errors.Is(err, ErrFoo)` |
-| Extracting structured errors | `errors.As(err, &target)` |
+| Extracting structured errors | `errors.AsType[*PathError](err)` (Go 1.26+) |

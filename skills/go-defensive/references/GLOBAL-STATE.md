@@ -83,8 +83,12 @@ parameters or struct fields instead of reading package-level variables.
 ```go
 var db *sql.DB
 
-func GetUser(id int) (*User, error) {
-    return db.QueryRow("SELECT ...", id) // depends on global
+func GetUser(ctx context.Context, id int) (*User, error) {
+    var u User
+    if err := db.QueryRowContext(ctx, "SELECT id FROM users WHERE id = $1", id).Scan(&u.ID); err != nil {
+        return nil, err
+    }
+    return &u, nil // depends on global db
 }
 ```
 
@@ -98,8 +102,12 @@ func NewUserStore(db *sql.DB) *UserStore {
     return &UserStore{db: db}
 }
 
-func (s *UserStore) GetUser(id int) (*User, error) {
-    return s.db.QueryRow("SELECT ...", id)
+func (s *UserStore) GetUser(ctx context.Context, id int) (*User, error) {
+    var u User
+    if err := s.db.QueryRowContext(ctx, "SELECT id FROM users WHERE id = $1", id).Scan(&u.ID); err != nil {
+        return nil, err
+    }
+    return &u, nil
 }
 ```
 

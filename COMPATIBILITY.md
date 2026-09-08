@@ -33,8 +33,8 @@ mechanism — set `go 1.27` in `go.mod` and let vet catch the rest.
 |---|---|---|
 | Generic methods (`func (s *S) Get[T any](...)`) | 1.27 | Methods may declare their own type parameters |
 | Promoted fields in keyed struct literals | 1.27 | Direct initialization through embedded value fields; `go fix` analyzer `embedlit`; pointer embedding and overlapping enclosing/promoted fields are excluded |
-| Relaxed inference for partially instantiated generic functions | 1.27 | Fewer explicit type arguments needed |
-| Trailing comma in type parameter lists | 1.27 | `[T any,]` |
+| Function type inference in all assignments and conversions | 1.27 | Typed-variable assignment already supported inference in 1.21 |
+| Trailing comma in type parameter lists | 1.18 | `[T any,]`; part of the original generics syntax |
 | `new(expr)` — allocate and initialize in one expression | 1.26 | `p := new(compute())`; `go fix` analyzer `newexpr` |
 | Generic type aliases | 1.24 | `type Set[T comparable] = map[T]struct{}` |
 | `tool` directive in `go.mod`, run with `go tool <name>` | 1.24 | Tracked tool dependencies; replaces a `tools.go` of blank imports |

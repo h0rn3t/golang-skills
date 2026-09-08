@@ -113,12 +113,13 @@ than `(s, "")`, the swap needs an explicit `if !ok`.
 
 ### Drop now-redundant type arguments — Go 1.27
 
-Inference now applies where a generic function is assigned or converted to a
-matching function type, so instantiations added to satisfy the old compiler go:
+Inference now applies to all assignments and conversions to matching function
+types. Typed-variable assignment already worked in Go 1.21; conversion is new:
 
 ```go
-var fold func(int, int) int = combine[int] // before
-var fold func(int, int) int = combine      // after
+type Fold func(int, int) int
+fold := Fold(combine[int]) // before
+fold := Fold(combine)      // Go 1.27
 ```
 
 ### `url.URL.Clone` / `url.Values.Clone` — Go 1.27

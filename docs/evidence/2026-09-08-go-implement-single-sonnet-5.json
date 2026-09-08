@@ -1,0 +1,66 @@
+{
+  "prompt": "Implement the Go package in ./%s. Every exported declaration is already there with its documentation; write the bodies so the package does what the documentation says. Do not change the exported signatures. Apply the changes to the files.",
+  "corpus": "implement",
+  "runner": "claude",
+  "model": "claude-sonnet-5",
+  "reps": 1,
+  "seed": 1,
+  "arms": [
+    {
+      "name": "baseline",
+      "source": "/Users/eugeneshershen/golang-skills",
+      "sha256": "eefdafe8c65819a574f7f804e0553f07b13ee80d38003ddf4da4b06f32d330bc"
+    }
+  ],
+  "results": [
+    {
+      "arm": "baseline",
+      "task": "gateway",
+      "rep": 0,
+      "skills": [
+        "go-code"
+      ],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 104,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 67,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 7
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "cost_usd": 0.21905,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2017038999",
+      "output": "Vet passed. The implementation is complete.\n\n**Summary:**\n- `NewServer` builds a `net/http` `ServeMux` with method-qualified patterns (`GET /healthz`, `GET /accounts`, `GET /accounts/{id}`), which gives automatic 404s for unknown paths and 405s for known paths with the wrong method for free.\n- Accounts are cloned and sorted by ID once at construction; a `byID` map supports O(1) lookups. Both are read-only afterward, so no locking is needed.\n- `/accounts` filters by the optional `active` query parameter (`true`/`false`), returning 400 naming the parameter for any other value.\n- `/accounts/{id}` returns 404 via `http.NotFound` for unknown IDs.\n- Since this server sits directly on the open internet with no proxy, I set `ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout`, and `IdleTimeout` on the `http.Server` to bound slow/stalled clients and reap idle connections, per the doc comment's threat description.\n\nI ran `go vet ./gateway` (via the edit hook) after each change; it's now clean. Let me know if you'd like me to also run the test suite if one exists."
+    }
+  ],
+  "finished": "2026-09-08T20:51:11.455994+03:00"
+}

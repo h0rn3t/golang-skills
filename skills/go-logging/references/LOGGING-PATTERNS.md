@@ -151,7 +151,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
         start := time.Now()
         reqID := r.Header.Get("X-Request-ID")
         if reqID == "" {
-            reqID = uuid.NewString()
+            reqID = uuid.New().String() // standard-library uuid, Go 1.27+
         }
 
         logger := slog.With(

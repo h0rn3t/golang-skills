@@ -108,13 +108,9 @@ go func() {
 }()
 wg.Wait()
 
-// Good: Always defer wg.Done
+// Good: WaitGroup.Go owns completion (Go 1.25+); doWork must not panic
 var wg sync.WaitGroup
-wg.Add(1)
-go func() {
-    defer wg.Done()
-    doWork()
-}()
+wg.Go(doWork)
 wg.Wait()
 ```
 
@@ -139,13 +135,11 @@ wg.Wait()
 var wg sync.WaitGroup
 sem := make(chan struct{}, maxWorkers)
 for _, item := range items {
-    wg.Add(1)
     sem <- struct{}{}
-    go func(it Item) {
-        defer wg.Done()
+    wg.Go(func() {
         defer func() { <-sem }()
-        process(it)
-    }(item)
+        process(item) // must not panic
+    })
 }
 wg.Wait()
 ```

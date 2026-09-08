@@ -1,0 +1,62 @@
+{
+  "prompt": "Implement the Go package in ./%s. Every exported declaration is already there with its documentation; write the bodies so the package does what the documentation says. Do not change the exported signatures. Apply the changes to the files.",
+  "corpus": "implement",
+  "runner": "claude",
+  "model": "claude-sonnet-5",
+  "reps": 1,
+  "seed": 1,
+  "arms": [
+    {
+      "name": "no-skill"
+    }
+  ],
+  "results": [
+    {
+      "arm": "no-skill",
+      "task": "gateway",
+      "rep": 0,
+      "skills": [],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 103,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 66,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 7
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "cost_usd": 0.07990900000000001,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1591690933",
+      "output": "This looks correct and complete. The implementation:\n\n- Sorts accounts by ID once and builds an ID→account map for O(1) lookups.\n- Uses Go's enhanced `http.ServeMux` (method-prefixed patterns) so unmatched paths get 404 and known paths with the wrong method get 405 automatically.\n- Validates `active` with `Query().Has()` so a present-but-invalid value triggers 400, distinct from the parameter being absent.\n- Sets edge-appropriate `http.Server` timeouts (`ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout`, `IdleTimeout`) and `MaxHeaderBytes` to protect against slow/idle clients on the open internet, as the doc comment calls out."
+    }
+  ],
+  "finished": "2026-09-08T20:58:50.472712+03:00"
+}

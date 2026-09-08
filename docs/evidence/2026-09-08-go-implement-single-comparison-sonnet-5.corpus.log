@@ -1,0 +1,35 @@
+3 fixtures x 2 arms x 1 reps = 6 runs
+
+[ok ] no-skill                 catalog    #0  lines +37  types +1  funcs +2  exp +0  branch +4  build=true model_tests=skipped golden=true skills=[]
+       source: /var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-428515256
+       --- output ---
+Implemented `Resolve`: it deduplicates SKUs so repeats cost one round trip, skips `ErrNotFound` SKUs, and on any other error wraps it in an unexported `resolveError` (SKU + underlying error, with `Unwrap` for `errors.Is`/`As`) before aborting the walk.
+[ok ] baseline                 ledger     #0  lines +37  types +0  funcs +0  exp +0  branch +6  build=true model_tests=skipped golden=true skills=[go-code]
+       source: /var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1034227690
+       --- output ---
+No hook errors this time — `go vet` passed. Implemented `New` (aggregates entries per account, computes total, sorts account names) and `Report` (renders text/csv per the documented formats, erroring on unknown formats).
+[ok ] no-skill                 feed       #0  lines +47  types +0  funcs +0  exp +0  branch +4  build=true model_tests=skipped golden=true skills=[]
+       source: /var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2950460654
+       --- output ---
+Implemented `Render` to build the JSON document with `account`, `events` (filtered, RFC 3339 timestamps), sorted distinct `kinds`, and `counts`, returning an error naming the field when `account` is empty.
+[ok ] no-skill                 ledger     #0  lines +41  types +0  funcs +0  exp +0  branch +6  build=true model_tests=skipped golden=true skills=[]
+       source: /var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-563475645
+       --- output ---
+Implementation looks correct and matches the documented behavior. `New` aggregates entries into per-account balances and a total (immune to later mutation of the input slice), and `Report` renders sorted text/csv output with a TOTAL line, erroring on unknown formats.
+[ok ] baseline                 feed       #0  lines +44  types +0  funcs +0  exp +0  branch +4  build=true model_tests=skipped golden=true skills=[go-code]
+       source: /var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2678420264
+       --- output ---
+No hook errors this time — the edit passed `go vet`. The implementation filters out events with an empty ID, builds sorted distinct kinds and per-kind counts, formats timestamps as RFC 3339, and always emits non-null `events`/`kinds`/`counts` even when empty.
+[ok ] baseline                 catalog    #0  lines +21  types +0  funcs +0  exp +0  branch +4  build=true model_tests=skipped golden=true skills=[go-code go-error-handling]
+       source: /var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1284116509
+       --- output ---
+The file is correct and the go-vet hook is passing (only the intermediate edit triggered a warning, which resolved once the body used `fmt`).
+
+`Resolve` dedupes SKUs so each unique SKU costs exactly one `Get` round trip, skips `ErrNotFound` entries, and on any other failure wraps it with `%w` plus the failing SKU — giving the operator a log-friendly message and letting the caller use `errors.Is`/`errors.AsType` to reach the underlying `Source` error (e.g. `ErrClosed`) for retry decisions.
+
+arm                       runs errors valid   Δlines  Δtypes  Δiface  Δfuncs  Δpattern   Δexp  Δbranch   build  golden  skill    $/run
+no-skill                     3      0     3     41.7    0.33    0.00    0.67      0.00   0.00     4.67    100%    100%     0%   0.0474
+baseline                     3      0     3     34.0    0.00    0.00    0.00      0.00   0.00     4.67    100%    100%   100%   0.1062
+
+report written to ../docs/evidence/2026-09-08-go-implement-single-comparison-sonnet-5.corpus.json
+

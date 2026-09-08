@@ -1,0 +1,9 @@
+--- FAIL: TestReviewRejectsHEAD (0.00s)
+    edge_review_test.go:7: HEAD /healthz = 200, want 405
+    edge_review_test.go:7: HEAD /accounts = 200, want 405
+    edge_review_test.go:7: HEAD /accounts/a-1 = 200, want 405
+--- FAIL: TestReviewEmptyListIsArray (0.00s)
+    edge_review_test.go:13: GET /accounts with nil=true = null, want []
+FAIL
+FAIL	abeval/gateway	0.514s
+FAIL

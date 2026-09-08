@@ -143,20 +143,19 @@ func processOrder(ctx context.Context, logger *slog.Logger, order *Order) error 
 
 ### Pre-Check with Enabled()
 
-Avoid allocating log arguments when the level is disabled:
+Avoid allocating log arguments when the level is disabled. Use aggregated
+numeric buckets here; raw request headers and bodies may contain secrets.
 
 ```go
 // Expensive: args are always evaluated, even if Debug is disabled
-slog.Debug("request details",
-    "headers", fmt.Sprintf("%v", r.Header),
-    "body", string(bodyBytes),
+slog.DebugContext(ctx, "latency histogram",
+    "buckets", fmt.Sprintf("%v", latencyBuckets),
 )
 
 // Better: skip entirely when disabled
 if slog.Default().Enabled(ctx, slog.LevelDebug) {
-    slog.Debug("request details",
-        "headers", fmt.Sprintf("%v", r.Header),
-        "body", string(bodyBytes),
+    slog.DebugContext(ctx, "latency histogram",
+        "buckets", fmt.Sprintf("%v", latencyBuckets),
     )
 }
 ```

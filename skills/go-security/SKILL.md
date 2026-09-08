@@ -45,7 +45,7 @@ once — not at every call site downstream, where it is forgotten.
 | Threat | Defense | Caught by |
 |---|---|---|
 | SQL injection | `QueryContext(ctx, q, args...)` placeholders | `gosec` G201/G202 |
-| Command injection | `exec.Command("git", "log", ref)` — args, no shell | `gosec` G204 |
+| Command injection | `exec.CommandContext(ctx, "git", "log", "--end-of-options", ref, "--")` | `gosec` G204 |
 | XSS | `html/template` (contextual escaping) | `gosec` G203 (unsafe `template.HTML`) |
 | Path traversal | `os.OpenRoot(dir).Open(name)` | `gosec` G304 |
 | SSRF | Resolve host, reject `netip.Addr.IsPrivate()`/loopback, allowlist | review |
@@ -71,8 +71,8 @@ data. String assembly is what turns data into code.
 // ✗ Bad — the shell re-parses ref; "main; rm -rf /" is one argument to sh
 out, err := exec.Command("sh", "-c", "git log "+ref).Output()
 
-// ✓ Good — ref is one argv element; the shell never sees it
-out, err := exec.CommandContext(ctx, "git", "log", "--", ref).Output()
+// ✓ Good — stop option parsing; ref stays a revision, before the path separator
+out, err := exec.CommandContext(ctx, "git", "log", "--end-of-options", ref, "--").Output()
 ```
 
 - SQL: placeholders for values; identifiers (table, column, `ORDER BY`) come

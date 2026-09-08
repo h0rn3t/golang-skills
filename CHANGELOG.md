@@ -13,6 +13,18 @@ All notable changes to this repository are documented here.
 
 ### Fixed
 
+- Correct Go snippet API calls and generics version notes; demonstrate Go 1.27
+  inference in conversions, use stdlib `uuid`, `errors.AsType`, and `wg.Go`,
+  and remove obsolete benchmark sink advice. Close files and transactions on
+  failure paths, preserve argument evaluation and Git revision semantics, and
+  keep raw request data out of logging examples. Add executable regressions
+  for generic snippets and transaction finalization.
+- Distinguish wrapping an existing error from introducing a sentinel or custom
+  type; remove the duplicate selection table and clarify that `%v` omits the
+  error chain without redacting its text. Tighten helper-extraction criteria,
+  make shared HTTP structures and error mapping conditional on actual reuse,
+  and apply the v1 requirement-derived acceptance checks in `go-code`.
+  These instruction changes do not establish a measured model improvement.
 - Make the HTTP JSON example reject trailing data before domain side effects.
 - Preserve final response status and ResponseController operations in the
   logging middleware example; use standard `slog.NewMultiHandler` for fan-out.

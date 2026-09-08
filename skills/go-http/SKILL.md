@@ -46,8 +46,10 @@ id := r.PathValue("id")
 
 ## Handler Shape
 
-Handlers are methods on a struct that holds the dependencies, or closures that
-return `http.HandlerFunc`. Never package-level state.
+Handlers can be plain functions, closures, or methods. Use a struct when
+multiple handlers share dependencies or state; a small handler can use its
+dependencies directly in a closure. Preserve an established handler structure.
+Never package-level state.
 
 Order inside a handler: bound and decode → validate → call the domain with
 `r.Context()` → map the error → write once.
@@ -92,7 +94,10 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 ### Mapping errors to status codes
 
-One `writeError` per service, driven by `errors.Is`/`errors.AsType`:
+When several handlers use the same error-to-status rules, centralize them in
+`writeError`, driven by `errors.Is`/`errors.AsType`. Keep a short mapping local
+when it is used by only one handler. Apply the following status behavior where
+the corresponding failure can occur:
 
 | Error | Status | Body |
 |---|---|---|
@@ -170,7 +175,7 @@ gets its own timeout. The full `run()` is in `references/WEB-SERVER.md`.
 | `mux.HandleFunc("GET /users/{id}", h)` | Router module for method matching |
 | `http.MaxBytesReader` + `DisallowUnknownFields` | `json.Unmarshal(io.ReadAll(r.Body))` |
 | `r.Context()` into every call | `context.Background()` inside a handler |
-| `writeError` maps sentinels to status | `http.Error(w, err.Error(), 500)` |
+| Share repeated error-to-status rules | `http.Error(w, err.Error(), 500)` |
 | `&http.Server{ReadHeaderTimeout: ...}` | `http.ListenAndServe` |
 | One `*http.Client` with `Timeout` per dependency | `http.Get` / `DefaultClient` |
 | `defer resp.Body.Close()` always | Close only on the happy path |

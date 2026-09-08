@@ -1,6 +1,41 @@
 package evals_test
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestGo127GenericExamples(t *testing.T) {
+	method, _, _ := strings.Cut(exampleBlock(t, "skills/go-generics/SKILL.md", "## Generic Methods"), "\nn, ok :=")
+	hashing := exampleBlock(t, "skills/go-generics/SKILL.md", "### Hashing generic keys")
+	inference, _, _ := strings.Cut(exampleBlock(t, "skills/go-generics/references/CONSTRAINTS.md", "## Type Inference"), "\n")
+	runExampleTest(t, `package example
+import ("hash/maphash"; "slices"; "testing")
+`+method+hashing+`
+func TestGenerics(t *testing.T) {
+ store := &Store{data: map[string]any{"count": 42, "name": "alice"}}
+ for _, tt := range []struct { key string; want int; ok bool }{
+  {"count", 42, true}, {"name", 0, false}, {"missing", 0, false},
+ } {
+  if got, ok := store.Get[int](tt.key); got != tt.want || ok != tt.ok {
+   t.Errorf("Get[int](%q) = %d, %t; want %d, %t", tt.key, got, ok, tt.want, tt.ok)
+  }
+ }
+ if got, ok := store.Get[string]("name"); got != "alice" || !ok { t.Errorf("Get[string](name) = %q, %t", got, ok) }
+ names := []string{"alice"}
+`+inference+`
+ if !result { t.Error("Contains([alice], alice) = false, want true") }
+ tab := table[string, int]{hasher: maphash.ComparableHasher[string]{}, seed: maphash.MakeSeed()}
+ var hash maphash.Hash
+ hash.SetSeed(tab.seed)
+ tab.hasher.Hash(&hash, "alice")
+ first := hash.Sum64()
+ hash.Reset()
+ tab.hasher.Hash(&hash, "alice")
+ if !tab.hasher.Equal("alice", "alice") || first != hash.Sum64() { t.Error("equal keys have inconsistent hashes") }
+}
+`)
+}
 
 func TestGo127PromotedLiteralExample(t *testing.T) {
 	code := exampleBlock(t, "skills/go-style-core/references/INITIALIZATION.md", "### Embedded Fields in Go 1.27")

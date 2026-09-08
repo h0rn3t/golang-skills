@@ -125,11 +125,7 @@ func main() {
 }
 
 func readFile(path string) (string, error) {
-    f, err := os.Open(path)
-    if err != nil {
-        return "", err
-    }
-    b, err := io.ReadAll(f)
+    b, err := os.ReadFile(path)
     if err != nil {
         return "", err
     }

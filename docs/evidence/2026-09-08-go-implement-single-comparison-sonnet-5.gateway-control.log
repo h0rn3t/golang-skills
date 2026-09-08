@@ -1,0 +1,17 @@
+1 fixtures x 1 arms x 1 reps = 1 runs
+
+[ok ] no-skill                 gateway    #0  lines +66  types +0  funcs +0  exp +0  branch +7  build=true model_tests=skipped golden=true skills=[]
+       source: /var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1591690933
+       --- output ---
+This looks correct and complete. The implementation:
+
+- Sorts accounts by ID once and builds an ID→account map for O(1) lookups.
+- Uses Go's enhanced `http.ServeMux` (method-prefixed patterns) so unmatched paths get 404 and known paths with the wrong method get 405 automatically.
+- Validates `active` with `Query().Has()` so a present-but-invalid value triggers 400, distinct from the parameter being absent.
+- Sets edge-appropriate `http.Server` timeouts (`ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout`, `IdleTimeout`) and `MaxHeaderBytes` to protect against slow/idle clients on the open internet, as the doc comment calls out.
+
+arm                       runs errors valid   Δlines  Δtypes  Δiface  Δfuncs  Δpattern   Δexp  Δbranch   build  golden  skill    $/run
+no-skill                     1      0     1     66.0    0.00    0.00    0.00      0.00   0.00     7.00    100%    100%     0%   0.0799
+
+report written to ../docs/evidence/2026-09-08-go-implement-single-comparison-sonnet-5.gateway-control.json
+

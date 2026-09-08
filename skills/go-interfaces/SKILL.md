@@ -51,8 +51,9 @@ type defaultThinger struct{ ... }
 func NewThinger() Thinger { return defaultThinger{ ... } }
 ```
 
-**Do not define interfaces before they are used.** Without a realistic example
-of usage, it is too difficult to see whether an interface is even necessary.
+**Do not define interfaces before they are used.** Identify the consumer and
+the substitution it needs, including a test double. One production
+implementation neither requires nor rules out an interface.
 
 ---
 
@@ -140,7 +141,9 @@ Use this pattern when:
 **Don't** add these checks for every interface — only when no other static
 conversion would catch the error.
 
-> **Validation**: After defining interfaces or implementations, run `bash scripts/check-interface-compliance.sh` to verify all concrete types have compile-time `var _ I = (*T)(nil)` checks.
+> **Validation**: Use `scripts/check-interface-compliance.sh` when a heuristic
+> scan would help find missing assertions. Review its candidates against the
+> conditions above; a finding is not a requirement to add an assertion.
 
 ---
 

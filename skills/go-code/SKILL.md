@@ -69,19 +69,31 @@ compute it once and render from it. Keep both raw and derived state only when
 the contract or measured workload needs both. Route ownership, empty-result,
 error-chain, and resource-lifetime decisions to their owners before coding.
 
-Write the operation directly first. Extract a helper for shared logic or a
-meaningful operation that makes its caller easier to read. Keep a short,
-single-use validation or field conversion inline when a helper merely renames
-it. Skill examples illustrate behavior; their `validate`, `toDomain`, or
-`writeError` methods are not a required list of helpers to create. Retain an
-interface or layer required by callers; add one only for a concrete boundary,
-not because a new package needs a service/factory/options scaffold.
+Write the required operation directly. Extract a helper when it centralizes a
+shared rule, isolates a distinct algorithm or resource lifetime, or lets the
+caller express the operation without exposing its mechanics. Keep short,
+single-use forwarding, validation, and field mapping local. Judge the caller
+and helper together, including parameters and shared state; a helper may be
+worthwhile without reducing line count. Skill examples illustrate behavior;
+their `validate`, `toDomain`, or `writeError` methods are not a required list
+of helpers to create.
+
+Retain interfaces and layers required by callers. Add an interface for an
+identified consumer's substitution boundary, including a needed test double;
+the number of production implementations alone does not decide. A new package
+does not itself need a service/factory/options scaffold.
 
 Check that an existing API's defaults satisfy the contract before wrapping or
 replacing it. Prefer a small adapter for a semantic mismatch. Verify observable
 results at the public boundary, including relevant empty/invalid inputs,
 dependency failures, ordering, and ownership. Use the task's actual cases;
 compiling a package with no tests does not verify these behaviors.
+
+Before closing, inspect the new code for unused public surface, redundant
+stored values, forwarding wrappers, and duplicated business rules. Simplify
+where it improves the complete operation; preserve ownership, failure behavior,
+and useful boundaries. No function-count limit or separate written audit is
+required.
 
 ## Related Skills
 

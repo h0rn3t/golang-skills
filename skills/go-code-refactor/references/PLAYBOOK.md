@@ -23,8 +23,6 @@ that already exists.
 - [8. Anti-patterns of "cleanup"](#8-anti-patterns-of-cleanup)
 - [9. Test readability](#9-test-readability)
 
----
-
 ## The readability hierarchy
 
 The Google style guide's order — clarity, simplicity, concision,
@@ -48,8 +46,6 @@ Common idioms are read by pattern recognition. When code is *almost* a common
 idiom but differs in a load-bearing way, boost the difference —
 `if err := doSomething(); err == nil { // if NO error` — so the reader does not
 glide past it. One of the few places a "what" comment earns its place.
-
----
 
 ## 0. Delete first
 
@@ -87,94 +83,8 @@ belong at the top of the report; reviewers approve them at a glance.
 
 ### Duplication that differs only in values
 
-When several functions select fields of the same policy record, a shared
-table can remove repeated selection. Matching keys or equal numbers in
-independently changing policies alone do not justify combining them:
-
-```go
-// before: the selection lives in every function, the literals twice over
-func Rate(zone string) (int64, error) {
-    if zone == "domestic" {
-        return 499, nil
-    } else if zone == "regional" {
-        return 899, nil
-    } else if zone == "overseas" {
-        return 1899, nil
-    }
-    return 0, fmt.Errorf("rate %q: %w", zone, ErrUnknownZone)
-}
-
-func Surcharge(zone string, kg int) (int, error) {
-    if zone == "domestic" {
-        if kg >= 20 {
-            return 10, nil
-        }
-        return 0, nil
-    } else if zone == "regional" {
-        if kg >= 20 {
-            return 15, nil
-        }
-        return 0, nil
-    } else if zone == "overseas" {
-        if kg >= 20 {
-            return 25, nil
-        }
-        return 0, nil
-    }
-    return 0, fmt.Errorf("surcharge %q: %w", zone, ErrUnknownZone)
-}
-```
-
-```go
-// after: one policy table; callers preserve their own errors
-type zone struct {
-    rate  int64
-    heavy int // surcharge percent at 20 kg and above
-}
-
-var zones = map[string]zone{
-    "domestic": {rate: 499, heavy: 10},
-    "regional": {rate: 899, heavy: 15},
-    "overseas": {rate: 1899, heavy: 25},
-}
-
-func Rate(name string) (int64, error) {
-    z, ok := zones[name]
-    if !ok {
-        return 0, fmt.Errorf("rate %q: %w", name, ErrUnknownZone)
-    }
-    return z.rate, nil
-}
-
-func Surcharge(name string, kg int) (int, error) {
-    z, ok := zones[name]
-    if !ok {
-        return 0, fmt.Errorf("surcharge %q: %w", name, ErrUnknownZone)
-    }
-    if kg >= 20 {
-        return z.heavy, nil
-    }
-    return 0, nil
-}
-```
-
-Here the zone facts live in one table, while the accessors retain their distinct
-error behavior. Use the completion criteria in
-[Remove Duplication to the End](../SKILL.md#remove-duplication-to-the-end);
-compare the entire result, including the table and accessors. Check for shared
-computation still repeated in callers before introducing another helper.
-
-The shape follows the final code. An exported accessor that already performs
-the selection is reused before a new unexported helper is written. Cases that
-carry logic stay a `switch`; cases that carry only values become a `map` or
-slice literal indexed by the key. The table exists to delete the branches, not
-to be serviced: a search function, a method, or a loop that rebuilds a list
-which was already a literal costs what the table saved, and then the `switch`
-was shorter. Map iteration order is not source order, so a function returning
-the keys in order keeps its literal. Error texts and the point where an unknown
-key fails do not move.
-
----
+[POLICY-TABLES.md](POLICY-TABLES.md) shows the complete before/after example
+and the conditions for sharing a policy table without changing errors or order.
 
 ## 1. Flatten with early returns
 
@@ -220,8 +130,6 @@ scope `err` into the `if` when it is not used later
 **Careful**: do not hoist a condition's subexpressions into variables above the
 `if` — that defeats short-circuiting and can panic where the original did not.
 
----
-
 ## 2. Extract meaningful operations
 
 Apply the [helper rule](../SKILL.md#delete-before-you-restructure): function
@@ -262,8 +170,6 @@ Extraction notes:
 - Extracted functions inherit the caller's context — pass `ctx`, never create
   a new one ([go-context](../../go-context/SKILL.md)).
 
----
-
 ## 3. Rename for the reader
 
 [go-naming](../../go-naming/SKILL.md) owns the rules; what matters here is
@@ -275,8 +181,6 @@ Both directions are worth fixing: names too short for a wide scope (`d`, `tmp`
 living 40 lines) and names too long for a narrow one (`elementIndex` as a
 three-line loop variable). Go scales name length *with* scope.
 
----
-
 ## 4. Name the magic values
 
 `if resp.StatusCode == 429 { time.Sleep(3 * time.Second) }` becomes
@@ -287,8 +191,6 @@ defined type plus `iota` — **only if the numeric values stay identical**, sinc
 they may be persisted or sent over the wire. `0`, `1`, `""`, `-1` in obvious
 positions need no name; the goal is removing questions, not maximizing
 constants.
-
----
 
 ## 5. Error handling in an existing codebase
 
@@ -311,8 +213,6 @@ logs, tests assert on it, alerts match it.
 Messages **you** author follow the owner skill: lowercase, no trailing
 punctuation, one clause of new context, `: %w` at the end.
 
----
-
 ## 6. Reduce what is in scope
 
 Readers hold live variables in their head, and each one costs. Declare at first
@@ -322,8 +222,6 @@ does explanatory work; eliminate accidental shadowing — two `err`s at differen
 depths is a reliable source of confusion; group related package-level
 declarations into one block. See
 [go-style-core](../../go-style-core/SKILL.md).
-
----
 
 ## 7. Comments that earn their place
 
@@ -341,8 +239,6 @@ Adding a doc comment to an undocumented exported symbol is pure gain — nothing
 changes at runtime. See [go-documentation](../../go-documentation/SKILL.md).
 Leave `TODO`/`FIXME` in place; they are someone's open thread. Delete only
 those describing work that demonstrably shipped.
-
----
 
 ## 8. Anti-patterns of "cleanup"
 
@@ -373,8 +269,6 @@ The one that looks like restraint but is not: **removing a check because it
 seemed redundant.** Validation at a trust boundary, error handling that
 prevents data loss, and security checks stay, even when they are the ugliest
 lines in the file. Prove it unnecessary, or leave it and say why.
-
----
 
 ## 9. Test readability
 

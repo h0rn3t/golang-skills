@@ -108,10 +108,10 @@ Check omitted, explicit zero/nil, and repeated settings against the documented
 constructor contract. Resolve known mismatches in the code before presenting
 it; a caveat does not make a contradictory invariant hold.
 
-When functional options fit and the repository has no established pattern,
-this pack prefers an exported `Option` interface with an unexported `apply`
-method. Preserve an existing closure-based convention. Implementation and
-tradeoffs live in the constructor reference above.
+When functional options fit, preserve the repository's convention. Without one,
+start with function-valued options for simple configuration updates; use an
+interface and concrete option types when callers need capabilities that justify
+them. Implementation and tradeoffs live in the constructor reference above.
 
 ---
 

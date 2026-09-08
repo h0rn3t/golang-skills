@@ -14,7 +14,7 @@ assistants Go best practices derived from:
 Skills are tuned following
 [agentskills.io best practices](https://agentskills.io/skill-creation/best-practices):
 content the agent already knows is omitted, procedural decision trees guide
-multi-step tasks, 65 reference files load on demand via progressive disclosure,
+multi-step tasks, 66 reference files load on demand via progressive disclosure,
 10 bundled scripts automate common checks, and 5 asset templates ensure
 consistent output. The Claude Code plugin also ships a `go-verify` subagent
 that runs the verification gate and a PostToolUse hook that runs `gofmt` and
@@ -209,7 +209,7 @@ which works across multiple AI coding tools. When you're writing Go code:
    (e.g., `go-naming` when you're writing a new function)
 2. **Procedural guidance**: Decision trees and step-by-step procedures for
    multi-step tasks like code review and error strategy selection
-3. **Progressive disclosure**: Core rules load immediately; 65 reference files
+3. **Progressive disclosure**: Core rules load immediately; 66 reference files
    load on demand when specific situations arise
 4. **Automation**: 10 bundled scripts handle repetitive checks so the agent
    focuses on higher-level guidance
@@ -229,7 +229,7 @@ which works across multiple AI coding tools. When you're writing Go code:
 ## Running the Evals
 
 `evals/evals.json` holds 105 trigger evals (does the right skill fire for this
-prompt?) and 49 quality evals (does the answer satisfy each assertion?). The Go
+prompt?) and 53 quality evals (does the answer satisfy each assertion?). The Go
 tests in `evals/` validate their schema on every push; running them against a
 model is opt-in because it costs tokens:
 
@@ -266,7 +266,7 @@ These are practical interpretations of the tests, not guarantees for every proje
 
 | Model / tool | Refactoring existing code | Writing new code | Cost with skills | Practical takeaway |
 |---|---|---|---|---|
-| **GPT-5.6-Luna / Codex** | [✅ Helps: far fewer unnecessary helpers; latest test covers only `report`](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md) | [➖ No visible benefit: correctness and size unchanged on a re-run](docs/evidence/2026-09-08-go-implement-control-gpt-5.6-luna-medium.md) | Not measured in USD | **Worth using for refactoring.** |
+| **GPT-5.6-Luna / Codex** | [✅ Helps: far fewer unnecessary helpers; latest test covers only `report`](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md) | [➖ No visible benefit on size or correctness; the skills tend to add helpers on `gateway`, at a spread too wide to measure at n = 5](docs/evidence/2026-09-08-go-new-code-gateway-gpt-5.6-luna-codex.md) | Not measured in USD | **Worth using for refactoring.** |
 | **Opus 5 / Claude** | [✅ Helps: less unnecessary structure, especially on `report`](docs/evidence/2026-09-07-go-refactor-control-opus5.md) | [➖ Small gain in the latest run; only two tasks tested](docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md) | New code ≈ **2.8×**; refactoring unavailable | **Worth using for refactoring.** |
 | **MiniMax M3 / OpenCode** | [✅ Helps: less code and fewer unnecessary helpers](docs/evidence/2026-09-07-go-refactor-control-minimax-m3.md) | [➖ Benefit unproven: fewer passing sessions](docs/evidence/2026-09-07-go-implement-discovery-minimax-m3.md) | Refactoring ≈ **2.5×**, new code ≈ **1.9×** | **Better refactoring, not a cost saving.** |
 | **Sonnet 5 / Claude** | [🟡 Fewer helpers, but some tasks improve and others worsen](docs/evidence/2026-09-08-go-refactor-control-sonnet-5.md) | [➖ Same correctness, more code and helpers](docs/evidence/2026-09-08-go-implement-control-sonnet-5.md) | Refactoring ≈ **3.3×**, new code ≈ **2.3×** | **Questionable benefit at this price.** |
@@ -276,6 +276,22 @@ JSON `finished` (September 7–8, 2026, local time). A newer subset run does not
 cover the full corpus. In runs containing variants, this compares **baseline
 against no skills**, not the best variant. Historical results and detailed
 numbers remain in the linked reports.
+
+The GPT-5.6-Luna new-code cell comes from a three-arm run — no skills, the
+skill tree before the 2026-09-08 update, and the tree after it — so it separates
+what the plugin does from what the update did. The update changes neither
+correctness (20/20 hidden-test passes in all three arms) nor size (+0.70 lines
+across the corpus, p = 0.94).
+
+What the third arm exposed is a cost that survives as a direction: on `gateway`
+every skilled tree measured writes more helper functions per session than the
+unaided model — 2.40 to 3.20 against 1.40 — and buys no lines or branches with
+them. A [follow-up run on `gateway` alone](docs/evidence/2026-09-08-go-new-code-gateway-gpt-5.6-luna-codex.md)
+re-measured one byte-identical arm and got 4.40 helpers where the first run got
+1.80, so this fixture's helper count ranges 0 to 7 per session and needs about
+n = 20 per arm to resolve a two-helper difference. Take the gap as unsettled
+rather than measured, and treat any single n = 5 helper result on `gateway` —
+in either direction — as a draw from that spread.
 
 “Helps” means observed reductions in unnecessary code or helpers without
 failures in the available checks; readability was not separately assessed by

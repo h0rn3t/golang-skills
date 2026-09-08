@@ -20,9 +20,13 @@ description: Use when creating or splitting Go packages, organizing imports or d
 Stop at the first rung that works:
 
 1. **Standard library** — check `go doc <pkg>` before assuming it is missing
-2. **`golang.org/x/...`** — same release process, no third-party trust
-3. **A module already in `go.mod`**
-4. **A new module** — only when the above cost materially more code
+2. **A module already in `go.mod`** — reuse a suitable supported API
+3. **A new module**, including `golang.org/x/...` — when the above do not meet
+   the contract or would require materially more implementation and maintenance
+
+Judge suitability by required semantics, supported versions, and maintenance,
+not line count alone. Existing project conventions take precedence; this ladder
+does not require replacing a working dependency in neighboring code.
 
 Commonly added modules the standard library now covers:
 
@@ -47,10 +51,9 @@ not have (v1, v3, v5, custom sources).
 
 ## Adding and Auditing Dependencies
 
-- **Ask before `go get`.** A new module is a maintenance commitment: confirm
-  the standard library does not cover it, the license is compatible, and the
-  project is maintained. Prefer `golang.org/x/...` and modules already in
-  `go.mod` over new ones.
+- **Before adding a module**, check the ladder above, license compatibility,
+  and maintenance status. Follow the host and repository's approval policy;
+  do not ask again for an already authorized dependency change.
 - **Pin executable tools with `go get -tool <package>@<version>`** (Go 1.24+),
   then run them via `go tool <name>`. Tool dependencies share the module graph.
   For golangci-lint, prefer a version-pinned release binary; if using `go tool`,
@@ -169,7 +172,8 @@ func main() {
 
 > **Advisory**: Define flags only in `package main`.
 
-- Flag names use `snake_case`: `--output_dir` not `--outputDir`
+- Follow the project's flag naming convention; this pack defaults to
+  `snake_case` (`--output_dir`) when none exists.
 - Libraries should accept configuration as parameters, not read flags directly —
   this keeps them testable and reusable
 - Prefer the standard `flag` package; use `pflag` only when POSIX conventions

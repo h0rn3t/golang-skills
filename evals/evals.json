@@ -1669,6 +1669,61 @@
         "Includes success, invalid input before store effects, and dependency failure checks without claiming execution"
       ],
       "set": "train"
+    },
+    {
+      "id": 50,
+      "prompt": "Use go-code for a snippet-only exercise; do not edit files or run commands. Write two functions CanPublish and CanArchive taking active bool, suspended bool, verified bool, quota int and returning bool. Both must apply the same centrally maintained eligibility rule: active, not suspended, verified, and quota > 0. CanPublish additionally requires quota >= 2. CanArchive has no extra restriction. Also write Label(name string) string returning strings.TrimSpace(name). Show the code with any helpers you choose; the API is fixed and no service, state or configuration is needed.",
+      "expected_output": "The two operations share one eligibility rule; Label directly uses strings.TrimSpace without an extra forwarding helper or scaffold.",
+      "target_skills": ["go-code"],
+      "assertions": [
+        "Produces Go snippets implementing all specified predicates and signatures",
+        "Centralizes the shared eligibility rule in one place without duplicating its predicate in both operations",
+        "Keeps Label's trim operation direct without adding another forwarding helper",
+        "Adds no stateful service, interface, options API, or unrequested exported helper",
+        "Does not claim execution or impose a blanket ban on helpers"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 51,
+      "prompt": "Use go-functions for a snippet-only exercise; do not edit files or run commands. A new internal Go API explicitly requires functional options. There is no existing option convention. Write type options struct with timeout time.Duration, type Option, and WithTimeout(time.Duration) Option. Options only assign configuration; callers need no inspection, serialization, equality or additional methods. Omission uses the constructor's default, explicit zero disables the timeout, and repeated values use the last value. Show the constructor's option-application fragment too. Do not replace the requested API with a config-struct parameter.",
+      "expected_output": "Function-valued options with direct assignment and ordered application preserve zero and last-value semantics without per-setting types and methods.",
+      "target_skills": ["go-functions"],
+      "assertions": [
+        "Keeps the requested functional-options API",
+        "Uses a function-valued Option without an interface or per-setting concrete types and apply methods",
+        "Applies options in order over defaults and preserves explicit zero",
+        "Does not add constructors, adapters or other configuration capabilities beyond the requested snippets",
+        "Does not claim execution"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 52,
+      "prompt": "Use go-interfaces for this design exercise; do not run commands. NewHandler returns *handler through its declared http.Handler result, so that return is already a compiler-checked conversion. Another type Record has MarshalJSON on *Record; the program passes *Record to json.Marshal as any and relies on dynamic marshaler detection, with no static conversion to json.Marshaler anywhere. Which compile-time assertions should be added? A heuristic scanner lists both types. Also, a consumer requires a Store interface for its single production SQL adapter and its test fake. Should that interface remain? Explain briefly.",
+      "expected_output": "Add the dynamically required marshaler assertion, omit the redundant handler assertion, and retain the consumer's needed Store boundary.",
+      "target_skills": ["go-interfaces"],
+      "assertions": [
+        "Adds var _ json.Marshaler = (*Record)(nil) or an equivalent compile-time assertion",
+        "Omits the redundant http.Handler assertion because the constructor return checks it",
+        "Treats scanner findings as candidates rather than mandatory assertions for every type",
+        "Retains Store for the actual consumer and test substitution despite only one production implementation",
+        "Does not claim execution"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 53,
+      "prompt": "Use go-packages for this dependency decision; do not run commands or edit files. The supported standard library cannot perform the required operation. Module A is already in go.mod at a maintained compatible version, is used by neighboring code, and exactly meets the required semantics. Module B under golang.org/x is absent from go.mod and also meets those semantics with comparable call-site complexity. Which should the new code use and why? In a separate case A loses information required by the contract while B preserves it; state whether that changes the choice. The repository uses --output-dir for flags; name a new input-directory flag consistently.",
+      "expected_output": "Reuse suitable existing A; consider B when A cannot satisfy the contract; follow the existing kebab-case flag convention.",
+      "target_skills": ["go-packages"],
+      "assertions": [
+        "Chooses existing A in the first case rather than adding B solely for its golang.org/x namespace",
+        "Does not retain A when its semantics lose required information; considers B under normal dependency checks",
+        "Uses --input-dir following the project convention rather than imposing snake_case",
+        "Does not claim execution or propose unrelated dependency replacement"
+      ],
+      "set": "train"
     }
   ]
 }

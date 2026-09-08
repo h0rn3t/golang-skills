@@ -19,6 +19,7 @@ target project using the resolved absolute script path.
 
 - `references/BEHAVIOR-TRAPS.md` - Read before touching concurrency, `defer`, error handling, slices, interfaces, or struct layout.
 - `references/PLAYBOOK.md` - Read for the concrete transformations, ordered by payoff, with before/after Go.
+- `references/POLICY-TABLES.md` - Read when repeated selection accesses fields of one shared policy record; includes a complete before/after example.
 - `references/CATALOG.md` - Read when the move crosses a function, type, or package boundary: the smell that triggers each transform, the tool that performs it, and its risk tier.
 - `references/SAFETY-NET.md` - Read before the first edit to size the net: coverage tiers for the blast radius, characterization tests, and seams for untested code.
 - `references/MECHANICAL.md` - Read when the same edit recurs across many sites: `gofmt -r`, `eg`, `gopatch`, and `go/analysis` fixers instead of hand-editing each one.
@@ -168,7 +169,7 @@ to be serviced — no search helper, no method, no loop to rebuild a list that
 was already a literal. If the lookup needs those, the `switch` was shorter.
 Map iteration order is not source order, so an ordered literal stays a
 literal. Error texts and the point where an unknown key fails do not move.
-`references/PLAYBOOK.md` §0 shows the fold.
+`references/POLICY-TABLES.md` shows the fold.
 
 ---
 

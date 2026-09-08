@@ -3,17 +3,17 @@
 > Sources: source/google-go-styleguide/best-practices.md; source/uber-go-style/style.md; [Go comparison rules](https://go.dev/ref/spec#Comparison_operators); [Go compatibility](https://go.dev/doc/go1compat)
 > Authority: project policy
 > Minimum Go: any supported Go version
-> Last verified: 2026-09-05
+> Last revised: 2026-09-08 (project policy)
 
 Both functional options and config structs solve the same problem — optional
 configuration for constructors — but they have different trade-offs. Choose
 based on API audience, extensibility needs, and complexity budget.
 
-Project policy: use Google guidance to decide whether optional configuration is
-worth the complexity; when functional options are chosen, prefer Uber's
-interface-with-unexported-method implementation where no repository convention
-exists. Existing closure-based APIs remain valid. Test constructor behavior;
-an interface does not make all concrete option values comparable.
+Project policy: decide whether optional configuration is worth the complexity
+from actual caller needs. Preserve the repository's option convention; without
+one, start with function-valued options for simple configuration updates.
+Concrete option types need a capability that justifies their overhead. Test
+constructor behavior; an interface does not guarantee option comparability.
 
 ## Contents
 
@@ -96,7 +96,7 @@ type Config struct {
 
 | Aspect | Functional Options | Config Struct |
 |--------|-------------------|---------------|
-| **Boilerplate** | High (type + apply + With* per option) | Low (one struct) |
+| **Boilerplate** | Option type + With* functions; concrete types add methods | Low (one struct) |
 | **Extensibility** | Add `With*`; preserve existing defaults and behavior | Adding fields preserves keyed literals; unkeyed callers can break |
 | **Backward compat** | Preserve required parameters and option semantics | Preserve zero-value meaning and constructor semantics |
 | **Defaults** | Built into constructor | Zero values or `DefaultConfig()` |
@@ -109,7 +109,7 @@ type Config struct {
 ## When to Prefer Config Structs
 
 - **Internal APIs** — less ceremony, easier to read at call sites
-- **Few options (1-3)** — functional options overhead not justified
+- **Simple settings** — consider whether named fields already clarify the call
 - **All options typically set together** — no benefit to variadic style
 - **Validation is straightforward** — the constructor can validate a config struct too
 - **Options are data, not behavior** — struct fields map naturally
@@ -163,67 +163,35 @@ conn, err := db.Open(
 
 ## Functional Options Implementation
 
-The pack's default implementation uses an exported `Option` interface with an
-unexported `apply` method and concrete option values. Keep required inputs
-separate, apply options over defaults, and validate their combined result before
-allocating external resources. Document how repeated options behave.
+For options that only update configuration, a function type avoids a concrete
+type and method per setting. Keep required inputs separate, apply options over
+defaults, and validate their combined result before allocating external
+resources. Document how repeated options behave.
 
-The following excerpt shows the option application mechanics:
+The following excerpt defines an option that updates one setting:
 
 ```go
-package db
-
-import "go.uber.org/zap"
-
 type options struct {
-    cache  bool
-    logger *zap.Logger
+    cache bool
 }
 
-type Option interface {
-    apply(*options)
-}
-
-type cacheOption bool
-
-func (c cacheOption) apply(opts *options) {
-    opts.cache = bool(c)
-}
+type Option func(*options)
 
 func WithCache(c bool) Option {
-    return cacheOption(c)
-}
-
-type loggerOption struct {
-    Log *zap.Logger
-}
-
-func (l loggerOption) apply(opts *options) {
-    opts.logger = l.Log
-}
-
-func WithLogger(log *zap.Logger) Option {
-    return loggerOption{Log: log}
-}
-
-func Open(addr string, opts ...Option) (*Connection, error) {
-    options := options{
-        cache:  defaultCache,
-        logger: zap.NewNop(),
+    return func(opts *options) {
+        opts.cache = c
     }
-
-    for _, o := range opts {
-        o.apply(&options)
-    }
-
-    return &Connection{}, nil
 }
 ```
 
-An existing API may instead use closure-based options:
+Apply each option with `o(&cfg)` in the constructor. An interface with an
+unexported method remains useful when an existing API requires it or concrete
+option values provide needed inspection or other behavior:
 
 ```go
-type Option func(*options)
+type Option interface {
+    apply(*options)
+}
 ```
 
 Function values cannot be compared to each other with `==`; interface values
@@ -240,7 +208,7 @@ for common settings and functional options for advanced overrides:
 func NewServer(cfg Config, opts ...Option) *Server {
     s := &Server{cfg: cfg}
     for _, o := range opts {
-        o.apply(&s.cfg)
+        o(&s.cfg)
     }
     return s
 }

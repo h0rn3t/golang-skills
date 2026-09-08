@@ -151,7 +151,7 @@ func main() {
 	flag.Int64Var(&o.seed, "seed", 1, "deterministic job-order seed")
 	flag.DurationVar(&o.timeout, "timeout", 10*time.Minute, "per-run timeout")
 	flag.BoolVar(&o.verbose, "verbose", false, "print the model's final message for every run")
-	flag.BoolVar(&o.keep, "keep", false, "keep the scratch tree of any run that failed to build or broke the golden test")
+	flag.BoolVar(&o.keep, "keep", false, "keep every run's scratch tree, including successful source and model tests (.model)")
 	flag.Parse()
 
 	if err := run(o); err != nil {
@@ -239,6 +239,9 @@ type result struct {
 	Delta  metrics  `json:"delta"`
 	Build  bool     `json:"build"`
 	Golden bool     `json:"golden"`
+	// ModelTests is pass, fail, or skipped (no test files). Older reports omit it.
+	ModelTests    string `json:"model_tests,omitempty"`
+	ModelTestFail string `json:"model_test_failure,omitempty"`
 	// Edited reports whether the fixture files actually changed. A session that
 	// touched nothing and reported success is not a behavior-preserving refactor
 	// with a zero delta; it is a run that never happened where it was measured,
@@ -659,10 +662,9 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		res.Err = err.Error()
 		return res
 	}
-	// A run whose behavior moved is the one worth reading, so its scratch tree
-	// survives when -keep is set; everything else is removed.
+	// Successful implementations also need source evidence for structural review.
 	defer func() {
-		if o.keep && (res.GoFail != "" || res.Err != "" || !res.Edited || res.Leaked) {
+		if o.keep {
 			res.WorkDir = work
 			return
 		}
@@ -733,10 +735,17 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		res.Build = true
 	}
 
-	// The model is expected to leave characterization tests behind, and its
-	// helper types collide with the golden file's by name. Its tests have
-	// already been counted; set them aside so the golden test compiles against
-	// the refactored code alone.
+	res.ModelTests = "skipped"
+	if after.TestFiles > 0 {
+		res.ModelTests = "pass"
+		if err := goCmd(o.timeout, work, "test", "-count=1", "./..."); err != nil {
+			res.ModelTests = "fail"
+			res.ModelTestFail = err.Error()
+		}
+	}
+
+	// Run the model's tests first, then isolate them to avoid name collisions
+	// or a model test being the reason the independent golden check passes.
 	if err := hideTestFiles(pkgDir); err != nil {
 		res.Err = fmt.Sprintf("hide model tests: %v", err)
 		return res
@@ -1234,14 +1243,20 @@ func firstLine(s string) string {
 
 func printResult(r result, verbose bool) {
 	status := resultStatus(r)
-	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  exp %+d  branch %+d  build=%v golden=%v skills=%v",
-		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Funcs, r.Delta.Exported, r.Delta.Branches, r.Build, r.Golden, r.Skills)
+	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  exp %+d  branch %+d  build=%v model_tests=%s golden=%v skills=%v",
+		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Funcs, r.Delta.Exported, r.Delta.Branches, r.Build, r.ModelTests, r.Golden, r.Skills)
 	if r.Err != "" {
 		fmt.Printf("  error: %s", r.Err)
 	}
 	fmt.Println()
 	if r.GoFail != "" {
 		fmt.Printf("       %s\n", firstLine(r.GoFail))
+	}
+	if r.ModelTestFail != "" {
+		fmt.Printf("       model tests: %s\n", firstLine(r.ModelTestFail))
+	}
+	if r.WorkDir != "" {
+		fmt.Printf("       source: %s\n", r.WorkDir)
 	}
 	if verbose && r.Output != "" {
 		fmt.Println("       --- output ---")
@@ -1250,28 +1265,29 @@ func printResult(r result, verbose bool) {
 }
 
 func resultStatus(r result) string {
-	if r.Err != "" || !r.Build || !r.Golden || !r.Edited || r.Leaked {
+	if r.Err != "" || !r.Build || !r.Golden || r.ModelTests == "fail" || !r.Edited || r.Leaked {
 		return "ERR"
 	}
 	return "ok "
 }
 
 type armSummary struct {
-	Runs       int
-	Errors     int
-	Valid      int
-	Build      int
-	Golden     int
-	SkillFired int
-	Lines      int
-	Types      int
-	Interfaces int
-	Funcs      int
-	Pattern    int
-	Exported   int
-	Branches   int
-	NoEdit     int
-	Leaked     int
+	Runs              int
+	Errors            int
+	Valid             int
+	Build             int
+	Golden            int
+	SkillFired        int
+	Lines             int
+	Types             int
+	Interfaces        int
+	Funcs             int
+	Pattern           int
+	Exported          int
+	Branches          int
+	NoEdit            int
+	Leaked            int
+	ModelTestFailures int
 	// Cost covers every session that reported one, including the invalid runs:
 	// a failed session still spends money, so excluding it would understate
 	// what the corpus costs to replay.
@@ -1313,6 +1329,9 @@ func summarizeArm(rep report, name string) armSummary {
 		if r.Golden {
 			summary.Golden++
 		}
+		if r.ModelTests == "fail" {
+			summary.ModelTestFailures++
+		}
 		if skillFired(rep.Corpus, r.Skills) {
 			summary.SkillFired++
 		}
@@ -1322,7 +1341,7 @@ func summarizeArm(rep report, name string) armSummary {
 		if r.Leaked {
 			summary.Leaked++
 		}
-		if !r.Build || !r.Golden || !r.Edited || r.Leaked {
+		if resultStatus(r) != "ok " {
 			continue
 		}
 		summary.Valid++
@@ -1338,13 +1357,17 @@ func summarizeArm(rep report, name string) armSummary {
 }
 
 // printSummary averages structural deltas only over runs that both build and
-// pass their hidden golden test. Failed sessions remain visible in the counts.
+// pass their model tests (if present) and hidden golden test.
+// Failed sessions remain visible in the counts.
 func printSummary(rep report) {
 	fmt.Printf("%-24s %5s %6s %5s %8s %7s %7s %7s %9s %6s %8s %7s %7s %6s %8s\n",
 		"arm", "runs", "errors", "valid", "Δlines", "Δtypes", "Δiface", "Δfuncs", "Δpattern", "Δexp", "Δbranch", "build", "golden", "skill", "$/run")
 	for _, a := range rep.Arms {
 		summary := summarizeArm(rep, a.Name)
 		completed := summary.Runs - summary.Errors
+		if summary.ModelTestFailures > 0 {
+			fmt.Printf("%-24s   %d run(s) failed model tests and were excluded\n", a.Name, summary.ModelTestFailures)
+		}
 		if summary.Valid == 0 {
 			fmt.Printf("%-24s %5d %6d %5d %8s\n", a.Name, summary.Runs, summary.Errors, 0, "no data")
 			continue

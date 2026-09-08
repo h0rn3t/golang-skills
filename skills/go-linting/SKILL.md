@@ -76,6 +76,7 @@ inspect the preview before applying changes.
 | `waitgroupgo` | `wg.Go(f)` instead of `Add(1)`/`go`/`Done` (Go 1.25+) |
 | `errorsastype` | `errors.AsType[T]` instead of `errors.As` (Go 1.26+) |
 | `newexpr` | `new(expr)` instead of a temp variable (Go 1.26+) |
+| `embedlit` | Direct promoted fields in composite literals (Go 1.27); see [initialization](../go-style-core/references/INITIALIZATION.md#embedded-fields-in-go-127) |
 | `testingcontext` | `t.Context()` instead of `context.WithCancel` in tests |
 | `forvar` | Deletes `x := x` loop captures (dead since Go 1.22) |
 | `rangeint`, `minmax`, `omitzero`, `any` | `for i := range n`, `min`/`max`, `omitzero` tags, `any` |

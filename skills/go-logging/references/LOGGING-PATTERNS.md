@@ -6,7 +6,7 @@ middleware, and migration from the legacy `log` package.
 ## Contents
 
 - [Setting Up slog](#setting-up-slog)
-- [Custom Handler Patterns](#custom-handler-patterns)
+- [Handler Configuration](#handler-configuration)
 - [Testing with slogtest](#testing-with-slogtest)
 - [HTTP Request Logging Middleware](#http-request-logging-middleware)
 - [Migration from log.Printf to slog](#migration-from-logprintf-to-slog)
@@ -15,24 +15,15 @@ middleware, and migration from the legacy `log` package.
 
 ### Basic Configuration
 
+In `main`, configure a JSON handler for production:
+
 ```go
-package main
-
-import (
-    "log/slog"
-    "os"
-)
-
-func main() {
-    // JSON handler for production (machine-parseable)
-    logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-        Level: slog.LevelInfo,
-    }))
-    slog.SetDefault(logger)
-
-    slog.Info("server started", "addr", ":8080")
-    // Output: {"time":"...","level":"INFO","msg":"server started","addr":":8080"}
-}
+logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+    Level: slog.LevelInfo,
+}))
+slog.SetDefault(logger)
+slog.Info("server started", "addr", ":8080")
+// Output: {"time":"...","level":"INFO","msg":"server started","addr":":8080"}
 ```
 
 ### Text Handler for Development
@@ -69,7 +60,7 @@ func enableDebug() {
 
 ---
 
-## Custom Handler Patterns
+## Handler Configuration
 
 ### Adding Source Location
 
@@ -81,40 +72,28 @@ logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 // Output includes: "source":{"function":"main.handleRequest","file":"server.go","line":42}
 ```
 
-### Wrapping Handlers with Default Attributes
+### Default Attributes
 
-Use `slog.Handler` middleware to inject fields into every log record:
+Use `logger.With` for fixed fields; a custom handler is only needed when fields
+must be extracted dynamically from each call's context:
 
 ```go
-type contextHandler struct {
-    inner   slog.Handler
-    attrs   []slog.Attr
-}
-
-func (h *contextHandler) Enabled(ctx context.Context, level slog.Level) bool {
-    return h.inner.Enabled(ctx, level)
-}
-
-func (h *contextHandler) Handle(ctx context.Context, r slog.Record) error {
-    r.AddAttrs(h.attrs...)
-    return h.inner.Handle(ctx, r)
-}
-
-func (h *contextHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-    return &contextHandler{inner: h.inner.WithAttrs(attrs), attrs: h.attrs}
-}
-
-func (h *contextHandler) WithGroup(name string) slog.Handler {
-    return &contextHandler{inner: h.inner.WithGroup(name), attrs: h.attrs}
-}
+logger = logger.With("service", "orders")
 ```
 
 ### Multi-Handler (Fan-Out)
 
-Write to multiple destinations (for example stdout plus a file) by composing
-handlers behind a small `slog.Handler` wrapper. Forward `Enabled`, `Handle`,
-`WithAttrs`, and `WithGroup` to each destination, and test the wrapper with
-`slogtest`.
+Use `slog.NewMultiHandler` (Go 1.26+) to write to multiple destinations:
+
+```go
+logger := slog.New(slog.NewMultiHandler(
+    slog.NewJSONHandler(os.Stdout, nil),
+    slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}),
+))
+```
+
+It handles fan-out and each destination's enabled level; no custom wrapper is
+needed. See [go-logging](../SKILL.md#fanning-out-to-several-sinks) for the shared rule.
 
 ---
 
@@ -198,13 +177,45 @@ func loggingMiddleware(next http.Handler) http.Handler {
 type responseWriter struct {
     http.ResponseWriter
     status int
+    wroteHeader bool
 }
 
 func (rw *responseWriter) WriteHeader(code int) {
-    rw.status = code
+    if rw.wroteHeader {
+        return
+    }
     rw.ResponseWriter.WriteHeader(code)
+    if code >= 200 || code == http.StatusSwitchingProtocols {
+        rw.status = code
+        rw.wroteHeader = true
+    }
+}
+
+func (rw *responseWriter) Write(p []byte) (int, error) {
+    if !rw.wroteHeader {
+        rw.WriteHeader(http.StatusOK)
+    }
+    return rw.ResponseWriter.Write(p)
+}
+
+func (rw *responseWriter) Unwrap() http.ResponseWriter {
+    return rw.ResponseWriter
+}
+
+func (rw *responseWriter) FlushError() error {
+    if !rw.wroteHeader {
+        rw.WriteHeader(http.StatusOK)
+    }
+    return http.NewResponseController(rw.ResponseWriter).Flush()
 }
 ```
+
+Use `http.NewResponseController(w)` downstream for flush, hijack, and deadline
+operations: `Unwrap` lets it reach the underlying writer. `FlushError` also
+records the implicit 200 when flushing commits the response. Intermediate 1xx
+responses leave the final status open, except 101, which switches protocols.
+Libraries that assert `http.Flusher` or `http.Hijacker` directly need an adapter
+that preserves those interfaces; `Unwrap` alone does not satisfy them.
 
 ### Retrieving the Logger from Context
 

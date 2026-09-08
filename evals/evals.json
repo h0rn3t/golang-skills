@@ -1724,6 +1724,102 @@
         "Does not claim execution or propose unrelated dependency replacement"
       ],
       "set": "train"
+    },
+    {
+      "id": 54,
+      "prompt": "Use go-http for a snippet-only exercise. Write the JSON decoding and validation portion of a POST handler that accepts exactly one object {\"name\":string}, requires a nonempty name, and calls store.Create only after the whole request body is accepted. Limit the body to 1 MiB. Include checks for a second JSON value, trailing junk, allowed trailing whitespace, and an over-limit body. Do not run commands.",
+      "expected_output": "A bounded single-document decoder validates EOF before any domain side effect and describes checks without claiming execution.",
+      "target_skills": [
+        "go-http"
+      ],
+      "assertions": [
+        "Uses http.MaxBytesReader before decoding",
+        "Requires a second decode to return io.EOF (or an equivalent full-body single-document check) before calling Create",
+        "Rejects both a second value and malformed trailing data, while allowing trailing whitespace",
+        "Checks the size limit across the whole accepted document including trailing whitespace",
+        "Does not claim DisallowUnknownFields rejects trailing data or claim tests ran"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 55,
+      "prompt": "Use go-logging to implement a minimal net/http status-capturing ResponseWriter for a middleware. Downstream handlers use http.NewResponseController(w).Flush and may set deadlines or hijack when the underlying writer supports it. Handle Write without WriteHeader, repeated final WriteHeader calls, and 103 followed by a final response. Explain the boundary for libraries that directly assert http.Flusher or http.Hijacker. Show focused regression cases; do not run commands.",
+      "expected_output": "A response wrapper preserves the first final status, implicit commits and ResponseController access, and states the direct-interface limitation.",
+      "target_skills": [
+        "go-logging"
+      ],
+      "assertions": [
+        "Records the first final response status and ignores subsequent final WriteHeader calls",
+        "Records implicit 200 when Write or Flush commits the response",
+        "Does not treat ordinary informational 1xx responses as final; handles 101 as a protocol switch",
+        "Provides Unwrap for ResponseController and an intercepting flush path to record implicit commitment",
+        "Does not claim Unwrap alone implements http.Flusher or http.Hijacker for direct assertions",
+        "Includes wire-versus-log status and flush checks without claiming execution"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 56,
+      "prompt": "Use go-logging and its logging patterns reference. Our Go 1.27 service needs all Info-and-higher logs as JSON on stdout, plus Error-and-higher logs as text on stderr, with the same attributes and groups. Give the smallest setup. No custom routing or transformation is required. Do not run commands.",
+      "expected_output": "Standard slog.NewMultiHandler composes two standard handlers with per-destination levels.",
+      "target_skills": [
+        "go-logging"
+      ],
+      "assertions": [
+        "Uses slog.NewMultiHandler with slog.NewJSONHandler and slog.NewTextHandler",
+        "Configures stderr for Error and higher and stdout for Info and higher",
+        "Adds no custom fan-out Handler type, forwarding methods, or new logging dependency",
+        "Does not claim execution"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 57,
+      "prompt": "Use go-style-core for a Go 1.27 snippet-only implementation. Existing types are type Audit struct { CreatedBy string } and type Document struct { Audit; Name string }. Implement func NewDocument(name, creator string) Document using the shortest clear keyed literal supported by this version. Keep both types and their embedding unchanged; all values are already computed. Also state why the same shorthand cannot simply be applied if Audit becomes *Audit or if the literal initializes both Audit and CreatedBy. Do not run commands.",
+      "expected_output": "NewDocument uses promoted-field initialization without changing the types, with correct pointer-embedding and overlapping-field limits.",
+      "target_skills": [
+        "go-style-core"
+      ],
+      "assertions": [
+        "Uses a keyed Document literal setting CreatedBy directly alongside Name, without an unnecessary nested Audit literal",
+        "Preserves the exact types, embedding, function signature and field values",
+        "Does not claim promoted-field keys are unsupported in Go 1.27",
+        "Rejects implicit pointer traversal through *Audit and combining enclosing Audit with its promoted CreatedBy in the same literal",
+        "Introduces no new helper or constructor layer and does not claim execution"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 58,
+      "prompt": "Use go-performance for a Go 1.27 snippet-only implementation. Write func RememberID(record string) string. The ID is the prefix before the first tab, or all of record when there is no tab. Return exactly those bytes, including an empty prefix. A heap profile shows that storing short IDs for hours keeps multi-megabyte input records alive; record itself is otherwise discarded. This function is the storage boundary. Keep the no-tab path allocation-free. Explain why short-lived parsing elsewhere should not automatically adopt the same copying. Do not run commands.",
+      "expected_output": "A simple split and selective strings.Clone detach a retained prefix while preserving empty/no-separator behavior and avoiding blanket copying.",
+      "target_skills": [
+        "go-performance"
+      ],
+      "assertions": [
+        "Splits only at the first tab and preserves the specified bytes and empty prefix",
+        "Uses strings.Clone for the retained substring when a tab exists, avoiding retention of the large input backing allocation",
+        "Returns the original record without copying when there is no tab",
+        "Ties copying to the demonstrated retention problem and does not recommend cloning every transient substring",
+        "Adds no cache abstraction, unsafe conversion, or helper layer and does not claim execution"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 59,
+      "prompt": "Use go-data-structures for a Go 1.27 snippet-only implementation. Write func ApplyScores(dst, updates map[string]int, minimum int). Merge updates into dst, replacing matching values but keeping unrelated entries, then remove every entry below minimum from the resulting dst. Existing aliases of dst must see the mutation. Distinct updates must remain unchanged; dst and updates may also be the same map. The caller initializes dst whenever updates is nonempty; nil/nil and empty updates are valid. Show focused cases for overwrite-before-filter order and aliasing. Do not run commands.",
+      "expected_output": "maps.Copy followed by maps.DeleteFunc implements the in-place contract without replacement maps or hand-written traversal.",
+      "target_skills": [
+        "go-data-structures"
+      ],
+      "assertions": [
+        "Uses maps.Copy(dst, updates) followed by maps.DeleteFunc with score < minimum",
+        "Preserves dst identity and unrelated entries, with no clone-and-rebind implementation",
+        "Keeps distinct updates unchanged and recognizes that filtering an aliased source changes the same map",
+        "Handles nil/empty updates within the stated destination precondition without speculative allocation or error APIs",
+        "Includes cases for overwrite-before-filter ordering and visible mutations through aliases without claiming execution"
+      ],
+      "set": "validation"
     }
   ]
 }

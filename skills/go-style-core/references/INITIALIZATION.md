@@ -2,7 +2,7 @@
 
 > Sources: source/google-go-styleguide/decisions.md; source/uber-go-style/style.md; COMPATIBILITY.md
 > Authority: project policy for preferred forms; language semantics follow Go
-> Minimum Go: `any` Go 1.18; `new(expr)` Go 1.26
+> Target Go: 1.27
 
 ## Preserve the Value Contract
 
@@ -30,6 +30,28 @@ Use `var user User` for an intentional zero-value struct. Omit redundant zero
 fields when that preserves clarity. To allocate and initialize a struct,
 prefer `&T{Field: value}`; both `&T{}` and `new(T)` produce a pointer to a
 zero-value `T`.
+
+### Embedded Fields in Go 1.27
+
+Set an unambiguous promoted field directly when the nested literal only adds
+ceremony. Keep the embedded type; no flattening of the data model is needed:
+
+```go
+type Audit struct { CreatedBy string }
+type Document struct {
+    Audit
+    Name string
+}
+
+doc := Document{CreatedBy: owner, Name: name}
+```
+
+This initializes `doc.Audit.CreatedBy`. Do not combine `Audit: ...` with
+`CreatedBy: ...` in the same literal, or use this shorthand through an embedded
+pointer. Keep explicit nesting when names are ambiguous or it makes the value
+clearer. For existing code, preserve expression evaluation order and preview
+the scoped `embedlit` modernizer through [go-linting](../../go-linting/SKILL.md).
+See the [Go 1.27 language changes](https://go.dev/doc/go1.27#language).
 
 ## Pointers to Optional Values
 

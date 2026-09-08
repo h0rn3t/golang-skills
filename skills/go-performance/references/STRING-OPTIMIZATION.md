@@ -1,5 +1,20 @@
 # String Optimization Patterns
 
+## Retained Substrings
+
+A long-lived substring can keep a large input allocation alive. When profiling
+shows this retention, copy just the part that must survive the operation:
+
+```go
+id := strings.Clone(record[:cut])
+```
+
+Keep a plain substring for short-lived use; cloning every parsed string adds
+allocations and can make memory use worse. Copy at the retention boundary,
+not at every intermediate step. `strings.Clone` returns equal text in its own
+allocation (except the empty string), so the small retained value no longer
+keeps the large input alive. See [strings.Clone](https://pkg.go.dev/strings#Clone).
+
 ## strconv vs fmt
 
 When converting primitives to/from strings, `strconv` is faster than `fmt`
@@ -138,4 +153,5 @@ usage := "" +
 | `fmt.Sprintf` | Formatted output | Slower, but clearer |
 | `strings.Builder` | Loop/piecemeal construction | Amortized O(n) |
 | `strings.Join` | Joining a slice | O(n) |
+| `strings.Clone` | Detach a retained substring when profiling justifies the copy | Copies the retained bytes |
 | Backtick literal | Constant multi-line text | Zero cost |

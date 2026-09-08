@@ -48,6 +48,13 @@ licensed under Apache-2.0, copyright 2025 Timescale, Inc., d/b/a Tiger Data.
 The guidance is independently written and checked against the linked PostgreSQL
 manual; no upstream files are bundled.
 
+The Go 1.27 additions for promoted-field literals, retained substring copying,
+and in-place map operations were selected after reviewing
+[JetBrains/go-modern-guidelines at `91a30b3`](https://github.com/JetBrains/go-modern-guidelines/tree/91a30b36f05bb6424bd77e9817811c0e9c003aa2),
+licensed under Apache-2.0. The guidance and examples here are independently
+written and verified against the Go documentation and toolchain; no upstream
+files are bundled.
+
 ## Provenance Policy
 
 When updating files under `source/`:

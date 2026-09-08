@@ -4,6 +4,22 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Add Go 1.27 guidance for promoted fields in struct literals, copying retained
+  substrings only when justified by profiling, and merging/filtering maps in
+  place. Add executable example checks and three implementation quality cases;
+  record the JetBrains source review without claiming a measured model benefit.
+
+### Fixed
+
+- Make the HTTP JSON example reject trailing data before domain side effects.
+- Preserve final response status and ResponseController operations in the
+  logging middleware example; use standard `slog.NewMultiHandler` for fan-out.
+- Run model-authored tests separately before hidden golden tests in `abrun`,
+  exclude their failures from valid results, and retain successful source with
+  `-keep`. Add executable example and runner regressions plus quality cases.
+
 ## [1.1.0] - 2026-09-08
 
 ### go-code-refactor

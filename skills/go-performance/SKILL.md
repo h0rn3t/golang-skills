@@ -10,9 +10,10 @@ allowed-tools: Bash(bash:*)
 
 - `scripts/bench-compare.sh` - Run when comparing benchmark results, saving baselines, or producing JSON benchmark metadata.
 - `references/BENCHMARKS.md` - Read when writing benchmarks, using benchstat, or profiling with pprof.
-- `references/STRING-OPTIMIZATION.md` - Read when optimizing string conversion, concatenation, or byte/string boundaries.
+- `references/STRING-OPTIMIZATION.md` - Read when optimizing string conversion, concatenation, byte/string boundaries, or memory retained by substrings.
 
-Performance-specific guidelines apply only to the **hot path**. Don't prematurely optimize—focus these patterns where they matter most.
+Apply performance-specific guidance to measured bottlenecks, including retained
+memory. Don't add allocations or complexity without evidence that it helps.
 
 ---
 

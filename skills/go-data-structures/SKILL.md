@@ -47,6 +47,8 @@ Writing the loop instead is a reviewable defect, not a style choice —
 | Search for a value | `slices.Contains`, `slices.IndexFunc` |
 | Sort | `slices.Sort`, `slices.SortFunc` (not `sort.Slice`) |
 | Copy | `slices.Clone`, `maps.Clone` |
+| Merge entries into an existing map | `maps.Copy` |
+| Delete map entries by predicate | `maps.DeleteFunc` |
 | Compare | `slices.Equal`, `maps.Equal` |
 | Collect keys/values | `slices.Collect(maps.Keys(m))` |
 | Insert/delete in the middle | `slices.Insert`, `slices.Delete` |
@@ -57,6 +59,24 @@ Writing the loop instead is a reviewable defect, not a style choice —
 ```go
 dir, file, ok := strings.CutLast("a/b/c.txt", "/") // "a/b", "c.txt", true
 ```
+
+### Update and Filter an Existing Map
+
+When updates must overwrite matching keys before filtering the resulting map:
+
+```go
+maps.Copy(dst, updates)
+maps.DeleteFunc(dst, func(_ string, score int) bool { return score < minimum })
+```
+
+Both operations mutate `dst`, so existing aliases observe the changes.
+`Copy` leaves unrelated keys intact; it is a merge, not replacement or deep
+cloning. The destination must be initialized if the source contains entries.
+With distinct source and destination maps, the source is unchanged; if they
+are the same map, filtering naturally changes both. Preserve copy/filter order
+and use a predicate without map mutations or iteration-order assumptions.
+See [maps.Copy](https://pkg.go.dev/maps#Copy) and
+[maps.DeleteFunc](https://pkg.go.dev/maps#DeleteFunc).
 
 ### The append Function
 

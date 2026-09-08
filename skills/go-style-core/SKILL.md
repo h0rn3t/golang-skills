@@ -18,7 +18,7 @@ the task requires. An ordinary function edit does not require every reference.
 - `references/SCOPE.md` - Read for `var` vs `:=`, grouping declarations, if-init, and reassignment across scopes.
 - `references/SHADOWING.md` - Read when an inner declaration hides an outer variable or a predeclared identifier.
 - `references/IOTA.md` - Read when designing enum defaults, bitmasks, or grouped constants.
-- `references/INITIALIZATION.md` - Read for struct/map initialization, keyed literals, zero values, and pointers to optional values.
+- `references/INITIALIZATION.md` - Read for struct/map initialization, keyed literals (including embedded fields in Go 1.27), zero values, and pointers to optional values.
 - `references/CONTROL-FLOW.md` - Read when choosing loop/range forms, writing iterators, or preserving iteration behavior.
 - `references/SWITCH-PATTERNS.md` - Read for expression switches, fallthrough, and labeled breaks; route interface semantics to go-interfaces.
 - `references/BLANK-IDENTIFIER.md` - Read for intentional discards and side-effect imports; route interface assertions to go-interfaces.

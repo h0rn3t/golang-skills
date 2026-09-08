@@ -132,11 +132,14 @@ pins the observable behavior: exported signatures, error texts, key formats,
 column widths. It never reaches the model, so it cannot be adjusted to match a
 changed implementation — a failing golden test means behavior moved.
 
-Any `_test.go` the model wrote is renamed out of the build first. A refactor is
-supposed to leave characterization tests behind, and the helper types in them
-collide with the golden file's by name; without this step the harness scores its
-own collision as a behavior break. It also keeps the model's tests from being
-the reason the golden run passes.
+Before installing the golden tests, the harness runs `go test -count=1 ./...`
+on the model's tree when it contains test files. The JSON records `model_tests`
+as `pass`, `fail`, or `skipped` (no test files), with failure output in
+`model_test_failure`. Older reports omit these fields: that is unmeasured,
+not a historical pass. Each `_test.go` is then renamed to `_test.go.model`
+before the independent golden run, even if the model's tests failed. This
+avoids helper-name collisions and prevents model tests from making the golden
+run pass. A passing golden result cannot override a model-test failure.
 
 Per run: recursive line delta, declared types, interfaces, functions,
 pattern-flavored identifiers, whether the package still builds, whether the
@@ -147,8 +150,8 @@ metric and would otherwise average in as a behavior-preserving tie. A run is
 also invalid if its transcript mentions the repository path, since the hidden
 golden test lives there and a session that found its way back to the checkout
 is measuring nothing. The summary averages structural deltas only over runs
-that build, pass the hidden golden test, and clear both guards; everything
-excluded stays visible in its own count.
+that build, pass model tests when present, pass the hidden golden test, and
+clear both guards; everything excluded stays visible in its own count.
 
 A wording that helps shows up as fewer lines with the golden test still green.
 A wording that licenses growth shows up as `Δtypes`, `Δiface` and `Δpattern`
@@ -163,14 +166,22 @@ complete plugin roots, and the revisions or content hashes they came from.
 `abrun` records a SHA-256 digest of every materialized plugin arm in the JSON
 report; record the source revisions beside it when publishing the file.
 
+Use `-keep` for comparisons: it now retains **every** run, including successful
+ones. The JSON `workdir` and console `source:` line locate the scratch tree;
+production source remains in place, model tests have the `.model` suffix,
+and the golden files are added separately. Archive these trees alongside the
+report before temporary-directory cleanup. Without `-keep`, scratch trees are
+removed. Historical reports made with failure-only `-keep` cannot recover
+successful source retroactively.
+
 Use `no-skill` versus `baseline` only to decide whether a fixture contains a
 trap the plugin can catch. It does not measure whether a skill edit improved the
 previous skill. For that claim, compare `reference` versus `baseline` with the
 same fixtures and save the report.
 
-Runs with a CLI/session error, build failure, or golden failure are not evidence
-of a shorter behavior-preserving refactor. Keep them in the report for diagnosis
-and exclude their structural deltas from the arm mean.
+Runs with a CLI/session error, build failure, model-test failure, or golden
+failure are not evidence of a shorter behavior-preserving refactor. Keep them
+in the report for diagnosis and exclude their structural deltas from the arm mean.
 
 ## Current validated results
 

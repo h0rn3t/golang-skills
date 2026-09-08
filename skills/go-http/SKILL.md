@@ -62,6 +62,10 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
         http.Error(w, "invalid JSON body", http.StatusBadRequest)
         return
     }
+    if err := dec.Decode(new(any)); err != io.EOF {
+        http.Error(w, "body must contain one JSON value", http.StatusBadRequest)
+        return
+    }
     if err := req.validate(); err != nil {
         http.Error(w, err.Error(), http.StatusBadRequest)
         return
@@ -77,6 +81,9 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 - `http.MaxBytesReader` on every body you decode; an unbounded body is a
   memory DoS.
+- For a single-document endpoint, require EOF after the first value before
+  calling the domain. `DisallowUnknownFields` does not reject trailing data;
+  a second decode accepts only trailing whitespace and still enforces the cap.
 - `r.Context()` into every downstream call — it is cancelled when the client
   disconnects. [go-context](../go-context/SKILL.md) owns the rest.
 - Set headers before `WriteHeader`; call `WriteHeader` once. Encode into a

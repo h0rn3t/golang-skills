@@ -57,7 +57,7 @@ effect is −17.6 lines, the largest recorded, and its interval is the only one 
 the corpus that clears zero by more than a rounding error.
 
 `dispatch` is the surprise. It has gone the wrong way on every model measured
-before this one — Opus 5 +2.0, MiniMax M3 +0.8, MiMo v2.5 Pro +3.0,
+before this one — Opus 5 +2.0, MiniMax M3 +0.8,
 MAI-Code-1.1-Flash +5.8 — and here it is −5.8 with an interval that excludes
 zero. The skilled arm is also far more consistent on it,
 ±1.0 against the control's ±4.3.
@@ -70,7 +70,7 @@ zero. The skilled arm is also far more consistent on it,
 | Pattern-name hits | 0 | 0 | no difference |
 
 Function growth falls by more than on any other model; the previous best was
-MiMo v2.5 Pro at −60.0%. Type growth has nowhere to move, because the unaided
+MiniMax M3 at −48.4%. Type growth has nowhere to move, because the unaided
 model declared exactly one new type across 20 runs.
 
 The skill produced a test file in 7 of 20 runs against 0 of 20 without it, which

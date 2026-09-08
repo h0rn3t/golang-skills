@@ -273,11 +273,11 @@ same model, runner and fixtures.
 
 | What the skills do | Effect | Basis |
 | --- | --- | --- |
-| **Refactor: stop the model adding structure** on the trap fixture `report` | Growth cut by **50–68%** on Opus 5, MiniMax M3, MiMo v2.5 Pro and by **94%** on GPT-5.6-Luna at n=5; **84–106%** on GPT-5.6-Luna across codex, copilot and opencode at n=10 (above 100% = the package ends smaller than it was handed) | 5 models, 4 runners; [per-model](docs/evidence/2026-09-07-go-refactor-control-gpt-5.6-luna-medium.md), [multirunner](docs/evidence/2026-09-07-go-multirunner-gpt-5.6-luna-medium.uk.md), [codex n=10](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md) |
-| **Refactor: stop helper sprawl** (new functions across 20 sessions) | **−38% to −71%** per model at n=5; **−84% to −88%** on GPT-5.6-Luna on each of three runners | 4 of 5 models; MAI-Code-1.1-Flash +27%, the one model that never took the bait |
+| **Refactor: stop the model adding structure** on the trap fixture `report` | Growth cut by **50–60%** on Opus 5 and MiniMax M3 and by **94%** on GPT-5.6-Luna at n=5; **84–106%** on GPT-5.6-Luna across codex, copilot and opencode at n=10 (above 100% = the package ends smaller than it was handed) | 4 models, 4 runners; [per-model](docs/evidence/2026-09-07-go-refactor-control-gpt-5.6-luna-medium.md), [multirunner](docs/evidence/2026-09-07-go-multirunner-gpt-5.6-luna-medium.uk.md), [codex n=10](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md) |
+| **Refactor: stop helper sprawl** (new functions across 20 sessions) | **−38% to −71%** per model at n=5; **−84% to −88%** on GPT-5.6-Luna on each of three runners | 3 of 4 models; MAI-Code-1.1-Flash +27%, the one model that never took the bait |
 | **Refactor: finish removing duplication** on `pricing`, lines removed vs control | Before the 2026-09-08 change the skill removed **32–40% less** than control on all three runners; after it, **36% more** on codex, **11% more** on copilot, **±0%** on opencode where control already got there | GPT-5.6-Luna, n=5 before / n=10 after; [copilot](docs/evidence/2026-09-07-selection-once-luna-copilot.uk.md), [codex](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md), [opencode](docs/evidence/2026-09-07-selection-once-luna-opencode.uk.md) |
-| **Refactor: keep behavior** | Build and hidden golden test **100%** in both arms on every model and runner (95% both arms on MiMo) | 199 + 240 + 230 sessions; the corpus measures size, not defects |
-| **Implement: catch the hidden defect** (packages passing the golden spec) | **75% → 90%** on MAI-Code-1.1-Flash, **63% → 75%** on MiMo v2.5 Pro; `gateway` alone **20% → 60%** on both; **100% → 100%** on GPT-5.6-Luna and Opus 5, which never fall in | n=5 per cell, Fisher p ≈ 0.5 — a direction, not a demonstration |
+| **Refactor: keep behavior** | Build and hidden golden test **100%** in both arms on every model and runner | 160 + 240 + 230 sessions; the corpus measures size, not defects |
+| **Implement: catch the hidden defect** (packages passing the golden spec) | **75% → 90%** on MAI-Code-1.1-Flash; `gateway` alone **20% → 60%**; **100% → 100%** on GPT-5.6-Luna and Opus 5, which never fall in | n=5 per cell, Fisher p ≈ 0.5 — a direction, not a demonstration |
 | **Implement: size of a working implementation** where correctness is tied | **−35% lines, −44% functions** on Opus 5 `gateway`, spread seven times tighter; **±0%** on GPT-5.6-Luna, no interval excludes zero | [Opus 5](docs/evidence/2026-09-07-go-implement-gateway-opus5.md), [multirunner](docs/evidence/2026-09-07-go-multirunner-gpt-5.6-luna-medium.uk.md) |
 
 Read it as two findings and one repair. The skills reliably prevent growth —
@@ -300,7 +300,6 @@ with the skill minus the mean without it, so **negative favors the skill**.
 | [GPT-5.6-Luna (medium)](docs/evidence/2026-09-07-go-refactor-control-gpt-5.6-luna-medium.md) | codex | **−5.8** | +2.6 | **−17.6** | −3.6 | **−6.10** |
 | [MiniMax M3](docs/evidence/2026-09-07-go-refactor-control-minimax-m3.md) | opencode | +0.8 | −6.8 | **−16.4** | −9.4 | **−7.95** |
 | [Opus 5](docs/evidence/2026-09-07-go-refactor-control-opus5.md) | claude | +2.0 | −0.4 | **−16.6** | −1.6 | **−4.15** |
-| [MiMo v2.5 Pro](docs/evidence/2026-09-07-go-refactor-control-mimo-v2.5-pro.md) | opencode | +3.0 | −0.6 | **−11.1** | −1.0 | **−4.11** |
 | [MAI-Code-1.1-Flash](docs/evidence/2026-09-07-go-refactor-control-mai-code-1.1-flash.md) | copilot | +5.8 | −2.6 | −0.6 | +1.8 | +1.10 |
 
 The one model where nothing moved is the one that never took the bait. Read the
@@ -311,7 +310,6 @@ control column first — it is how much there was to remove:
 | Opus 5 | +33.4 | +16.8 | 50% |
 | MiniMax M3 | +27.4 | +11.0 | 60% |
 | GPT-5.6-Luna | +18.8 | **+1.2** | **94%** |
-| MiMo v2.5 Pro | +16.4 | +5.2 | 68% |
 | MAI-Code-1.1-Flash | +16.2 | +15.6 | 4% |
 
 MAI-Code-1.1-Flash grows the package half as much as Opus 5 does unaided and
@@ -327,15 +325,14 @@ abstraction apart from helper sprawl:
 | --- | --- | --- |
 | Opus 5 | 15 → 6 (**−60%**) | 32 → 20 (−38%) |
 | GPT-5.6-Luna | 1 → 1 | 31 → 9 (**−71%**) |
-| MiMo v2.5 Pro | 6 → 3 (−50%) | 20 → 8 (−60%) |
 | MiniMax M3 | 5 → 6 | 31 → 16 (−48%) |
 | MAI-Code-1.1-Flash | 1 → 0 | 37 → 47 (+27%) |
 
 Opus 5's failure mode is reaching for a type; everyone else's is reaching for a
-helper. Across all 199 valid sessions exactly one interface was declared — by
+helper. Across all 160 valid sessions exactly one interface was declared — by
 Opus 5's control arm, none by any skilled arm — and no arm anywhere produced a
 pattern-flavored name. Correctness was tied on every model: 20/20 build and
-golden passes in both arms, 19/20 in both arms on MiMo. The refactor corpus is
+golden passes in both arms. The refactor corpus is
 evidence about code size, not about defect rates.
 
 #### The same model on three runners, and what it changed in the skill
@@ -381,7 +378,6 @@ caller's slice — and the doc comments never name the technique.
 | [GPT-5.6-Luna (medium)](docs/evidence/2026-09-07-go-implement-control-gpt-5.6-luna-medium.md) | codex | 5/5 → 5/5 | 5/5 → 5/5 | 5/5 → 5/5 | 5/5 → 5/5 | 20/20 → 20/20 |
 | Opus 5 ([gateway](docs/evidence/2026-09-07-go-implement-gateway-opus5.md), [feed/catalog](docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md)) | claude | 3/3 → 3/3 | 3/3 → 3/3 | 5/5 → 5/5 | — | 11/11 → 11/11 |
 | [MAI-Code-1.1-Flash](docs/evidence/2026-09-07-go-implement-control-mai-code-1.1-flash.md) | copilot | 5/5 → 5/5 | 4/5 → 5/5 | **1/5 → 3/5** | 5/5 → 5/5 | 15/20 → 18/20 |
-| [MiMo v2.5 Pro](docs/evidence/2026-09-07-go-implement-control-mimo-v2.5-pro.md) | opencode | 4/5 → 4/5 | 3/5 → 3/5 | **1/5 → 3/5** | 4/4 → 5/5 | 12/19 → 15/20 |
 
 Where the model already avoids the defect, the skill has nothing to add and the
 score is what a working implementation costs instead: on Opus 5 `gateway` went
@@ -391,12 +387,12 @@ skilled arm's spread seven times tighter.
 Where the model falls in, the score is whether the package works at all.
 `gateway` — an edge server built as `&http.Server{Addr: addr, Handler: h}`, whose
 zero timeouts hold stalled connections until it runs out — goes 1/5 to 3/5 on
-two unrelated models, runners and providers. Every failure in both arms is that
-one defect: `ReadTimeout` or `ReadHeaderTimeout` left at zero.
+MAI-Code-1.1-Flash. Every failure in both arms is that one defect: `ReadTimeout`
+or `ReadHeaderTimeout` left at zero.
 
-At `n=5` per cell Fisher's exact gives p ≈ 0.5 for those, so each is a direction
-rather than a demonstrated result; two independent runs landing on the same
-numbers is why `gateway` is the fixture worth a larger `n`.
+At `n=5` per cell Fisher's exact gives p ≈ 0.5, so that cell is a direction
+rather than a demonstrated result, and `gateway` is the fixture worth a larger
+`n`.
 
 ### What this does and does not establish
 

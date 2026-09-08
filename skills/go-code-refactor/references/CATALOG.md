@@ -179,7 +179,7 @@ owns that fold and the three checks that say when it is finished.
 
 | Smell | Transform |
 |---|---|
-| Long function | Extract until one job (PLAYBOOK §2) |
+| Mixed abstraction levels | Extract meaningful operations (PLAYBOOK §2); length alone is not a reason |
 | Deeply nested conditionals | Guard clauses (PLAYBOOK §1) |
 | Long parameter list | Introduce parameter object, or [go-functions](../../go-functions/SKILL.md) for construction config |
 | Data clumps | A struct for the recurring group |

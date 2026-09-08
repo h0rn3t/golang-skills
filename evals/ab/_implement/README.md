@@ -107,16 +107,6 @@ this model under-implements rather than over-engineers, and the skilled arm
 writes slightly more. See
 [the analysis](../../../docs/evidence/2026-09-07-go-implement-control-mai-code-1.1-flash.md).
 
-`opencode-go/mimo-v2.5-pro` then reproduced `gateway` at the same 1/5 → 3/5 from
-an unrelated runner, model and provider, and went further: it is the first model
-on which `feed` and `catalog` also fail unaided, and every failure in its 40
-sessions is a trap rather than a compile error. Those two did not separate the
-arms — both are tied, because not one of the ten `feed` sessions loaded
-`go-data-structures`, the skill whose rule is that fixture's entire trap. See
-[the analysis](../../../docs/evidence/2026-09-07-go-implement-control-mimo-v2.5-pro.md).
-That makes it the reference model for this corpus, and it retires the claim
-below that `feed` needs a different task: it needed a different model.
-
 Only `gateway` responded to the single-entry-point rebuild, and the reason is
 the fixture design rule this corpus learned the hard way: **room to
 over-engineer comes from a task with many small independent placement
@@ -124,10 +114,10 @@ decisions, not from an unpinned API.** `gateway` is five routes, three status
 codes, an ordering rule and a filter with an error path. `feed` and `catalog`
 are each one data transformation, and a specification precise enough for a
 golden test to check mechanically is also precise enough to leave a single
-sensible shape. That reasoning held only for the *line* metric. On correctness
-it was wrong, and `mimo-v2.5-pro` is what showed it: `feed` and `catalog` fail
-unaided there, so the room they lack is room to over-engineer, not room to get
-the thing wrong. `feed` needed a different model, not a different task.
+sensible shape. That reasoning covers the *line* metric only. Whether `feed`
+and `catalog` can fail unaided on some model — which would make the room they
+lack room to over-engineer rather than room to get the thing wrong — currently
+has no published run behind it.
 
 ## Why the first attempt measured nothing
 

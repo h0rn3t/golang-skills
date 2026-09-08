@@ -23,7 +23,7 @@ needed no design decision, and reviewers approve it at a glance.
 
 | Location | Before | After | Why |
 |---|---|---|---|
-| `file.go:120-260` | 140-line handler mixing decode, validation, persistence | orchestrator + 4 named steps | one job per function |
+| `file.go:120-160` | two copies of order validation | one shared validation helper | less code after counting the helper and its call sites |
 
 One row per named transformation. Terse — the diff shows the detail.
 

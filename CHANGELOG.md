@@ -57,9 +57,9 @@ All notable changes to this repository are documented here.
   `gateway`, and `ledger` fixtures and their hidden golden tests. Where the
   refactor corpus scores structure removed from working code, this one scores
   whether documented-but-unimplemented declarations work at all.
-- Publish control runs for Opus 5, GPT-5.6-Luna, MAI-Code-1.1-Flash, MiMo v2.5
-  Pro, and MiniMax M3 under `docs/evidence/`, including the runs where the arms
-  do not separate because the model never falls into the fixture's trap.
+- Publish control runs for Opus 5, GPT-5.6-Luna, MAI-Code-1.1-Flash, and
+  MiniMax M3 under `docs/evidence/`, including the runs where the arms do not
+  separate because the model never falls into the fixture's trap.
 
 ### Refactoring depth
 

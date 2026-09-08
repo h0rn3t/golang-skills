@@ -44,9 +44,8 @@ Every trap is saturated. Unaided, this model reaches for a non-nil slice, sets
 all four server timeouts, keeps the error chain and copies the caller's slice —
 without being told, in every one of 20 sessions. That puts it with Opus 5 and
 the pinned-fixture claude run rather than with
-[MAI-Code-1.1-Flash](2026-09-07-go-implement-control-mai-code-1.1-flash.md) or
-[MiMo v2.5 Pro](2026-09-07-go-implement-control-mimo-v2.5-pro.md), where
-`gateway` failed four times in five without the skill.
+[MAI-Code-1.1-Flash](2026-09-07-go-implement-control-mai-code-1.1-flash.md),
+where `gateway` failed four times in five without the skill.
 
 ### Code size
 
@@ -93,11 +92,10 @@ where the skill removed all of the growth on `report` and cut helper functions
 Removing structure from code that already works is where this skill pays; adding
 the right code to an empty body is not, because this model already writes it.
 
-Against the routing story from the other implementation runs: on
-[MiMo v2.5 Pro](2026-09-07-go-implement-control-mimo-v2.5-pro.md) the arms failed
-to separate on `feed` because `go-data-structures` never fired in a single
-`feed` session. Here it fired in 10 of 20 sessions, `go-defensive` in 7 and
-`go-error-handling` in 9 — the routing that run was missing — and the arms still
+Against the routing story from the other implementation runs, where the arms
+failed to separate on `feed` because `go-data-structures` never fired in a
+single `feed` session. Here it fired in 10 of 20 sessions, `go-defensive` in 7
+and `go-error-handling` in 9 — the routing those runs were missing — and the arms still
 did not separate, because there was no defect left to prevent. Good routing is
 necessary for the corpus to show an effect and it is not sufficient; the model
 has to be one that gets it wrong first.

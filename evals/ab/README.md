@@ -179,20 +179,7 @@ The same model is the first to give the implementation corpus a live trap:
 sessions that reached `go-http` set every timeout —
 [analysis and raw report](../../docs/evidence/2026-09-07-go-implement-control-mai-code-1.1-flash.md).
 
-A fifth model, `opencode-go/mimo-v2.5-pro` under `-runner opencode`, gives the
-cleanest replication yet and the most useful implementation run to date. On the
-refactor corpus it cuts `report` growth 68.0% (+16.4 to +5.2, the only fixture
-interval here that excludes zero) and is the first run where both structural
-mechanisms move at once, types −50% and functions −60%
-([analysis](../../docs/evidence/2026-09-07-go-refactor-control-mimo-v2.5-pro.md)).
-On the implementation corpus it is the first model to make three traps live at
-once — `gateway`, `feed` and `catalog` all fail unaided, and every failure in
-the run is a trap rather than a compile error. `gateway` goes 1/5 to 3/5, the
-same numbers as MAI-Code-1.1-Flash; `feed` and `catalog` are tied because the
-owning skill never fired
-([analysis](../../docs/evidence/2026-09-07-go-implement-control-mimo-v2.5-pro.md)).
-
-A sixth model, `gpt-5.6-luna` at `-effort medium` under `-runner codex`, is the
+A fifth model, `gpt-5.6-luna` at `-effort medium` under `-runner codex`, is the
 strongest refactor result recorded and the first on which two fixtures separate
 the arms. On `report` the skill does not reduce growth, it removes it — the
 control writes +18.8 lines, the skilled arm +1.2, and four of its five sessions

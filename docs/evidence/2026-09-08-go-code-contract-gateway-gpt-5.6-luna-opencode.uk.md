@@ -58,5 +58,5 @@ go run ./cmd/abrun -corpus implement -runner opencode -model opencode-go/gpt-5.6
   вивід.
 
 Секція лишається неміряною. Щоб отримати результат, потрібна слабша модель, де
-`gateway` реально падає (MiMo v2.5 Pro або MAI-Code-1.1-Flash: 1/5 без `go-http`),
+`gateway` реально падає (MAI-Code-1.1-Flash: 1/5 без `go-http`),
 і n≥10 на плече.

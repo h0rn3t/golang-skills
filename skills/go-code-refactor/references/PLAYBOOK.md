@@ -14,7 +14,7 @@ that already exists.
 - [The readability hierarchy](#the-readability-hierarchy)
 - [0. Delete first](#0-delete-first)
 - [1. Flatten with early returns](#1-flatten-with-early-returns)
-- [2. Extract until one job per function](#2-extract-until-one-job-per-function)
+- [2. Extract meaningful operations](#2-extract-meaningful-operations)
 - [3. Rename for the reader](#3-rename-for-the-reader)
 - [4. Name the magic values](#4-name-the-magic-values)
 - [5. Error handling in an existing codebase](#5-error-handling-in-an-existing-codebase)
@@ -224,14 +224,16 @@ scope `err` into the `if` when it is not used later
 
 ---
 
-## 2. Extract until one job per function
+## 2. Extract meaningful operations
 
-Long functions are the dominant readability failure in Go services. The test is
-not line count but **mixed abstraction levels**: one function that both parses
-an HTTP body and builds SQL makes the reader context-switch mid-scroll.
+Apply the [helper rule](../SKILL.md#delete-before-you-restructure): function
+length alone does not justify extraction. Mixed abstraction levels can: parsing
+an HTTP body and building SQL may each hide substantial detail worth naming.
+The example below assumes those operations contain that detail; short steps
+that are already clear stay inline.
 
 ```go
-// after: a 150-line handler becomes a thin orchestrator
+// after: parsing and domain details are hidden behind meaningful operations
 func (s *Server) HandleOrder(w http.ResponseWriter, r *http.Request) {
     req, err := decodeOrderRequest(r)
     if err != nil {
@@ -251,7 +253,7 @@ func (s *Server) HandleOrder(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-A well-named call is documentation the compiler checks. Extraction notes:
+Extraction notes:
 
 - Keep helpers unexported and near their caller; a new file per concern only
   when the file itself is unwieldy.

@@ -122,8 +122,12 @@ game. That is where the readability gain lives.
 
 Work in that order — delete, then shorten, then restructure — and read the net
 line count after each step. Growth is a new declaration, layer, indirection,
-file, or dependency, and it needs a reason in the report; a guard clause, a
-named constant, or a one-job extraction is a name, not growth.
+file, or dependency, and it needs a reason in the report; a guard clause or a
+named constant is a name, not growth.
+
+Extract a helper when it removes repeated logic or hides a meaningful operation.
+Keep a short, single-use sequence inline when the helper only renames its steps.
+Count the helper and its call sites when comparing complexity.
 
 Before writing any new line — helper, wrapper, interface — climb the restraint
 ladder in `references/OVER-ENGINEERING.md` and stop at the first rung that
@@ -233,8 +237,8 @@ For independent packages, follow the host's delegation policy and
 [go-style-core](../go-style-core/SKILL.md#how-much-to-say).
 
 `references/PLAYBOOK.md` has the transformations. The high-value ones: delete
-dead code, extract until each function has one job, flatten with early returns,
-name things after what they mean, name magic values, remove duplication that
+dead code, flatten with early returns, name things after what they mean,
+name magic values, remove duplication that
 has a name, fold branches that differ only in values into one selection
 (see [Remove Duplication to the End](#remove-duplication-to-the-end)). Renames and extractions go through gopls (`references/GOPLS.md`):
 find references semantically first, inspect reflection and string-based uses,

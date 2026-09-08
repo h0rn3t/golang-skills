@@ -4,6 +4,17 @@
 two or more versions of `go-code-refactor/SKILL.md` and reports what changed in
 the code the model wrote — not in the prose it produced.
 
+## Opus 5 medium control (2026-09-08)
+
+[Report](../../docs/evidence/2026-09-08-go-refactor-control-opus-5-medium.md):
+Claude CLI with `-effort medium`, n=5 per fixture and arm, 39/40 valid — one
+baseline `report` run failed the test it wrote itself. Mean production-line
+difference is −3.95; new functions total 26 → 10, types 12 → 9. `pricing`
+carries it at −9.2 lines (p = 0.0556 unadjusted, 0.22 with Bonferroni), while
+`store` and `dispatch` are flat or slightly against the skill — so the fixture
+producing the corpus effect is not the one that produced it on sonnet 5. Cost is
+2.94x, and the two-arm run does not isolate a wording change.
+
 ## Sonnet 5 control (2026-09-08)
 
 [Report](../../docs/evidence/2026-09-08-go-refactor-control-sonnet-5.md): Claude

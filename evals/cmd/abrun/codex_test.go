@@ -21,7 +21,7 @@ func TestValidateOptionsEffortIsRunnerSpecific(t *testing.T) {
 		{name: "codex without effort", runner: runnerCodex},
 		// Recording a run as xhigh that the CLI could not ask for would put a
 		// condition in the report that never reached the model.
-		{name: "claude with effort", runner: runnerClaude, effort: "xhigh", wantErr: true},
+		{name: "claude with effort", runner: runnerClaude, effort: "medium"},
 		{name: "opencode with effort", runner: runnerOpencode, effort: "xhigh", wantErr: true},
 	}
 

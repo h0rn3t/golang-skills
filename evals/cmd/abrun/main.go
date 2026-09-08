@@ -95,7 +95,7 @@ const (
 // effortRunners are the runners whose CLI can set a reasoning effort level. The
 // flag is rejected elsewhere rather than ignored, because a run recorded as
 // xhigh that was served at the model's default is a report that lies.
-var effortRunners = []string{runnerCodex, runnerCopilot}
+var effortRunners = []string{runnerClaude, runnerCodex, runnerCopilot}
 
 // maxSteps bounds one session where the runner can express a ceiling:
 // --max-turns for claude, the build agent's step ceiling for opencode. The
@@ -142,7 +142,7 @@ func main() {
 	flag.StringVar(&o.prompt, "prompt", "", "prompt template; %s is the fixture directory (default: the corpus prompt)")
 	flag.StringVar(&o.corpus, "corpus", corpusRefactor, "fixture corpus to run: refactor or implement")
 	flag.StringVar(&o.model, "model", "", "model for the evaluated run (default: the runner's own default; required for opencode)")
-	flag.StringVar(&o.effort, "effort", "", "reasoning effort for the evaluated run, e.g. xhigh (codex and copilot only)")
+	flag.StringVar(&o.effort, "effort", "", "reasoning effort for the evaluated run, e.g. medium (claude, codex and copilot only)")
 	flag.StringVar(&o.runner, "runner", runnerClaude, "agent CLI to drive: claude, opencode, copilot or codex")
 	flag.StringVar(&o.out, "out", "", "write the JSON report to this file")
 	flag.StringVar(&o.referenceRoot, "reference-root", "", "alternate plugin root for a reference arm")
@@ -786,6 +786,9 @@ func claudeSession(o options, armDir, work, prompt string) ([]byte, error) {
 	args = append(args, "--tools", tools, "--allowed-tools", tools)
 	if o.model != "" {
 		args = append(args, "--model", o.model)
+	}
+	if o.effort != "" {
+		args = append(args, "--effort", o.effort)
 	}
 	return claude(o.timeout, work, args...)
 }

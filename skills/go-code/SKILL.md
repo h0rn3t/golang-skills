@@ -79,6 +79,30 @@ that fail when the logic breaks, and anything the user asked for.
 The bundled restraint rules are sufficient; `ponytail` is their provenance,
 not an additional runtime dependency. Explicit requirements remain in scope.
 
+## Read the Contract Before Routing
+
+Routing is only as good as the list it starts from. Before picking rows, write
+down what the task, the doc comments, the neighboring tests, and the callers
+pin — five lines, before the first edit:
+
+- **Inputs and outputs**: types, wire format, ordering, what an empty result
+  renders as.
+- **Pre-conditions**: who calls it, where it runs, what is trusted. A sentence
+  in the specification about the environment — the open internet, a client that
+  stalls, a caller that keeps the slice it passed — is a requirement, not colour.
+- **Post-conditions**: status codes, sort order, error text, what must stay
+  unchanged after the call.
+- **Failure behavior**: which errors are returned or wrapped, and what the
+  caller must be able to detect with `errors.Is` or `errors.AsType`.
+- **Dependencies**: the packages the task names, and what each is for.
+
+Each item selects its row in the table below; an item with no row is a
+[go-style-core](../go-style-core/SKILL.md) question. A blank item is a default
+to ship and name, not a question to ask
+([Ship, Then Question](../go-code-refactor/references/OVER-ENGINEERING.md#ship-then-question)).
+The list replaces guessing at the routing table; it never replaces reading the
+code the change touches.
+
 ## Route Before The First Edit
 
 Then load only the rows the task actually touches. The third column names the

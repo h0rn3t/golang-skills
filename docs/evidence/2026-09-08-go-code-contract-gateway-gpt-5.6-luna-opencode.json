@@ -1,0 +1,309 @@
+{
+  "prompt": "Implement the Go package in ./%s. Every exported declaration is already there with its documentation; write the bodies so the package does what the documentation says. Do not change the exported signatures. Apply the changes to the files.",
+  "corpus": "implement",
+  "runner": "opencode",
+  "model": "opencode-go/gpt-5.6-luna",
+  "reps": 3,
+  "seed": 1,
+  "arms": [
+    {
+      "name": "reference",
+      "source": "/private/tmp/claude-501/-Users-eugeneshershen-golang-skills/059f1f55-26d0-4e15-b8f1-7136665b79e0/scratchpad/before",
+      "sha256": "a7c2e22cc60e4d3cab95883569adc32f55a47e34ef3506af74bd28bfbc2aab89"
+    },
+    {
+      "name": "baseline",
+      "source": "/Users/eugeneshershen/golang-skills",
+      "sha256": "927571d57eb6b59036fda0d7713c47bf9e08ce61ecdbda44604051f2929ac461"
+    }
+  ],
+  "results": [
+    {
+      "arm": "baseline",
+      "task": "gateway",
+      "rep": 2,
+      "skills": [
+        "go-code",
+        "go-data-structures",
+        "go-defensive",
+        "go-http",
+        "go-security"
+      ],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 114,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 10
+      },
+      "delta": {
+        "lines": 77,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 10
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.022128349999999998,
+      "output": "Implemented `./gateway/gateway.go` with:\n\n- Documented routes and status codes\n- Account sorting and lookup\n- `active` query filtering and validation\n- Snapshot isolation from caller mutations\n- JSON responses\n- HTTP timeouts and header limits\n\nVerified with `gofmt`, `go test ./...`, `go vet ./...`, and `go test -race ./...`."
+    },
+    {
+      "arm": "reference",
+      "task": "gateway",
+      "rep": 0,
+      "skills": [
+        "go-code"
+      ],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 111,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 11
+      },
+      "delta": {
+        "lines": 74,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 11
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.012310779999999999,
+      "output": "Implemented `gateway.NewServer` with:\n\n- Exact documented routes and method handling\n- Sorted account listing and `active` filtering\n- JSON responses and 404/405/400 behavior\n- Immutable account snapshot\n- HTTP timeout and header-size protections\n\nVerified with `gofmt`, `go test ./...`, and `go vet ./...`."
+    },
+    {
+      "arm": "reference",
+      "task": "gateway",
+      "rep": 1,
+      "skills": [
+        "go-code"
+      ],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 136,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 13
+      },
+      "delta": {
+        "lines": 99,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 13
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.013193559999999998,
+      "output": "Implemented `gateway.NewServer` in `gateway/gateway.go`.\n\nIncluded:\n- `/healthz`, `/accounts`, and `/accounts/{id}` routes\n- Method and path validation\n- Account sorting and lookup\n- `active=true|false` filtering\n- JSON responses and 400/404/405 handling\n- Defensive server timeouts and header limits\n- Immutable account snapshot\n\nVerified with `gofmt`, `go test ./...`, and `go vet ./...`."
+    },
+    {
+      "arm": "reference",
+      "task": "gateway",
+      "rep": 2,
+      "skills": [
+        "go-code",
+        "go-http",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 118,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 12
+      },
+      "delta": {
+        "lines": 81,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 12
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.01543136,
+      "output": "Implemented `gateway.NewServer` with:\n\n- `/healthz` endpoint\n- Sorted account listing and ID lookup\n- `active=true|false` filtering and validation\n- Correct 404/405 handling\n- Account snapshot isolation\n- JSON responses\n- Production HTTP timeouts and header limits\n\nVerified with `gofmt`, `go test ./...`, `go test -race ./...`, and `go vet ./...`."
+    },
+    {
+      "arm": "baseline",
+      "task": "gateway",
+      "rep": 1,
+      "skills": [
+        "go-code",
+        "go-data-structures",
+        "go-defensive",
+        "go-http",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 122,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "delta": {
+        "lines": 85,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 14
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.01983737,
+      "output": "Implemented `./gateway/gateway.go` with:\n\n- Documented routes and method handling\n- Account sorting and lookup\n- `active` query filtering and validation\n- JSON responses and health check\n- Defensive account copying\n- Production HTTP timeout and header limits\n\nVerified with `go test -race ./...`, `go test ./...`, and `go vet ./...`."
+    },
+    {
+      "arm": "baseline",
+      "task": "gateway",
+      "rep": 0,
+      "skills": [
+        "go-code"
+      ],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 117,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 10
+      },
+      "delta": {
+        "lines": 80,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 10
+      },
+      "build": true,
+      "golden": true,
+      "edited": true,
+      "cost_usd": 0.012623390000000002,
+      "output": "Implemented `./gateway/gateway.go`:\n\n- Added account snapshotting and ID sorting\n- Implemented `/healthz`, `/accounts`, and `/accounts/{id}`\n- Added `active` query filtering and validation\n- Added correct 404/405 handling\n- Added HTTP timeouts and header limits\n- Verified with `gofmt`, `go test ./...`, and `go vet ./gateway`"
+    }
+  ],
+  "finished": "2026-09-08T01:24:37.700105+03:00"
+}

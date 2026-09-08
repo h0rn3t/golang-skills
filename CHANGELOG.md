@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-08
+
 ### go-code-refactor
 
 - Record the supplied Sonnet 5 refactor control: 40/40 valid, mean production

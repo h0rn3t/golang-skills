@@ -5,12 +5,13 @@ description: Use when writing or reviewing Go SQL queries, transactions, reposit
 
 # Go Database Access
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Everything below is
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Go examples use
 > `database/sql`; `sql.Null[T]` requires Go 1.22+.
 
 ## Resource Routing
 
 - `references/SQL-PATTERNS.md` - Read when writing the rows loop, a transaction helper, nullable columns, batch lookups, keyset pagination, or pool settings — the full code for each rule below.
+- [references/POSTGRESQL.md](references/POSTGRESQL.md) - Read for PostgreSQL schema design, constraints, indexes, upserts, or migrations on live tables. Check the target PostgreSQL version; these rules do not apply to other databases.
 
 ## Stdlib First
 
@@ -83,9 +84,10 @@ return orders, nil
   loop silently and looks like an empty result. `rowserrcheck` flags it.
 - `defer rows.Close()` immediately after the error check; `sqlclosecheck`
   flags a missing close.
-- `sql.ErrNoRows` is matched with `errors.Is` and mapped to the domain
-  sentinel (`ErrNotFound`) at the repository boundary. It never crosses into a
-  handler — [go-error-handling](../go-error-handling/SKILL.md) owns wrapping.
+- For lookups, match `sql.ErrNoRows` with `errors.Is` and map it to the domain
+  sentinel (`ErrNotFound`) at the repository boundary. For writes with
+  `RETURNING`, interpret a missing row according to the write contract. Keep
+  `sql.ErrNoRows` out of handlers — [go-error-handling](../go-error-handling/SKILL.md) owns wrapping.
 
 ---
 
@@ -148,9 +150,10 @@ database decides whether an index or a rewrite is the fix.
 
 ## Nullable Columns and Migrations
 
-- Prefer `NOT NULL` with a default in the schema. When a column is nullable,
-  scan into `sql.Null[T]` (Go 1.22+) or a pointer; scanning `NULL` into a
-  `string` is a runtime error.
+- Use `NOT NULL` when the domain requires a value, and defaults only when
+  they have domain meaning. Preserve absent versus empty/zero values. Scan
+  nullable columns into `sql.Null[T]` (Go 1.22+) or a pointer; scanning `NULL`
+  into a `string` is a runtime error.
 - Migrations are versioned, forward-only files shipped with the binary via
   `//go:embed` ([go-packages](../go-packages/SKILL.md)) and applied by a
   migration step at deploy — never from `init()`. Each one states its rollback
@@ -179,7 +182,7 @@ integration harness in
 |----|-------|
 | `QueryContext(ctx, ...)` | `Query(...)` |
 | `defer rows.Close()` + `rows.Err()` after the loop | Trust an empty loop |
-| `errors.Is(err, sql.ErrNoRows)` → `ErrNotFound` | Leak `sql.ErrNoRows` to handlers |
+| Lookup: `errors.Is(err, sql.ErrNoRows)` → `ErrNotFound` | Leak `sql.ErrNoRows` to handlers |
 | `defer tx.Rollback()`, check `Commit` | Rollback only on the error path |
 | `WHERE id = ANY($1)` | A query per element |
 | `$1` placeholders | `fmt.Sprintf` into SQL |

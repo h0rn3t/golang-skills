@@ -30,7 +30,7 @@ that runs the verification gate and a PostToolUse hook that runs `gofmt` and
 | **go-concurrency** | Goroutine lifecycle, channels, mutexes, parallelization, thread-safety |
 | **go-context** | Context.Context placement, cancellation, deadlines, request-scoped data |
 | **go-data-structures** | Slices, maps, arrays — allocation with new vs make, append, copying |
-| **go-database** | database/sql and ORMs — contexts on queries, rows lifecycle, transactions, N+1, pool settings |
+| **go-database** | database/sql and ORMs — contexts, rows, transactions, N+1, pools; PostgreSQL constraints, indexes, and live migrations |
 | **go-defensive** | API boundary hardening, defer cleanup, Must functions, time handling |
 | **go-documentation** | Doc comments, package docs, godoc formatting, runnable examples |
 | **go-error-handling** | Error strategy decisions, wrapping (%v vs %w), sentinels, logging patterns |

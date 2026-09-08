@@ -41,6 +41,13 @@ and follows their selection of topics closely enough to warrant attribution.
 | `skills/go-code-refactor/references/CATALOG.md`, `SAFETY-NET.md`, `MECHANICAL.md`, `STRUCTURAL.md`, `MODERNIZATION.md`; the "When Not to Refactor" and "Risk Tiers" sections of `skills/go-code-refactor/SKILL.md`; the safety, observability, benchmark, dependency, CI, and routing additions in `go-defensive`, `go-logging`, `go-performance`, `go-packages`, `go-linting`, `go-testing`, and `go-code` | [samber/cc-skills-golang](https://github.com/samber/cc-skills-golang) `golang-refactoring`, `golang-design-patterns`, `golang-modernize`, `golang-safety`, `golang-observability`, `golang-benchmark`, `golang-dependency-management`, `golang-continuous-integration`, `golang-how-to`, and `golang-gopls` skills | MIT | Samuel Berthe (`samber`) | Topic selection: the risk-tier split, coverage-adaptive safety net, bulk-rewrite tool ladder, type-alias gradual repair, import-cycle strategy order, the not-to-refactor gate, modernization priority ordering, the deprecated-API table, safety pitfall tables, the observability definition of done, benchmark discipline, tool-directive and CI checklists, and skill routing boundaries. Text is this repository's own. |
 | `evals/ab/README.md` (the trap rule for a fixture) | [samber/cc-skills-golang](https://github.com/samber/cc-skills-golang) skill eval format | MIT | Samuel Berthe (`samber`) | The practice of naming, per eval case, how a model fails *without* the skill |
 
+`skills/go-database/references/POSTGRESQL.md` draws its topic selection
+(constraint semantics, indexes, staged migrations, and defaults) from
+[timescale/pg-aiguide](https://github.com/timescale/pg-aiguide/tree/acf42427fed507b7bfe98c4039fbacf0c4a69b65/skills),
+licensed under Apache-2.0, copyright 2025 Timescale, Inc., d/b/a Tiger Data.
+The guidance is independently written and checked against the linked PostgreSQL
+manual; no upstream files are bundled.
+
 ## Provenance Policy
 
 When updating files under `source/`:

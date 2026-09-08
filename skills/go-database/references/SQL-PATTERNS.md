@@ -150,9 +150,9 @@ if c.Email.Valid {
 }
 ```
 
-Fix the schema first: `NOT NULL DEFAULT ''` removes the case entirely. Use
-`sql.Null[T]` when the column is genuinely optional and the zero value is a
-legal stored value that must stay distinguishable from absent.
+Keep `NULL` when absence differs from an empty string or zero. Use `sql.Null[T]`
+or a pointer to preserve that distinction; do not introduce `COALESCE` or
+`NOT NULL DEFAULT ''` merely to simplify scanning.
 
 ## ORM rules when the repository already has one
 

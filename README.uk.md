@@ -30,7 +30,7 @@ PostToolUse-хук, що запускає `gofmt` та `go vet` після ко�
 | **go-concurrency** | Життєвий цикл горутин, канали, м'ютекси, паралелізація, потокобезпечність |
 | **go-context** | Розміщення context.Context, скасування, дедлайни, дані в межах запиту |
 | **go-data-structures** | Слайси, мапи, масиви — алокація через new vs make, append, копіювання |
-| **go-database** | database/sql та ORM — контекст у запитах, життєвий цикл rows, транзакції, N+1, налаштування пулу |
+| **go-database** | database/sql та ORM — контекст, rows, транзакції, N+1, пули; constraints, індекси та міграції PostgreSQL під навантаженням |
 | **go-defensive** | Захист меж API, defer-очищення, Must-функції, робота з часом |
 | **go-documentation** | Doc-коментарі, документація пакета, формат godoc, виконувані приклади |
 | **go-error-handling** | Стратегія помилок, обгортання (%v vs %w), sentinel-помилки, патерни логування |

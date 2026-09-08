@@ -167,6 +167,9 @@ func TestStatusCodes(t *testing.T) {
 		{name: "post to list", method: http.MethodPost, target: "/accounts", wantCode: http.StatusMethodNotAllowed},
 		{name: "delete one", method: http.MethodDelete, target: "/accounts/a-1", wantCode: http.StatusMethodNotAllowed},
 		{name: "post to health", method: http.MethodPost, target: "/healthz", wantCode: http.StatusMethodNotAllowed},
+		{name: "head to health", method: http.MethodHead, target: "/healthz", wantCode: http.StatusMethodNotAllowed},
+		{name: "head to list", method: http.MethodHead, target: "/accounts", wantCode: http.StatusMethodNotAllowed},
+		{name: "head to account", method: http.MethodHead, target: "/accounts/a-1", wantCode: http.StatusMethodNotAllowed},
 	}
 
 	for _, tt := range tests {
@@ -174,6 +177,27 @@ func TestStatusCodes(t *testing.T) {
 			rec := serve(t, tt.method, tt.target)
 			if rec.Code != tt.wantCode {
 				t.Errorf("%s %s = %d, want %d", tt.method, tt.target, rec.Code, tt.wantCode)
+			}
+		})
+	}
+}
+
+func TestEmptyListIsJSONArray(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		accounts []Account
+		target   string
+	}{
+		{name: "nil", target: "/accounts"},
+		{name: "empty", accounts: []Account{}, target: "/accounts"},
+		{name: "filtered", accounts: []Account{{ID: "a-1", Active: true}}, target: "/accounts?active=false"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := NewServer(":0", tt.accounts)
+			rec := httptest.NewRecorder()
+			srv.Handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tt.target, nil))
+			if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != "[]" {
+				t.Errorf("GET %s = %d %q, want 200 []", tt.target, rec.Code, got)
 			}
 		})
 	}

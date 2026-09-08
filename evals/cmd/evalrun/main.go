@@ -23,6 +23,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang-skills/evals/internal/evalplugin"
 )
 
 type triggerEval struct {
@@ -252,7 +254,7 @@ func repoRoot() (string, error) {
 
 // claude runs one headless invocation in dir. The repository is passed as a
 // plugin so the skills under test load; dir is a scratch directory so the model
-// cannot read the skill sources instead of invoking them.
+// sees only the supplied fixtures and any staged plugin resources.
 func claude(o options, dir string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), o.timeout)
 	defer cancel()
@@ -373,8 +375,13 @@ func runQuality(o options, root string, ev qualityEval) qualityResult {
 		return res
 	}
 	defer os.RemoveAll(dir)
+	pluginDir, err := evalplugin.Copy(root, dir)
+	if err != nil {
+		res.Err = err.Error()
+		return res
+	}
 	const tools = "Skill,Read,Glob,Grep"
-	args := []string{"-p", ev.Prompt, "--plugin-dir", root, "--output-format", "json",
+	args := []string{"-p", ev.Prompt, "--plugin-dir", pluginDir, "--output-format", "json",
 		"--max-turns", "30", "--tools", tools, "--allowed-tools", tools}
 	if o.model != "" {
 		args = append(args, "--model", o.model)

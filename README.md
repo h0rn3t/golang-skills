@@ -277,6 +277,11 @@ cover the full corpus. In runs containing variants, this compares **baseline
 against no skills**, not the best variant. Historical results and detailed
 numbers remain in the linked reports.
 
+The [Sonnet 5 HTTP experiments](docs/evidence/2026-09-08-sonnet-http-compact.md)
+also exposed blocked reference reads in the Claude evaluation setup. The
+September 9 update fixes that setup and adopts a compact inline HTTP guide
+with additional correctness rules. Its combined cost effect is not yet measured.
+
 The GPT-5.6-Luna new-code cell comes from a three-arm run — no skills, the
 skill tree before the 2026-09-08 update, and the tree after it — so it separates
 what the plugin does from what the update did. The update changes neither

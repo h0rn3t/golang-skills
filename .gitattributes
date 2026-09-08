@@ -1,0 +1,2 @@
+# Unified-diff artifacts contain significant spaces on empty context lines.
+docs/evidence/*.patch whitespace=-blank-at-eol

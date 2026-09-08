@@ -8,6 +8,35 @@ import (
 	"testing"
 )
 
+func TestHTTPClientExampleEnforcesWholeResponseLimit(t *testing.T) {
+	code := exampleBlock(t, "skills/go-http/SKILL.md", "### Bounded Response Bodies")
+	runExampleTest(t, `package example
+import ("encoding/json"; "fmt"; "io"; "net/http"; "strings"; "testing")
+func decodeResponse(resp *http.Response, dst any) error {
+`+code+`
+}
+func TestResponseLimit(t *testing.T) {
+ const object = "{\"state\":\"ready\"}"
+ for _, tt := range []struct { name, body string; wantErr bool }{
+  {"small", object, false},
+  {"exact limit", object + strings.Repeat(" ", (64<<10)-len(object)), false},
+  {"one byte over", object + strings.Repeat(" ", (64<<10)-len(object)+1), true},
+  {"second object", object + " {}", true},
+  {"trailing junk", object + " junk", true},
+ } {
+  t.Run(tt.name, func(t *testing.T) {
+   resp := &http.Response{Body: io.NopCloser(strings.NewReader(tt.body))}
+   defer resp.Body.Close()
+   var got struct { State string }
+   err := decodeResponse(resp, &got)
+   if (err != nil) != tt.wantErr { t.Errorf("decodeResponse(%d bytes) error = %v, want error presence %t", len(tt.body), err, tt.wantErr) }
+   if !tt.wantErr && got.State != "ready" { t.Errorf("state = %q, want ready", got.State) }
+  })
+ }
+}
+`)
+}
+
 func TestHTTPHandlerExampleRejectsTrailingJSON(t *testing.T) {
 	code := exampleBlock(t, "skills/go-http/SKILL.md", "## Handler Shape")
 	runExampleTest(t, `package example

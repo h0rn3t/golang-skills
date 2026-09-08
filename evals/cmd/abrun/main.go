@@ -45,6 +45,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang-skills/evals/internal/evalplugin"
 )
 
 // The corpus prompts are shared by every arm; only the skill text differs
@@ -781,7 +783,11 @@ func claudeSession(o options, armDir, work, prompt string) ([]byte, error) {
 	if armDir == "" {
 		tools = strings.TrimPrefix(tools, "Skill,")
 	} else {
-		args = append(args, "--plugin-dir", armDir)
+		pluginDir, err := evalplugin.Copy(armDir, work)
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, "--plugin-dir", pluginDir)
 	}
 	args = append(args, "--tools", tools, "--allowed-tools", tools)
 	if o.model != "" {

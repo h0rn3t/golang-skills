@@ -13,6 +13,13 @@ All notable changes to this repository are documented here.
 
 ### Fixed
 
+- Keep Claude evaluation plugin resources inside each scratch project so
+  `--restricted` permits reference reads without exposing golden fixtures.
+  Apply the compact inline `go-http` layout with explicit HEAD-contract,
+  empty-array, and whole-response-size rules; add executable response-limit
+  checks and strengthen the gateway golden tests. The combined text has no
+  established cost advantage; retain the routing and compression experiments.
+
 - Correct Go snippet API calls and generics version notes; demonstrate Go 1.27
   inference in conversions, use stdlib `uuid`, `errors.AsType`, and `wg.Go`,
   and remove obsolete benchmark sink advice. Close files and transactions on

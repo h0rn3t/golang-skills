@@ -1,0 +1,1006 @@
+{
+  "base_commit": "74ca0fa515e5941cd4b9393ee05c03a97da6d6a7",
+  "upstream_commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
+  "claude_version": "2.1.263 (Claude Code)",
+  "go_version": "go version go1.27.1 darwin/arm64",
+  "effort": "CLI default; not explicitly set",
+  "changed_plugin_files": [
+    "skills/go-code/SKILL.md"
+  ],
+  "original_skill_sha256": "448ab7cb344baf5fc5ddcebe08232b1d1cf1989862177791c0aeee1ebd681dc0",
+  "candidate_skill_sha256": "1d1b8609b6b1852cd013bfcc2b1a487acef832cdbfbbc8687d01449b50b528a2",
+  "candidate_skill": "---\nname: go-code\ndescription: Use when writing, fixing, or refactoring Go code, whether or not the task has one obvious topic — it loads the go-* skills the task needs and runs the closing gate. Use it too when /go-code modifies another workflow (e.g. /opsx:apply /go-code); as a modifier it selects Go rules, not a change name or path.\n---\n\n# Go Code Profile\n\nRoute Go work to the relevant owners, then close with their verification gate.\n\n## Resource Routing\n\nResolve sibling skills and references relative to this installed directory;\nrun their scripts from the target project. Use the host's skill loader or read\n`SKILL.md` directly. Missing resources: report the gap, use available guidance,\nand continue independent authorized work without inventing rules.\n\n- `../go-style-core/SKILL.md` — Read once per task for house style, fallback\n  rules, and communication guidance. Read its references only for a decision\n  the task requires.\n- `../go-code-refactor/references/OVER-ENGINEERING.md` — Read the detailed\n  restraint ladder when deciding whether an added abstraction is justified;\n  its replacement catalog when seeking a simpler existing API; its audit lane\n  only when the requested deliverable is a complexity audit. Ordinary edits\n  do not require this file.\n\n## Workflow\n\n1. **Resolve invocation.** `$go-code <task>` or `/go-code <task>` selects Go\n   work. As a modifier, e.g. `/opsx:apply add-auth /go-code`, remove the modifier\n   before the host parses its arguments. It is never a change name or path;\n   the host retains workflow state, checkpoints, and delegation policy.\n2. **Read before routing.** Load `go-style-core`, inspect repository instructions,\n   `go.mod`, neighboring code, tests, and callers. Identify required inputs,\n   outputs, environment constraints, failure behavior, and dependencies. Use\n   these to select rows below; no fixed written contract report is required.\n3. **Complete routing before the first edit.** Select rows by the decisions\n   and behavior being changed. Name the selected rows and required skills in\n   one short routing line. For each selected row, call the host's skill loader\n   (`Skill` in Claude Code), or read its `SKILL.md`, for the primary owner and\n   every applicable entry in **Also load**. An entry without a condition is\n   required; evaluate each stated condition separately. This step is complete\n   when every required skill's contents have been returned by the loader or\n   reader, or were already read in this task. Then begin editing. A routine\n   local variable or `if` does not add an owner. For mixed tasks, route each\n   area; complete additional loads before editing a newly discovered area.\n4. **Implement the authorized scope.** For new functions, packages, or stub\n   bodies, use [Writing New Code](#writing-new-code). For behavior-preserving\n   restructuring, use the [delete-first priority](../go-code-refactor/SKILL.md#delete-before-you-restructure).\n   After understanding the code, apply the restraint ladder to each proposed\n   helper, type, layer, option, or import: (1) omit speculative work,\n   (2) reuse existing code, (3) use the standard library, (4) use language or\n   platform features, (5) use an existing dependency, (6) use one clear line\n   when sufficient, (7) otherwise write the minimum that works. Stop at the\n   first sufficient rung; clarity and correctness outrank brevity. Judge the\n   final code and call sites, not just declaration count. Preserve\n   required behavior, validation, security controls, and meaningful tests.\n   Resolve routine choices without stopping; ask only for missing information\n   that changes correctness, scope, or authorization.\n5. **Verify and report.** Follow the closing gate below and `go-style-core`'s\n   communication guidance. Report outcomes, observed checks, and material gaps.\n\n## Writing New Code\n\nStart at the required entry point and its callers. Implement the documented\nsuccess and failure paths within the existing API; design a new API only when\nthe task calls for one. A stub's `panic(\"not implemented\")` is missing behavior,\nnot a refactor contract: replace it and satisfy the acceptance tests. Use\nbaseline/after equivalence only for existing behavior the task must preserve.\n\nChoose the representation by what must survive the call and who may mutate it.\nUse local values for a one-shot computation; retain fields only for required\nstate or dependencies. When several outputs need the same derived data,\ncompute it once and render from it. Keep both raw and derived state only when\nthe contract or measured workload needs both. Route ownership, empty-result,\nerror-chain, and resource-lifetime decisions to their owners before coding.\n\nWrite the required operation directly. Extract a helper when it centralizes a\nshared rule or isolates a distinct algorithm or resource lifetime. For other\ncases, compare the inline operation with the helper and all its call sites;\nchoose the clearer whole, including parameters and shared state. Keep short,\nsingle-use forwarding, validation, and field mapping local. A useful helper\nneed not reduce line count. Skill examples illustrate behavior; their\n`validate`, `toDomain`, or `writeError` methods are not a required list of\nhelpers to create.\n\nRetain interfaces and layers required by callers. Add an interface for an\nidentified consumer's substitution boundary, including a needed test double;\nthe number of production implementations alone does not decide. A new package\ndoes not itself need a service/factory/options scaffold.\n\nCheck that an existing API's defaults satisfy the contract before wrapping or\nreplacing it. Prefer a small adapter for a semantic mismatch. Derive checks at\nthe public boundary from the task's requirements: success and failure paths,\nincluding relevant empty/invalid inputs, dependency failures, ordering, and\nownership. When rules overlap, test an input that distinguishes which rule\ntakes precedence. Passing existing tests establishes only the cases they\nexercise; compilation alone does not verify behavior.\n\nBefore closing, inspect the new code for unused public surface, redundant\nstored values, forwarding wrappers, and duplicated business rules. Simplify\nwhere it improves the complete operation; preserve ownership, failure behavior,\nand useful boundaries. No function-count limit or separate written audit is\nrequired.\n\n## Related Skills\n\n### Route Before The First Edit\n\nThe third column adds owners only under its stated condition. Prefer the\nnarrower owner when topics overlap; ordinary identifier creation alone does\nnot require `go-naming` or `go-documentation`.\n\n| Task touches | Skill | Also load |\n|---|---|---|\n| errors, wrapping, `errors.Is`/`errors.AsType` | [go-error-handling](../go-error-handling/SKILL.md) | — |\n| goroutines, channels, mutexes, races | [go-concurrency](../go-concurrency/SKILL.md) | [go-context](../go-context/SKILL.md) if anything is cancelled |\n| `context.Context`, timeouts, cancellation | [go-context](../go-context/SKILL.md) | [go-concurrency](../go-concurrency/SKILL.md) if goroutines are started |\n| tests, table-driven cases, `synctest` | [go-testing](../go-testing/SKILL.md) | — |\n| API naming changes or a naming question | [go-naming](../go-naming/SKILL.md) | — |\n| new or changed exported API, doc comments | [go-documentation](../go-documentation/SKILL.md) | [go-naming](../go-naming/SKILL.md) if API names change |\n| interfaces, embedding, test doubles | [go-interfaces](../go-interfaces/SKILL.md) | — |\n| function API design, constructor configuration, ordering, signatures, `Printf` helpers | [go-functions](../go-functions/SKILL.md) | — |\n| slices, maps, arrays, sets | [go-data-structures](../go-data-structures/SKILL.md) | — |\n| declaration, enum, or initialization decisions | [go-style-core references](../go-style-core/SKILL.md#resource-routing) | — |\n| loop/switch mechanics or statement scoping decisions | [go-style-core references](../go-style-core/SKILL.md#resource-routing) | — |\n| type parameters, constraints, generic methods | [go-generics](../go-generics/SKILL.md) | — |\n| `slog`, log levels, request-scoped fields, metrics and trace correlation | [go-logging](../go-logging/SKILL.md) | [go-security](../go-security/SKILL.md) if a secret or PII could reach a log line |\n| `defer` cleanup, boundary copies, mutable globals, nil/aliasing/overflow traps | [go-defensive](../go-defensive/SKILL.md) | — |\n| hot paths, allocations, benchmarks | [go-performance](../go-performance/SKILL.md) | [go-troubleshooting](../go-troubleshooting/SKILL.md) if the cause of slowness is unknown |\n| package layout, imports, dependencies | [go-packages](../go-packages/SKILL.md) | — |\n| restructuring or deleting existing code | [go-code-refactor](../go-code-refactor/SKILL.md) | — |\n| linter config, CI checks | [go-linting](../go-linting/SKILL.md) | — |\n| HTTP handlers, routing, middleware, servers, clients | [go-http](../go-http/SKILL.md) | [go-error-handling](../go-error-handling/SKILL.md); [go-security](../go-security/SKILL.md) if input reaches a file, shell, URL, or template |\n| SQL queries, transactions, repositories, migrations | [go-database](../go-database/SKILL.md) | [go-error-handling](../go-error-handling/SKILL.md); [go-security](../go-security/SKILL.md) if identifiers come from input |\n| untrusted input, secrets, tokens, TLS, cookies | [go-security](../go-security/SKILL.md) | [go-defensive](../go-defensive/SKILL.md) |\n| retries, idempotency, circuit breakers, overload, backpressure, fallback | [go-resilience](../go-resilience/SKILL.md) | the HTTP, SQL, context, or concurrency owner when its mechanics change |\n| ticket, wrong result, environment regression, panic, hang, leak, flaky test; cause unknown | [go-troubleshooting](../go-troubleshooting/SKILL.md) | the owner of the mechanism once found |\n| JSON and other wire formats, struct tags | [go-defensive](../go-defensive/SKILL.md) (tags) | [go-packages](../go-packages/SKILL.md) (`json/v2` on the ladder) |\n| CLI entry point, flags, `main`/`run` | [go-packages](../go-packages/SKILL.md) | — |\n| a list of findings from a review or audit | the rows the findings name | per area, not per task |\n\n\n## Close With The Gate\n\nUse [go-linting](../go-linting/SKILL.md) to select checks for the requested\nscope. Repository gates take precedence over defaults; do not union them.\nInspect the final diff and complete authorized work. Reuse passing results\nfor unchanged code; rerun affected checks after edits and honor host checkpoints.\n\nUse bundled checks when they add evidence beyond that gate:\n\n- Refactor: `../go-code-refactor/scripts/verify-refactor.sh` for baseline/after\n  evidence; `../go-code-refactor/scripts/check-debt.sh` for deliberate `Kept:`\n  markers, whose format is owned by `go-code-refactor`.\n- Error handling: `../go-error-handling/scripts/check-errors.sh`.\n- Exported API documentation: `../go-documentation/scripts/check-docs.sh`.\n- Before submitting: [go-code-review](../go-code-review/SKILL.md).\n\nRun routine checks inline. Claude Code's `go-verify` agent and PostToolUse hook\nare optional: count only results actually observed for the current diff and\nscope. Otherwise run the selected checks directly. Report skipped or unavailable\nchecks accurately; never infer success from an unobserved hook.\n",
+  "fixture": "// Package gateway serves the public read-only accounts API.\npackage gateway\n\nimport \"net/http\"\n\n// Account is one record the API serves.\ntype Account struct {\n\tID     string `json:\"id\"`\n\tName   string `json:\"name\"`\n\tCents  int64  `json:\"cents\"`\n\tActive bool   `json:\"active\"`\n}\n\n// NewServer returns the server for the public accounts API, listening on addr\n// and serving the given accounts. Starting and stopping it is the caller's job.\n//\n// This server is the edge: it is published straight to the open internet with\n// no proxy of any kind in front of it. Every client is anonymous, some are on\n// mobile links that stall mid-request, many hold connections open long after\n// they stop asking for anything, and a share of the traffic is there to find\n// out what the process can be made to hold onto.\n//\n// It answers these requests and nothing else:\n//\n//\tGET /healthz         200, body \"ok\"\n//\tGET /accounts        200, a JSON array of every account, ordered by ID\n//\tGET /accounts/{id}   200, the JSON object for that account; 404 if unknown\n//\n// GET /accounts also takes one optional query parameter, active, which is\n// either \"true\" or \"false\" and restricts the array to accounts in that state.\n// Any other value for it is a 400 whose body names the parameter.\n//\n// Any other path is a 404. A known path asked for with any method other than\n// GET is a 405.\nfunc NewServer(addr string, accounts []Account) *http.Server {\n\tpanic(\"not implemented\")\n}\n",
+  "supplemental_test_source": "package gateway\nimport(\"net/http\";\"net/http/httptest\";\"strings\";\"testing\")\nfunc TestReviewRejectsHEAD(t *testing.T){\n s:=NewServer(\":0\",goldenAccounts())\n for _,path:=range []string{\"/healthz\",\"/accounts\",\"/accounts/a-1\"}{\n  rec:=httptest.NewRecorder();s.Handler.ServeHTTP(rec,httptest.NewRequest(http.MethodHead,path,nil))\n  if rec.Code!=http.StatusMethodNotAllowed{t.Errorf(\"HEAD %s = %d, want 405\",path,rec.Code)}\n }\n}\nfunc TestReviewEmptyListIsArray(t *testing.T){\n for _,accounts:=range [][]Account{nil,{}}{\n  s:=NewServer(\":0\",accounts);rec:=httptest.NewRecorder();s.Handler.ServeHTTP(rec,httptest.NewRequest(\"GET\",\"/accounts\",nil))\n  if got:=strings.TrimSpace(rec.Body.String());got!=\"[]\"{t.Errorf(\"GET /accounts with nil=%t = %s, want []\",accounts==nil,got)}\n }\n}\n",
+  "reports": {
+    "baseline": {
+      "prompt": "Implement the Go package in ./%s. Every exported declaration is already there with its documentation; write the bodies so the package does what the documentation says. Do not change the exported signatures. Apply the changes to the files.",
+      "corpus": "implement",
+      "runner": "claude",
+      "model": "claude-sonnet-5",
+      "reps": 2,
+      "seed": 1,
+      "arms": [
+        {
+          "name": "baseline",
+          "source": "/Users/eugeneshershen/golang-skills",
+          "sha256": "eefdafe8c65819a574f7f804e0553f07b13ee80d38003ddf4da4b06f32d330bc"
+        }
+      ],
+      "results": [
+        {
+          "arm": "baseline",
+          "task": "gateway",
+          "rep": 0,
+          "skills": [
+            "go-code",
+            "go-http",
+            "go-style-core"
+          ],
+          "before": {
+            "lines": 37,
+            "files": 1,
+            "test_files": 0,
+            "types": 1,
+            "interfaces": 0,
+            "funcs": 1,
+            "pattern_names": 0,
+            "exported": 2,
+            "branches": 0
+          },
+          "after": {
+            "lines": 114,
+            "files": 1,
+            "test_files": 0,
+            "types": 1,
+            "interfaces": 0,
+            "funcs": 6,
+            "pattern_names": 0,
+            "exported": 2,
+            "branches": 7
+          },
+          "delta": {
+            "lines": 77,
+            "files": 0,
+            "test_files": 0,
+            "types": 0,
+            "interfaces": 0,
+            "funcs": 5,
+            "pattern_names": 0,
+            "exported": 0,
+            "branches": 7
+          },
+          "build": true,
+          "golden": true,
+          "model_tests": "skipped",
+          "edited": true,
+          "cost_usd": 0.23777659999999995,
+          "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3583272705",
+          "output": "This looks correct and matches the documented behavior:\n\n- `net/http`'s method-aware `ServeMux` patterns (`GET /path`) give the 404-for-unknown-path and 405-for-wrong-method behavior automatically.\n- Accounts are copied and sorted by ID once at construction; a map gives O(1) lookup by ID.\n- `active` query param filters when `\"true\"`/`\"false\"`, 400s with a body naming the parameter otherwise.\n- Server timeouts (`ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout`, `IdleTimeout`) and a capped `MaxHeaderBytes` harden the unproxied edge server against stalled/abusive anonymous clients, per the doc comment.\n\n`go vet ./gateway` ran clean via the edit hook. No exported signatures were changed."
+        },
+        {
+          "arm": "baseline",
+          "task": "gateway",
+          "rep": 1,
+          "skills": [
+            "go-code",
+            "go-http"
+          ],
+          "before": {
+            "lines": 37,
+            "files": 1,
+            "test_files": 0,
+            "types": 1,
+            "interfaces": 0,
+            "funcs": 1,
+            "pattern_names": 0,
+            "exported": 2,
+            "branches": 0
+          },
+          "after": {
+            "lines": 124,
+            "files": 1,
+            "test_files": 0,
+            "types": 1,
+            "interfaces": 0,
+            "funcs": 2,
+            "pattern_names": 0,
+            "exported": 2,
+            "branches": 11
+          },
+          "delta": {
+            "lines": 87,
+            "files": 0,
+            "test_files": 0,
+            "types": 0,
+            "interfaces": 0,
+            "funcs": 1,
+            "pattern_names": 0,
+            "exported": 0,
+            "branches": 11
+          },
+          "build": true,
+          "golden": true,
+          "model_tests": "skipped",
+          "edited": true,
+          "cost_usd": 0.2215396,
+          "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1991791626",
+          "output": "This implements `NewServer` per the doc: a hardened `http.Server` (timeouts against slow/idle/malicious edge clients) wrapping a mux with the three routes, method-aware 405s, active-state filtering with a 400 naming the bad parameter, and 404s for unknown IDs/paths. Note: since no `go.mod`/build tooling was present in this dir, I relied on the edit hook's `go vet` (passed) rather than a separate manual build."
+        }
+      ],
+      "finished": "2026-09-08T23:23:42.878479+03:00"
+    },
+    "candidate": {
+      "prompt": "Implement the Go package in ./%s. Every exported declaration is already there with its documentation; write the bodies so the package does what the documentation says. Do not change the exported signatures. Apply the changes to the files.",
+      "corpus": "implement",
+      "runner": "claude",
+      "model": "claude-sonnet-5",
+      "reps": 2,
+      "seed": 1,
+      "arms": [
+        {
+          "name": "reference",
+          "source": "/tmp/sonnet-routing-execution-20260908/candidate",
+          "sha256": "e5a92d8e2ce22a28c6922434f2ca89b76e885975fb62e86a1d3c545e5a424143"
+        }
+      ],
+      "results": [
+        {
+          "arm": "reference",
+          "task": "gateway",
+          "rep": 0,
+          "skills": [
+            "go-code",
+            "go-http"
+          ],
+          "before": {
+            "lines": 37,
+            "files": 1,
+            "test_files": 0,
+            "types": 1,
+            "interfaces": 0,
+            "funcs": 1,
+            "pattern_names": 0,
+            "exported": 2,
+            "branches": 0
+          },
+          "after": {
+            "lines": 114,
+            "files": 1,
+            "test_files": 0,
+            "types": 1,
+            "interfaces": 0,
+            "funcs": 5,
+            "pattern_names": 0,
+            "exported": 2,
+            "branches": 7
+          },
+          "delta": {
+            "lines": 77,
+            "files": 0,
+            "test_files": 0,
+            "types": 0,
+            "interfaces": 0,
+            "funcs": 4,
+            "pattern_names": 0,
+            "exported": 0,
+            "branches": 7
+          },
+          "build": true,
+          "golden": true,
+          "model_tests": "skipped",
+          "edited": true,
+          "cost_usd": 0.17882920000000002,
+          "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1570693952",
+          "output": "Go 1.27 confirms method-pattern `ServeMux` routing and the 405 auto-behavior are available. The implementation is complete — `gateway.go` now builds an `http.Server` with slowloris-safe timeouts, snapshots the accounts (sorted by ID, indexed by ID) so handler state can't be mutated by callers, and serves `/healthz`, `/accounts` (with `active` filtering and 400 on bad values), and `/accounts/{id}` (404 on unknown), with unmatched paths/methods falling through to `ServeMux`'s built-in 404/405 handling."
+        },
+        {
+          "arm": "reference",
+          "task": "gateway",
+          "rep": 1,
+          "skills": [
+            "go-code",
+            "go-code-review",
+            "go-http",
+            "go-linting"
+          ],
+          "before": {
+            "lines": 37,
+            "files": 1,
+            "test_files": 0,
+            "types": 1,
+            "interfaces": 0,
+            "funcs": 1,
+            "pattern_names": 0,
+            "exported": 2,
+            "branches": 0
+          },
+          "after": {
+            "lines": 103,
+            "files": 1,
+            "test_files": 0,
+            "types": 1,
+            "interfaces": 0,
+            "funcs": 2,
+            "pattern_names": 0,
+            "exported": 2,
+            "branches": 8
+          },
+          "delta": {
+            "lines": 66,
+            "files": 0,
+            "test_files": 0,
+            "types": 0,
+            "interfaces": 0,
+            "funcs": 1,
+            "pattern_names": 0,
+            "exported": 0,
+            "branches": 8
+          },
+          "build": true,
+          "golden": true,
+          "model_tests": "skipped",
+          "edited": true,
+          "cost_usd": 0.2878864,
+          "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3816683448",
+          "output": "Implemented `NewServer` in `gateway/gateway.go`:\n\n- Sorts a copy of the input accounts by ID and builds a lookup map, so `GET /accounts` and `GET /accounts/{id}` never mutate caller data.\n- `GET /healthz` → `200 \"ok\"`.\n- `GET /accounts` filters on `active=true|false`, returns `400` naming the parameter for any other value, and always returns a JSON array (never `null`, even when empty).\n- `GET /accounts/{id}` → `404` via `http.NotFound` for unknown IDs.\n- Unregistered paths/methods get Go 1.22 `ServeMux`'s automatic 404/405 behavior for free.\n- `http.Server` is built with `ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout`, `IdleTimeout`, and `MaxHeaderBytes` set, per the doc's warning about anonymous, stalling, connection-hoarding edge traffic.\n\nVerification: no Bash/shell tool is available in this session, so I couldn't run the full gate (`gofmt`, `go build`, `go test -race`, `golangci-lint`). The environment's `PostToolUse` hook ran `go vet ./gateway` automatically after each edit and passed clean on the final version — that's the only tool-observed result I have; treat `gofmt`/`go build`/`go test`/`golangci-lint` as not run."
+        }
+      ],
+      "finished": "2026-09-08T23:25:06.469339+03:00"
+    }
+  },
+  "runs": [
+    {
+      "label": "baseline-0",
+      "arm": "baseline",
+      "rep": 0,
+      "first_edit_index": 56,
+      "loaded_before_first_edit": [
+        "go-code",
+        "go-http",
+        "go-style-core"
+      ],
+      "routing_pass": false,
+      "candidate_text_delivered": false,
+      "timeline": [
+        {
+          "index": 5,
+          "tool": "Glob",
+          "id": "toolu_019xWr9ymgPKg1UKRKM7T2Eo",
+          "result_index": 6,
+          "is_error": false
+        },
+        {
+          "index": 7,
+          "tool": "Read",
+          "id": "toolu_018duuUkFaLFaKZzxnnQZodK",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3583272705/gateway/gateway.go",
+          "result_index": 8,
+          "is_error": false
+        },
+        {
+          "index": 12,
+          "tool": "Skill",
+          "id": "toolu_013U11cQtrbzKKktAuFKgvA5",
+          "skill": "go-code",
+          "result_index": 13,
+          "is_error": false
+        },
+        {
+          "index": 18,
+          "tool": "Skill",
+          "id": "toolu_01PpaHW15hSLxKa6VsvyyPxj",
+          "skill": "go-http",
+          "result_index": 19,
+          "is_error": false
+        },
+        {
+          "index": 21,
+          "tool": "Skill",
+          "id": "toolu_01M2o96p1wwdTnsw1LfTrLbu",
+          "skill": "go-style-core",
+          "result_index": 22,
+          "is_error": false
+        },
+        {
+          "index": 25,
+          "tool": "Glob",
+          "id": "toolu_01BfL6SqCEKgdXkE1cVpLGbN",
+          "result_index": 26,
+          "is_error": false
+        },
+        {
+          "index": 27,
+          "tool": "Read",
+          "id": "toolu_01XET9j5z55WWLzgXaHWat8Q",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3583272705/go.mod",
+          "result_index": 28,
+          "is_error": false
+        },
+        {
+          "index": 56,
+          "tool": "Edit",
+          "id": "toolu_01UEuf4r3jb9facDNBok8s34",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3583272705/gateway/gateway.go",
+          "result_index": 57,
+          "is_error": false
+        },
+        {
+          "index": 59,
+          "tool": "Edit",
+          "id": "toolu_018YYqCMzBV3cdtZMMxs9kb7",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3583272705/gateway/gateway.go",
+          "result_index": 60,
+          "is_error": false
+        },
+        {
+          "index": 62,
+          "tool": "Read",
+          "id": "toolu_01TFwTezjhVHUPYMBEHW4DDX",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3583272705/gateway/gateway.go",
+          "result_index": 63,
+          "is_error": false
+        }
+      ],
+      "turns": 14,
+      "cost_usd": 0.23777659999999995,
+      "usage": {
+        "input_tokens": 20,
+        "cache_creation_input_tokens": 33255,
+        "cache_read_input_tokens": 200273,
+        "output_tokens": 6367,
+        "output_tokens_details": {
+          "thinking_tokens": 4091
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 33255,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [],
+        "speed": "standard"
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 937,
+          "outputTokens": 11,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.000992,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        },
+        "claude-sonnet-5": {
+          "inputTokens": 20,
+          "outputTokens": 6367,
+          "cacheReadInputTokens": 200273,
+          "cacheCreationInputTokens": 33255,
+          "webSearchRequests": 0,
+          "costUSD": 0.23678459999999996,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 4091,
+          "canonicalModel": "claude-sonnet-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "source": "// Package gateway serves the public read-only accounts API.\npackage gateway\n\nimport (\n\t\"cmp\"\n\t\"encoding/json\"\n\t\"net/http\"\n\t\"slices\"\n\t\"time\"\n)\n\n// Account is one record the API serves.\ntype Account struct {\n\tID     string `json:\"id\"`\n\tName   string `json:\"name\"`\n\tCents  int64  `json:\"cents\"`\n\tActive bool   `json:\"active\"`\n}\n\n// NewServer returns the server for the public accounts API, listening on addr\n// and serving the given accounts. Starting and stopping it is the caller's job.\n//\n// This server is the edge: it is published straight to the open internet with\n// no proxy of any kind in front of it. Every client is anonymous, some are on\n// mobile links that stall mid-request, many hold connections open long after\n// they stop asking for anything, and a share of the traffic is there to find\n// out what the process can be made to hold onto.\n//\n// It answers these requests and nothing else:\n//\n//\tGET /healthz         200, body \"ok\"\n//\tGET /accounts        200, a JSON array of every account, ordered by ID\n//\tGET /accounts/{id}   200, the JSON object for that account; 404 if unknown\n//\n// GET /accounts also takes one optional query parameter, active, which is\n// either \"true\" or \"false\" and restricts the array to accounts in that state.\n// Any other value for it is a 400 whose body names the parameter.\n//\n// Any other path is a 404. A known path asked for with any method other than\n// GET is a 405.\nfunc NewServer(addr string, accounts []Account) *http.Server {\n\tsorted := make([]Account, len(accounts))\n\tcopy(sorted, accounts)\n\tslices.SortFunc(sorted, func(a, b Account) int { return cmp.Compare(a.ID, b.ID) })\n\n\tbyID := make(map[string]Account, len(sorted))\n\tfor _, a := range sorted {\n\t\tbyID[a.ID] = a\n\t}\n\n\tmux := http.NewServeMux()\n\tmux.HandleFunc(\"GET /healthz\", handleHealthz)\n\tmux.HandleFunc(\"GET /accounts\", handleAccounts(sorted))\n\tmux.HandleFunc(\"GET /accounts/{id}\", handleAccount(byID))\n\n\treturn &http.Server{\n\t\tAddr:              addr,\n\t\tHandler:           mux,\n\t\tReadHeaderTimeout: 5 * time.Second,\n\t\tReadTimeout:       10 * time.Second,\n\t\tWriteTimeout:      10 * time.Second,\n\t\tIdleTimeout:       2 * time.Minute,\n\t\tMaxHeaderBytes:    1 << 16,\n\t}\n}\n\nfunc handleHealthz(w http.ResponseWriter, _ *http.Request) {\n\tw.Header().Set(\"Content-Type\", \"text/plain; charset=utf-8\")\n\tw.Write([]byte(\"ok\"))\n}\n\nfunc handleAccounts(accounts []Account) http.HandlerFunc {\n\treturn func(w http.ResponseWriter, r *http.Request) {\n\t\tresult := accounts\n\t\tswitch active := r.URL.Query().Get(\"active\"); active {\n\t\tcase \"\":\n\t\tcase \"true\":\n\t\t\tresult = filterByActive(accounts, true)\n\t\tcase \"false\":\n\t\t\tresult = filterByActive(accounts, false)\n\t\tdefault:\n\t\t\thttp.Error(w, \"invalid value for query parameter active\", http.StatusBadRequest)\n\t\t\treturn\n\t\t}\n\t\twriteJSON(w, http.StatusOK, result)\n\t}\n}\n\nfunc filterByActive(accounts []Account, active bool) []Account {\n\tfiltered := make([]Account, 0, len(accounts))\n\tfor _, a := range accounts {\n\t\tif a.Active == active {\n\t\t\tfiltered = append(filtered, a)\n\t\t}\n\t}\n\treturn filtered\n}\n\nfunc handleAccount(byID map[string]Account) http.HandlerFunc {\n\treturn func(w http.ResponseWriter, r *http.Request) {\n\t\taccount, ok := byID[r.PathValue(\"id\")]\n\t\tif !ok {\n\t\t\thttp.NotFound(w, r)\n\t\t\treturn\n\t\t}\n\t\twriteJSON(w, http.StatusOK, account)\n\t}\n}\n\nfunc writeJSON(w http.ResponseWriter, status int, v any) {\n\tw.Header().Set(\"Content-Type\", \"application/json; charset=utf-8\")\n\tw.WriteHeader(status)\n\tjson.NewEncoder(w).Encode(v)\n}\n",
+      "source_sha256": "4b1fe6a1b90b8e51d88ec356576eaef1b6047f59789df6637954dbf0aebb866b",
+      "diff": "--- a/gateway.go\n+++ b/gateway.go\n@@ -1,7 +1,13 @@\n // Package gateway serves the public read-only accounts API.\n package gateway\n \n-import \"net/http\"\n+import (\n+\t\"cmp\"\n+\t\"encoding/json\"\n+\t\"net/http\"\n+\t\"slices\"\n+\t\"time\"\n+)\n \n // Account is one record the API serves.\n type Account struct {\n@@ -33,5 +39,76 @@\n // Any other path is a 404. A known path asked for with any method other than\n // GET is a 405.\n func NewServer(addr string, accounts []Account) *http.Server {\n-\tpanic(\"not implemented\")\n+\tsorted := make([]Account, len(accounts))\n+\tcopy(sorted, accounts)\n+\tslices.SortFunc(sorted, func(a, b Account) int { return cmp.Compare(a.ID, b.ID) })\n+\n+\tbyID := make(map[string]Account, len(sorted))\n+\tfor _, a := range sorted {\n+\t\tbyID[a.ID] = a\n+\t}\n+\n+\tmux := http.NewServeMux()\n+\tmux.HandleFunc(\"GET /healthz\", handleHealthz)\n+\tmux.HandleFunc(\"GET /accounts\", handleAccounts(sorted))\n+\tmux.HandleFunc(\"GET /accounts/{id}\", handleAccount(byID))\n+\n+\treturn &http.Server{\n+\t\tAddr:              addr,\n+\t\tHandler:           mux,\n+\t\tReadHeaderTimeout: 5 * time.Second,\n+\t\tReadTimeout:       10 * time.Second,\n+\t\tWriteTimeout:      10 * time.Second,\n+\t\tIdleTimeout:       2 * time.Minute,\n+\t\tMaxHeaderBytes:    1 << 16,\n+\t}\n }\n+\n+func handleHealthz(w http.ResponseWriter, _ *http.Request) {\n+\tw.Header().Set(\"Content-Type\", \"text/plain; charset=utf-8\")\n+\tw.Write([]byte(\"ok\"))\n+}\n+\n+func handleAccounts(accounts []Account) http.HandlerFunc {\n+\treturn func(w http.ResponseWriter, r *http.Request) {\n+\t\tresult := accounts\n+\t\tswitch active := r.URL.Query().Get(\"active\"); active {\n+\t\tcase \"\":\n+\t\tcase \"true\":\n+\t\t\tresult = filterByActive(accounts, true)\n+\t\tcase \"false\":\n+\t\t\tresult = filterByActive(accounts, false)\n+\t\tdefault:\n+\t\t\thttp.Error(w, \"invalid value for query parameter active\", http.StatusBadRequest)\n+\t\t\treturn\n+\t\t}\n+\t\twriteJSON(w, http.StatusOK, result)\n+\t}\n+}\n+\n+func filterByActive(accounts []Account, active bool) []Account {\n+\tfiltered := make([]Account, 0, len(accounts))\n+\tfor _, a := range accounts {\n+\t\tif a.Active == active {\n+\t\t\tfiltered = append(filtered, a)\n+\t\t}\n+\t}\n+\treturn filtered\n+}\n+\n+func handleAccount(byID map[string]Account) http.HandlerFunc {\n+\treturn func(w http.ResponseWriter, r *http.Request) {\n+\t\taccount, ok := byID[r.PathValue(\"id\")]\n+\t\tif !ok {\n+\t\t\thttp.NotFound(w, r)\n+\t\t\treturn\n+\t\t}\n+\t\twriteJSON(w, http.StatusOK, account)\n+\t}\n+}\n+\n+func writeJSON(w http.ResponseWriter, status int, v any) {\n+\tw.Header().Set(\"Content-Type\", \"application/json; charset=utf-8\")\n+\tw.WriteHeader(status)\n+\tjson.NewEncoder(w).Encode(v)\n+}\n",
+      "raw_sha256": "cbf00720f338d281a6ef868d469d1e65e2019bd9ed92b54a1c97972fa4f373fa",
+      "golden": true,
+      "delta": {
+        "lines": 77,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 7
+      },
+      "checks": {
+        "TestReviewRejectsHEAD": {
+          "pass": false,
+          "output": "--- FAIL: TestReviewRejectsHEAD (0.00s)\n    routing_review_test.go:7: HEAD /healthz = 200, want 405\n    routing_review_test.go:7: HEAD /accounts = 200, want 405\n    routing_review_test.go:7: HEAD /accounts/a-1 = 200, want 405\nFAIL\nFAIL\tabeval/gateway\t0.455s\nFAIL\n"
+        },
+        "TestReviewEmptyListIsArray": {
+          "pass": true,
+          "output": "ok  \tabeval/gateway\t0.253s\n"
+        }
+      },
+      "assistant_models": [
+        "claude-sonnet-5"
+      ]
+    },
+    {
+      "label": "baseline-1",
+      "arm": "baseline",
+      "rep": 1,
+      "first_edit_index": 46,
+      "loaded_before_first_edit": [
+        "go-code",
+        "go-http"
+      ],
+      "routing_pass": false,
+      "candidate_text_delivered": false,
+      "timeline": [
+        {
+          "index": 3,
+          "tool": "Skill",
+          "id": "toolu_01MzytSgt5QKz5d8f8bu181j",
+          "skill": "go-code",
+          "result_index": 4,
+          "is_error": false
+        },
+        {
+          "index": 7,
+          "tool": "Glob",
+          "id": "toolu_01Mf22cy4BS7rgndif4jwoc9",
+          "result_index": 8,
+          "is_error": false
+        },
+        {
+          "index": 9,
+          "tool": "Read",
+          "id": "toolu_01GKrbL2gDovyhbMN3w9eTch",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1991791626/gateway/gateway.go",
+          "result_index": 10,
+          "is_error": false
+        },
+        {
+          "index": 14,
+          "tool": "Skill",
+          "id": "toolu_01RYtBVECdACqHMGiKsKVYue",
+          "skill": "go-http",
+          "result_index": 15,
+          "is_error": false
+        },
+        {
+          "index": 46,
+          "tool": "Edit",
+          "id": "toolu_01NJ2UtyfWPv7SRUDHjzoifu",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1991791626/gateway/gateway.go",
+          "result_index": 47,
+          "is_error": false
+        },
+        {
+          "index": 49,
+          "tool": "Edit",
+          "id": "toolu_01VMCaPxEgodtQfFRVvvYoDK",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1991791626/gateway/gateway.go",
+          "result_index": 51,
+          "is_error": false
+        },
+        {
+          "index": 53,
+          "tool": "Read",
+          "id": "toolu_017sKEbtzum8gkqFP5XE74YT",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1991791626/gateway/gateway.go",
+          "result_index": 54,
+          "is_error": false
+        },
+        {
+          "index": 58,
+          "tool": "Edit",
+          "id": "toolu_01EniG8wAHS3QJMsv5GcQZAz",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1991791626/gateway/gateway.go",
+          "result_index": 59,
+          "is_error": false
+        },
+        {
+          "index": 64,
+          "tool": "Read",
+          "id": "toolu_01Hj2XAxDAhY2rrfRYuoqwuY",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1991791626/gateway/gateway.go",
+          "result_index": 65,
+          "is_error": false
+        }
+      ],
+      "turns": 12,
+      "cost_usd": 0.2215396,
+      "usage": {
+        "input_tokens": 20,
+        "cache_creation_input_tokens": 25746,
+        "cache_read_input_tokens": 218068,
+        "output_tokens": 7391,
+        "output_tokens_details": {
+          "thinking_tokens": 4967
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 25746,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [],
+        "speed": "standard"
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 937,
+          "outputTokens": 11,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.000992,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        },
+        "claude-sonnet-5": {
+          "inputTokens": 20,
+          "outputTokens": 7391,
+          "cacheReadInputTokens": 218068,
+          "cacheCreationInputTokens": 25746,
+          "webSearchRequests": 0,
+          "costUSD": 0.2205476,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 4967,
+          "canonicalModel": "claude-sonnet-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "source": "// Package gateway serves the public read-only accounts API.\npackage gateway\n\nimport (\n\t\"cmp\"\n\t\"encoding/json\"\n\t\"net/http\"\n\t\"slices\"\n\t\"time\"\n)\n\n// Account is one record the API serves.\ntype Account struct {\n\tID     string `json:\"id\"`\n\tName   string `json:\"name\"`\n\tCents  int64  `json:\"cents\"`\n\tActive bool   `json:\"active\"`\n}\n\n// NewServer returns the server for the public accounts API, listening on addr\n// and serving the given accounts. Starting and stopping it is the caller's job.\n//\n// This server is the edge: it is published straight to the open internet with\n// no proxy of any kind in front of it. Every client is anonymous, some are on\n// mobile links that stall mid-request, many hold connections open long after\n// they stop asking for anything, and a share of the traffic is there to find\n// out what the process can be made to hold onto.\n//\n// It answers these requests and nothing else:\n//\n//\tGET /healthz         200, body \"ok\"\n//\tGET /accounts        200, a JSON array of every account, ordered by ID\n//\tGET /accounts/{id}   200, the JSON object for that account; 404 if unknown\n//\n// GET /accounts also takes one optional query parameter, active, which is\n// either \"true\" or \"false\" and restricts the array to accounts in that state.\n// Any other value for it is a 400 whose body names the parameter.\n//\n// Any other path is a 404. A known path asked for with any method other than\n// GET is a 405.\nfunc NewServer(addr string, accounts []Account) *http.Server {\n\tsorted := make([]Account, len(accounts))\n\tcopy(sorted, accounts)\n\tslices.SortFunc(sorted, func(a, b Account) int { return cmp.Compare(a.ID, b.ID) })\n\n\tbyID := make(map[string]Account, len(sorted))\n\tfor _, a := range sorted {\n\t\tbyID[a.ID] = a\n\t}\n\n\tmux := http.NewServeMux()\n\tmux.HandleFunc(\"/healthz\", func(w http.ResponseWriter, r *http.Request) {\n\t\tif r.Method != http.MethodGet {\n\t\t\tw.Header().Set(\"Allow\", http.MethodGet)\n\t\t\thttp.Error(w, \"method not allowed\", http.StatusMethodNotAllowed)\n\t\t\treturn\n\t\t}\n\t\tw.Write([]byte(\"ok\"))\n\t})\n\tmux.HandleFunc(\"/accounts\", func(w http.ResponseWriter, r *http.Request) {\n\t\tif r.Method != http.MethodGet {\n\t\t\tw.Header().Set(\"Allow\", http.MethodGet)\n\t\t\thttp.Error(w, \"method not allowed\", http.StatusMethodNotAllowed)\n\t\t\treturn\n\t\t}\n\n\t\tresult := sorted\n\t\tif q := r.URL.Query(); q.Has(\"active\") {\n\t\t\tvar active bool\n\t\t\tswitch q.Get(\"active\") {\n\t\t\tcase \"true\":\n\t\t\t\tactive = true\n\t\t\tcase \"false\":\n\t\t\t\tactive = false\n\t\t\tdefault:\n\t\t\t\thttp.Error(w, `invalid value for query parameter \"active\"`, http.StatusBadRequest)\n\t\t\t\treturn\n\t\t\t}\n\t\t\tfiltered := make([]Account, 0, len(sorted))\n\t\t\tfor _, a := range sorted {\n\t\t\t\tif a.Active == active {\n\t\t\t\t\tfiltered = append(filtered, a)\n\t\t\t\t}\n\t\t\t}\n\t\t\tresult = filtered\n\t\t}\n\t\twriteJSON(w, http.StatusOK, result)\n\t})\n\tmux.HandleFunc(\"/accounts/{id}\", func(w http.ResponseWriter, r *http.Request) {\n\t\tif r.Method != http.MethodGet {\n\t\t\tw.Header().Set(\"Allow\", http.MethodGet)\n\t\t\thttp.Error(w, \"method not allowed\", http.StatusMethodNotAllowed)\n\t\t\treturn\n\t\t}\n\n\t\taccount, ok := byID[r.PathValue(\"id\")]\n\t\tif !ok {\n\t\t\thttp.NotFound(w, r)\n\t\t\treturn\n\t\t}\n\t\twriteJSON(w, http.StatusOK, account)\n\t})\n\n\treturn &http.Server{\n\t\tAddr:              addr,\n\t\tHandler:           mux,\n\t\tReadHeaderTimeout: 5 * time.Second,\n\t\tReadTimeout:       10 * time.Second,\n\t\tWriteTimeout:      10 * time.Second,\n\t\tIdleTimeout:       60 * time.Second,\n\t\tMaxHeaderBytes:    1 << 20,\n\t}\n}\n\nfunc writeJSON(w http.ResponseWriter, status int, v any) {\n\tbody, err := json.Marshal(v)\n\tif err != nil {\n\t\thttp.Error(w, \"internal server error\", http.StatusInternalServerError)\n\t\treturn\n\t}\n\tw.Header().Set(\"Content-Type\", \"application/json\")\n\tw.WriteHeader(status)\n\tw.Write(body)\n}\n",
+      "source_sha256": "2d0dc5dbf25201d06be2489e0485512b60c7fd9c5b29a1808fd7d1bee805a6ec",
+      "diff": "--- a/gateway.go\n+++ b/gateway.go\n@@ -1,7 +1,13 @@\n // Package gateway serves the public read-only accounts API.\n package gateway\n \n-import \"net/http\"\n+import (\n+\t\"cmp\"\n+\t\"encoding/json\"\n+\t\"net/http\"\n+\t\"slices\"\n+\t\"time\"\n+)\n \n // Account is one record the API serves.\n type Account struct {\n@@ -33,5 +39,86 @@\n // Any other path is a 404. A known path asked for with any method other than\n // GET is a 405.\n func NewServer(addr string, accounts []Account) *http.Server {\n-\tpanic(\"not implemented\")\n+\tsorted := make([]Account, len(accounts))\n+\tcopy(sorted, accounts)\n+\tslices.SortFunc(sorted, func(a, b Account) int { return cmp.Compare(a.ID, b.ID) })\n+\n+\tbyID := make(map[string]Account, len(sorted))\n+\tfor _, a := range sorted {\n+\t\tbyID[a.ID] = a\n+\t}\n+\n+\tmux := http.NewServeMux()\n+\tmux.HandleFunc(\"/healthz\", func(w http.ResponseWriter, r *http.Request) {\n+\t\tif r.Method != http.MethodGet {\n+\t\t\tw.Header().Set(\"Allow\", http.MethodGet)\n+\t\t\thttp.Error(w, \"method not allowed\", http.StatusMethodNotAllowed)\n+\t\t\treturn\n+\t\t}\n+\t\tw.Write([]byte(\"ok\"))\n+\t})\n+\tmux.HandleFunc(\"/accounts\", func(w http.ResponseWriter, r *http.Request) {\n+\t\tif r.Method != http.MethodGet {\n+\t\t\tw.Header().Set(\"Allow\", http.MethodGet)\n+\t\t\thttp.Error(w, \"method not allowed\", http.StatusMethodNotAllowed)\n+\t\t\treturn\n+\t\t}\n+\n+\t\tresult := sorted\n+\t\tif q := r.URL.Query(); q.Has(\"active\") {\n+\t\t\tvar active bool\n+\t\t\tswitch q.Get(\"active\") {\n+\t\t\tcase \"true\":\n+\t\t\t\tactive = true\n+\t\t\tcase \"false\":\n+\t\t\t\tactive = false\n+\t\t\tdefault:\n+\t\t\t\thttp.Error(w, `invalid value for query parameter \"active\"`, http.StatusBadRequest)\n+\t\t\t\treturn\n+\t\t\t}\n+\t\t\tfiltered := make([]Account, 0, len(sorted))\n+\t\t\tfor _, a := range sorted {\n+\t\t\t\tif a.Active == active {\n+\t\t\t\t\tfiltered = append(filtered, a)\n+\t\t\t\t}\n+\t\t\t}\n+\t\t\tresult = filtered\n+\t\t}\n+\t\twriteJSON(w, http.StatusOK, result)\n+\t})\n+\tmux.HandleFunc(\"/accounts/{id}\", func(w http.ResponseWriter, r *http.Request) {\n+\t\tif r.Method != http.MethodGet {\n+\t\t\tw.Header().Set(\"Allow\", http.MethodGet)\n+\t\t\thttp.Error(w, \"method not allowed\", http.StatusMethodNotAllowed)\n+\t\t\treturn\n+\t\t}\n+\n+\t\taccount, ok := byID[r.PathValue(\"id\")]\n+\t\tif !ok {\n+\t\t\thttp.NotFound(w, r)\n+\t\t\treturn\n+\t\t}\n+\t\twriteJSON(w, http.StatusOK, account)\n+\t})\n+\n+\treturn &http.Server{\n+\t\tAddr:              addr,\n+\t\tHandler:           mux,\n+\t\tReadHeaderTimeout: 5 * time.Second,\n+\t\tReadTimeout:       10 * time.Second,\n+\t\tWriteTimeout:      10 * time.Second,\n+\t\tIdleTimeout:       60 * time.Second,\n+\t\tMaxHeaderBytes:    1 << 20,\n+\t}\n }\n+\n+func writeJSON(w http.ResponseWriter, status int, v any) {\n+\tbody, err := json.Marshal(v)\n+\tif err != nil {\n+\t\thttp.Error(w, \"internal server error\", http.StatusInternalServerError)\n+\t\treturn\n+\t}\n+\tw.Header().Set(\"Content-Type\", \"application/json\")\n+\tw.WriteHeader(status)\n+\tw.Write(body)\n+}\n",
+      "raw_sha256": "4e33644e0f88d882c22f08fba756f267835a75d7efeab8adf9ebe11df28412fc",
+      "golden": true,
+      "delta": {
+        "lines": 87,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 11
+      },
+      "checks": {
+        "TestReviewRejectsHEAD": {
+          "pass": true,
+          "output": "ok  \tabeval/gateway\t0.355s\n"
+        },
+        "TestReviewEmptyListIsArray": {
+          "pass": true,
+          "output": "ok  \tabeval/gateway\t0.247s\n"
+        }
+      },
+      "assistant_models": [
+        "claude-sonnet-5"
+      ]
+    },
+    {
+      "label": "candidate-0",
+      "arm": "candidate",
+      "rep": 0,
+      "first_edit_index": 36,
+      "loaded_before_first_edit": [
+        "go-code",
+        "go-http"
+      ],
+      "routing_pass": false,
+      "candidate_text_delivered": true,
+      "timeline": [
+        {
+          "index": 3,
+          "tool": "Skill",
+          "id": "toolu_01ArufD2WGyAtBWt9G6sxWvU",
+          "skill": "go-code",
+          "result_index": 4,
+          "is_error": false
+        },
+        {
+          "index": 9,
+          "tool": "Glob",
+          "id": "toolu_01FjNKZEpKToygQofaacqYct",
+          "result_index": 10,
+          "is_error": false
+        },
+        {
+          "index": 11,
+          "tool": "Read",
+          "id": "toolu_0168yDk1oPYSAA2QMwtENkx3",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1570693952/gateway/gateway.go",
+          "result_index": 12,
+          "is_error": false
+        },
+        {
+          "index": 16,
+          "tool": "Skill",
+          "id": "toolu_01XGJVvhRSiLki4cLRxRrana",
+          "skill": "go-http",
+          "result_index": 17,
+          "is_error": false
+        },
+        {
+          "index": 36,
+          "tool": "Edit",
+          "id": "toolu_012bPmTv67RTxAdP71qWAkRQ",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1570693952/gateway/gateway.go",
+          "result_index": 37,
+          "is_error": false
+        },
+        {
+          "index": 39,
+          "tool": "Edit",
+          "id": "toolu_01TFueqyYc6fWh3wePpXD6uo",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1570693952/gateway/gateway.go",
+          "result_index": 41,
+          "is_error": false
+        },
+        {
+          "index": 43,
+          "tool": "Read",
+          "id": "toolu_01Wm49YpAaV51Y24XRy1Z6L7",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1570693952/gateway/gateway.go",
+          "result_index": 44,
+          "is_error": false
+        },
+        {
+          "index": 49,
+          "tool": "Glob",
+          "id": "toolu_017q7wW3ZiWJUsW9WmXEsxRm",
+          "result_index": 50,
+          "is_error": false
+        },
+        {
+          "index": 51,
+          "tool": "Read",
+          "id": "toolu_01ETYYTUtbMerz2dYiv7wfH5",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1570693952/go.mod",
+          "result_index": 52,
+          "is_error": false
+        }
+      ],
+      "turns": 12,
+      "cost_usd": 0.17882920000000002,
+      "usage": {
+        "input_tokens": 20,
+        "cache_creation_input_tokens": 21460,
+        "cache_read_input_tokens": 210486,
+        "output_tokens": 4986,
+        "output_tokens_details": {
+          "thinking_tokens": 2904
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 21460,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [],
+        "speed": "standard"
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 937,
+          "outputTokens": 11,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.000992,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        },
+        "claude-sonnet-5": {
+          "inputTokens": 20,
+          "outputTokens": 4986,
+          "cacheReadInputTokens": 210486,
+          "cacheCreationInputTokens": 21460,
+          "webSearchRequests": 0,
+          "costUSD": 0.1778372,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 2904,
+          "canonicalModel": "claude-sonnet-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "source": "// Package gateway serves the public read-only accounts API.\npackage gateway\n\nimport (\n\t\"encoding/json\"\n\t\"net/http\"\n\t\"sort\"\n\t\"time\"\n)\n\n// Account is one record the API serves.\ntype Account struct {\n\tID     string `json:\"id\"`\n\tName   string `json:\"name\"`\n\tCents  int64  `json:\"cents\"`\n\tActive bool   `json:\"active\"`\n}\n\n// NewServer returns the server for the public accounts API, listening on addr\n// and serving the given accounts. Starting and stopping it is the caller's job.\n//\n// This server is the edge: it is published straight to the open internet with\n// no proxy of any kind in front of it. Every client is anonymous, some are on\n// mobile links that stall mid-request, many hold connections open long after\n// they stop asking for anything, and a share of the traffic is there to find\n// out what the process can be made to hold onto.\n//\n// It answers these requests and nothing else:\n//\n//\tGET /healthz         200, body \"ok\"\n//\tGET /accounts        200, a JSON array of every account, ordered by ID\n//\tGET /accounts/{id}   200, the JSON object for that account; 404 if unknown\n//\n// GET /accounts also takes one optional query parameter, active, which is\n// either \"true\" or \"false\" and restricts the array to accounts in that state.\n// Any other value for it is a 400 whose body names the parameter.\n//\n// Any other path is a 404. A known path asked for with any method other than\n// GET is a 405.\nfunc NewServer(addr string, accounts []Account) *http.Server {\n\tbyID := make(map[string]Account, len(accounts))\n\tfor _, a := range accounts {\n\t\tbyID[a.ID] = a\n\t}\n\n\tsorted := make([]Account, len(accounts))\n\tcopy(sorted, accounts)\n\tsort.Slice(sorted, func(i, j int) bool { return sorted[i].ID < sorted[j].ID })\n\n\tmux := http.NewServeMux()\n\tmux.HandleFunc(\"GET /healthz\", handleHealthz)\n\tmux.HandleFunc(\"GET /accounts\", handleListAccounts(sorted))\n\tmux.HandleFunc(\"GET /accounts/{id}\", handleGetAccount(byID))\n\n\treturn &http.Server{\n\t\tAddr:              addr,\n\t\tHandler:           mux,\n\t\tReadHeaderTimeout: 5 * time.Second,\n\t\tReadTimeout:       10 * time.Second,\n\t\tWriteTimeout:      10 * time.Second,\n\t\tIdleTimeout:       60 * time.Second,\n\t\tMaxHeaderBytes:    1 << 20,\n\t}\n}\n\nfunc handleHealthz(w http.ResponseWriter, r *http.Request) {\n\tw.Header().Set(\"Content-Type\", \"text/plain; charset=utf-8\")\n\tw.Write([]byte(\"ok\"))\n}\n\nfunc handleListAccounts(sorted []Account) http.HandlerFunc {\n\treturn func(w http.ResponseWriter, r *http.Request) {\n\t\tq := r.URL.Query()\n\t\tresult := sorted\n\t\tif q.Has(\"active\") {\n\t\t\tvar active bool\n\t\t\tswitch q.Get(\"active\") {\n\t\t\tcase \"true\":\n\t\t\t\tactive = true\n\t\t\tcase \"false\":\n\t\t\t\tactive = false\n\t\t\tdefault:\n\t\t\t\thttp.Error(w, `invalid value for query parameter \"active\"`, http.StatusBadRequest)\n\t\t\t\treturn\n\t\t\t}\n\n\t\t\tresult = make([]Account, 0, len(sorted))\n\t\t\tfor _, a := range sorted {\n\t\t\t\tif a.Active == active {\n\t\t\t\t\tresult = append(result, a)\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n\t\twriteJSON(w, http.StatusOK, result)\n\t}\n}\n\nfunc handleGetAccount(byID map[string]Account) http.HandlerFunc {\n\treturn func(w http.ResponseWriter, r *http.Request) {\n\t\taccount, ok := byID[r.PathValue(\"id\")]\n\t\tif !ok {\n\t\t\thttp.NotFound(w, r)\n\t\t\treturn\n\t\t}\n\t\twriteJSON(w, http.StatusOK, account)\n\t}\n}\n\nfunc writeJSON(w http.ResponseWriter, status int, v any) {\n\tw.Header().Set(\"Content-Type\", \"application/json; charset=utf-8\")\n\tw.WriteHeader(status)\n\tjson.NewEncoder(w).Encode(v)\n}\n",
+      "source_sha256": "423fd20ca46f74cad4406a9df2a665562e9e8e18b1840d77e6d9a3869e3911f6",
+      "diff": "--- a/gateway.go\n+++ b/gateway.go\n@@ -1,7 +1,12 @@\n // Package gateway serves the public read-only accounts API.\n package gateway\n \n-import \"net/http\"\n+import (\n+\t\"encoding/json\"\n+\t\"net/http\"\n+\t\"sort\"\n+\t\"time\"\n+)\n \n // Account is one record the API serves.\n type Account struct {\n@@ -33,5 +38,77 @@\n // Any other path is a 404. A known path asked for with any method other than\n // GET is a 405.\n func NewServer(addr string, accounts []Account) *http.Server {\n-\tpanic(\"not implemented\")\n+\tbyID := make(map[string]Account, len(accounts))\n+\tfor _, a := range accounts {\n+\t\tbyID[a.ID] = a\n+\t}\n+\n+\tsorted := make([]Account, len(accounts))\n+\tcopy(sorted, accounts)\n+\tsort.Slice(sorted, func(i, j int) bool { return sorted[i].ID < sorted[j].ID })\n+\n+\tmux := http.NewServeMux()\n+\tmux.HandleFunc(\"GET /healthz\", handleHealthz)\n+\tmux.HandleFunc(\"GET /accounts\", handleListAccounts(sorted))\n+\tmux.HandleFunc(\"GET /accounts/{id}\", handleGetAccount(byID))\n+\n+\treturn &http.Server{\n+\t\tAddr:              addr,\n+\t\tHandler:           mux,\n+\t\tReadHeaderTimeout: 5 * time.Second,\n+\t\tReadTimeout:       10 * time.Second,\n+\t\tWriteTimeout:      10 * time.Second,\n+\t\tIdleTimeout:       60 * time.Second,\n+\t\tMaxHeaderBytes:    1 << 20,\n+\t}\n }\n+\n+func handleHealthz(w http.ResponseWriter, r *http.Request) {\n+\tw.Header().Set(\"Content-Type\", \"text/plain; charset=utf-8\")\n+\tw.Write([]byte(\"ok\"))\n+}\n+\n+func handleListAccounts(sorted []Account) http.HandlerFunc {\n+\treturn func(w http.ResponseWriter, r *http.Request) {\n+\t\tq := r.URL.Query()\n+\t\tresult := sorted\n+\t\tif q.Has(\"active\") {\n+\t\t\tvar active bool\n+\t\t\tswitch q.Get(\"active\") {\n+\t\t\tcase \"true\":\n+\t\t\t\tactive = true\n+\t\t\tcase \"false\":\n+\t\t\t\tactive = false\n+\t\t\tdefault:\n+\t\t\t\thttp.Error(w, `invalid value for query parameter \"active\"`, http.StatusBadRequest)\n+\t\t\t\treturn\n+\t\t\t}\n+\n+\t\t\tresult = make([]Account, 0, len(sorted))\n+\t\t\tfor _, a := range sorted {\n+\t\t\t\tif a.Active == active {\n+\t\t\t\t\tresult = append(result, a)\n+\t\t\t\t}\n+\t\t\t}\n+\t\t}\n+\n+\t\twriteJSON(w, http.StatusOK, result)\n+\t}\n+}\n+\n+func handleGetAccount(byID map[string]Account) http.HandlerFunc {\n+\treturn func(w http.ResponseWriter, r *http.Request) {\n+\t\taccount, ok := byID[r.PathValue(\"id\")]\n+\t\tif !ok {\n+\t\t\thttp.NotFound(w, r)\n+\t\t\treturn\n+\t\t}\n+\t\twriteJSON(w, http.StatusOK, account)\n+\t}\n+}\n+\n+func writeJSON(w http.ResponseWriter, status int, v any) {\n+\tw.Header().Set(\"Content-Type\", \"application/json; charset=utf-8\")\n+\tw.WriteHeader(status)\n+\tjson.NewEncoder(w).Encode(v)\n+}\n",
+      "raw_sha256": "c10598a8adf232440800f7f4876585353e3b31983ac2b599c8bb9789c604203a",
+      "golden": true,
+      "delta": {
+        "lines": 77,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 7
+      },
+      "checks": {
+        "TestReviewRejectsHEAD": {
+          "pass": false,
+          "output": "--- FAIL: TestReviewRejectsHEAD (0.00s)\n    routing_review_test.go:7: HEAD /healthz = 200, want 405\n    routing_review_test.go:7: HEAD /accounts = 200, want 405\n    routing_review_test.go:7: HEAD /accounts/a-1 = 200, want 405\nFAIL\nFAIL\tabeval/gateway\t0.331s\nFAIL\n"
+        },
+        "TestReviewEmptyListIsArray": {
+          "pass": true,
+          "output": "ok  \tabeval/gateway\t0.246s\n"
+        }
+      },
+      "assistant_models": [
+        "claude-sonnet-5"
+      ]
+    },
+    {
+      "label": "candidate-1",
+      "arm": "candidate",
+      "rep": 1,
+      "first_edit_index": 36,
+      "loaded_before_first_edit": [
+        "go-code",
+        "go-http"
+      ],
+      "routing_pass": false,
+      "candidate_text_delivered": true,
+      "timeline": [
+        {
+          "index": 5,
+          "tool": "Glob",
+          "id": "toolu_0189E2SeWqQFSSriDBXwFwho",
+          "result_index": 6,
+          "is_error": false
+        },
+        {
+          "index": 7,
+          "tool": "Read",
+          "id": "toolu_01RetcUZCHeug8Nn6L8qfwqr",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3816683448/gateway/gateway.go",
+          "result_index": 8,
+          "is_error": false
+        },
+        {
+          "index": 12,
+          "tool": "Skill",
+          "id": "toolu_01CwCdDxfCZwSzAsvog62QGU",
+          "skill": "go-code",
+          "result_index": 13,
+          "is_error": false
+        },
+        {
+          "index": 20,
+          "tool": "Skill",
+          "id": "toolu_01RLbUMUS2CB193KgNYx8nLZ",
+          "skill": "go-http",
+          "result_index": 21,
+          "is_error": false
+        },
+        {
+          "index": 36,
+          "tool": "Edit",
+          "id": "toolu_01Fe6j4rqyDnLKQsiCPW1GLZ",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3816683448/gateway/gateway.go",
+          "result_index": 37,
+          "is_error": false
+        },
+        {
+          "index": 39,
+          "tool": "Edit",
+          "id": "toolu_01D18Y1mNQDo4tWVUEALHrEa",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3816683448/gateway/gateway.go",
+          "result_index": 40,
+          "is_error": false
+        },
+        {
+          "index": 42,
+          "tool": "Read",
+          "id": "toolu_01Y6KWHkP7geNUEHRjpwAwYV",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3816683448/gateway/gateway.go",
+          "result_index": 43,
+          "is_error": false
+        },
+        {
+          "index": 45,
+          "tool": "Skill",
+          "id": "toolu_013Wy31xpfQDCgBqvGV8bPYD",
+          "skill": "go-linting",
+          "result_index": 46,
+          "is_error": false
+        },
+        {
+          "index": 51,
+          "tool": "Glob",
+          "id": "toolu_01UuYdZvuxGKUDQF1dmd2vMW",
+          "result_index": 52,
+          "is_error": false
+        },
+        {
+          "index": 58,
+          "tool": "Skill",
+          "id": "toolu_01Ckqq2rLEWYcYwEjazQnhds",
+          "skill": "go-code-review",
+          "result_index": 59,
+          "is_error": false
+        },
+        {
+          "index": 67,
+          "tool": "Glob",
+          "id": "toolu_011w5AzNLP9MJdDm6B93dN3o",
+          "result_index": 68,
+          "is_error": false
+        },
+        {
+          "index": 74,
+          "tool": "Edit",
+          "id": "toolu_01F6aZUFxZDZJcftYGfsQWap",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3816683448/gateway/gateway.go",
+          "result_index": 75,
+          "is_error": false
+        },
+        {
+          "index": 76,
+          "tool": "Edit",
+          "id": "toolu_01XFdPVXVjMFCbwKbFF1KXz4",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3816683448/gateway/gateway.go",
+          "result_index": 77,
+          "is_error": false
+        },
+        {
+          "index": 81,
+          "tool": "Read",
+          "id": "toolu_01Bhoe8H6cuJfBfJrtE691PG",
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3816683448/gateway/gateway.go",
+          "result_index": 82,
+          "is_error": false
+        }
+      ],
+      "turns": 19,
+      "cost_usd": 0.2878864,
+      "usage": {
+        "input_tokens": 30,
+        "cache_creation_input_tokens": 35214,
+        "cache_read_input_tokens": 401142,
+        "output_tokens": 6575,
+        "output_tokens_details": {
+          "thinking_tokens": 3587
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 35214,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [],
+        "speed": "standard"
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 937,
+          "outputTokens": 11,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.000992,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        },
+        "claude-sonnet-5": {
+          "inputTokens": 30,
+          "outputTokens": 6575,
+          "cacheReadInputTokens": 401142,
+          "cacheCreationInputTokens": 35214,
+          "webSearchRequests": 0,
+          "costUSD": 0.2868944,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 3587,
+          "canonicalModel": "claude-sonnet-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "source": "// Package gateway serves the public read-only accounts API.\npackage gateway\n\nimport (\n\t\"encoding/json\"\n\t\"net/http\"\n\t\"sort\"\n\t\"time\"\n)\n\n// Account is one record the API serves.\ntype Account struct {\n\tID     string `json:\"id\"`\n\tName   string `json:\"name\"`\n\tCents  int64  `json:\"cents\"`\n\tActive bool   `json:\"active\"`\n}\n\n// NewServer returns the server for the public accounts API, listening on addr\n// and serving the given accounts. Starting and stopping it is the caller's job.\n//\n// This server is the edge: it is published straight to the open internet with\n// no proxy of any kind in front of it. Every client is anonymous, some are on\n// mobile links that stall mid-request, many hold connections open long after\n// they stop asking for anything, and a share of the traffic is there to find\n// out what the process can be made to hold onto.\n//\n// It answers these requests and nothing else:\n//\n//\tGET /healthz         200, body \"ok\"\n//\tGET /accounts        200, a JSON array of every account, ordered by ID\n//\tGET /accounts/{id}   200, the JSON object for that account; 404 if unknown\n//\n// GET /accounts also takes one optional query parameter, active, which is\n// either \"true\" or \"false\" and restricts the array to accounts in that state.\n// Any other value for it is a 400 whose body names the parameter.\n//\n// Any other path is a 404. A known path asked for with any method other than\n// GET is a 405.\nfunc NewServer(addr string, accounts []Account) *http.Server {\n\tsorted := make([]Account, len(accounts))\n\tcopy(sorted, accounts)\n\tsort.Slice(sorted, func(i, j int) bool { return sorted[i].ID < sorted[j].ID })\n\n\tbyID := make(map[string]Account, len(sorted))\n\tfor _, a := range sorted {\n\t\tbyID[a.ID] = a\n\t}\n\n\tmux := http.NewServeMux()\n\n\tmux.HandleFunc(\"GET /healthz\", func(w http.ResponseWriter, r *http.Request) {\n\t\t_, _ = w.Write([]byte(\"ok\"))\n\t})\n\n\tmux.HandleFunc(\"GET /accounts\", func(w http.ResponseWriter, r *http.Request) {\n\t\tlist := sorted\n\t\tswitch raw := r.URL.Query().Get(\"active\"); raw {\n\t\tcase \"\":\n\t\tcase \"true\", \"false\":\n\t\t\twant := raw == \"true\"\n\t\t\tlist = make([]Account, 0, len(sorted))\n\t\t\tfor _, a := range sorted {\n\t\t\t\tif a.Active == want {\n\t\t\t\t\tlist = append(list, a)\n\t\t\t\t}\n\t\t\t}\n\t\tdefault:\n\t\t\thttp.Error(w, `invalid value for query parameter \"active\"`, http.StatusBadRequest)\n\t\t\treturn\n\t\t}\n\t\twriteJSON(w, list)\n\t})\n\n\tmux.HandleFunc(\"GET /accounts/{id}\", func(w http.ResponseWriter, r *http.Request) {\n\t\ta, ok := byID[r.PathValue(\"id\")]\n\t\tif !ok {\n\t\t\thttp.NotFound(w, r)\n\t\t\treturn\n\t\t}\n\t\twriteJSON(w, a)\n\t})\n\n\treturn &http.Server{\n\t\tAddr:              addr,\n\t\tHandler:           mux,\n\t\tReadHeaderTimeout: 5 * time.Second,\n\t\tReadTimeout:       10 * time.Second,\n\t\tWriteTimeout:      10 * time.Second,\n\t\tIdleTimeout:       60 * time.Second,\n\t\tMaxHeaderBytes:    1 << 20,\n\t}\n}\n\nfunc writeJSON(w http.ResponseWriter, v any) {\n\tbody, err := json.Marshal(v)\n\tif err != nil {\n\t\thttp.Error(w, \"internal error\", http.StatusInternalServerError)\n\t\treturn\n\t}\n\tw.Header().Set(\"Content-Type\", \"application/json\")\n\t_, _ = w.Write(body)\n}\n",
+      "source_sha256": "076806ea124c19c8bbbe55af31c03ad4810570ae0300482ae25350dd207f233d",
+      "diff": "--- a/gateway.go\n+++ b/gateway.go\n@@ -1,7 +1,12 @@\n // Package gateway serves the public read-only accounts API.\n package gateway\n \n-import \"net/http\"\n+import (\n+\t\"encoding/json\"\n+\t\"net/http\"\n+\t\"sort\"\n+\t\"time\"\n+)\n \n // Account is one record the API serves.\n type Account struct {\n@@ -33,5 +38,66 @@\n // Any other path is a 404. A known path asked for with any method other than\n // GET is a 405.\n func NewServer(addr string, accounts []Account) *http.Server {\n-\tpanic(\"not implemented\")\n+\tsorted := make([]Account, len(accounts))\n+\tcopy(sorted, accounts)\n+\tsort.Slice(sorted, func(i, j int) bool { return sorted[i].ID < sorted[j].ID })\n+\n+\tbyID := make(map[string]Account, len(sorted))\n+\tfor _, a := range sorted {\n+\t\tbyID[a.ID] = a\n+\t}\n+\n+\tmux := http.NewServeMux()\n+\n+\tmux.HandleFunc(\"GET /healthz\", func(w http.ResponseWriter, r *http.Request) {\n+\t\t_, _ = w.Write([]byte(\"ok\"))\n+\t})\n+\n+\tmux.HandleFunc(\"GET /accounts\", func(w http.ResponseWriter, r *http.Request) {\n+\t\tlist := sorted\n+\t\tswitch raw := r.URL.Query().Get(\"active\"); raw {\n+\t\tcase \"\":\n+\t\tcase \"true\", \"false\":\n+\t\t\twant := raw == \"true\"\n+\t\t\tlist = make([]Account, 0, len(sorted))\n+\t\t\tfor _, a := range sorted {\n+\t\t\t\tif a.Active == want {\n+\t\t\t\t\tlist = append(list, a)\n+\t\t\t\t}\n+\t\t\t}\n+\t\tdefault:\n+\t\t\thttp.Error(w, `invalid value for query parameter \"active\"`, http.StatusBadRequest)\n+\t\t\treturn\n+\t\t}\n+\t\twriteJSON(w, list)\n+\t})\n+\n+\tmux.HandleFunc(\"GET /accounts/{id}\", func(w http.ResponseWriter, r *http.Request) {\n+\t\ta, ok := byID[r.PathValue(\"id\")]\n+\t\tif !ok {\n+\t\t\thttp.NotFound(w, r)\n+\t\t\treturn\n+\t\t}\n+\t\twriteJSON(w, a)\n+\t})\n+\n+\treturn &http.Server{\n+\t\tAddr:              addr,\n+\t\tHandler:           mux,\n+\t\tReadHeaderTimeout: 5 * time.Second,\n+\t\tReadTimeout:       10 * time.Second,\n+\t\tWriteTimeout:      10 * time.Second,\n+\t\tIdleTimeout:       60 * time.Second,\n+\t\tMaxHeaderBytes:    1 << 20,\n+\t}\n }\n+\n+func writeJSON(w http.ResponseWriter, v any) {\n+\tbody, err := json.Marshal(v)\n+\tif err != nil {\n+\t\thttp.Error(w, \"internal error\", http.StatusInternalServerError)\n+\t\treturn\n+\t}\n+\tw.Header().Set(\"Content-Type\", \"application/json\")\n+\t_, _ = w.Write(body)\n+}\n",
+      "raw_sha256": "911fdd45956e8ae805068ab024c085f0bbabb5e74e854a63590b315cbc7da46c",
+      "golden": true,
+      "delta": {
+        "lines": 66,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 8
+      },
+      "checks": {
+        "TestReviewRejectsHEAD": {
+          "pass": false,
+          "output": "--- FAIL: TestReviewRejectsHEAD (0.00s)\n    routing_review_test.go:7: HEAD /healthz = 200, want 405\n    routing_review_test.go:7: HEAD /accounts = 200, want 405\n    routing_review_test.go:7: HEAD /accounts/a-1 = 200, want 405\nFAIL\nFAIL\tabeval/gateway\t0.360s\nFAIL\n"
+        },
+        "TestReviewEmptyListIsArray": {
+          "pass": true,
+          "output": "ok  \tabeval/gateway\t0.242s\n"
+        }
+      },
+      "assistant_models": [
+        "claude-sonnet-5"
+      ]
+    }
+  ],
+  "summary": {
+    "baseline": {
+      "n": 2,
+      "routing_pass": 0,
+      "golden_pass": 2,
+      "head_pass": 1,
+      "empty_list_pass": 2,
+      "mean_cost_usd": 0.22965809999999998,
+      "mean_turns": 13,
+      "mean_delta_lines": 82,
+      "mean_delta_funcs": 3,
+      "usage_models": [
+        "claude-haiku-4-5-20251001",
+        "claude-sonnet-5"
+      ],
+      "assistant_models": [
+        "claude-sonnet-5"
+      ]
+    },
+    "candidate": {
+      "n": 2,
+      "routing_pass": 0,
+      "golden_pass": 2,
+      "head_pass": 0,
+      "empty_list_pass": 2,
+      "mean_cost_usd": 0.2333578,
+      "mean_turns": 15.5,
+      "mean_delta_lines": 71.5,
+      "mean_delta_funcs": 2.5,
+      "usage_models": [
+        "claude-haiku-4-5-20251001",
+        "claude-sonnet-5"
+      ],
+      "assistant_models": [
+        "claude-sonnet-5"
+      ]
+    }
+  },
+  "total_cost_usd": 0.9260318
+}

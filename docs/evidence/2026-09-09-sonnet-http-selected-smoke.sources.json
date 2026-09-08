@@ -1,0 +1,221 @@
+{
+  "base_commit": "74ca0fa",
+  "skill": "---\nname: go-http\ndescription: Use when writing or reviewing Go HTTP code — handlers, routing with net/http ServeMux, middleware, request decoding and response encoding, server timeouts and graceful shutdown, or HTTP clients. Also use when building a REST or JSON API endpoint or calling an external HTTP service, even if the user names a framework instead of net/http. Does not cover the test server helpers (see go-testing) or request-scoped logging (see go-logging).\n---\n\n# Go HTTP Servers and Clients\n\n> Compatibility: Baseline Go 1.27 (`COMPATIBILITY.md`). `ServeMux` method and\n> wildcard patterns require Go 1.22+; `http.NewCrossOriginProtection` Go 1.25+;\n> `http.Server.MaxHeaderValueCount` Go 1.27+.\n\n## Resource Routing\n\n- `references/WEB-SERVER.md` - Read when assembling a complete server: routing, handler, graceful shutdown, and where the other go-* skills meet in one `main`.\n\n## Stdlib First\n\nUse `net/http` method/path routing before adding a router module\n([go-packages](../go-packages/SKILL.md) owns the dependency ladder). Match an\nexisting framework and house style; the HTTP rules still apply.\nUse a framework only when the repository already uses one.\n\n## Routing (Go 1.22+)\n\n```go\nmux := http.NewServeMux()\nmux.HandleFunc(\"GET /users/{id}\", s.handleGetUser)\nmux.HandleFunc(\"POST /users\", s.handleCreateUser)\nmux.HandleFunc(\"GET /{$}\", s.handleIndex) // exact \"/\", not a subtree\n\nid := r.PathValue(\"id\")\n```\n\n- A pattern without a method matches every method; `GET` also matches `HEAD`.\n  If the endpoint contract requires 405 for HEAD, reject it explicitly on\n  that endpoint or register its matching HEAD pattern with a 405 handler.\n- Conflicting patterns panic at registration; overlapping patterns are valid\n  when one is more specific.\n- Trailing `/` is a subtree; `{$}` pins the exact path.\n\n## Handler Shape\n\nUse plain functions, closures, or methods. A struct holds dependencies or state\nshared by handlers; a small handler can capture them directly. Preserve the\nexisting structure. No package-level state.\n\nBound and decode → validate → call the domain with `r.Context()` → map the\nerror → write once.\n\n```go\nfunc (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {\n    r.Body = http.MaxBytesReader(w, r.Body, 1<<20)\n    dec := json.NewDecoder(r.Body)\n    dec.DisallowUnknownFields()\n    var req createUserRequest\n    if err := dec.Decode(&req); err != nil {\n        http.Error(w, \"invalid JSON body\", http.StatusBadRequest)\n        return\n    }\n    if err := dec.Decode(new(any)); err != io.EOF {\n        http.Error(w, \"body must contain one JSON value\", http.StatusBadRequest)\n        return\n    }\n    if err := req.validate(); err != nil {\n        http.Error(w, err.Error(), http.StatusBadRequest)\n        return\n    }\n    user, err := s.store.Create(r.Context(), req.toUser())\n    if err != nil {\n        s.writeError(w, r, err)\n        return\n    }\n    writeJSON(w, http.StatusCreated, user)\n}\n```\n\n- Bound every decoded body with `http.MaxBytesReader`. For a single-document\n  endpoint, require EOF after the first value before calling the domain;\n  `DisallowUnknownFields` alone accepts trailing data. The second decode\n  allows trailing whitespace while still enforcing the cap.\n- Pass `r.Context()` downstream; it is cancelled on client disconnect.\n- For a JSON array contract, build the response with `make([]T, 0, n)` on\n  both unfiltered and filtered paths, including nil input and no matches.\n  Preserve the wire type independently of how the server snapshots its input.\n- Set headers before `WriteHeader`, and call it once. Buffer encoding when an\n  encode error must change the status; otherwise log the encode error because\n  headers have already been sent.\n\n### Mapping errors to status codes\n\nCentralize shared error-to-status rules in `writeError`, using\n`errors.Is`/`errors.AsType`; keep a single-handler mapping local. Apply each\nrow where that failure can occur:\n\n| Error | Status | Body |\n|---|---|---|\n| Validation, malformed input | 400 | The validation message |\n| `ErrNotFound` sentinel | 404 | Generic |\n| `ErrConflict`, version mismatch | 409 | Generic |\n| `context.Canceled` (client left) | 499-style: log at Debug, write nothing | — |\n| `context.DeadlineExceeded` from downstream | 504 | Generic |\n| Anything else | 500 | Generic — **never** `err.Error()` |\n\nAt the 500 boundary, log the full error server-side with the request ID and\nreturn a generic message. This is the handle-once exception owned by\n[go-error-handling](../go-error-handling/SKILL.md).\n\n## Middleware\n\n`func(next http.Handler) http.Handler`. Outside in: recover → request ID +\nlogging → auth → mux. Wrap `http.ResponseWriter` only to capture status and\nkeep it transparent; use `http.NewResponseController(w)` for deadlines and\nflushing instead of asserting optional interfaces.\n\n## Server Construction\n\nConstruct an `http.Server`; bare `http.ListenAndServe` sets no timeouts.\n\n| Field | Why |\n|---|---|\n| `ReadHeaderTimeout` | Slowloris defense; must never be zero |\n| `ReadTimeout`, `WriteTimeout` | Bound slow clients; `WriteTimeout` exceeds the slowest handler |\n| `IdleTimeout` | Reclaim keep-alive connections |\n| `MaxHeaderBytes`, `MaxHeaderValueCount` (Go 1.27+) | Cap header abuse |\n| `Handler: http.NewCrossOriginProtection().Handler(mux)` | CSRF for state-changing requests (Go 1.25+) |\n| `BaseContext` | Expose process shutdown to handlers |\n\nFor graceful shutdown, `signal.NotifyContext` owns the lifetime;\n`ListenAndServe` runs in one goroutine feeding a buffered error channel;\n`srv.Shutdown(ctx)` gets its own timeout.\n\n## Clients\n\n- Never `http.Get`, `http.Post`, or `http.DefaultClient` — no timeout. One\n  `*http.Client{Timeout: d}` per dependency, built once and reused; it owns the\n  connection pool.\n- `http.NewRequestWithContext(ctx, ...)` — the ctx-less form is unbounded;\n  `noctx` in the lint gate flags it.\n- `defer resp.Body.Close()` on every response, error or not (`bodyclose`\n  flags it). Bound untrusted bodies and close them on every path. Read to EOF\n  within that bound when possible so the connection can be reused.\n- Check `resp.StatusCode` before decoding; a 5xx body is not your struct.\n- For retry eligibility, `Retry-After`, replay safety, and coordinated budgets,\n  use [go-resilience](../go-resilience/SKILL.md). HTTP status alone does not\n  establish whether repeating an operation is safe.\n\n\n### Bounded Response Bodies\n\nFor a strict response-size limit, read at most the limit plus one byte,\nreject an oversized result, then decode the complete buffer into `dst`.\nA decoder can finish its first object before `io.LimitReader` reaches its\nlimit; that alone does not enforce the size of the whole response.\n\n```go\nconst maxBody = 64 << 10\nbody, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))\nif err != nil {\n    return fmt.Errorf(\"read response: %w\", err)\n}\nif len(body) > maxBody {\n    return fmt.Errorf(\"response exceeds %d bytes\", maxBody)\n}\nreturn json.Unmarshal(body, dst)\n```\n\n## Validation\n\nRun `go vet ./...` (`httpresponse`), `golangci-lint run` with `bodyclose` and\n`noctx` from [go-linting](../go-linting/SKILL.md), and `go test -race ./...`:\nhandlers run concurrently. Test handlers with `httptest.NewTestServer(t, h)`.\n\n## Related Skills\n\n- [go-context](../go-context/SKILL.md): derived deadlines and request lifetime.\n- [go-error-handling](../go-error-handling/SKILL.md): sentinels and wrapping.\n- [go-logging](../go-logging/SKILL.md): request IDs, log fields, redaction.\n- [go-database](../go-database/SKILL.md): handler queries and transactions.\n- [go-testing](../go-testing/SKILL.md): `httptest` and `synctest`.\n- [go-concurrency](../go-concurrency/SKILL.md): server goroutine and shared state.\n- [go-packages](../go-packages/SKILL.md): router, JSON, and client dependencies.\n- [go-security](../go-security/SKILL.md): input naming files, URLs or commands;\n  cookies, SSRF, and error disclosure.\n",
+  "golden_source": "package gateway\n\nimport (\n\t\"encoding/json\"\n\t\"net/http\"\n\t\"net/http/httptest\"\n\t\"strings\"\n\t\"testing\"\n)\n\nfunc goldenAccounts() []Account {\n\treturn []Account{\n\t\t{ID: \"a-3\", Name: \"Fees\", Cents: -400, Active: false},\n\t\t{ID: \"a-1\", Name: \"Cash\", Cents: 2675, Active: true},\n\t\t{ID: \"a-2\", Name: \"Card\", Cents: 900, Active: true},\n\t}\n}\n\n// serve drives one request through the server's handler. Only NewServer is\n// part of the fixture's API, so everything behind it is the implementation's\n// own business.\nfunc serve(t *testing.T, method, target string) *httptest.ResponseRecorder {\n\tt.Helper()\n\tsrv := NewServer(\":8080\", goldenAccounts())\n\tif srv == nil {\n\t\tt.Fatal(\"NewServer returned nil, want a server\")\n\t}\n\tif srv.Handler == nil {\n\t\tt.Fatal(\"NewServer().Handler = nil, want a handler\")\n\t}\n\trec := httptest.NewRecorder()\n\tsrv.Handler.ServeHTTP(rec, httptest.NewRequest(method, target, nil))\n\treturn rec\n}\n\n// TestNewServerBoundsSlowClients is the trap. A zero timeout is no timeout, so\n// an edge server assembled as &http.Server{Addr: addr, Handler: h} holds a\n// stalled or idle connection until the process runs out of them.\nfunc TestNewServerBoundsSlowClients(t *testing.T) {\n\tsrv := NewServer(\":8080\", goldenAccounts())\n\tif srv == nil {\n\t\tt.Fatal(\"NewServer returned nil, want a server\")\n\t}\n\n\ttimeouts := []struct {\n\t\tfield string\n\t\tzero  bool\n\t}{\n\t\t{field: \"ReadHeaderTimeout\", zero: srv.ReadHeaderTimeout == 0},\n\t\t{field: \"ReadTimeout\", zero: srv.ReadTimeout == 0},\n\t\t{field: \"WriteTimeout\", zero: srv.WriteTimeout == 0},\n\t\t{field: \"IdleTimeout\", zero: srv.IdleTimeout == 0},\n\t}\n\tfor _, tt := range timeouts {\n\t\tif tt.zero {\n\t\t\tt.Errorf(\"NewServer().%s = 0, want a bound on the connection\", tt.field)\n\t\t}\n\t}\n\tif srv.Addr != \":8080\" {\n\t\tt.Errorf(\"NewServer().Addr = %q, want %q\", srv.Addr, \":8080\")\n\t}\n}\n\nfunc TestHealth(t *testing.T) {\n\trec := serve(t, http.MethodGet, \"/healthz\")\n\n\tif rec.Code != http.StatusOK {\n\t\tt.Errorf(\"GET /healthz = %d, want %d\", rec.Code, http.StatusOK)\n\t}\n\tif got := rec.Body.String(); got != \"ok\" {\n\t\tt.Errorf(\"GET /healthz body = %q, want %q\", got, \"ok\")\n\t}\n}\n\nfunc TestListOrdersByID(t *testing.T) {\n\trec := serve(t, http.MethodGet, \"/accounts\")\n\tif rec.Code != http.StatusOK {\n\t\tt.Fatalf(\"GET /accounts = %d, want %d\", rec.Code, http.StatusOK)\n\t}\n\n\tvar got []Account\n\tif err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {\n\t\tt.Fatalf(\"json.Unmarshal(GET /accounts) error = %v, body was %s\", err, rec.Body)\n\t}\n\twant := []Account{\n\t\t{ID: \"a-1\", Name: \"Cash\", Cents: 2675, Active: true},\n\t\t{ID: \"a-2\", Name: \"Card\", Cents: 900, Active: true},\n\t\t{ID: \"a-3\", Name: \"Fees\", Cents: -400, Active: false},\n\t}\n\tif len(got) != len(want) {\n\t\tt.Fatalf(\"GET /accounts returned %d accounts, want %d: %s\", len(got), len(want), rec.Body)\n\t}\n\tfor i := range want {\n\t\tif got[i] != want[i] {\n\t\t\tt.Errorf(\"GET /accounts [%d] = %+v, want %+v\", i, got[i], want[i])\n\t\t}\n\t}\n}\n\nfunc TestListFiltersByActive(t *testing.T) {\n\ttests := []struct {\n\t\ttarget string\n\t\twantID []string\n\t}{\n\t\t{target: \"/accounts?active=true\", wantID: []string{\"a-1\", \"a-2\"}},\n\t\t{target: \"/accounts?active=false\", wantID: []string{\"a-3\"}},\n\t}\n\n\tfor _, tt := range tests {\n\t\tt.Run(tt.target, func(t *testing.T) {\n\t\t\trec := serve(t, http.MethodGet, tt.target)\n\t\t\tif rec.Code != http.StatusOK {\n\t\t\t\tt.Fatalf(\"GET %s = %d, want %d\", tt.target, rec.Code, http.StatusOK)\n\t\t\t}\n\n\t\t\tvar got []Account\n\t\t\tif err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {\n\t\t\t\tt.Fatalf(\"json.Unmarshal(GET %s) error = %v, body was %s\", tt.target, err, rec.Body)\n\t\t\t}\n\t\t\tif len(got) != len(tt.wantID) {\n\t\t\t\tt.Fatalf(\"GET %s returned %d accounts, want %d: %s\", tt.target, len(got), len(tt.wantID), rec.Body)\n\t\t\t}\n\t\t\tfor i, id := range tt.wantID {\n\t\t\t\tif got[i].ID != id {\n\t\t\t\t\tt.Errorf(\"GET %s [%d].ID = %q, want %q\", tt.target, i, got[i].ID, id)\n\t\t\t\t}\n\t\t\t}\n\t\t})\n\t}\n}\n\nfunc TestListRejectsUnknownActiveValue(t *testing.T) {\n\trec := serve(t, http.MethodGet, \"/accounts?active=maybe\")\n\n\tif rec.Code != http.StatusBadRequest {\n\t\tt.Fatalf(\"GET /accounts?active=maybe = %d, want %d\", rec.Code, http.StatusBadRequest)\n\t}\n\tif !strings.Contains(rec.Body.String(), \"active\") {\n\t\tt.Errorf(\"GET /accounts?active=maybe body = %q, want the parameter named\", rec.Body)\n\t}\n}\n\nfunc TestGetOne(t *testing.T) {\n\trec := serve(t, http.MethodGet, \"/accounts/a-2\")\n\tif rec.Code != http.StatusOK {\n\t\tt.Fatalf(\"GET /accounts/a-2 = %d, want %d\", rec.Code, http.StatusOK)\n\t}\n\n\tvar got Account\n\tif err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {\n\t\tt.Fatalf(\"json.Unmarshal(GET /accounts/a-2) error = %v, body was %s\", err, rec.Body)\n\t}\n\tif want := (Account{ID: \"a-2\", Name: \"Card\", Cents: 900, Active: true}); got != want {\n\t\tt.Errorf(\"GET /accounts/a-2 = %+v, want %+v\", got, want)\n\t}\n}\n\nfunc TestStatusCodes(t *testing.T) {\n\ttests := []struct {\n\t\tname     string\n\t\tmethod   string\n\t\ttarget   string\n\t\twantCode int\n\t}{\n\t\t{name: \"unknown account\", method: http.MethodGet, target: \"/accounts/nope\", wantCode: http.StatusNotFound},\n\t\t{name: \"unknown path\", method: http.MethodGet, target: \"/nope\", wantCode: http.StatusNotFound},\n\t\t{name: \"post to list\", method: http.MethodPost, target: \"/accounts\", wantCode: http.StatusMethodNotAllowed},\n\t\t{name: \"delete one\", method: http.MethodDelete, target: \"/accounts/a-1\", wantCode: http.StatusMethodNotAllowed},\n\t\t{name: \"post to health\", method: http.MethodPost, target: \"/healthz\", wantCode: http.StatusMethodNotAllowed},\n\t\t{name: \"head to health\", method: http.MethodHead, target: \"/healthz\", wantCode: http.StatusMethodNotAllowed},\n\t\t{name: \"head to list\", method: http.MethodHead, target: \"/accounts\", wantCode: http.StatusMethodNotAllowed},\n\t\t{name: \"head to account\", method: http.MethodHead, target: \"/accounts/a-1\", wantCode: http.StatusMethodNotAllowed},\n\t}\n\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\trec := serve(t, tt.method, tt.target)\n\t\t\tif rec.Code != tt.wantCode {\n\t\t\t\tt.Errorf(\"%s %s = %d, want %d\", tt.method, tt.target, rec.Code, tt.wantCode)\n\t\t\t}\n\t\t})\n\t}\n}\n\nfunc TestEmptyListIsJSONArray(t *testing.T) {\n\tfor _, tt := range []struct {\n\t\tname     string\n\t\taccounts []Account\n\t\ttarget   string\n\t}{\n\t\t{name: \"nil\", target: \"/accounts\"},\n\t\t{name: \"empty\", accounts: []Account{}, target: \"/accounts\"},\n\t\t{name: \"filtered\", accounts: []Account{{ID: \"a-1\", Active: true}}, target: \"/accounts?active=false\"},\n\t} {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tsrv := NewServer(\":0\", tt.accounts)\n\t\t\trec := httptest.NewRecorder()\n\t\t\tsrv.Handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tt.target, nil))\n\t\t\tif got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != \"[]\" {\n\t\t\t\tt.Errorf(\"GET %s = %d %q, want 200 []\", tt.target, rec.Code, got)\n\t\t\t}\n\t\t})\n\t}\n}\n",
+  "runs": [
+    {
+      "label": "gateway-0",
+      "source": "// Package gateway serves the public read-only accounts API.\npackage gateway\n\nimport (\n\t\"encoding/json\"\n\t\"net/http\"\n\t\"sort\"\n\t\"time\"\n)\n\n// Account is one record the API serves.\ntype Account struct {\n\tID     string `json:\"id\"`\n\tName   string `json:\"name\"`\n\tCents  int64  `json:\"cents\"`\n\tActive bool   `json:\"active\"`\n}\n\n// NewServer returns the server for the public accounts API, listening on addr\n// and serving the given accounts. Starting and stopping it is the caller's job.\n//\n// This server is the edge: it is published straight to the open internet with\n// no proxy of any kind in front of it. Every client is anonymous, some are on\n// mobile links that stall mid-request, many hold connections open long after\n// they stop asking for anything, and a share of the traffic is there to find\n// out what the process can be made to hold onto.\n//\n// It answers these requests and nothing else:\n//\n//\tGET /healthz         200, body \"ok\"\n//\tGET /accounts        200, a JSON array of every account, ordered by ID\n//\tGET /accounts/{id}   200, the JSON object for that account; 404 if unknown\n//\n// GET /accounts also takes one optional query parameter, active, which is\n// either \"true\" or \"false\" and restricts the array to accounts in that state.\n// Any other value for it is a 400 whose body names the parameter.\n//\n// Any other path is a 404. A known path asked for with any method other than\n// GET is a 405.\nfunc NewServer(addr string, accounts []Account) *http.Server {\n\tsorted := make([]Account, len(accounts))\n\tcopy(sorted, accounts)\n\tsort.Slice(sorted, func(i, j int) bool { return sorted[i].ID < sorted[j].ID })\n\n\tbyID := make(map[string]Account, len(sorted))\n\tfor _, a := range sorted {\n\t\tbyID[a.ID] = a\n\t}\n\n\tmux := http.NewServeMux()\n\tmux.HandleFunc(\"GET /healthz\", handleHealthz)\n\tmux.HandleFunc(\"GET /accounts\", handleAccounts(sorted))\n\tmux.HandleFunc(\"GET /accounts/{id}\", handleAccount(byID))\n\n\treturn &http.Server{\n\t\tAddr:              addr,\n\t\tHandler:           mux,\n\t\tReadHeaderTimeout: 5 * time.Second,\n\t\tReadTimeout:       10 * time.Second,\n\t\tWriteTimeout:      10 * time.Second,\n\t\tIdleTimeout:       60 * time.Second,\n\t\tMaxHeaderBytes:    1 << 20,\n\t}\n}\n\nfunc handleHealthz(w http.ResponseWriter, r *http.Request) {\n\tw.WriteHeader(http.StatusOK)\n\tw.Write([]byte(\"ok\"))\n}\n\nfunc handleAccounts(accounts []Account) http.HandlerFunc {\n\treturn func(w http.ResponseWriter, r *http.Request) {\n\t\traw := r.URL.Query().Get(\"active\")\n\t\tvar filter *bool\n\t\tswitch raw {\n\t\tcase \"\":\n\t\tcase \"true\":\n\t\t\tv := true\n\t\t\tfilter = &v\n\t\tcase \"false\":\n\t\t\tv := false\n\t\t\tfilter = &v\n\t\tdefault:\n\t\t\thttp.Error(w, `invalid value for query parameter \"active\"`, http.StatusBadRequest)\n\t\t\treturn\n\t\t}\n\n\t\tresult := make([]Account, 0, len(accounts))\n\t\tfor _, a := range accounts {\n\t\t\tif filter == nil || a.Active == *filter {\n\t\t\t\tresult = append(result, a)\n\t\t\t}\n\t\t}\n\t\twriteJSON(w, http.StatusOK, result)\n\t}\n}\n\nfunc handleAccount(byID map[string]Account) http.HandlerFunc {\n\treturn func(w http.ResponseWriter, r *http.Request) {\n\t\ta, ok := byID[r.PathValue(\"id\")]\n\t\tif !ok {\n\t\t\thttp.NotFound(w, r)\n\t\t\treturn\n\t\t}\n\t\twriteJSON(w, http.StatusOK, a)\n\t}\n}\n\nfunc writeJSON(w http.ResponseWriter, status int, v any) {\n\tw.Header().Set(\"Content-Type\", \"application/json\")\n\tw.WriteHeader(status)\n\tjson.NewEncoder(w).Encode(v)\n}\n",
+      "source_sha256": "5d2349bdfb160560af07c3daa68f55deedde9d03ff6479b96704d7aca4180e46",
+      "raw_sha256": "18bf8f7a78c96c28b9fa2a63775a16f4268d1334c9bbac0326b23b12409c9b26",
+      "assistant_models": [
+        "claude-sonnet-5"
+      ],
+      "cli_result": {
+        "duration_api_ms": 53712,
+        "stop_reason": "end_turn",
+        "session_id": "f231f3b6-aaa8-4c53-b158-5c9f94609e8d",
+        "total_cost_usd": 0.1869494,
+        "usage": {
+          "input_tokens": 22,
+          "cache_creation_input_tokens": 24727,
+          "cache_read_input_tokens": 215027,
+          "output_tokens": 4400,
+          "output_tokens_details": {
+            "thinking_tokens": 2037
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 24727,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "not_available",
+          "iterations": [],
+          "speed": "standard"
+        },
+        "modelUsage": {
+          "claude-haiku-4-5-20251001": {
+            "inputTokens": 937,
+            "outputTokens": 11,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0,
+            "webSearchRequests": 0,
+            "costUSD": 0.000992,
+            "contextWindow": 200000,
+            "maxOutputTokens": 32000,
+            "thinkingTokens": 0,
+            "canonicalModel": "claude-haiku-4-5",
+            "provider": "firstParty",
+            "costBasis": "list"
+          },
+          "claude-sonnet-5": {
+            "inputTokens": 22,
+            "outputTokens": 4400,
+            "cacheReadInputTokens": 215027,
+            "cacheCreationInputTokens": 24727,
+            "webSearchRequests": 0,
+            "costUSD": 0.1859574,
+            "contextWindow": 1000000,
+            "maxOutputTokens": 64000,
+            "thinkingTokens": 2037,
+            "canonicalModel": "claude-sonnet-5",
+            "provider": "firstParty",
+            "costBasis": "list"
+          }
+        },
+        "permission_denials": [],
+        "terminal_reason": "completed",
+        "fast_mode_state": "off",
+        "fast_mode_disabled_reason": "sdk_opt_in_required",
+        "subagent_stats": {
+          "spawned": 0,
+          "requested": {
+            "background": 0,
+            "foreground": 0,
+            "unset": 0
+          },
+          "started_in_background": 0,
+          "max_depth": 0,
+          "spawned_by_subagents": 0,
+          "completed": 0,
+          "failed": 0,
+          "killed": {
+            "parent": 0,
+            "user": 0,
+            "system": 0
+          },
+          "refused": {
+            "depth_limit": 0,
+            "concurrency_limit": 0,
+            "budget": 0
+          },
+          "by_type": {}
+        },
+        "is_error": false,
+        "num_turns": 14,
+        "subtype": "success",
+        "api_error_status": null,
+        "result": "Implemented `NewServer` in `gateway/gateway.go`: builds a sorted account list and ID index, wires `GET /healthz`, `GET /accounts` (with `active` query filtering and 400 on invalid values), and `GET /accounts/{id}` (404 on unknown) via `http.ServeMux`, which also gives automatic 405s for wrong methods and 404 for unknown paths. Since this is a Server directly exposed to the internet with no proxy, I set `ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout`, `IdleTimeout`, and `MaxHeaderBytes` to guard against slow/stalled/hanging clients.\n\n`go vet ./gateway` ran clean via the edit hook after the final change (no test suite exists in this repo to run).",
+        "ttft_ms": 1683,
+        "type": "result",
+        "duration_ms": 53053,
+        "uuid": "ee5564a3-f745-4524-8a81-e329d03c465c",
+        "ttft_stream_ms": 1117,
+        "time_to_request_ms": 58,
+        "first_content_frame_ms": 1682,
+        "queued_turn_count": 0
+      }
+    },
+    {
+      "label": "gateway-1",
+      "source": "// Package gateway serves the public read-only accounts API.\npackage gateway\n\nimport (\n\t\"encoding/json\"\n\t\"net/http\"\n\t\"slices\"\n\t\"strings\"\n\t\"time\"\n)\n\n// Account is one record the API serves.\ntype Account struct {\n\tID     string `json:\"id\"`\n\tName   string `json:\"name\"`\n\tCents  int64  `json:\"cents\"`\n\tActive bool   `json:\"active\"`\n}\n\n// NewServer returns the server for the public accounts API, listening on addr\n// and serving the given accounts. Starting and stopping it is the caller's job.\n//\n// This server is the edge: it is published straight to the open internet with\n// no proxy of any kind in front of it. Every client is anonymous, some are on\n// mobile links that stall mid-request, many hold connections open long after\n// they stop asking for anything, and a share of the traffic is there to find\n// out what the process can be made to hold onto.\n//\n// It answers these requests and nothing else:\n//\n//\tGET /healthz         200, body \"ok\"\n//\tGET /accounts        200, a JSON array of every account, ordered by ID\n//\tGET /accounts/{id}   200, the JSON object for that account; 404 if unknown\n//\n// GET /accounts also takes one optional query parameter, active, which is\n// either \"true\" or \"false\" and restricts the array to accounts in that state.\n// Any other value for it is a 400 whose body names the parameter.\n//\n// Any other path is a 404. A known path asked for with any method other than\n// GET is a 405.\nfunc NewServer(addr string, accounts []Account) *http.Server {\n\tsorted := make([]Account, len(accounts))\n\tcopy(sorted, accounts)\n\tslices.SortFunc(sorted, func(a, b Account) int { return strings.Compare(a.ID, b.ID) })\n\n\tbyID := make(map[string]Account, len(sorted))\n\tfor _, a := range sorted {\n\t\tbyID[a.ID] = a\n\t}\n\n\tmux := http.NewServeMux()\n\tmux.HandleFunc(\"GET /healthz\", handleHealthz)\n\tmux.HandleFunc(\"GET /accounts\", handleListAccounts(sorted))\n\tmux.HandleFunc(\"GET /accounts/{id}\", handleGetAccount(byID))\n\n\treturn &http.Server{\n\t\tAddr:              addr,\n\t\tHandler:           mux,\n\t\tReadHeaderTimeout: 5 * time.Second,\n\t\tReadTimeout:       10 * time.Second,\n\t\tWriteTimeout:      10 * time.Second,\n\t\tIdleTimeout:       60 * time.Second,\n\t\tMaxHeaderBytes:    1 << 20,\n\t}\n}\n\nfunc handleHealthz(w http.ResponseWriter, r *http.Request) {\n\t_, _ = w.Write([]byte(\"ok\"))\n}\n\n// handleListAccounts serves GET /accounts against a fixed, already\n// ID-sorted snapshot of accounts.\nfunc handleListAccounts(accounts []Account) http.HandlerFunc {\n\treturn func(w http.ResponseWriter, r *http.Request) {\n\t\tq := r.URL.Query()\n\t\tif !q.Has(\"active\") {\n\t\t\twriteJSON(w, accounts)\n\t\t\treturn\n\t\t}\n\n\t\tvar active bool\n\t\tswitch q.Get(\"active\") {\n\t\tcase \"true\":\n\t\t\tactive = true\n\t\tcase \"false\":\n\t\t\tactive = false\n\t\tdefault:\n\t\t\thttp.Error(w, `invalid value for query parameter \"active\"`, http.StatusBadRequest)\n\t\t\treturn\n\t\t}\n\n\t\tfiltered := make([]Account, 0, len(accounts))\n\t\tfor _, a := range accounts {\n\t\t\tif a.Active == active {\n\t\t\t\tfiltered = append(filtered, a)\n\t\t\t}\n\t\t}\n\t\twriteJSON(w, filtered)\n\t}\n}\n\n// handleGetAccount serves GET /accounts/{id} against a fixed lookup table.\nfunc handleGetAccount(byID map[string]Account) http.HandlerFunc {\n\treturn func(w http.ResponseWriter, r *http.Request) {\n\t\taccount, ok := byID[r.PathValue(\"id\")]\n\t\tif !ok {\n\t\t\thttp.NotFound(w, r)\n\t\t\treturn\n\t\t}\n\t\twriteJSON(w, account)\n\t}\n}\n\nfunc writeJSON(w http.ResponseWriter, v any) {\n\tw.Header().Set(\"Content-Type\", \"application/json\")\n\t_ = json.NewEncoder(w).Encode(v)\n}\n",
+      "source_sha256": "5333167038d1ff9576a43fe009cdde6e2c2687f18858c102ab6437a5653c71cf",
+      "raw_sha256": "e47e647f72e1a6ccca99fb2c8a598428bf947be878b39bbf37eed6854a53db91",
+      "assistant_models": [
+        "claude-sonnet-5"
+      ],
+      "cli_result": {
+        "duration_api_ms": 91742,
+        "stop_reason": "end_turn",
+        "session_id": "2639b11b-fc51-43b0-9d09-7c895a15a738",
+        "total_cost_usd": 0.2877812,
+        "usage": {
+          "input_tokens": 22,
+          "cache_creation_input_tokens": 35022,
+          "cache_read_input_tokens": 286236,
+          "output_tokens": 8941,
+          "output_tokens_details": {
+            "thinking_tokens": 6257
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 35022,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "not_available",
+          "iterations": [],
+          "speed": "standard"
+        },
+        "modelUsage": {
+          "claude-haiku-4-5-20251001": {
+            "inputTokens": 937,
+            "outputTokens": 11,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0,
+            "webSearchRequests": 0,
+            "costUSD": 0.000992,
+            "contextWindow": 200000,
+            "maxOutputTokens": 32000,
+            "thinkingTokens": 0,
+            "canonicalModel": "claude-haiku-4-5",
+            "provider": "firstParty",
+            "costBasis": "list"
+          },
+          "claude-sonnet-5": {
+            "inputTokens": 22,
+            "outputTokens": 8941,
+            "cacheReadInputTokens": 286236,
+            "cacheCreationInputTokens": 35022,
+            "webSearchRequests": 0,
+            "costUSD": 0.2867892,
+            "contextWindow": 1000000,
+            "maxOutputTokens": 64000,
+            "thinkingTokens": 6257,
+            "canonicalModel": "claude-sonnet-5",
+            "provider": "firstParty",
+            "costBasis": "list"
+          }
+        },
+        "permission_denials": [],
+        "terminal_reason": "completed",
+        "fast_mode_state": "off",
+        "fast_mode_disabled_reason": "sdk_opt_in_required",
+        "subagent_stats": {
+          "spawned": 0,
+          "requested": {
+            "background": 0,
+            "foreground": 0,
+            "unset": 0
+          },
+          "started_in_background": 0,
+          "max_depth": 0,
+          "spawned_by_subagents": 0,
+          "completed": 0,
+          "failed": 0,
+          "killed": {
+            "parent": 0,
+            "user": 0,
+            "system": 0
+          },
+          "refused": {
+            "depth_limit": 0,
+            "concurrency_limit": 0,
+            "budget": 0
+          },
+          "by_type": {}
+        },
+        "is_error": false,
+        "num_turns": 16,
+        "subtype": "success",
+        "api_error_status": null,
+        "result": "The `NewServer` implementation is complete in `gateway/gateway.go:41-117`: it builds a sorted, immutable snapshot of accounts, routes `/healthz`, `/accounts` (with `active` filtering and 400 on bad values), and `/accounts/{id}` (404 on unknown) via `net/http.ServeMux`'s Go 1.22+ method patterns (which auto-handle 404/405), and sets server timeouts appropriate for an unproxied, internet-facing edge. `go vet` ran clean via the edit hook; no Bash tool is available in this session to run the full lint/test suite, so that remains unverified here.",
+        "ttft_ms": 1542,
+        "type": "result",
+        "duration_ms": 91452,
+        "uuid": "92e8daea-ec64-41a9-9ad7-e86bdc620ca3",
+        "ttft_stream_ms": 972,
+        "time_to_request_ms": 57,
+        "first_content_frame_ms": 1541,
+        "queued_turn_count": 0
+      }
+    }
+  ]
+}

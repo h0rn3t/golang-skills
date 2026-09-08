@@ -1,0 +1,24 @@
+--- a/skills/go-code/SKILL.md
++++ b/skills/go-code/SKILL.md
+@@ -33,11 +33,16 @@
+    `go.mod`, neighboring code, tests, and callers. Identify required inputs,
+    outputs, environment constraints, failure behavior, and dependencies. Use
+    these to select rows below; no fixed written contract report is required.
+-3. **Load the relevant owners before editing.** Select by the decisions and
+-   behavior being changed, not every syntax element present. A routine local
+-   variable or `if` does not trigger naming, documentation, or extra style
+-   references. For mixed tasks, route each area; add owners when new evidence
+-   requires them. There is no numerical cap. Reuse guidance already read.
++3. **Complete routing before the first edit.** Select rows by the decisions
++   and behavior being changed. Name the selected rows and required skills in
++   one short routing line. For each selected row, call the host's skill loader
++   (`Skill` in Claude Code), or read its `SKILL.md`, for the primary owner and
++   every applicable entry in **Also load**. An entry without a condition is
++   required; evaluate each stated condition separately. This step is complete
++   when every required skill's contents have been returned by the loader or
++   reader, or were already read in this task. Then begin editing. A routine
++   local variable or `if` does not add an owner. For mixed tasks, route each
++   area; complete additional loads before editing a newly discovered area.
+ 4. **Implement the authorized scope.** For new functions, packages, or stub
+    bodies, use [Writing New Code](#writing-new-code). For behavior-preserving
+    restructuring, use the [delete-first priority](../go-code-refactor/SKILL.md#delete-before-you-restructure).

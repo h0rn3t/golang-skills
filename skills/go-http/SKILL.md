@@ -5,10 +5,9 @@ description: Use when writing or reviewing Go HTTP code — handlers, routing wi
 
 # Go HTTP Servers and Clients
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Method and
-> wildcard patterns in `http.ServeMux` require Go 1.22+;
-> `http.NewCrossOriginProtection` Go 1.25+; `http.Server.MaxHeaderValueCount`
-> Go 1.27+.
+> Compatibility: Baseline Go 1.27 (`COMPATIBILITY.md`). `ServeMux` method and
+> wildcard patterns require Go 1.22+; `http.NewCrossOriginProtection` Go 1.25+;
+> `http.Server.MaxHeaderValueCount` Go 1.27+.
 
 ## Resource Routing
 
@@ -16,15 +15,10 @@ description: Use when writing or reviewing Go HTTP code — handlers, routing wi
 
 ## Stdlib First
 
-> **Normative**: `net/http` routes by method and path wildcard since Go 1.22.
-> A router module is rung four of the dependency ladder in
-> [go-packages](../go-packages/SKILL.md), not rung one.
-
-Reach for a framework only when the repository already uses one — then match it
-([go-style-core](../go-style-core/SKILL.md) owns house style) and keep every
-rule below; they are about HTTP, not about `net/http`.
-
----
+Use `net/http` method/path routing before adding a router module
+([go-packages](../go-packages/SKILL.md) owns the dependency ladder). Match an
+existing framework and house style; the HTTP rules still apply.
+Use a framework only when the repository already uses one.
 
 ## Routing (Go 1.22+)
 
@@ -38,21 +32,20 @@ id := r.PathValue("id")
 ```
 
 - A pattern without a method matches every method; `GET` also matches `HEAD`.
-- Two patterns that can match the same request panic at registration — a
-  startup failure, which is the right time.
+  If the endpoint contract requires 405 for HEAD, reject it explicitly on
+  that endpoint or register its matching HEAD pattern with a 405 handler.
+- Conflicting patterns panic at registration; overlapping patterns are valid
+  when one is more specific.
 - Trailing `/` is a subtree; `{$}` pins the exact path.
-
----
 
 ## Handler Shape
 
-Handlers can be plain functions, closures, or methods. Use a struct when
-multiple handlers share dependencies or state; a small handler can use its
-dependencies directly in a closure. Preserve an established handler structure.
-Never package-level state.
+Use plain functions, closures, or methods. A struct holds dependencies or state
+shared by handlers; a small handler can capture them directly. Preserve the
+existing structure. No package-level state.
 
-Order inside a handler: bound and decode → validate → call the domain with
-`r.Context()` → map the error → write once.
+Bound and decode → validate → call the domain with `r.Context()` → map the
+error → write once.
 
 ```go
 func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -81,23 +74,23 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-- `http.MaxBytesReader` on every body you decode; an unbounded body is a
-  memory DoS.
-- For a single-document endpoint, require EOF after the first value before
-  calling the domain. `DisallowUnknownFields` does not reject trailing data;
-  a second decode accepts only trailing whitespace and still enforces the cap.
-- `r.Context()` into every downstream call — it is cancelled when the client
-  disconnects. [go-context](../go-context/SKILL.md) owns the rest.
-- Set headers before `WriteHeader`; call `WriteHeader` once. Encode into a
-  buffer first when the encode error must change the status; otherwise handle
-  the encode error by logging it — the client already has the header.
+- Bound every decoded body with `http.MaxBytesReader`. For a single-document
+  endpoint, require EOF after the first value before calling the domain;
+  `DisallowUnknownFields` alone accepts trailing data. The second decode
+  allows trailing whitespace while still enforcing the cap.
+- Pass `r.Context()` downstream; it is cancelled on client disconnect.
+- For a JSON array contract, build the response with `make([]T, 0, n)` on
+  both unfiltered and filtered paths, including nil input and no matches.
+  Preserve the wire type independently of how the server snapshots its input.
+- Set headers before `WriteHeader`, and call it once. Buffer encoding when an
+  encode error must change the status; otherwise log the encode error because
+  headers have already been sent.
 
 ### Mapping errors to status codes
 
-When several handlers use the same error-to-status rules, centralize them in
-`writeError`, driven by `errors.Is`/`errors.AsType`. Keep a short mapping local
-when it is used by only one handler. Apply the following status behavior where
-the corresponding failure can occur:
+Centralize shared error-to-status rules in `writeError`, using
+`errors.Is`/`errors.AsType`; keep a single-handler mapping local. Apply each
+row where that failure can occur:
 
 | Error | Status | Body |
 |---|---|---|
@@ -108,42 +101,33 @@ the corresponding failure can occur:
 | `context.DeadlineExceeded` from downstream | 504 | Generic |
 | Anything else | 500 | Generic — **never** `err.Error()` |
 
-The 500 branch is the one place that both logs and returns: log the full error
-server-side with the request ID, return a generic message.
-[go-error-handling](../go-error-handling/SKILL.md) owns the handle-once rule
-and this exception.
-
----
+At the 500 boundary, log the full error server-side with the request ID and
+return a generic message. This is the handle-once exception owned by
+[go-error-handling](../go-error-handling/SKILL.md).
 
 ## Middleware
 
-`func(next http.Handler) http.Handler`. Order from the outside in: recover →
-request ID + logging → auth → the mux. Wrap `http.ResponseWriter` only to
-capture the status code, and keep the wrapper transparent: use
-`http.NewResponseController(w)` for deadlines and flushing rather than
-asserting on optional interfaces.
-
----
+`func(next http.Handler) http.Handler`. Outside in: recover → request ID +
+logging → auth → mux. Wrap `http.ResponseWriter` only to capture status and
+keep it transparent; use `http.NewResponseController(w)` for deadlines and
+flushing instead of asserting optional interfaces.
 
 ## Server Construction
 
-> **Normative**: Never `http.ListenAndServe(addr, h)` in production — it sets
-> no timeouts. Construct an `http.Server`.
+Construct an `http.Server`; bare `http.ListenAndServe` sets no timeouts.
 
 | Field | Why |
 |---|---|
-| `ReadHeaderTimeout` | Slowloris defense; the one field that must never be zero |
-| `ReadTimeout`, `WriteTimeout` | Bound a slow client; `WriteTimeout` must exceed the slowest handler |
+| `ReadHeaderTimeout` | Slowloris defense; must never be zero |
+| `ReadTimeout`, `WriteTimeout` | Bound slow clients; `WriteTimeout` exceeds the slowest handler |
 | `IdleTimeout` | Reclaim keep-alive connections |
 | `MaxHeaderBytes`, `MaxHeaderValueCount` (Go 1.27+) | Cap header abuse |
 | `Handler: http.NewCrossOriginProtection().Handler(mux)` | CSRF for state-changing requests (Go 1.25+) |
-| `BaseContext` | Inject the process-lifetime context so handlers can see shutdown |
+| `BaseContext` | Expose process shutdown to handlers |
 
-Graceful shutdown: `signal.NotifyContext` owns the lifetime, `ListenAndServe`
-runs in one goroutine feeding a buffered `chan error`, and `srv.Shutdown(ctx)`
-gets its own timeout. The full `run()` is in `references/WEB-SERVER.md`.
-
----
+For graceful shutdown, `signal.NotifyContext` owns the lifetime;
+`ListenAndServe` runs in one goroutine feeding a buffered error channel;
+`srv.Shutdown(ctx)` gets its own timeout.
 
 ## Clients
 
@@ -153,42 +137,47 @@ gets its own timeout. The full `run()` is in `references/WEB-SERVER.md`.
 - `http.NewRequestWithContext(ctx, ...)` — the ctx-less form is unbounded;
   `noctx` in the lint gate flags it.
 - `defer resp.Body.Close()` on every response, error or not (`bodyclose`
-  flags it). Read the body to EOF, `io.LimitReader` if the size is untrusted.
+  flags it). Bound untrusted bodies and close them on every path. Read to EOF
+  within that bound when possible so the connection can be reused.
 - Check `resp.StatusCode` before decoding; a 5xx body is not your struct.
 - For retry eligibility, `Retry-After`, replay safety, and coordinated budgets,
   use [go-resilience](../go-resilience/SKILL.md). HTTP status alone does not
   establish whether repeating an operation is safe.
 
-> **Validation**: `go vet ./...` (the `httpresponse` analyzer catches `Body`
-> use before the error check), `golangci-lint run` with `bodyclose` and
-> `noctx` from the [go-linting](../go-linting/SKILL.md) baseline, and
-> `go test -race ./...` — handlers run concurrently by definition. Test
-> handlers with `httptest.NewTestServer(t, h)`; [go-testing](../go-testing/SKILL.md)
-> owns that.
 
----
+### Bounded Response Bodies
 
-## Quick Reference
+For a strict response-size limit, read at most the limit plus one byte,
+reject an oversized result, then decode the complete buffer into `dst`.
+A decoder can finish its first object before `io.LimitReader` reaches its
+limit; that alone does not enforce the size of the whole response.
 
-| Do | Don't |
-|----|-------|
-| `mux.HandleFunc("GET /users/{id}", h)` | Router module for method matching |
-| `http.MaxBytesReader` + `DisallowUnknownFields` | `json.Unmarshal(io.ReadAll(r.Body))` |
-| `r.Context()` into every call | `context.Background()` inside a handler |
-| Share repeated error-to-status rules | `http.Error(w, err.Error(), 500)` |
-| `&http.Server{ReadHeaderTimeout: ...}` | `http.ListenAndServe` |
-| One `*http.Client` with `Timeout` per dependency | `http.Get` / `DefaultClient` |
-| `defer resp.Body.Close()` always | Close only on the happy path |
+```go
+const maxBody = 64 << 10
+body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
+if err != nil {
+    return fmt.Errorf("read response: %w", err)
+}
+if len(body) > maxBody {
+    return fmt.Errorf("response exceeds %d bytes", maxBody)
+}
+return json.Unmarshal(body, dst)
+```
 
----
+## Validation
+
+Run `go vet ./...` (`httpresponse`), `golangci-lint run` with `bodyclose` and
+`noctx` from [go-linting](../go-linting/SKILL.md), and `go test -race ./...`:
+handlers run concurrently. Test handlers with `httptest.NewTestServer(t, h)`.
 
 ## Related Skills
 
-- **Context**: See [go-context](../go-context/SKILL.md) when deriving timeouts from `r.Context()` or deciding what may outlive the request
-- **Errors**: See [go-error-handling](../go-error-handling/SKILL.md) for sentinels, wrapping, and the log-and-return exception at the handler boundary
-- **Logging**: See [go-logging](../go-logging/SKILL.md) for request-scoped loggers, request IDs, and what never goes in a log line
-- **Database**: See [go-database](../go-database/SKILL.md) when the handler's work is a query or a transaction
-- **Testing**: See [go-testing](../go-testing/SKILL.md) for `httptest.NewTestServer`, `httptest.NewRecorder`, and `synctest` for timeout paths
-- **Concurrency**: See [go-concurrency](../go-concurrency/SKILL.md) for the server goroutine, channel sizing, and shared state behind handlers
-- **Dependencies**: See [go-packages](../go-packages/SKILL.md) before adding a router, JSON, or client module the standard library already covers
-- **Security**: See [go-security](../go-security/SKILL.md) when a request value names a file, URL, or command, for cookie flags, SSRF checks, and what an error response may reveal
+- [go-context](../go-context/SKILL.md): derived deadlines and request lifetime.
+- [go-error-handling](../go-error-handling/SKILL.md): sentinels and wrapping.
+- [go-logging](../go-logging/SKILL.md): request IDs, log fields, redaction.
+- [go-database](../go-database/SKILL.md): handler queries and transactions.
+- [go-testing](../go-testing/SKILL.md): `httptest` and `synctest`.
+- [go-concurrency](../go-concurrency/SKILL.md): server goroutine and shared state.
+- [go-packages](../go-packages/SKILL.md): router, JSON, and client dependencies.
+- [go-security](../go-security/SKILL.md): input naming files, URLs or commands;
+  cookies, SSRF, and error disclosure.

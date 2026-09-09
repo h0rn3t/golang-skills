@@ -1,0 +1,140 @@
+{
+  "prompt": "Refactor the Go package in ./%s so it reads better. Keep observable behavior identical: the exported API, error texts, and rendered output must not change. Apply the changes to the files.\n\nIf $HOME/.codex/skills/go-code-refactor/SKILL.md exists, read that assigned skill before editing and resolve related resources from the same installation. If it does not exist, proceed without skills. Root aliases such as r0 are labels, not extra directory components. Do not search other temporary workspaces or installations for alternative skill copies.",
+  "corpus": "refactor",
+  "runner": "codex",
+  "model": "gpt-5.6-luna",
+  "effort": "medium",
+  "reps": 1,
+  "seed": 1,
+  "arms": [
+    {
+      "name": "no-skill"
+    },
+    {
+      "name": "baseline",
+      "source": "/private/tmp/go-refactor-dual-20260909/repo",
+      "sha256": "9e63881398c39cdb6c7340c69ec8fa5b98f327b77df167be219220de119b492b"
+    }
+  ],
+  "results": [
+    {
+      "arm": "no-skill",
+      "task": "gw3",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 126,
+        "code": 91,
+        "tokens": 526,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 11
+      },
+      "after": {
+        "lines": 147,
+        "code": 107,
+        "tokens": 614,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 12
+      },
+      "delta": {
+        "lines": 21,
+        "code": 16,
+        "tokens": 88,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "line_gate_pass": false,
+      "code_gate_pass": false,
+      "empty_diff": false,
+      "reported_counts": false,
+      "commands": 5,
+      "trace_path": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2457945385/trace.jsonl",
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2457945385",
+      "output": "Refactored [gw3/gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2457945385/gw3/gateway.go) for readability while preserving behavior, API, errors, and output.\n\nVerified with:\n\n- `go test ./...`\n- `go vet ./...`\n\nThe requested skill file was not present."
+    },
+    {
+      "arm": "baseline",
+      "task": "gw3",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 126,
+        "code": 91,
+        "tokens": 526,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 11
+      },
+      "after": {
+        "lines": 124,
+        "code": 89,
+        "tokens": 509,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 10
+      },
+      "delta": {
+        "lines": -2,
+        "code": -2,
+        "tokens": -17,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -1
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "line_gate_pass": true,
+      "code_gate_pass": true,
+      "empty_diff": false,
+      "reported_counts": true,
+      "commands": 6,
+      "trace_path": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1829961126/trace.jsonl",
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1829961126",
+      "output": "Refactored [gw3/gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1829961126/gw3/gateway.go):\n\n- Clarified route variable names.\n- Consolidated equivalent query validation.\n- Preserved exported API, errors, and output behavior.\n- Reduced nonblank production lines from 114 to 112.\n\nVerified with `gofmt`, build, vet, tests, race tests, lint, and module-wide checks."
+    }
+  ],
+  "finished": "2026-09-09T17:27:39.261058+03:00"
+}

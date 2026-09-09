@@ -1,0 +1,78 @@
+{
+  "prompt": "Refactor the Go package in ./%s so it reads better. Keep observable behavior identical: the exported API, error texts, and rendered output must not change. Apply the changes to the files.\n\nBefore editing, invoke the Skill tool with skill=\"golang-skills:go-code-refactor\". This tool entry is the assigned, fixed plugin for this run. Load related guidance from that same plugin as needed. Use this native Skill invocation instead of filesystem discovery for the entrypoint. If the assigned Skill invocation fails, report that failure and stop instead of substituting another version.",
+  "corpus": "refactor",
+  "runner": "claude",
+  "model": "claude-sonnet-5",
+  "effort": "medium",
+  "reps": 1,
+  "seed": 1,
+  "arms": [
+    {
+      "name": "baseline",
+      "source": "/private/tmp/go-refactor-dual-20260909/repo",
+      "sha256": "9e63881398c39cdb6c7340c69ec8fa5b98f327b77df167be219220de119b492b"
+    }
+  ],
+  "results": [
+    {
+      "arm": "baseline",
+      "task": "gw1",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor"
+      ],
+      "before": {
+        "lines": 145,
+        "code": 110,
+        "tokens": 633,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 16
+      },
+      "after": {
+        "lines": 142,
+        "code": 106,
+        "tokens": 626,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 15
+      },
+      "delta": {
+        "lines": -3,
+        "code": -4,
+        "tokens": -7,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -1
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "line_gate_pass": true,
+      "code_gate_pass": true,
+      "empty_diff": false,
+      "reported_counts": true,
+      "trace_path": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-894122157/trace.jsonl",
+      "cost_usd": 0.3364978,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-894122157",
+      "output": "Refactored `gw1/gateway.go` in place.\n\n**What changed:** The routing closure inside `NewServer` previously declared `account`/`isAccount` variables before the switch, filled them inconsistently across branches, and then dispatched again after the switch based on those variables — a shared-mutable-state control flow that's easy to misread. Each switch case now handles its own request end-to-end and returns directly, so the flow is linear per-route. The awkward `HasPrefix` + manual substring check for identifying `/accounts/{id}` paths was extracted into a named `isAccountPath` helper (using `strings.CutPrefix`, a direct modernization of the same check).\n\n**Preserved exactly:** route matching order, the 405-before-404 precedence for `/accounts/{id}` with a bad method, the 404-for-empty-id short-circuit, error text (`\"invalid query parameter: active\"`, `\"method not allowed\"`), JSON/plain-text output and headers, and the `http.Server` timeout/limit configuration.\n\n**Line count:** 146 → 143 (net reduction, despite adding the named helper), per the refactor skill's concision gate.\n\n**Not run:** I don't have a shell/Bash tool available in this session, so I couldn't execute `go build`/`go vet`/`go test` to independently verify compilation or run characterization tests — please build/test locally before merging. I did trace the control flow by hand for every branch and confirmed it matches the original behavior."
+    }
+  ],
+  "finished": "2026-09-09T17:07:08.841879+03:00"
+}

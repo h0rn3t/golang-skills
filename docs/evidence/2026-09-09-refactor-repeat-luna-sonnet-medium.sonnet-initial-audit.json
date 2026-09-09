@@ -1,0 +1,186 @@
+[
+  {
+    "index": 0,
+    "task": "gw0",
+    "rep": 1,
+    "assigned_skill_loaded": false,
+    "reads": [],
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "expected_skill_sha256": "1ee8827c4ca7e69705cc164b134cb4adf05443b290a1cb76974645031be61414",
+    "trace_sha256": "fb35635ebe2e42e7a03ba38f42d30972a21c5dd1a55bef7a623f37f2d80986e8"
+  },
+  {
+    "index": 1,
+    "task": "gw3",
+    "rep": 1,
+    "assigned_skill_loaded": false,
+    "reads": [],
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "expected_skill_sha256": "1ee8827c4ca7e69705cc164b134cb4adf05443b290a1cb76974645031be61414",
+    "trace_sha256": "6fdeb39b98393ac3fb713f78987dfbc2d50c3a82f941510db567418b746d4e05"
+  },
+  {
+    "index": 2,
+    "task": "gw2",
+    "rep": 0,
+    "assigned_skill_loaded": false,
+    "reads": [],
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "expected_skill_sha256": "1ee8827c4ca7e69705cc164b134cb4adf05443b290a1cb76974645031be61414",
+    "trace_sha256": "c462168fa8da73abc4d8d8b5a5d6e07a11ba662a61d8daa87b98a00a76944739"
+  },
+  {
+    "index": 3,
+    "task": "gw0",
+    "rep": 0,
+    "assigned_skill_loaded": true,
+    "reads": [
+      {
+        "line": 7,
+        "method": "Skill",
+        "input": {
+          "skill": "golang-skills:go-code-refactor"
+        }
+      },
+      {
+        "line": 40,
+        "method": "Skill",
+        "input": {
+          "skill": "golang-skills:go-code-refactor",
+          "args": "run baseline verify script"
+        }
+      }
+    ],
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "expected_skill_sha256": "1ee8827c4ca7e69705cc164b134cb4adf05443b290a1cb76974645031be61414",
+    "trace_sha256": "3e7515fadffeb0100713d5524350448cd7d5118482c1fcd32cc54fdcdadf3840"
+  },
+  {
+    "index": 4,
+    "task": "gw4",
+    "rep": 1,
+    "assigned_skill_loaded": true,
+    "reads": [
+      {
+        "line": 5,
+        "method": "Skill",
+        "input": {
+          "skill": "golang-skills:go-code-refactor"
+        }
+      }
+    ],
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "expected_skill_sha256": "1ee8827c4ca7e69705cc164b134cb4adf05443b290a1cb76974645031be61414",
+    "trace_sha256": "8d5f234e33c9ae6476f5357567896e17d4111999bcd42e40f7cdd85496da620d"
+  },
+  {
+    "index": 5,
+    "task": "gw1",
+    "rep": 0,
+    "assigned_skill_loaded": true,
+    "reads": [
+      {
+        "line": 5,
+        "method": "Skill",
+        "input": {
+          "skill": "golang-skills:go-code-refactor"
+        }
+      },
+      {
+        "line": 33,
+        "method": "Skill",
+        "input": {
+          "skill": "golang-skills:go-code-refactor",
+          "args": "run baseline verify"
+        }
+      }
+    ],
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "expected_skill_sha256": "1ee8827c4ca7e69705cc164b134cb4adf05443b290a1cb76974645031be61414",
+    "trace_sha256": "f7b1aef42b46b189040940ad0410381910d10d397c81fa70dd3b776bda0afaaf"
+  },
+  {
+    "index": 6,
+    "task": "gw1",
+    "rep": 1,
+    "assigned_skill_loaded": false,
+    "reads": [],
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "expected_skill_sha256": "1ee8827c4ca7e69705cc164b134cb4adf05443b290a1cb76974645031be61414",
+    "trace_sha256": "ebc2ed447905cf06257bfc24f3dccb8380c3c7a1f152a5f17b68930454006a87"
+  },
+  {
+    "index": 7,
+    "task": "gw2",
+    "rep": 1,
+    "assigned_skill_loaded": false,
+    "reads": [],
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "expected_skill_sha256": "1ee8827c4ca7e69705cc164b134cb4adf05443b290a1cb76974645031be61414",
+    "trace_sha256": "037d34a0625f230d27af80ebe4c4cf740482f4543c3cd7c4af28fb30a06a28f0"
+  },
+  {
+    "index": 8,
+    "task": "gw4",
+    "rep": 0,
+    "assigned_skill_loaded": true,
+    "reads": [
+      {
+        "line": 27,
+        "method": "Read",
+        "input": {
+          "file_path": ".eval-plugin-589521596/skills/go-code-refactor/SKILL.md"
+        }
+      }
+    ],
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "expected_skill_sha256": "1ee8827c4ca7e69705cc164b134cb4adf05443b290a1cb76974645031be61414",
+    "trace_sha256": "19da2573b96aa6ec125ac21e8eb6f05e01bc0832af89e4c0dab8a4f606b7ab0d"
+  },
+  {
+    "index": 9,
+    "task": "gw3",
+    "rep": 0,
+    "assigned_skill_loaded": true,
+    "reads": [
+      {
+        "line": 25,
+        "method": "Read",
+        "input": {
+          "file_path": ".eval-plugin-342818377/skills/go-code-refactor/SKILL.md"
+        }
+      },
+      {
+        "line": 59,
+        "method": "Skill",
+        "input": {
+          "skill": "golang-skills:go-code-refactor",
+          "args": "Refactor ./gw3 for readability; zero existing tests; add characterization tests first per SAFETY-NET low tier, then refactor gateway.go handler into readable pieces without changing observable behavior."
+        }
+      }
+    ],
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "expected_skill_sha256": "1ee8827c4ca7e69705cc164b134cb4adf05443b290a1cb76974645031be61414",
+    "trace_sha256": "6ccac0bfd44d562b4d32bf3a4d92027425ff4c1aaddd991258aef0b260813a83"
+  }
+]

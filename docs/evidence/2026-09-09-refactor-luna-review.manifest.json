@@ -1,0 +1,67 @@
+{
+  "base_commit": "ebc00aef986b4ee0834aab084c01a4549a7202ee",
+  "worktree": "/Users/eugeneshershen/.config/superpowers/worktrees/golang-skills/refactor-luna-review",
+  "reference": "/tmp/go-refactor-luna-review-20260909/verification-reference",
+  "runner_inputs": {
+    "evals/cmd/abrun/main.go": "4cfe574660595db3b92de98c98bbc24cab680c376b608c099d2245793b3412bb",
+    "evals/cmd/abrun/main_test.go": "835bca4285f6e063770c6c0fe3e45028373fecb4e9b9989c95f597b90ba8f4de",
+    "evals/cmd/abrun/repair_test.go": "71ba61dae3e0df1baa58bb1cb230f94f47e96af41dfbb4abdb82c4d1741e595c"
+  },
+  "model": "gpt-5.6-luna",
+  "effort": "medium",
+  "runner": "codex-cli 0.153.4",
+  "toolchain": "go1.27.1 darwin/arm64",
+  "screen": {
+    "tasks": [
+      "gw0",
+      "gw1",
+      "gw2",
+      "gw3",
+      "gw4"
+    ],
+    "arms": [
+      "reference",
+      "baseline"
+    ],
+    "n": 1,
+    "seed": 1,
+    "repair": false,
+    "parallel": 2
+  },
+  "artifacts": {
+    "2026-09-09-refactor-luna-review.counter-artifacts.json": "cbd6851a87d69c2a15145339d8a30ccd3794827f0260c6910bac48c6fbf2cb59",
+    "2026-09-09-refactor-luna-review.gate-candidate.patch": "2ee277d19243bbd8add61395d91c7c2c98ef26072175b692a65ddeefcf44a61d",
+    "2026-09-09-refactor-luna-review.md": "14dd1f3ebee2cdbe1926cb45aa37c4f91f4aab72093940dd10da67130e59b975",
+    "2026-09-09-refactor-luna-review.runner-input.patch": "a7d2e8ddf08cb3985886d5bb8b05038bfc1a5a1d2180473ddc1e04da61ef3de7",
+    "2026-09-09-refactor-luna-review.screen.json": "e5e47fd7611b36d522e8b90b389c9e7ce69875ef96fc4d9efeb2dc81d1d30122",
+    "2026-09-09-refactor-luna-review.sources.json": "0b737d8cbcff63c2e04eeac1dd19a1002ed196e0453e573b6ab38d12e806d7b6",
+    "2026-09-09-refactor-luna-review.verification-after.json": "b6a5d3c13abde4f1ec12c09a3dfd851b696bf27e4575b993e64308af964e3ba6",
+    "2026-09-09-refactor-luna-review.verification-before.json": "28ae5755a0e75c218718f3a343fb2a0806390913c2a2b6a5dad2052f5aebcead",
+    "2026-09-09-refactor-luna-review.verification.patch": "551caba63aaf2dd4245de04c6aba260c11c19fb5d38dcca4e9db5d310d19b4f7"
+  },
+  "verification": {
+    "runner_tests": "112 passed",
+    "full_tests": "337 passed in 34 packages",
+    "race": "337 passed in 34 packages",
+    "vet": "pass",
+    "schema": "agentskills-validate@1.0.1 pass",
+    "syntax": "bash -n pass",
+    "links": "all go-code-refactor relative links resolve",
+    "lint_config": "golangci-lint 2.13.2 built with go1.27.1 config verify pass",
+    "independent_review": "no blockers for verification patch; candidate template mismatch P3; gate not shipped",
+    "checkout_targeted_tests": "152 passed"
+  },
+  "arms": [
+    {
+      "name": "reference",
+      "source": "/tmp/go-refactor-luna-review-20260909/verification-reference",
+      "sha256": "9e63881398c39cdb6c7340c69ec8fa5b98f327b77df167be219220de119b492b"
+    },
+    {
+      "name": "baseline",
+      "source": "/Users/eugeneshershen/.config/superpowers/worktrees/golang-skills/refactor-luna-review",
+      "sha256": "3852b749212df63eb31ae559200b42df23064d6dc973fe4f1e16d62c34900b7e"
+    }
+  ],
+  "decision": "not promoted; mixed-arm screening invalid for causal comparison; confirmed candidate runs fail pre-edit code measurement"
+}

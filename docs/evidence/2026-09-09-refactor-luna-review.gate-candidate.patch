@@ -1,0 +1,36 @@
+--- a/skills/go-code-refactor/SKILL.md
++++ b/skills/go-code-refactor/SKILL.md
+@@ -175,12 +175,27 @@
+ 
+ ## Concision Gate
+ 
+-This pass succeeds only when the final production code reads at least as
+-clearly as the starting code and contains no more production lines. Measure the
+-starting and final production line counts. Keep a transformation only when both
+-conditions hold. If none does, restore the starting code: an empty diff is a
+-successful concision result. Preserve validation, failure behavior, security
+-controls, and useful abstraction boundaries, and report the two counts.
++Keep a transformation only when the final code is at least as clear, behavior
++is preserved, and neither production LOC count increases:
++
++- **Physical LOC:** every line in the scoped non-test `*.go` files, including
++  blank lines and comments; include new files and account for deleted files.
++- **Code LOC:** lines containing Go tokens other than comments. A line with a
++  trailing comment counts once; every line of a multiline literal counts.
++
++Before editing, use a tool to record both starting counts. After `gofmt`, use
++the same counter and scope for the final counts. A nonblank-line count is not
++a code count. Use a Go-token-aware counter; do not estimate the numbers. If
++that measurement is unavailable, report the limitation rather than claim the
++gate passed. `verify-refactor.sh` compares check records; it does not count LOC.
++
++Keep documentation that explains a decision or contract. Removing comments
++or blank lines cannot compensate for added code; do not compress statements
++onto one line to meet the limit. Preserve validation, failure behavior,
++security controls, and useful abstraction boundaries. If a transformation
++fails, revise it or undo only your own edits. An empty diff is successful when
++no qualifying improvement exists. Report starting and final physical/code
++counts, their deltas, and the checks supporting behavior preservation.
+ 
+ ---
+ 

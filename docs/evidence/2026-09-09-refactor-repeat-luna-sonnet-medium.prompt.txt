@@ -1,0 +1,3 @@
+Refactor the Go package in ./%s so it reads better. Keep observable behavior identical: the exported API, error texts, and rendered output must not change. Apply the changes to the files.
+
+Before editing, read go-code-refactor/SKILL.md from this session's own installation. If a .eval-plugin-* directory exists inside the working directory, use its skills/go-code-refactor/SKILL.md. Otherwise use $HOME/.codex/skills/go-code-refactor/SKILL.md. Resolve related resources from that same installation. Root aliases such as r0 are labels, not extra directory components. Do not search other temporary workspaces for alternative skill copies. If the assigned skill cannot be read, report that failure and stop instead of substituting another version.

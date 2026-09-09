@@ -53,7 +53,10 @@ lint findings    17          4
 diff             — empty —
 ```
 
-Paste the real `verify-refactor.sh diff` result. **Report a skipped check as
+Paste the real `verify-refactor.sh diff` result and explain material differences,
+including new tests or resolved failures. An empty diff means matching records,
+which may include failures; report baseline/after statuses and behavior covered
+by the checks separately. **Report a skipped check as
 skipped**, never as passed: if `golangci-lint` was not installed or a
 build-tagged file could not be compiled here, say so on its own line.
 

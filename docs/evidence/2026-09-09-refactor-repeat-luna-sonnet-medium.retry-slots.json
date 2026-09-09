@@ -1,0 +1,37 @@
+[
+  {
+    "index": 0,
+    "task": "gw0",
+    "rep": 1,
+    "original_workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1699235249",
+    "reason": "assigned skill not loaded; no source edits"
+  },
+  {
+    "index": 1,
+    "task": "gw3",
+    "rep": 1,
+    "original_workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2702265917",
+    "reason": "assigned skill not loaded; no source edits"
+  },
+  {
+    "index": 2,
+    "task": "gw2",
+    "rep": 0,
+    "original_workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-472565499",
+    "reason": "assigned skill not loaded; no source edits"
+  },
+  {
+    "index": 6,
+    "task": "gw1",
+    "rep": 1,
+    "original_workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3391014088",
+    "reason": "assigned skill not loaded; no source edits"
+  },
+  {
+    "index": 7,
+    "task": "gw2",
+    "rep": 1,
+    "original_workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1634733711",
+    "reason": "assigned skill not loaded; no source edits"
+  }
+]

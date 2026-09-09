@@ -191,6 +191,39 @@ chmod +x ~/.claude/skills/go-*/scripts/*.sh
 2. Перейдіть до **Rules** → **Add Rule** → **Remote Rule (Github)**
 3. Введіть: `https://github.com/h0rn3t/golang-skills`
 
+### Встановлення конкретної версії
+
+Кожен реліз — це git-тег (`v1.3.0`). Жоден із варіантів вище не приймає версію:
+`npx skills add` і `/plugin marketplace add h0rn3t/golang-skills` слідують за
+типовою гілкою, тобто завжди дають найновіший реліз. Щоб зафіксувати версію,
+встановлюйте з checkout за тегом:
+
+```bash
+git clone --branch v1.3.0 --depth 1 https://github.com/h0rn3t/golang-skills.git
+cd golang-skills
+
+# ручне встановлення з цього checkout
+cp -R skills/go-* ~/.claude/skills/
+
+# або зареєструйте сам checkout як marketplace у Claude Code
+/plugin marketplace add /абсолютний/шлях/до/golang-skills
+/plugin install golang-skills@golang-skills
+```
+
+Тег не рухається, тому й скіли не рухаються: ніщо не зміниться, доки ви не
+склонуєте інший. Корисні команди:
+
+```bash
+# усі випущені версії
+git ls-remote --tags https://github.com/h0rn3t/golang-skills.git
+
+# яка версія у checkout або встановленої копії
+grep '"version"' .claude-plugin/plugin.json
+
+# перевести встановлений плагін на найновіший реліз
+/plugin marketplace update golang-skills
+```
+
 ### Що потрібно мати встановленим
 
 Самі скіли — це Markdown, їм нічого не потрібно. Але вбудовані скрипти

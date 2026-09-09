@@ -4,7 +4,26 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-09
+
 ### Added
+
+- Give the `go-code-refactor` concision gate a counter instead of an
+  instruction: `verify-refactor.sh` gains `loc-baseline` and `loc-diff`, which
+  record both production LOC counts and each file's digest before the first
+  edit, recount afterwards, and return the verdict as the exit status. The
+  count is token-aware, because a nonblank-line count reads a multiline string
+  as code it is not; the convention is the harness's own and is verified
+  against it on comments, raw strings, a missing trailing newline, nested
+  directories, and added and deleted production files. The gate and the report
+  template now name those commands. Screening on 5 fixtures x 2 arms with
+  GPT-5.6-Luna medium: build and independent golden 5/5 in both arms, the
+  counter runs in 4 of the 4 sessions that read the new text against none
+  before, both LOC gates pass 4/5 against 3/5, and the means move from +0.2
+  physical and +0.2 code to -0.4 and -1.2. Two of those four recorded the
+  baseline after their first edit and every input has n=1, so this is one
+  screening and not a reliability claim.
+- Document how to install a pinned version from a release tag, in both READMEs.
 
 - Add Go 1.27 guidance for promoted fields in struct literals, copying retained
   substrings only when justified by profiling, and merging/filtering maps in

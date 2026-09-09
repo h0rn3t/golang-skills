@@ -1,0 +1,22 @@
+--- a/skills/go-http/SKILL.md
++++ b/skills/go-http/SKILL.md
+@@ -9,6 +9,19 @@
+ > wildcard patterns require Go 1.22+; `http.NewCrossOriginProtection` Go 1.25+;
+ > `http.Server.MaxHeaderValueCount` Go 1.27+.
+ 
++## Workflow
++
++1. Derive the HTTP contract before editing: methods, paths, status codes, wire
++   shapes, and size limits. This step is done when every requested endpoint or
++   client call has an observable public-boundary outcome.
++2. Implement the smallest code that satisfies that contract, using the
++   applicable server or client rules below.
++3. Verify the contract at the HTTP seam with `httptest`. This step is done when
++   every applicable outcome has been observed: endpoints restricted to GET
++   return 405 for HEAD; array responses encode as `[]` for nil, empty, and
++   no-match input; and bodies larger than a strict response limit are rejected.
++   Report any outcome that the available tools cannot verify.
++
+ ## Resource Routing
+ 
+ - `references/WEB-SERVER.md` - Read when assembling a complete server: routing, handler, graceful shutdown, and where the other go-* skills meet in one `main`.

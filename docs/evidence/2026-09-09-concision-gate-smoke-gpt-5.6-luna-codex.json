@@ -1,0 +1,123 @@
+{
+  "prompt": "Refactor the Go package in ./%s so it reads better. Keep observable behavior identical: the exported API, error texts, and rendered output must not change. Apply the changes to the files.",
+  "corpus": "refactor",
+  "runner": "codex",
+  "model": "gpt-5.6-luna",
+  "effort": "medium",
+  "reps": 1,
+  "seed": 1,
+  "arms": [
+    {
+      "name": "baseline",
+      "source": "/private/tmp/golang-skills-luna-concision.AMx5cf/repo",
+      "sha256": "f208ef8bcb0d8ce38f6564a0d74dd50c43a64aeb1acdf4f7cda3606ba7442d4b"
+    },
+    {
+      "name": "concision-gate",
+      "text": "## Concision Gate\n\nThis pass succeeds only when the final production code reads at least as\nclearly as the starting code and contains no more production lines. Measure the\nstarting and final production line counts. Keep a transformation only when both\nconditions hold. If none does, restore the starting code: an empty diff is a\nsuccessful concision result. Preserve validation, failure behavior, security\ncontrols, and useful abstraction boundaries, and report the two counts.",
+      "source": "/private/tmp/golang-skills-luna-concision.AMx5cf/repo",
+      "sha256": "61ebc0e44bb4d98f3b66986a48c12653f528483fbfa7903facf1498289ee35c3"
+    }
+  ],
+  "results": [
+    {
+      "arm": "baseline",
+      "task": "gateway-concision-4",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 132,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "after": {
+        "lines": 146,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 8,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "delta": {
+        "lines": 14,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-329839302",
+      "output": "Refactored [gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-329839302/gateway-concision-4/gateway.go).\n\n- Separated request dispatch and route-specific handling for readability.\n- Preserved exported API, errors, routing, sorting, filtering, and output.\n- Verified with `gofmt`, `go test ./...`, `go vet ./...`, race tests, and lint checks."
+    },
+    {
+      "arm": "concision-gate",
+      "task": "gateway-concision-4",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 132,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "after": {
+        "lines": 126,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 12
+      },
+      "delta": {
+        "lines": -6,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -2
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-369239765",
+      "output": "Refactored [gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-369239765/gateway-concision-4/gateway.go).\n\n- Centralized known-route method validation.\n- Removed redundant `strconv.ParseBool`.\n- Reduced production code from 132 to 126 lines.\n- Exported API, errors, and rendering remain unchanged.\n\nVerified: gofmt, build, vet, tests, race, lint, and baseline/after comparison all pass."
+    }
+  ],
+  "finished": "2026-09-09T10:53:24.738613+03:00"
+}

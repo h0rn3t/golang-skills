@@ -1,0 +1,522 @@
+{
+  "prompt": "Refactor the Go package in ./%s so it reads better. Keep observable behavior identical: the exported API, error texts, and rendered output must not change. Apply the changes to the files.",
+  "corpus": "refactor",
+  "runner": "codex",
+  "model": "gpt-5.6-luna",
+  "effort": "medium",
+  "reps": 1,
+  "seed": 1,
+  "arms": [
+    {
+      "name": "baseline",
+      "source": "/private/tmp/golang-skills-luna-concision.AMx5cf/repo",
+      "sha256": "f208ef8bcb0d8ce38f6564a0d74dd50c43a64aeb1acdf4f7cda3606ba7442d4b"
+    },
+    {
+      "name": "deletion-review",
+      "text": "## Deletion Review\n\nBefore finishing, apply the deletion test to each unexported helper, type, and\nlayer in the result. Inline it when doing so makes its complexity disappear.\nKeep it when inlining would spread a shared rule or meaningful operation across\ncallers. Finish with only abstractions justified by current variation or\ncallers; remove pass-through middle men and speculative generality. Judge the\ncomplete code and call sites, and stop when another deletion would reduce\nclarity or change behavior.",
+      "source": "/private/tmp/golang-skills-luna-concision.AMx5cf/repo",
+      "sha256": "0d2b1bad423568ed755ae77a339fa8040bebd5cfdf1944e567a053efcebee38e"
+    }
+  ],
+  "results": [
+    {
+      "arm": "baseline",
+      "task": "gateway-concision-1",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 145,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 16
+      },
+      "after": {
+        "lines": 157,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 8,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 15
+      },
+      "delta": {
+        "lines": 12,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -1
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1550066622",
+      "output": "Refactored [gateway.go](\u003c/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1550066622/gateway-concision-1/gateway.go\u003e):\n\n- Split the inline dispatcher into focused handler methods.\n- Preserved exported API, routing behavior, error text, headers, and output.\n- Verified with `go test ./...`, `go vet ./...`, and `go test -race ./...`."
+    },
+    {
+      "arm": "deletion-review",
+      "task": "gateway-concision-2",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-defensive",
+        "go-http",
+        "go-linting",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 127,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "after": {
+        "lines": 134,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "delta": {
+        "lines": 7,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "pass",
+      "edited": true,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3045881403",
+      "output": "Refactored `gateway-concision-2` for readability:\n\n- Extracted account-ID handling into `handleAccount`.\n- Simplified active-account filtering with a named policy.\n- Preserved exported API, errors, routing, and JSON output.\n- Added characterization coverage in [gateway_test.go](\u003c/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-3045881403/gateway-concision-2/gateway_test.go\u003e).\n\nVerification passed: formatting, build, vet, tests, race checks, and lint. Coverage: 96%."
+    },
+    {
+      "arm": "baseline",
+      "task": "gateway-concision-4",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 132,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "after": {
+        "lines": 145,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 7,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "delta": {
+        "lines": 13,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-654962217",
+      "output": "Refactored [gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-654962217/gateway-concision-4/gateway.go).\n\n- Split route handling into focused helpers.\n- Preserved exported API, errors, statuses, ordering, and rendered output.\n- Verified with gofmt, build, vet, tests, race checks, and refactor diff checks."
+    },
+    {
+      "arm": "baseline",
+      "task": "gateway-concision-0",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 135,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 12
+      },
+      "after": {
+        "lines": 130,
+        "files": 1,
+        "test_files": 1,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 10
+      },
+      "delta": {
+        "lines": -5,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -2
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "pass",
+      "edited": true,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1892883808",
+      "output": "## Summary\n\nRefactored the ID sorting logic for clarity and added characterization tests covering API responses, errors, ordering, and rendered JSON. Observable behavior is unchanged. `gateway.go`: net -5 lines.\n\n## Changes\n\n- [gateway.go:4](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1892883808/gateway-concision-0/gateway.go:4): replaced the manual comparator with `cmp.Compare`.\n- [gateway.go:41](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1892883808/gateway-concision-0/gateway.go:41): renamed the copied slice to `sortedAccounts`.\n- Added [gateway_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1892883808/gateway-concision-0/gateway_test.go).\n\n## Verification\n\n- gofmt: pass\n- build: pass\n- vet: pass\n- tests: pass\n- race: pass\n- coverage: 85.1%\n- lint findings: 0\n\nThe verification diff only reports the newly added test names."
+    },
+    {
+      "arm": "deletion-review",
+      "task": "gateway-concision-4",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 132,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "after": {
+        "lines": 146,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 8,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "delta": {
+        "lines": 14,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2526646052",
+      "output": "Refactored [gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2526646052/gateway-concision-4/gateway.go).\n\n- Separated routing and endpoint handling into focused helpers.\n- Preserved exported API, error text, HTTP behavior, and JSON output.\n- Verification passed: format, build, vet, tests, race, and lint checks."
+    },
+    {
+      "arm": "baseline",
+      "task": "gateway-concision-2",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-linting",
+        "go-style-core",
+        "go-testing"
+      ],
+      "before": {
+        "lines": 127,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "after": {
+        "lines": 135,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "delta": {
+        "lines": 8,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "pass",
+      "edited": true,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4119761548",
+      "output": "Refactored [gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4119761548/gateway-concision-2/gateway.go) by extracting route handlers while preserving API, errors, ordering, and output.\n\nAdded characterization coverage in [gateway_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4119761548/gateway-concision-2/gateway_test.go).\n\nVerified: format, build, vet, tests, race, go-fix, and lint all pass."
+    },
+    {
+      "arm": "baseline",
+      "task": "gateway-concision-3",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 126,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 11
+      },
+      "after": {
+        "lines": 144,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 11
+      },
+      "delta": {
+        "lines": 18,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2717307309",
+      "output": "Refactored [gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2717307309/gateway-concision-3/gateway.go).\n\nChanges:\n- Extracted route/query constants.\n- Simplified account-path detection.\n- Extracted account-list filtering and validation.\n- Preserved exported API, errors, ordering, status codes, and JSON output.\n\nVerified with `go test`, `go vet`, race checks, formatting, and lint checks."
+    },
+    {
+      "arm": "deletion-review",
+      "task": "gateway-concision-0",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 135,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 12
+      },
+      "after": {
+        "lines": 130,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 10
+      },
+      "delta": {
+        "lines": -5,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -2
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1795013376",
+      "output": "Refactored [gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1795013376/gateway-concision-0/gateway.go):\n\n- Replaced the manual string comparator with `cmp.Compare`.\n- Renamed internal handlers for clearer intent.\n- Preserved exported API, errors, and output behavior.\n\nVerification passed: formatting, build, vet, tests, race, and lint checks."
+    },
+    {
+      "arm": "deletion-review",
+      "task": "gateway-concision-3",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-code-review",
+        "go-linting",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 126,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 11
+      },
+      "after": {
+        "lines": 138,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 12
+      },
+      "delta": {
+        "lines": 12,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 1
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "pass",
+      "edited": true,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-705805169",
+      "output": "Refactored the package for clearer routing, account-path parsing, filtering, and lookup:\n\n- [gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-705805169/gateway-concision-3/gateway.go)\n- [gateway_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-705805169/gateway-concision-3/gateway_test.go)\n\nBehavior, exported API, error text, and rendered output are preserved. Verified with `go test`, race tests, vet, formatting, and golangci-lint."
+    },
+    {
+      "arm": "deletion-review",
+      "task": "gateway-concision-1",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-linting",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 145,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 16
+      },
+      "after": {
+        "lines": 156,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 9,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 15
+      },
+      "delta": {
+        "lines": 11,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -1
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "pass",
+      "edited": true,
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4098555025",
+      "output": "Refactored the package for readability while preserving the exported API, error text, route behavior, and rendered output.\n\nChanges:\n- Split route handling into focused internal handlers.\n- Preserved validation and lookup ordering.\n- Added characterization coverage for key HTTP responses.\n\nVerification passed: `gofmt`, build, vet, tests, race tests, and `go fix -diff`.\n\nFiles:\n- [gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4098555025/gateway-concision-1/gateway.go)\n- [gateway_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-4098555025/gateway-concision-1/gateway_test.go)"
+    }
+  ],
+  "finished": "2026-09-09T10:26:31.779076+03:00"
+}

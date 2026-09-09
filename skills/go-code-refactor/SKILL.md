@@ -27,7 +27,7 @@ target project using the resolved absolute script path.
 - `references/MODERNIZATION.md` - Read before adopting a newer API; sorts Go 1.21–1.27 features into safe, conditional, and report-only.
 - `references/OVER-ENGINEERING.md` - Read before adding any line (it owns the restraint ladder, the reach-for table, and the ship-then-question write rules), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
 - `references/GOPLS.md` - Read before renaming, extracting, or inlining anything with more than one caller: semantic references and safe rename via gopls instead of grep.
-- `scripts/verify-refactor.sh` - Run to capture baseline and final check results; use focused checks between edits.
+- `scripts/verify-refactor.sh` - Run to capture baseline and final check results, and to count production LOC before and after; use focused checks between edits.
 - `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no upgrade path.
 - `assets/refactor-report.md` - Use as the final report structure.
 
@@ -175,12 +175,35 @@ literal. Error texts and the point where an unknown key fails do not move.
 
 ## Concision Gate
 
-This pass succeeds only when the final production code reads at least as
-clearly as the starting code and contains no more production lines. Measure the
-starting and final production line counts. Keep a transformation only when both
-conditions hold. If none does, restore the starting code: an empty diff is a
-successful concision result. Preserve validation, failure behavior, security
-controls, and useful abstraction boundaries, and report the two counts.
+Keep a transformation only when the final code is at least as clear, behavior
+is preserved, and neither production LOC count increases:
+
+- **Physical LOC:** every line in the scoped non-test `*.go` files, including
+  blank lines and comments; include new files and account for deleted files.
+- **Code LOC:** lines containing Go tokens other than comments. A line with a
+  trailing comment counts once; every line of a multiline literal counts.
+
+Record both starting counts before the first edit, and compare after `gofmt`,
+with the counter this skill ships:
+
+```bash
+bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-baseline ./internal/gateway
+bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-diff ./internal/gateway
+```
+
+`loc-diff` exits 0 when neither count grew and 1 when one did; that status is
+the verdict. Do not estimate the numbers, do not substitute a nonblank-line
+count, and do not report a pass the counter did not print. If it cannot run,
+report that instead of claiming the gate passed. The `baseline`, `after` and
+`diff` modes compare check records and say nothing about size.
+
+Keep documentation that explains a decision or contract. Removing comments
+or blank lines cannot compensate for added code; do not compress statements
+onto one line to meet the limit. Preserve validation, failure behavior,
+security controls, and useful abstraction boundaries. If a transformation
+fails, revise it or undo only your own edits. An empty diff is successful when
+no qualifying improvement exists. Report starting and final physical/code
+counts, their deltas, and the checks supporting behavior preservation.
 
 ---
 

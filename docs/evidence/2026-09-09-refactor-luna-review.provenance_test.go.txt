@@ -1,0 +1,289 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+)
+
+// codexRead renders one shell call the way codex reports it, so the tests below
+// exercise the same transcript shape parseCodexStream reads.
+func codexRead(command string) string {
+	return fmt.Sprintf(`{"type":"item.completed","item":{"id":"i1","type":"command_execution","command":%q,"exit_code":"0"}}`, command)
+}
+
+// TestAuditSkillReadsSeparatesForeignCopies is the precondition the screening
+// lacked. The same skill name, read from two different roots, must not produce
+// the same verdict: one is the arm under test, the other is a stray copy that
+// the runner previously scored as an activation.
+func TestAuditSkillReadsSeparatesForeignCopies(t *testing.T) {
+	home := t.TempDir()
+	assigned := filepath.Join(codexHomeDir(home), "skills", "go-code-refactor", "SKILL.md")
+	writeTestFile(t, assigned, "the arm under test\n")
+
+	// Another arm's materialized plugin, in the shared temp root, holding a
+	// different variant of the same skill. This is the file two screening
+	// sessions actually read.
+	foreign := filepath.Join(t.TempDir(), "abrun-arm-260505954", "skills", "go-code-refactor", "SKILL.md")
+	writeTestFile(t, foreign, "another arm's copy\n")
+	foreignDigest := digestOf(foreign)
+
+	// A stale copy holding the same bytes as this arm's own file.
+	twin := filepath.Join(t.TempDir(), "abrun-arm-7", "skills", "go-code-refactor", "SKILL.md")
+	writeTestFile(t, twin, "the arm under test\n")
+
+	// A read that landed is reported by its resolved path, so the expectations
+	// are resolved too; see TestAuditSkillReadsResolvesSymlinkedRoot.
+	assignedPath, foreignPath, twinPath := resolvePath(assigned), resolvePath(foreign), resolvePath(twin)
+
+	tests := []struct {
+		name           string
+		command        string
+		wantAssigned   []string
+		wantForeign    []string
+		wantUnresolved []string
+	}{
+		{
+			name:         "assigned absolute path",
+			command:      "/bin/zsh -lc 'cat " + assigned + "'",
+			wantAssigned: []string{assignedPath},
+		},
+		{
+			name:         "CODEX_HOME expands to the arm's own root",
+			command:      "/bin/zsh -lc 'sed -n 1,80p $CODEX_HOME/skills/go-code-refactor/SKILL.md'",
+			wantAssigned: []string{assignedPath},
+		},
+		{
+			name:         "tilde expands to the arm's own home",
+			command:      "/bin/zsh -lc 'cat ~/.codex/skills/go-code-refactor/SKILL.md'",
+			wantAssigned: []string{assignedPath},
+		},
+		{
+			name:        "another arm's copy is foreign",
+			command:     "/bin/zsh -lc 'cat " + foreign + "'",
+			wantForeign: []string{foreignPath},
+		},
+		{
+			// What the two failed sessions did first: an invented segment in
+			// an otherwise correct root. The path does not exist, so it is not
+			// a read, and it is not evidence of the skill firing either.
+			name:           "invented segment under the arm's root",
+			command:        "/bin/zsh -lc 'cat " + filepath.Join(codexHomeDir(home), "skills", "r0", "go-code-refactor", "SKILL.md") + "'",
+			wantUnresolved: []string{filepath.Join(codexHomeDir(home), "skills", "r0", "go-code-refactor", "SKILL.md")},
+		},
+		{
+			// The alias codex renders in its prompt listing. A session that
+			// pastes it into a shell resolves nothing.
+			name:           "prompt listing alias",
+			command:        "/bin/zsh -lc 'cat r0/go-code-refactor/SKILL.md'",
+			wantUnresolved: []string{"r0/go-code-refactor/SKILL.md"},
+		},
+		{
+			// The boundary rule skillsInPaths already owns: a directory that
+			// merely ends in a skill name is not a skill.
+			name:    "directory ending in a skill name",
+			command: "/bin/zsh -lc 'cat /tmp/vendor-go-http/SKILL.md'",
+		},
+		{
+			// A copy holding this arm's own bytes is the text under test,
+			// wherever it sits. Only a different variant invalidates a run.
+			name:         "byte-identical copy elsewhere",
+			command:      "/bin/zsh -lc 'cat " + twinPath + "'",
+			wantAssigned: []string{twinPath},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := auditSkillReads([]byte(codexRead(tt.command)), home)
+			if !equalPaths(got.Assigned, tt.wantAssigned) {
+				t.Errorf("assigned = %v, want %v", got.Assigned, tt.wantAssigned)
+			}
+			if !equalPaths(got.Unresolved, tt.wantUnresolved) {
+				t.Errorf("unresolved = %v, want %v", got.Unresolved, tt.wantUnresolved)
+			}
+			var foreignPaths []string
+			for _, f := range got.Foreign {
+				foreignPaths = append(foreignPaths, f.Path)
+			}
+			if !equalPaths(foreignPaths, tt.wantForeign) {
+				t.Fatalf("foreign = %v, want %v", foreignPaths, tt.wantForeign)
+			}
+			for _, f := range got.Foreign {
+				// The digest is the whole point of recording the finding: it is
+				// what a report compares against the arm's own plugin hashes.
+				if f.Digest != foreignDigest {
+					t.Errorf("foreign digest = %q, want %q", f.Digest, foreignDigest)
+				}
+				if f.Skill != "go-code-refactor" {
+					t.Errorf("foreign skill = %q, want go-code-refactor", f.Skill)
+				}
+			}
+		})
+	}
+}
+
+// TestAuditSkillReadsResolvesSymlinkedRoot is the false positive the first
+// checkpoint run measured: the arm home is /var/folders/... and the session's
+// shell reports the same file as /private/var/folders/..., so an unresolved
+// comparison called every correct read foreign. On a platform with no symlink
+// in the temp path the two spellings coincide and the case still holds.
+func TestAuditSkillReadsResolvesSymlinkedRoot(t *testing.T) {
+	home := t.TempDir()
+	assigned := filepath.Join(codexHomeDir(home), "skills", "go-code-refactor", "SKILL.md")
+	writeTestFile(t, assigned, "the arm under test\n")
+
+	resolved, err := filepath.EvalSymlinks(assigned)
+	if err != nil {
+		t.Fatalf("resolve %s: %v", assigned, err)
+	}
+	got := auditSkillReads([]byte(codexRead("/bin/zsh -lc 'cat "+resolved+"'")), home)
+	if len(got.Foreign) != 0 {
+		t.Errorf("foreign = %v, want none: the path is this arm's own home", got.Foreign)
+	}
+	if !equalPaths(got.Assigned, []string{resolved}) {
+		t.Errorf("assigned = %v, want %v", got.Assigned, []string{resolved})
+	}
+}
+
+// TestAuditSkillReadsIgnoresCommandOutput keeps the audit reading the same half
+// of the transcript parseCodexStream reads. A session that opens one SKILL.md
+// gets the file echoed back, and skills name each other's paths inside it.
+func TestAuditSkillReadsIgnoresCommandOutput(t *testing.T) {
+	home := t.TempDir()
+	assigned := filepath.Join(codexHomeDir(home), "skills", "go-code-refactor", "SKILL.md")
+	writeTestFile(t, assigned, "the arm under test\n")
+	foreign := filepath.Join(t.TempDir(), "abrun-arm-9", "skills", "go-http", "SKILL.md")
+	writeTestFile(t, foreign, "another copy\n")
+
+	transcript := fmt.Sprintf(`{"type":"item.completed","item":{"id":"i1","type":"command_execution","command":%q,"exit_code":"0","aggregated_output":%q}}`,
+		"/bin/zsh -lc 'cat "+assigned+"'", "see "+foreign+" for servers")
+
+	got := auditSkillReads([]byte(transcript), home)
+	if len(got.Foreign) != 0 {
+		t.Errorf("foreign = %v, want none: the path was in the output, not the command", got.Foreign)
+	}
+	if want := []string{resolvePath(assigned)}; !equalPaths(got.Assigned, want) {
+		t.Errorf("assigned = %v, want %v", got.Assigned, want)
+	}
+}
+
+// TestForeignSkillReadExcludesTheRun ties the audit to the report: a run that
+// read another arm's skill is labeled for it, excluded from the means, and
+// counted where the operator sees it.
+func TestForeignSkillReadExcludesTheRun(t *testing.T) {
+	clean := result{
+		Arm: "baseline", Task: "gw0", Build: true, Golden: true, Edited: true,
+		ModelTests: "skipped", Skills: []string{"go-code-refactor"},
+		Delta: metrics{Lines: -5, Code: -4},
+	}
+	tainted := clean
+	tainted.Task = "gw4"
+	tainted.Delta = metrics{Lines: 18, Code: 15}
+	// Skills holds only the reads that landed in this arm's own tree, so the
+	// run that read elsewhere reaches the summary with none.
+	tainted.Skills = nil
+	tainted.ForeignSkills = []foreignSkill{{
+		Path:   "/var/folders/p2/abrun-arm-260505954/skills/go-code-refactor/SKILL.md",
+		Skill:  "go-code-refactor",
+		Digest: "b35e0092040d95ea74049cb9140449d37924527003f24e3e1a227f1e6454a5bc",
+	}}
+
+	if got := resultStatus(clean); got != "ok " {
+		t.Fatalf("resultStatus(clean) = %q, want %q", got, "ok ")
+	}
+	if got := resultStatus(tainted); got != "SKL" {
+		t.Fatalf("resultStatus(foreign read) = %q, want %q", got, "SKL")
+	}
+
+	summary := summarizeArm(report{Corpus: corpusRefactor, Results: []result{clean, tainted}}, "baseline")
+	if summary.Runs != 2 || summary.Valid != 1 {
+		t.Errorf("runs = %d, valid = %d, want 2 and 1", summary.Runs, summary.Valid)
+	}
+	if summary.ForeignSkillRuns != 1 {
+		t.Errorf("foreign skill runs = %d, want 1", summary.ForeignSkillRuns)
+	}
+	// The excluded run's +18 lines must not reach the mean the report prints.
+	if summary.Lines != -5 || summary.Code != -4 {
+		t.Errorf("Δlines = %d, Δcode = %d, want -5 and -4", summary.Lines, summary.Code)
+	}
+	// The skill-fired rate counts activations, not names: the excluded run read
+	// another copy, so it is not one.
+	if summary.SkillFired != 1 {
+		t.Errorf("skill fired = %d, want 1", summary.SkillFired)
+	}
+}
+
+// TestMergeKeepsProvenanceOfBothTurns covers the repair loop: a foreign read in
+// either turn disqualifies the run, and the same path is not recorded twice.
+func TestMergeKeepsProvenanceOfBothTurns(t *testing.T) {
+	var r result
+	first := sessionTurn{provenance: skillProvenance{
+		Unresolved: []string{"r0/go-code-refactor/SKILL.md"},
+	}}
+	repair := sessionTurn{provenance: skillProvenance{
+		Foreign:    []foreignSkill{{Path: "/tmp/other/skills/go-code-refactor/SKILL.md", Skill: "go-code-refactor"}},
+		Unresolved: []string{"r0/go-code-refactor/SKILL.md"},
+	}}
+	r.merge(first)
+	r.merge(repair)
+
+	if len(r.ForeignSkills) != 1 {
+		t.Errorf("foreign skills = %v, want the repair turn's one entry", r.ForeignSkills)
+	}
+	if !reflect.DeepEqual(r.UnresolvedSkillReads, []string{"r0/go-code-refactor/SKILL.md"}) {
+		t.Errorf("unresolved = %v, want one entry", r.UnresolvedSkillReads)
+	}
+	if got := resultStatus(r); got != "SKL" {
+		t.Errorf("resultStatus = %q, want SKL", got)
+	}
+}
+
+// TestCodexEnvGivesEachArmItsOwnTempRoot covers the containment half: the
+// shared system temp root is where every arm's plugin is staged, so a session
+// must not inherit it.
+func TestCodexEnvGivesEachArmItsOwnTempRoot(t *testing.T) {
+	home := t.TempDir()
+	want := "TMPDIR=" + filepath.Join(home, "tmp")
+	env := codexEnv(home, t.TempDir())
+
+	var got string
+	for _, kv := range env {
+		if strings.HasPrefix(kv, "TMPDIR=") {
+			got = kv
+		}
+	}
+	if got != want {
+		t.Errorf("TMPDIR = %q, want %q", got, want)
+	}
+	if err := writeCodexHome(home, "", nil); err != nil {
+		t.Fatalf("writeCodexHome: %v", err)
+	}
+	if info, err := os.Stat(filepath.Join(home, "tmp")); err != nil || !info.IsDir() {
+		t.Errorf("writeCodexHome left no temp root at %s: %v", filepath.Join(home, "tmp"), err)
+	}
+}
+
+// TestAssignedSkillsNamesOnlyReadsThatLanded is the other half of the same
+// rule: a failed path names a skill, and naming one is not reading it.
+func TestAssignedSkillsNamesOnlyReadsThatLanded(t *testing.T) {
+	p := skillProvenance{
+		Assigned:   []string{"/tmp/h/.codex/skills/go-code-refactor/SKILL.md", "/tmp/h/.codex/skills/go-style-core/SKILL.md"},
+		Unresolved: []string{"/tmp/h/.codex/skills/r0/go-http/SKILL.md"},
+		Foreign:    []foreignSkill{{Path: "/tmp/other/skills/go-testing/SKILL.md", Skill: "go-testing"}},
+	}
+	want := []string{"go-code-refactor", "go-style-core"}
+	if got := p.assignedSkills(); !reflect.DeepEqual(got, want) {
+		t.Errorf("assignedSkills() = %v, want %v", got, want)
+	}
+}
+
+func equalPaths(got, want []string) bool {
+	if len(got) == 0 && len(want) == 0 {
+		return true
+	}
+	return reflect.DeepEqual(got, want)
+}

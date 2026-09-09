@@ -19,7 +19,7 @@ code version, and a check that could disprove them.
 - `references/TICKET-INVESTIGATION.md` - Read for tickets, regressions, tenant-specific failures, environment differences, or an incomplete report; establish the contract, deployed version, evidence, and investigation status.
 - `references/DATA-FLOW-TRACING.md` - Read for wrong/missing results or a failure crossing layers; follow one input through middleware, domain code, SQL/external calls, and serialization to its first invalid transformation.
 - `references/DIAGNOSTIC-TOOLS.md` - Read before capturing profiles, stacks, or traces, using `GODEBUG`/`GOTRACEBACK`, or choosing `pprof`, `dlv`, or the race detector.
-- `references/SYMPTOM-CATALOG.md` - Read for a runtime symptom whose mechanism is unclear; use the candidate causes and checks to narrow it, then route the fix to its owner.
+- `references/SYMPTOM-CATALOG.md` - Read for unclear runtime/build symptoms or edits that do not affect behavior; check selected files, build tags, GOMOD/GOWORK, and replacements before routing the fix.
 
 ## Scope and Starting Evidence
 

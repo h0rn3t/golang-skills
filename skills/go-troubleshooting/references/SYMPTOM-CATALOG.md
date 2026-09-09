@@ -17,6 +17,7 @@ pattern alone rarely proves ownership, causality, or a leak.
 - [Wrong results](#wrong-results)
 - [Tests](#tests)
 - [Startup and build](#startup-and-build)
+- [Edits do not change behavior](#edits-do-not-change-behavior)
 - [Environment differences](#environment-differences)
 
 ---
@@ -125,6 +126,48 @@ and serialization before choosing a runtime capture.
 | Binary works with `go run`, fails as a container | `CGO_ENABLED`, missing CA certificates, `scratch` image without tzdata or `/tmp` | `go version -m ./app`; `ldd ./app` | [go-packages](../../go-packages/SKILL.md) |
 | Binary size doubled | A dependency pulled in `net/http` + `reflect` + a template engine; debug info | `go tool nm -size -sort size`; `-ldflags='-s -w'` | [go-packages](../../go-packages/SKILL.md) |
 | `go.sum` mismatch / checksum error | Proxy or replaced module differs from the recorded hash | `GOFLAGS=-mod=mod go mod verify`; `GONOSUMDB` scope | [go-packages](../../go-packages/SKILL.md) |
+
+---
+
+## Edits do not change behavior
+
+First establish which source and artifact the failing command actually uses.
+Run these from the failing command's working directory, replacing `.` with its
+package target and preserving its build flags (`-tags`, `-mod`, `-modfile`,
+`-overlay`) and environment:
+
+```bash
+go env GOMOD GOWORK GOFLAGS GOOS GOARCH CGO_ENABLED GOTOOLCHAIN
+go list -compiled -json .
+go list -m -json all
+```
+
+- Check `Dir`, `ImportPath`, `GoFiles`, `CgoFiles`, `CompiledGoFiles`, and
+  `IgnoredGoFiles`. Match `//go:build`, filename OS/architecture suffixes, and
+  cgo settings to the failing invocation. For tests, use `go list -test -json`
+  with the same target/flags and inspect `TestGoFiles` and `XTestGoFiles` too.
+  If the edit is in a dependency, list that package's import path explicitly
+  or add `-deps`; listing only the caller does not show dependency files.
+- Inspect the active `go.mod` and, when enabled, `go.work`: workspace `use`
+  entries and `replace` directives can select a different checkout. Module
+  JSON exposes `Replace` and `Dir`; an active workspace replacement overrides
+  a module replacement. Account for vendor mode rather than switching it off
+  to make a diagnostic command succeed.
+- Distinguish `go run main.go` (explicit files) from `go run .` (the selected
+  package). For a running binary/container, establish its executable/image
+  identity and inspect `go version -m /path/to/binary`; a local `go list` cannot
+  prove which artifact is deployed. Confirm the edited code path executes.
+
+Build caching and test-result caching are different. For a suspicious cached
+test result, rerun the focused test with `-count=1`; this does not disable the
+build cache. Go normally tracks Go source and compiler-input changes, so avoid
+routine cache deletion. Toolchain/cache defects remain possible: if evidence
+points there, preserve the reproduction and inspect `GODEBUG=gocachetest=1`
+(test reuse) or `gocacheverify=1` (rebuild and verify build-cache entries).
+Changes to external C libraries used by cgo are a documented exception to
+build-cache tracking; a targeted rebuild with `-a` may then be appropriate.
+
+Source: [go command: list, workspaces, and caching](https://pkg.go.dev/cmd/go).
 
 ---
 

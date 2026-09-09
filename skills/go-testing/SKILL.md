@@ -52,7 +52,7 @@ allowed-tools: Bash(bash:*)
 | `time.Sleep` to let goroutines settle | `synctest.Test` + `synctest.Wait` | 1.25 |
 | Real waits for timeout paths | `synctest.Sleep` inside a bubble (fake clock) | 1.27 |
 | `fmt.Println` in a test | `t.Output()` — interleaves correctly under `-parallel` | 1.25 |
-| Ad-hoc temp dir for output to keep | `t.ArtifactDir()` — survives the run | 1.26 |
+| Ad-hoc temp dir for output to keep | `t.ArtifactDir()` with `go test -artifacts -outputdir=DIR` — otherwise removed after the test | 1.26 |
 
 ```go
 func TestFetch(t *testing.T) {
@@ -104,11 +104,16 @@ Always print got before want: `got %v, want %v` — never reversed.
 
 ## Assertions: Match the Repository
 
-> **Project policy**: In a codebase without an assertion library, do not add
-> one — use `cmp.Diff` for structured comparisons. In a codebase that already
-> uses `testify` or similar, match it and enable `testifylint`; a second
-> assertion dialect is worse than either. [go-style-core](../go-style-core/SKILL.md)
-> owns the house-style rule.
+> **Project policy**: `testify/assert` and `testify/require` are allowed,
+> including in new projects. Follow the user's choice and existing repository
+> conventions; do not replace working assertions just to change style. With
+> no chosen convention, default to standard comparisons and `cmp.Diff` for
+> structured values. Enable `testifylint` when using testify.
+> [go-style-core](../go-style-core/SKILL.md) owns the house-style rule.
+
+Use `assert` for independent checks that can continue after failure; use
+`require` for prerequisites, only from the test goroutine. See
+[Test Helpers](references/TEST-HELPERS.md) for examples.
 
 ```go
 if diff := cmp.Diff(want, got); diff != "" {

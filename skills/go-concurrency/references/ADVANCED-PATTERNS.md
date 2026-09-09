@@ -1,8 +1,67 @@
 # Advanced Concurrency Patterns
 
-Detailed reference for advanced concurrency patterns from Effective Go. These
-patterns are situational — use when you need request/response multiplexing or
+Situational patterns for bounded work, request/response multiplexing, and
 CPU-bound parallelization.
+
+## Contents
+
+- [Bounded Work with errgroup](#bounded-work-with-errgroup)
+- [Channels of Channels](#channels-of-channels)
+- [CPU-Bound Parallelization](#cpu-bound-parallelization)
+- [Common Mistakes](#common-mistakes)
+
+## Bounded Work with errgroup
+
+Use `golang.org/x/sync/errgroup` for related operations when one failure should
+cancel the remaining work. For finite input, `SetLimit` bounds active tasks
+without a separate worker pool. Keep a worker pool when queue ownership or
+long-lived workers are part of the contract.
+
+```go
+func processAll(ctx context.Context, items []Item, limit int) error {
+    if limit <= 0 {
+        return fmt.Errorf("concurrency limit must be positive: %d", limit)
+    }
+    g, groupCtx := errgroup.WithContext(ctx)
+    g.SetLimit(limit)
+    for _, item := range items {
+        if groupCtx.Err() != nil {
+            break
+        }
+        g.Go(func() error {
+            if err := groupCtx.Err(); err != nil {
+                return err
+            }
+            return process(groupCtx, item)
+        })
+    }
+    if err := g.Wait(); err != nil {
+        return err
+    }
+    return ctx.Err()
+}
+```
+
+`process` must honor its context, including blocking I/O and channel operations.
+The checks stop observed cancellation from reaching new work; a `Go` call
+already waiting for a slot can still start its wrapper after cancellation.
+The final `ctx.Err()` preserves parent cancellation even when no task ran.
+
+- `Wait` waits for **all started tasks** and returns their first non-nil error;
+  it does not return immediately on the first failure or aggregate failures.
+- `WithContext` cancels the derived context on the first task error **or when
+  `Wait` returns**, even on success. Use the parent context for subsequent work.
+  Cancellation is cooperative; it cannot stop a task that ignores it.
+- `SetLimit(0)` prevents new tasks; a negative limit means unbounded concurrency.
+  This example rejects both because its contract requires a positive bound.
+  Set the limit before starting tasks and do not change it while tasks run.
+- `Go` blocks while the limit is full; that wait is not context-selectable.
+  Avoid nested submissions to the same saturated group. If admission itself
+  must cancel promptly, use a context-aware semaphore or worker queue.
+
+For independent failures that must all be collected, see
+[go-error-handling](../../go-error-handling/SKILL.md#handling-errors).
+Source: [errgroup API](https://pkg.go.dev/golang.org/x/sync/errgroup).
 
 ---
 
@@ -117,7 +176,9 @@ wg.Wait()
 ### Unbounded goroutine spawning
 
 Launching one goroutine per work item with no limit can exhaust memory or
-overwhelm downstream resources. Use a semaphore to cap concurrency:
+overwhelm downstream resources. Use a semaphore to cap concurrency. Validate
+`maxWorkers > 0` before this pattern: zero blocks the first send for nonempty
+input, and a negative channel capacity panics.
 
 ```go
 // Bad: Spawns len(items) goroutines at once

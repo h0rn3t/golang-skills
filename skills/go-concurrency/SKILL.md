@@ -14,7 +14,7 @@ description: Use when writing concurrent Go code with goroutines, channels, or m
 - `references/GOROUTINE-PATTERNS.md` - Read when starting, stopping, or waiting for goroutines.
 - `references/SYNC-PRIMITIVES.md` - Read when choosing between mutexes, atomics, channels, and once-like primitives.
 - `references/BUFFER-POOLING.md` - Read when considering channel-backed or sync.Pool-style reuse.
-- `references/ADVANCED-PATTERNS.md` - Read for worker pools, pipelines, errgroup, and cancellation-heavy patterns.
+- `references/ADVANCED-PATTERNS.md` - Read for bounded errgroup work, cooperative cancellation, request/reply channels, and CPU-bound parallelization.
 
 ## Goroutine Lifetimes
 
@@ -39,13 +39,16 @@ channel), data races, memory issues, and resource leaks.
    goroutine per element of an unbounded input
 
 ```go
-// Good: clear lifetime with WaitGroup.Go (Go 1.25+)
+// Good: a fixed pair of tasks, both joined before returning
 var wg sync.WaitGroup
-for item := range queue {
-    wg.Go(func() { process(ctx, item) })
-}
+wg.Go(func() { process(ctx, first) })
+wg.Go(func() { process(ctx, second) })
 wg.Wait()
 ```
+
+`process` must honor `ctx` and must not panic; `WaitGroup.Go` does not propagate
+errors or cancel tasks. For variable-size input or sibling cancellation on
+error, use the bounded `errgroup` pattern in `references/ADVANCED-PATTERNS.md`.
 
 ```go
 // Bad: no way to stop or wait
@@ -112,8 +115,7 @@ The zero-value of `sync.Mutex` and `sync.RWMutex` is valid — almost never need
 a pointer to a mutex.
 
 ```go
-// Good: Zero-value is valid    // Bad: Unnecessary pointer
-var mu sync.Mutex                mu := new(sync.Mutex)
+var mu sync.Mutex // Ready to use; no allocation or constructor needed
 ```
 
 **Don't embed mutexes** — use a named `mu` field to keep `Lock`/`Unlock` as
@@ -153,17 +155,20 @@ c := make(chan int, 64) // arbitrary — needs justification
 
 ## Atomic Operations
 
-Use `atomic.Bool`, `atomic.Int64`, etc. (stdlib `sync/atomic` since Go 1.19, or
-[go.uber.org/atomic](https://pkg.go.dev/go.uber.org/atomic)) for type-safe
-atomic operations. Raw `int32`/`int64` fields make it easy to forget atomic
-access on some code paths.
+Use `atomic.Bool`, `atomic.Int64`, etc. from the standard `sync/atomic` package
+for type-safe atomic operations. Raw `int32`/`int64` fields make it easy to
+forget atomic access on some code paths. Keep `go.uber.org/atomic` when already
+used by the project or when a required operation is absent from the standard
+library; the types shown here need no external dependency.
 
 ```go
-// Good: Type-safe              // Bad: Easy to forget
-var running atomic.Bool          var running int32 // atomic
-running.Store(true)              atomic.StoreInt32(&running, 1)
-running.Load()                   running == 1 // race!
+var running atomic.Bool
+running.Store(true)
+running.Load() // Read through the atomic API too
 ```
+
+A plain read such as `running == 1` on a raw `int32` can race with an atomic
+write. See `references/SYNC-PRIMITIVES.md` for the complete comparison.
 
 ---
 
@@ -219,5 +224,4 @@ Read `references/BUFFER-POOLING.md` for the full pattern and when to prefer
 - [When Go programs end](https://changelog.com/gotime/165) — Go Time podcast
 - [go.uber.org/goleak](https://pkg.go.dev/go.uber.org/goleak) — Goroutine leak
   detector for testing
-- [go.uber.org/atomic](https://pkg.go.dev/go.uber.org/atomic) — Type-safe
-  atomic operations
+- [sync/atomic](https://pkg.go.dev/sync/atomic) — Standard-library typed atomics

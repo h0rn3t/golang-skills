@@ -1,6 +1,6 @@
 # Test Helpers, Assertions, and Comparisons
 
-Detailed reference for writing test helpers, avoiding assertion libraries, and
+Detailed reference for writing test helpers, choosing assertion style, and
 choosing between t.Error and t.Fatal.
 Sources: Google Go Style Guide, Uber Go Style Guide.
 
@@ -40,20 +40,31 @@ func setupTestDB(t *testing.T) *sql.DB {
 
 ---
 
-## Avoiding Assertion Libraries
+## Assertion Style
 
-> **Normative**: Do not create or use assertion libraries.
+Follow [the assertion policy](../SKILL.md#assertions-match-the-repository):
+`testify/assert` and `testify/require` are allowed in existing and new projects.
+Honor the user's choice and repository conventions; without either, use
+standard comparisons and `cmp.Diff`. Do not rewrite working tests just to
+switch assertion libraries.
 
-Assertion libraries fragment the developer experience and often produce
-unhelpful failure messages.
+With testify, use `require` when the next operation depends on success and
+`assert` for independent checks. `require` calls `FailNow`, so it belongs only
+in the test goroutine. Use semantic helpers such as `ErrorIs` for wrapped
+errors and enable `testifylint`.
 
 ```go
-// Bad:
-assert.IsNotNil(t, "obj", obj)
-assert.StringEq(t, "obj.Type", obj.Type, "blogPost")
-assert.IntEq(t, "obj.Comments", obj.Comments, 2)
+// Imports: github.com/stretchr/testify/assert and .../require
+got, err := GetPost(id)
+require.NoError(t, err, "GetPost(%q)", id)
+require.NotNil(t, got, "GetPost(%q)", id)
+assert.Equal(t, "blogPost", got.Type, "GetPost(%q).Type", id)
+assert.Equal(t, 2, got.Comments, "GetPost(%q).Comments", id)
+```
 
-// Good: Use cmp package and standard comparisons
+For a project using standard comparisons and `cmp`:
+
+```go
 want := BlogPost{
     Type:     "blogPost",
     Comments: 2,

@@ -46,8 +46,8 @@ hidden from callers.
 
 ## Atomic Operations: Full Example
 
-The standard `sync/atomic` package operates on raw types (`int32`, `int64`,
-etc.), making it easy to forget to use atomic operations consistently.
+The raw-value functions in `sync/atomic` operate on `int32`, `int64`, etc.,
+making it easy to forget atomic access on some paths. Prefer its typed atomics:
 
 ```go
 // Bad: Easy to forget atomic operation
@@ -85,9 +85,10 @@ func (f *foo) isRunning() bool {
 }
 ```
 
-The `atomic.Bool`, `atomic.Int64`, etc. types (available in stdlib `sync/atomic`
-since Go 1.19, or via [go.uber.org/atomic](https://pkg.go.dev/go.uber.org/atomic))
-add type safety by hiding the underlying type.
+The standard-library `atomic.Bool`, `atomic.Int64`, etc. types add type safety
+by hiding the underlying type. They need no external dependency on Go 1.27.
+Preserve an existing `go.uber.org/atomic` convention or use it for a required
+operation the standard library does not provide.
 
 ---
 

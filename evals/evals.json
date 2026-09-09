@@ -827,6 +827,46 @@
       ],
       "notes": "Greenfield package with no named topic; the control for whether from-scratch phrasing reaches the router at all",
       "set": "train"
+    },
+    {
+      "query": "Review this Go diff for bugs and compatibility issues; report findings only.",
+      "should_trigger": [
+        "go-code-review"
+      ],
+      "notes": "Validation coverage for a previously uncovered positive trigger.",
+      "set": "validation"
+    },
+    {
+      "query": "Choose slice and map ownership for a Go snapshot whose caller may mutate the returned values.",
+      "should_trigger": [
+        "go-data-structures"
+      ],
+      "notes": "Validation coverage for a previously uncovered positive trigger.",
+      "set": "validation"
+    },
+    {
+      "query": "Document cleanup and ErrNotFound behavior of this exported Go API.",
+      "should_trigger": [
+        "go-documentation"
+      ],
+      "notes": "Validation coverage for a previously uncovered positive trigger.",
+      "set": "validation"
+    },
+    {
+      "query": "Review Go public method names for package stuttering and inconsistent initialisms.",
+      "should_trigger": [
+        "go-naming"
+      ],
+      "notes": "Validation coverage for a previously uncovered positive trigger.",
+      "set": "validation"
+    },
+    {
+      "query": "A profile identifies substring retention in this Go hot path; compare a scoped allocation fix.",
+      "should_trigger": [
+        "go-performance"
+      ],
+      "notes": "Validation coverage for a previously uncovered positive trigger.",
+      "set": "validation"
     }
   ],
   "quality_evals": [
@@ -1674,7 +1714,9 @@
       "id": 50,
       "prompt": "Use go-code for a snippet-only exercise; do not edit files or run commands. Write two functions CanPublish and CanArchive taking active bool, suspended bool, verified bool, quota int and returning bool. Both must apply the same centrally maintained eligibility rule: active, not suspended, verified, and quota > 0. CanPublish additionally requires quota >= 2. CanArchive has no extra restriction. Also write Label(name string) string returning strings.TrimSpace(name). Show the code with any helpers you choose; the API is fixed and no service, state or configuration is needed.",
       "expected_output": "The two operations share one eligibility rule; Label directly uses strings.TrimSpace without an extra forwarding helper or scaffold.",
-      "target_skills": ["go-code"],
+      "target_skills": [
+        "go-code"
+      ],
       "assertions": [
         "Produces Go snippets implementing all specified predicates and signatures",
         "Centralizes the shared eligibility rule in one place without duplicating its predicate in both operations",
@@ -1688,7 +1730,9 @@
       "id": 51,
       "prompt": "Use go-functions for a snippet-only exercise; do not edit files or run commands. A new internal Go API explicitly requires functional options. There is no existing option convention. Write type options struct with timeout time.Duration, type Option, and WithTimeout(time.Duration) Option. Options only assign configuration; callers need no inspection, serialization, equality or additional methods. Omission uses the constructor's default, explicit zero disables the timeout, and repeated values use the last value. Show the constructor's option-application fragment too. Do not replace the requested API with a config-struct parameter.",
       "expected_output": "Function-valued options with direct assignment and ordered application preserve zero and last-value semantics without per-setting types and methods.",
-      "target_skills": ["go-functions"],
+      "target_skills": [
+        "go-functions"
+      ],
       "assertions": [
         "Keeps the requested functional-options API",
         "Uses a function-valued Option without an interface or per-setting concrete types and apply methods",
@@ -1702,7 +1746,9 @@
       "id": 52,
       "prompt": "Use go-interfaces for this design exercise; do not run commands. NewHandler returns *handler through its declared http.Handler result, so that return is already a compiler-checked conversion. Another type Record has MarshalJSON on *Record; the program passes *Record to json.Marshal as any and relies on dynamic marshaler detection, with no static conversion to json.Marshaler anywhere. Which compile-time assertions should be added? A heuristic scanner lists both types. Also, a consumer requires a Store interface for its single production SQL adapter and its test fake. Should that interface remain? Explain briefly.",
       "expected_output": "Add the dynamically required marshaler assertion, omit the redundant handler assertion, and retain the consumer's needed Store boundary.",
-      "target_skills": ["go-interfaces"],
+      "target_skills": [
+        "go-interfaces"
+      ],
       "assertions": [
         "Adds var _ json.Marshaler = (*Record)(nil) or an equivalent compile-time assertion",
         "Omits the redundant http.Handler assertion because the constructor return checks it",
@@ -1716,7 +1762,9 @@
       "id": 53,
       "prompt": "Use go-packages for this dependency decision; do not run commands or edit files. The supported standard library cannot perform the required operation. Module A is already in go.mod at a maintained compatible version, is used by neighboring code, and exactly meets the required semantics. Module B under golang.org/x is absent from go.mod and also meets those semantics with comparable call-site complexity. Which should the new code use and why? In a separate case A loses information required by the contract while B preserves it; state whether that changes the choice. The repository uses --output-dir for flags; name a new input-directory flag consistently.",
       "expected_output": "Reuse suitable existing A; consider B when A cannot satisfy the contract; follow the existing kebab-case flag convention.",
-      "target_skills": ["go-packages"],
+      "target_skills": [
+        "go-packages"
+      ],
       "assertions": [
         "Chooses existing A in the first case rather than adding B solely for its golang.org/x namespace",
         "Does not retain A when its semantics lose required information; considers B under normal dependency checks",
@@ -1818,6 +1866,301 @@
         "Keeps distinct updates unchanged and recognizes that filtering an aliased source changes the same map",
         "Handles nil/empty updates within the stated destination precondition without speculative allocation or error APIs",
         "Includes cases for overwrite-before-filter ordering and visible mutations through aliases without claiming execution"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 60,
+      "prompt": "Write a Go HTTP decoder for exactly one JSON object with a required name, at most 1024 body bytes, before calling Create. Inputs include a valid object followed by ], a second object, and trailing whitespace. Do not run commands.",
+      "expected_output": "Bounded full-document acceptance before side effects.",
+      "target_skills": [
+        "go-security",
+        "go-http"
+      ],
+      "assertions": [
+        "Bounds the entire body before parsing",
+        "Requires EOF after the first value rather than Decoder.More",
+        "Rejects invalid suffixes and a second value before Create, allows bounded whitespace",
+        "Rejects null or a missing name and does not claim execution"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 61,
+      "prompt": "Refactor a snapshot returning map[string][]int. Callers may modify both the map and returned inner slices while stored state must remain unchanged. Existing code copies each slice. Show the simplest safe result; no commands.",
+      "expected_output": "Independent outer and inner ownership retained.",
+      "target_skills": [
+        "go-defensive",
+        "go-code-refactor"
+      ],
+      "assertions": [
+        "Copies the map and every mutable inner slice or uses an equivalent ownership-safe representation",
+        "Does not replace nested copying with only maps.Clone",
+        "Preserves nil/empty semantics rather than adding normalization without a contract",
+        "Does not remove required copying solely for performance"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 62,
+      "prompt": "Process an open-ended Go queue with at most eight simultaneous operations. The source may remain open forever; caller cancellation must stop idle workers and join them. Show the coordination only; each operation cooperates with context.",
+      "expected_output": "A bounded, joinable, cancellation-aware worker lifetime.",
+      "target_skills": [
+        "go-concurrency"
+      ],
+      "assertions": [
+        "Admission bounds goroutines before they are spawned or starts a fixed worker count",
+        "Queue receive observes cancellation even while idle",
+        "Waits for workers to finish and passes context to operations",
+        "Does not claim WaitGroup itself limits concurrency"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 63,
+      "prompt": "Review only one changed Go handler. The repository gate is go test ./internal/api and its result for this unchanged diff is already available. You notice old naming issues in another package. Describe actions and reporting; do not modify files or execute commands.",
+      "expected_output": "Scoped read-only review reuses existing evidence.",
+      "target_skills": [
+        "go-code-review"
+      ],
+      "assertions": [
+        "Does not propose automatic fixes or a package-wide formatting/doc sweep",
+        "Reuses the observed gate without adding a default whole-repo union",
+        "Reports supported static findings as evidence, not necessarily unproved guesses",
+        "Separates relevant hypotheses from mandatory fixes and honors read-only"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 64,
+      "prompt": "An existing Output enum uses zero for stdout and one for file. Add remote output while preserving numeric compatibility. This private enum has no string-formatting consumer. Explain the minimal change; no commands.",
+      "expected_output": "Preserved zero default without speculative formatting API.",
+      "target_skills": [
+        "go-defensive",
+        "go-style-core"
+      ],
+      "assertions": [
+        "Keeps stdout as zero and file as one",
+        "Does not renumber existing values to reserve zero",
+        "Adds no String method solely because the type is an enum"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 65,
+      "prompt": "Write func Label(name string) string for a pure Go formatting helper returning bracketed name. It performs no I/O and has no request metadata or cancellation behavior. No signature changes or commands.",
+      "expected_output": "Pure helper preserves requested signature.",
+      "target_skills": [
+        "go-context"
+      ],
+      "assertions": [
+        "Does not add context.Context for hypothetical future work",
+        "Returns the required bracketed value",
+        "Adds no background context, goroutine, or cancellation wrapper"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 66,
+      "prompt": "Review this PostgreSQL construction: SELECT id FROM events WHERE org_id=$1 ORDER BY followed by an allowlisted column and then LIMIT $2. org ID and validated positive limit are bound parameters. Explain which parts must be allowlisted and whether LIMIT must be concatenated. Do not execute SQL.",
+      "expected_output": "Identifiers and values retain distinct protections.",
+      "target_skills": [
+        "go-security"
+      ],
+      "assertions": [
+        "Keeps the numeric limit parameterized",
+        "Treats the column name and sort direction as SQL grammar requiring allowlisting",
+        "Does not identify parameterized LIMIT as injection",
+        "Does not claim database execution"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 67,
+      "prompt": "A Go upload endpoint calls ParseMultipartForm(1<<20) and assumes total upload is capped at 1 MiB. It accepts untrusted files and parsed temporary files may exist. Give a focused correction and failure checks; no commands.",
+      "expected_output": "Whole-body and storage lifecycle controls.",
+      "target_skills": [
+        "go-security"
+      ],
+      "assertions": [
+        "Explains maxMemory is not a whole-upload limit",
+        "Adds http.MaxBytesReader before parsing and handles rejection before processing files",
+        "Cleans parsed multipart temporary files on completed and error paths where present",
+        "Distinguishes total body limits from per-file/application limits"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 68,
+      "prompt": "Review a Go outbound fetcher: it allowlists a hostname, resolves it, checks the IP, and then calls DefaultClient.Get with redirects enabled. A redirect or a subsequent DNS lookup can reach internal services. Explain a scoped correction; no network calls.",
+      "expected_output": "Address policy applied to actual connections and redirects.",
+      "target_skills": [
+        "go-security"
+      ],
+      "assertions": [
+        "Pins vetted destinations in transport dialing or uses an equivalent enforced network policy",
+        "Preserves TLS hostname verification",
+        "Disables redirects or validates every hop and accounts for proxies",
+        "Does not treat hostname allowlisting alone as proof of address confinement"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 69,
+      "prompt": "A Go function builds and returns a fresh []int that it never stores; its caller owns the result. Should it add slices.Clone at return for defensive programming? Explain without changing the API or running commands.",
+      "expected_output": "No redundant copy for fresh exclusive ownership.",
+      "target_skills": [
+        "go-defensive"
+      ],
+      "assertions": [
+        "Returns the fresh caller-owned result directly",
+        "Ties copying to independent mutation rights rather than every API boundary",
+        "Does not suggest a benchmark is needed to prove an unnecessary copy can be omitted"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 70,
+      "prompt": "A Go parser intentionally panics with a private syntaxError, then recovers it at its public boundary into error. A nil-pointer panic can also occur inside the parser. Show the recovery decision without hiding programming bugs; no commands.",
+      "expected_output": "Only the owned internal panic becomes an ordinary error.",
+      "target_skills": [
+        "go-defensive"
+      ],
+      "assertions": [
+        "Recognizes only the private syntaxError as the expected control-flow panic",
+        "Re-panics unexpected values instead of silently returning success or converting every panic",
+        "Does not replace ordinary caller failures with new panics"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 71,
+      "prompt": "A Go sensor API requires approximate comparison with a domain-defined tolerance while a separate sentinel check requires exact equality to zero. Explain how to preserve both contracts, including NaN; no commands.",
+      "expected_output": "Float comparisons follow distinct domain semantics.",
+      "target_skills": [
+        "go-defensive"
+      ],
+      "assertions": [
+        "Does not blanket-replace the exact sentinel comparison with epsilon",
+        "Uses a domain-appropriate tolerance for approximate measurements",
+        "Handles NaN and infinities deliberately rather than treating them as equal"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 72,
+      "prompt": "Document func OpenSnapshot(path string) (*Snapshot, error). Snapshot must be closed, is unsafe for concurrent mutation, and missing snapshots return ErrNotFound. Other exported functions in this repository lack comments. Only this API comment is in scope; no commands.",
+      "expected_output": "Focused contract documentation.",
+      "target_skills": [
+        "go-documentation"
+      ],
+      "assertions": [
+        "Documents cleanup ownership and ErrNotFound",
+        "States the relevant concurrency contract",
+        "Does not require fixing unrelated undocumented APIs",
+        "Does not claim doc checker or runtime tests ran"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 73,
+      "prompt": "Rename a Go field InternalID to RecordID while preserving its json:\"id\" wire name. Update only the relevant doc comment; the user has authorized this rename. Explain compatibility without running commands.",
+      "expected_output": "Go identifier and wire name are distinct.",
+      "target_skills": [
+        "go-documentation"
+      ],
+      "assertions": [
+        "Preserves json:\"id\" despite the Go field rename",
+        "Does not claim changing the tag to record_id is necessary for compatibility",
+        "Keeps comment changes within the renamed field/API"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 74,
+      "prompt": "A Go API doc review requests only defects that could mislead callers. It already documents all exported names with valid sentences. A pure Add(a,b int) int comment accurately says it returns their sum. Explain whether examples, cleanup notes, or a new doc.go are necessary.",
+      "expected_output": "No filler documentation or inferred resource contract.",
+      "target_skills": [
+        "go-documentation"
+      ],
+      "assertions": [
+        "Does not demand cleanup or cancellation text for a pure operation",
+        "Does not add examples or doc.go solely to fill a template",
+        "Can report no actionable documentation finding"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 75,
+      "prompt": "A Go endpoint promises JSON [] for no results and omits an internal field entirely. Existing tests decode responses and compare only the resulting struct. Design focused checks for this public contract; no commands.",
+      "expected_output": "Tests preserve wire distinctions.",
+      "target_skills": [
+        "go-testing"
+      ],
+      "assertions": [
+        "Checks [] versus null in the wire representation",
+        "Checks absence of the internal field, not merely its decoded zero value",
+        "Uses semantic comparisons where ordering/formatting is not contractual",
+        "Does not claim that decoded equality proves the complete wire contract"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 76,
+      "prompt": "A Go test must reproduce a TLS handshake failure and socket deadline behavior. Another test checks handler status and JSON mapping only. Choose httptest helpers for each on Go 1.27; no commands.",
+      "expected_output": "Transport choice matches the observable behavior.",
+      "target_skills": [
+        "go-testing"
+      ],
+      "assertions": [
+        "Recognizes NewTestServer defaults to in-memory networking",
+        "Uses a real-network/TLS configuration for handshake and socket deadlines",
+        "Can use NewTestServer for handler/client contract checks",
+        "Does not claim fake time or in-memory transport proves real socket behavior"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 77,
+      "prompt": "Add one regression for a pure Go predicate using built-in values. This repo uses standard testing only and has no dependencies. The case has no repeated setup or structured diff. Explain the smallest test; no commands.",
+      "expected_output": "Test complexity proportional to behavior.",
+      "target_skills": [
+        "go-testing"
+      ],
+      "assertions": [
+        "Uses a direct testing assertion without new libraries",
+        "Adds no helper package, fake service, or table machinery without repeated logic",
+        "Asserts observable predicate behavior with useful failure context"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 78,
+      "prompt": "Implement the requested public Go alias type Tags[T comparable] = map[T]struct{} on Go 1.27. Its required contract preserves map identity and assignment compatibility; only string callers exist in this checkout. No extra methods or commands.",
+      "expected_output": "Explicit generic alias contract honored.",
+      "target_skills": [
+        "go-generics"
+      ],
+      "assertions": [
+        "Provides a generic alias, not a new defined wrapper type",
+        "Does not refuse it solely because only one local instantiation exists",
+        "Adds no speculative methods or package structure"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 79,
+      "prompt": "This Go project has measured slog as a bottleneck and uses zap, and must generate RFC-compatible UUID v5 with google/uuid. Configure the skill baseline without rejecting these justified imports. Explain how to preserve other lint rules; no commands.",
+      "expected_output": "Conditional dependency exceptions do not disable lint globally.",
+      "target_skills": [
+        "go-linting",
+        "go-logging"
+      ],
+      "assertions": [
+        "Allows the documented zap and UUID v5 requirements",
+        "Does not treat a deny-rule description as an actual enforcement exception",
+        "Keeps unrelated lint checks enabled",
+        "Does not add a second logging stack or replace required UUID semantics"
       ],
       "set": "validation"
     }

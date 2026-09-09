@@ -58,9 +58,10 @@ func (c *Counter) Increment() {
 
 ## Consistency Rule
 
-**Don't mix receiver types**. Choose either pointers or struct types for all
-available methods on a type. If any method needs a pointer receiver, use pointer
-receivers for all methods.
+For a new mutable type, consistent pointer receivers usually make ownership
+clear. Existing mixed receivers can be intentional: changing a value method to
+a pointer method changes which interfaces `T` satisfies. Preserve that contract
+and copying safety; consistency alone does not authorize a method-set change.
 
 ```go
 // Good: Consistent pointer receivers
@@ -72,6 +73,7 @@ func (b *Buffer) Write(p []byte) (int, error) { /* ... */ }
 func (b *Buffer) Read(p []byte) (int, error)  { /* ... */ }
 func (b *Buffer) Len() int                     { return len(b.data) }
 
-// Bad: Mixed receiver types
-func (b Buffer) Len() int                      { return len(b.data) }  // inconsistent
+// Alternative: a value method can deliberately remain in Buffer's method set.
+// Check the type's copying contract before choosing it.
+func (b Buffer) Len() int { return len(b.data) }
 ```

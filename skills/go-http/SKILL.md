@@ -166,9 +166,10 @@ return json.Unmarshal(body, dst)
 
 ## Validation
 
-Run `go vet ./...` (`httpresponse`), `golangci-lint run` with `bodyclose` and
-`noctx` from [go-linting](../go-linting/SKILL.md), and `go test -race ./...`:
-handlers run concurrently. Test handlers with `httptest.NewTestServer(t, h)`.
+Use [go-linting](../go-linting/SKILL.md) to select the repository gate and scope;
+`httpresponse`, `bodyclose`, and `noctx` can add relevant evidence. Race-test
+changed shared handler state. Choose handler/client versus real-network tests
+through go-testing; `httptest.NewTestServer(t, h)` defaults to in-memory networking.
 
 ## Related Skills
 

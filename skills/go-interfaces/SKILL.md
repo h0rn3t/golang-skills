@@ -20,9 +20,10 @@ allowed-tools: Bash(bash:*)
 
 ## Accept Interfaces, Return Concrete Types
 
-Interfaces belong in the package that **consumes** values, not the package that
-**implements** them. Return concrete (usually pointer or struct) types from
-constructors so new methods can be added without refactoring.
+Define a new interface at the consumer that needs substitution. Prefer concrete
+constructor returns when callers use that type's API; return an existing
+interface when it is the full public contract and implementation hiding is
+intentional, as in [Generality](#generality-hide-implementation-expose-interface).
 
 ```go
 // Good: consumer defines the interface it needs
@@ -43,7 +44,7 @@ func NewThinger() Thinger { return Thinger{ ... } }
 ```
 
 ```go
-// Bad: producer defines and returns its own interface
+// Unnecessary when callers need the concrete API, without an implementation-hiding contract
 package producer
 
 type Thinger interface { Thing() bool }
@@ -149,9 +150,10 @@ conversion would catch the error.
 
 ## Receiver Type
 
-If in doubt, use a pointer receiver. Don't mix receiver types on a single
-type — if any method needs a pointer, use pointers for all methods. Use value
-receivers only for small, immutable types (`Point`, `time.Time`) or basic types.
+Choose receivers by mutation, copying safety, and the required method set.
+Consistent pointer receivers are a useful default for new mutable types; small
+value types can use value receivers. Preserve existing value-method interface
+satisfaction rather than converting all methods for consistency alone.
 
 ---
 

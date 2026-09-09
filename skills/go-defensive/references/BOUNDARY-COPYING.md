@@ -5,14 +5,15 @@
 > Minimum Go: `slices.Clone` / `maps.Clone` 1.21; `url.Values.Clone` 1.27
 > Last verified: 2026-08-29
 
-Slices and maps contain references to their underlying data. Copy them at API
-boundaries so callers cannot mutate internal state, or vice versa.
+Slices and maps contain references to their underlying data. Copy when the
+ownership contract requires independent mutation; preserve intentional shared
+views and caller-owned fresh results.
 
 ## Use the stdlib clone functions
 
-`slices.Clone` and `maps.Clone` (Go 1.21+) replace every hand-written
-`make`+`copy` and `make`+`range` pair. Use them; a loop here is noise a reviewer
-has to verify.
+Use `slices.Clone` and `maps.Clone` (Go 1.21+) for shallow copies when their
+nil, capacity, and element-sharing behavior matches the contract. Retain
+explicit copying when deeper ownership or another representation is required.
 
 ### Receiving
 
@@ -51,9 +52,10 @@ func (s *Stats) Snapshot() map[string]int {
 }
 ```
 
-Note the nil behavior: `slices.Clone(nil)` and `maps.Clone(nil)` return `nil`,
-not an empty container. That matches the nil-slice convention but changes JSON
-output from `[]` to `null` — see
+Note the nil behavior: `slices.Clone(nil)` and `maps.Clone(nil)` return `nil`.
+Replacing an always-allocated result with a clone can therefore change
+`encoding/json` v1 output from `[]` to `null` for nil input; cloning a non-nil
+empty slice preserves that distinction. Default v2 collection encoding differs — see
 [go-data-structures](../../go-data-structures/SKILL.md).
 
 ## Clone is shallow
@@ -87,7 +89,7 @@ Defensive copies have a cost. Skip them when:
 
 - The data is **immutable by convention** and the doc comment says so
 - The slice/map is **created fresh** for the caller and never stored internally
-- Profiling shows the copy is a real hot-path cost (measure, do not assume)
+- The caller explicitly transfers ownership and no longer accesses the data
 
-When in doubt, copy. The cost is almost always negligible next to the bugs
-shared references cause.
+If profiling shows a required copy is expensive, change representation or
+ownership only within scope; performance alone does not make aliasing safe.

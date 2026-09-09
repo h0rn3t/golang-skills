@@ -1,0 +1,30 @@
+# evals/cmd/evalrun/main.go
+
+- triggerEval · struct · L30-L34 — triggerEval
+- qualityEval · struct · L36-L42 — qualityEval
+- evalsFile · struct · L44-L47 — evalsFile
+- triggerResult · struct · L49-L55 — triggerResult
+- assertionResult · struct · L57-L61 — assertionResult
+- qualityResult · struct · L63-L69 — qualityResult
+- report · struct · L71-L77 — report
+- options · struct · L79-L85 — options
+- main · function · L87-L109 — func main()
+- exitError · struct · L111-L114 — exitError
+- Error · method · L116-L116 — func (e exitError) Error() string
+- run · function · L118-L188 — func run(o options) error
+- capN · function · L190-L195 — func capN[T any](s []T, n int) []T
+- count · function · L197-L204 — func count[T any](s []T, ok func(T) bool) (pass, total int)
+- forEach · function · L207-L218 — func forEach(parallel, n int, f func(int))
+- workDir · function · L223-L245 — func workDir(root string, files []string) (string, error)
+- repoRoot · function · L247-L253 — func repoRoot() (string, error)
+- claude · function · L258-L276 — func claude(o options, dir string, args ...string) ([]byte, error)
+- runTrigger · function · L280-L313 — func runTrigger(o options, root string, ev triggerEval) triggerResult
+- skillCalls · function · L317-L339 — func skillCalls(v any) []string
+- normalizeSkill · function · L343-L352 — func normalizeSkill(s string) string
+- triggered · function · L356-L366 — func triggered(want []string, got map[string]bool) bool
+- runQuality · function · L370-L445 — func runQuality(o options, root string, ev qualityEval) qualityResult
+- resultText · function · L449-L467 — func resultText(out []byte) (string, error)
+- extractJSON · function · L469-L476 — func extractJSON(s string) string
+- sortedKeys · function · L478-L485 — func sortedKeys(m map[string]bool) []string
+- printTrigger · function · L487-L501 — func printTrigger(r triggerResult)
+- printQuality · function · L503-L524 — func printQuality(r qualityResult, verbose bool)

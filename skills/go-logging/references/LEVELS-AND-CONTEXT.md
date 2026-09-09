@@ -5,6 +5,8 @@ performance considerations, and what to keep out of logs.
 
 ## Contents
 
+- [Production Observability Checklist](#production-observability-checklist)
+
 - [Level Semantics](#level-semantics)
 - [Custom Verbosity Levels](#custom-verbosity-levels)
 - [Context-Based Logging](#context-based-logging)
@@ -251,8 +253,32 @@ slog.Info("users loaded", "count", len(users))
 | User ID (opaque) | Yes | — |
 | HTTP method, path, status | Yes | — |
 | Error messages | Yes | — |
-| Passwords / tokens | **Never** | Log token prefix or "redacted" |
+| Passwords / tokens | **Never** | Log "redacted" |
 | Full request body | **No** | Log content length and type |
 | PII (email, name) | **Avoid** | Log opaque user ID |
 | Large collections | **No** | Log count or summary |
 | Stack traces | Debug only | Use `slog.Debug` |
+
+## Production Observability Checklist
+
+> **Advisory**: for a production service, in the stack the project already
+> runs. The metric shapes below are Prometheus terms because that is the
+> common case — translate them for OpenTelemetry or a vendor agent rather
+> than adding a second stack, and skip the checklist for a library or CLI.
+
+When observability or rollout readiness is in scope, identify how operators
+will observe the changed failure paths. Apply only the relevant items:
+
+- **Metrics** — counters for operations and errors, histograms for latency
+  (histograms aggregate across instances; summaries do not). Keep the query
+  that reads a metric next to its declaration.
+- **Cardinality** — label values stay bounded (method, route pattern, status);
+  never user IDs, full URLs, or request bodies.
+- **Logs** — structured key-value records carrying the request or trace ID,
+  which needs the enriched logger or context handler described above.
+- **Dashboards and alerts** — a metric nobody queries is not observability:
+  connect the metrics required by this task to existing dashboards/alerts;
+  report missing wiring without silently expanding the implementation.
+- **Profiles** — guard the `pprof` endpoint with auth (see
+  [go-security](../../go-security/SKILL.md)); never expose it unauthenticated.
+  [go-troubleshooting](../../go-troubleshooting/SKILL.md) owns reading them.

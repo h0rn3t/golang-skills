@@ -79,7 +79,8 @@ with `_`:
 
 1. **Handle immediately** — address the error and continue
 2. **Return to caller** — optionally wrapped with context
-3. **In exceptional cases** — `log.Fatal` or `panic`
+3. **At process exit** — return to `main`, which may use `log.Fatal`/`os.Exit`;
+   panic is reserved for the cases owned by go-defensive
 
 To intentionally ignore: add a comment explaining why.
 

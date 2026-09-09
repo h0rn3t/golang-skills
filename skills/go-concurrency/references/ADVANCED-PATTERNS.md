@@ -6,6 +6,29 @@ CPU-bound parallelization.
 
 ---
 
+## Waiting, Errors, and Cancellation
+
+`WaitGroup` joins tasks without collecting errors or cancelling siblings.
+`errgroup.Group` collects the first error and waits for all started tasks;
+only `errgroup.WithContext` also cancels the derived context on an error.
+Tasks must observe that context for cancellation to stop their work. `Wait`
+also cancels the derived context on return, so do not reuse it for later work.
+
+```go
+g, workCtx := errgroup.WithContext(ctx)
+g.SetLimit(maxWorkers) // positive limit, set before starting tasks
+for _, item := range items {
+    g.Go(func() error { return process(workCtx, item) })
+}
+return g.Wait()
+```
+
+This finite-batch form bounds active tasks. A blocked `g.Go` admission is not
+itself cancellation-aware; an endless queue needing prompt cancellation uses
+the fixed-worker loop in the parent skill. Bound queued logical work separately.
+`golang.org/x/sync/errgroup` is an external module; keep `WaitGroup` when no
+error collection is needed. Choose from actual lifetime and failure contracts.
+
 ## Channels of Channels
 
 > **Source**: Effective Go
@@ -42,8 +65,8 @@ func handle(queue chan *Request) {
 }
 ```
 
-This pattern forms the basis for a rate-limited, parallel, non-blocking RPC
-system without a mutex in sight.
+This demonstrates request/reply ownership only. Both sends can block; a real
+service still needs cancellation, admission limits, and a receiver lifetime.
 
 ---
 

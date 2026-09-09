@@ -1,0 +1,13 @@
+{
+  "lastQuery": "зроби реліз 1.3.0 і додай в README.md  як встановлювати контретну версію скіла",
+  "perAgentQuery": {},
+  "graftReads": 2,
+  "sourceReads": 7,
+  "savedTokens": 28513,
+  "injectedPointers": [],
+  "nudges": 2,
+  "host": "claude-code",
+  "turnUsedGraft": false,
+  "graftTurns": 1,
+  "lastTallyUuid": "308b5eab-da1b-4573-8a09-c17180f9b8ef"
+}

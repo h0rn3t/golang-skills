@@ -1,0 +1,65 @@
+2026-09-09 all-skills audit
+Snapshot HEAD: 1c9c7ef6c7dd8bf80804f92fd4b622fc071c8166
+Toolchain: go1.27.1 darwin/arm64
+Command: go run main.go (isolated temporary directory)
+Exit: 0
+Source SHA-256: 2b83df6520b421aa8bd74e5ba2a849c7138a4bba217b573c1902fbc54fab578b
+
+SOURCE
+package main
+
+import (
+ "encoding/json"
+ jsonv2 "encoding/json/v2"
+ "fmt"
+ "strings"
+ "slices"
+ "sync"
+)
+
+func main() {
+ for _, input := range []string{`{}]`, `{} {}`, `{} `} {
+  d := json.NewDecoder(strings.NewReader(input))
+  var value any
+  first := d.Decode(&value)
+  more := d.More()
+  second := d.Decode(new(any))
+  fmt.Printf("JSON %q: first=%v More=%t second=%v\n", input, first, more, second)
+ }
+ const count = 64
+ queue := make(chan int, count)
+ for i := range count { queue <- i }
+ close(queue)
+ started, release := make(chan struct{}, count), make(chan struct{})
+ var wg sync.WaitGroup
+ for item := range queue {
+  wg.Go(func() { _ = item; started <- struct{}{}; <-release })
+ }
+ for range count { <-started }
+ fmt.Printf("WaitGroup queue: %d tasks simultaneously blocked, no admission limit\n", count)
+ close(release)
+ wg.Wait()
+ picture := make([][]uint8, 2)
+ pixels := make([]uint8, 4)
+ for i := range picture { picture[i], pixels = pixels[:2], pixels[2:] }
+ picture[1][0] = 7
+ picture[0] = append(picture[0], 9)
+ fmt.Printf("2D contiguous slice: appending row0 changes row1[0] from 7 to %d\n", picture[1][0])
+ original := []*int{new(7)}
+ cloned := slices.Clone(original)
+ *cloned[0] = 9
+ fmt.Printf("slices.Clone([]*int): editing cloned element changes original from 7 to %d\n", *original[0])
+ var empty []string
+ v1, _ := json.Marshal(empty)
+ v2, _ := jsonv2.Marshal(empty)
+ fmt.Printf("nil []string: json/v1=%s json/v2=%s\n", v1, v2)
+}
+
+OUTPUT
+JSON "{}]": first=<nil> More=false second=invalid character ']' looking for beginning of value
+JSON "{} {}": first=<nil> More=true second=<nil>
+JSON "{} ": first=<nil> More=false second=EOF
+WaitGroup queue: 64 tasks simultaneously blocked, no admission limit
+2D contiguous slice: appending row0 changes row1[0] from 7 to 9
+slices.Clone([]*int): editing cloned element changes original from 7 to 9
+nil []string: json/v1=null json/v2=[]

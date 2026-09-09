@@ -9,6 +9,11 @@ Use this checklist before tagging a release.
 - Confirm `README.md` install, project structure, license, and provenance
   sections still match the repository.
 - Confirm `THIRD_PARTY_NOTICES.md` covers every file under `source/`.
+- Confirm every measured claim quoted outside `docs/evidence/` — in a README, a
+  `CHANGELOG` entry or a skill's own prose — has a
+  [Tier 3](../evals/ab/README.md#how-much-to-run) run behind it: the full
+  fixture grid at `n≥5` plus a replay under a second runner, with its raw JSON
+  report committed. Screening and decision runs do not qualify.
 
 ## Validation
 

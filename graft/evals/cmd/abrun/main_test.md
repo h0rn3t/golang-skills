@@ -1,0 +1,18 @@
+# evals/cmd/abrun/main_test.go
+
+- TestCommandOutputReturnsPartialOutputAndError · function · L15-L26 — func TestCommandOutputReturnsPartialOutputAndError(t *testing.T)
+- TestResultStatus · function · L28-L55 — func TestResultStatus(t *testing.T)
+- TestSummarizeArmCompletedNoOp · function · L57-L74 — func TestSummarizeArmCompletedNoOp(t *testing.T)
+- TestSummarizeArmExcludesInvalidDeltas · function · L76-L97 — func TestSummarizeArmExcludesInvalidDeltas(t *testing.T)
+- TestAnalyzeIncludesNestedGoFiles · function · L99-L113 — func TestAnalyzeIncludesNestedGoFiles(t *testing.T)
+- TestAnalyzeCountsPublicSurfaceAndBranches · function · L115-L164 — func TestAnalyzeCountsPublicSurfaceAndBranches(t *testing.T)
+- TestHideTestFilesRecurses · function · L166-L184 — func TestHideTestFilesRecurses(t *testing.T)
+- TestValidateFixturesRequiresGoldenGoFile · function · L186-L205 — func TestValidateFixturesRequiresGoldenGoFile(t *testing.T)
+- TestFindTasksRejectsUnknownSelection · function · L207-L214 — func TestFindTasksRejectsUnknownSelection(t *testing.T)
+- TestBuildArmsUsesReferenceAndCurrentRoots · function · L216-L251 — func TestBuildArmsUsesReferenceAndCurrentRoots(t *testing.T)
+- TestCheckFrontmatter · function · L253-L276 — func TestCheckFrontmatter(t *testing.T)
+- TestCheckArmSkillsRequiresEverySkillInTheTree · function · L278-L307 — func TestCheckArmSkillsRequiresEverySkillInTheTree(t *testing.T)
+- TestBuildJobsIsSeededAndNotArmMajor · function · L309-L330 — func TestBuildJobsIsSeededAndNotArmMajor(t *testing.T)
+- TestValidateOptions · function · L332-L355 — func TestValidateOptions(t *testing.T)
+- TestHelperProcess · function · L357-L379 — func TestHelperProcess(t *testing.T)
+- writeTestFile · function · L381-L389 — func writeTestFile(t *testing.T, path, content string)

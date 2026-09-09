@@ -78,6 +78,10 @@ each benchmark N times for statistical significance.
 
 ## Interpreting Results
 
+The numeric outputs below illustrate the reporting format, not current Go 1.27
+performance. Re-run variants on the same inputs, machine, and toolchain before
+claiming a speed or allocation advantage.
+
 ```
 BenchmarkStrconv-8     18705042    64.2 ns/op    16 B/op    1 allocs/op
 BenchmarkFmtSprint-8    8249536   143.0 ns/op    16 B/op    2 allocs/op
@@ -132,6 +136,9 @@ Tips:
 ---
 
 ## Benchmark Examples from Performance Patterns
+
+Tables in this section are historical illustrations without a reproducible
+current environment; use the code to measure your workload, not the ratios.
 
 ### strconv vs fmt
 

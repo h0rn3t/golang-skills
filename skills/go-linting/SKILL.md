@@ -126,7 +126,7 @@ teach instead of leaving it to review attention:
 
 | Linter | Enforces | Skill |
 |--------|----------|-------|
-| `depguard` | Deny list: `pkg/errors`, `logrus`, `zap`, `x/exp/slices`, `x/exp/maps`, `google/uuid` | [go-packages](../go-packages/SKILL.md) dependency ladder |
+| `depguard` | Deny list: `pkg/errors`, `logrus`, `x/exp/slices`, `x/exp/maps`; conditional exceptions such as zap and google/uuid are reviewed by the owner | [go-packages](../go-packages/SKILL.md) dependency ladder |
 | `errname`, `errorlint` | `ErrFoo`/`FooError` names; `errors.Is`/`AsType` over `==` and type assertions (`errorf` check off — `%v` at boundaries is deliberate) | [go-error-handling](../go-error-handling/SKILL.md) |
 | `sloglint` | Static message, key-value attrs, `snake_case` keys | [go-logging](../go-logging/SKILL.md) |
 | `noctx` | Outbound HTTP/SQL calls carry a context | [go-context](../go-context/SKILL.md), [go-http](../go-http/SKILL.md) |

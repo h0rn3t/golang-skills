@@ -1,0 +1,43 @@
+# evals/eval_test.go
+
+- repoRoot · function · L17-L25 — func repoRoot(t *testing.T) string
+- findAllScripts · function · L27-L38 — func findAllScripts(t *testing.T) []string
+- findSkillDirs · function · L40-L57 — func findSkillDirs(t *testing.T) []string
+- readLines · function · L59-L75 — func readLines(t *testing.T, path string) []string
+- runCommand · function · L77-L93 — func runCommand(t *testing.T, wantExit int, name string, args ...string) []byte
+- runCommandStdout · function · L95-L114 — func runCommandStdout(t *testing.T, wantExit int, name string, args ...string) []byte
+- runCommandInDir · function · L116-L133 — func runCommandInDir(t *testing.T, dir string, wantExit int, name string, args ...string) []byte
+- pathHasSuffix · function · L135-L139 — func pathHasSuffix(got, wantSuffix string) bool
+- jsonFinding · struct · L141-L148 — jsonFinding
+- requireFinding · function · L150-L165 — func requireFinding(t *testing.T, findings []jsonFinding, fileSuffix string, line int, ruleOrKind, messagePart string)
+- requireDocMissing · function · L167-L175 — func requireDocMissing(t *testing.T, missing []jsonFinding, fileSuffix string, line int, kind, name string)
+- requireInterfaceMissing · function · L177-L185 — func requireInterfaceMissing(t *testing.T, missing []jsonFinding, fileSuffix string, line int, name string)
+- splitFrontmatter · function · L187-L205 — func splitFrontmatter(content []byte) (fm, body string, ok bool)
+- parseFrontmatter · function · L208-L253 — func parseFrontmatter(content []byte) (name, desc, body string)
+- TestMain · function · L255-L257 — func TestMain(m *testing.M)
+- TestPortability · function · L263-L313 — func TestPortability(t *testing.T)
+- TestScriptSmoke · function · L319-L345 — func TestScriptSmoke(t *testing.T)
+- TestScriptSyntax · function · L347-L363 — func TestScriptSyntax(t *testing.T)
+- TestScriptFunctional · function · L369-L1018 — func TestScriptFunctional(t *testing.T)
+- debtMarker · struct · L916-L923 — debtMarker
+- TestStructure · function · L1024-L1116 — func TestStructure(t *testing.T)
+- TestFrontmatterDescriptionsInvariant · function · L1118-L1165 — func TestFrontmatterDescriptionsInvariant(t *testing.T)
+- TestSkillArchitecture · function · L1167-L1253 — func TestSkillArchitecture(t *testing.T)
+- maxFencedBlockLines · function · L1255-L1277 — func maxFencedBlockLines(content string) int
+- TestLongReferenceTOCs · function · L1279-L1315 — func TestLongReferenceTOCs(t *testing.T)
+- TestRuleOwnershipMap · function · L1317-L1390 — func TestRuleOwnershipMap(t *testing.T)
+- TestKnownReferenceRegressions · function · L1392-L1500 — func TestKnownReferenceRegressions(t *testing.T)
+- TestRestraintLadder · function · L1505-L1654 — func TestRestraintLadder(t *testing.T)
+- TestDeleteFirstRule · function · L1660-L1703 — func TestDeleteFirstRule(t *testing.T)
+- TestGoVersionBaseline · function · L1707-L1793 — func TestGoVersionBaseline(t *testing.T)
+- assertOnlySkillDoc · function · L1795-L1824 — func assertOnlySkillDoc(t *testing.T, root, needle string, allowed map[string]bool)
+- assertNoSkillDocContains · function · L1826-L1829 — func assertNoSkillDocContains(t *testing.T, root, needle string)
+- TestFixtureLayout · function · L1831-L1841 — func TestFixtureLayout(t *testing.T)
+- requireJSONKeySet · function · L1843-L1860 — func requireJSONKeySet(t *testing.T, label string, obj map[string]json.RawMessage, required, optional []string)
+- TestEvalsJSONSchema · function · L1862-L2004 — func TestEvalsJSONSchema(t *testing.T)
+- triggerEval · struct · L1869-L1874 — triggerEval
+- qualityEval · struct · L1875-L1883 — qualityEval
+- TestCrossRefs · function · L2010-L2071 — func TestCrossRefs(t *testing.T)
+- TestManifestCounts · function · L2080-L2187 — func TestManifestCounts(t *testing.T)
+- readJSON · function · L2189-L2198 — func readJSON(t *testing.T, path string, target any)
+- readFile · function · L2200-L2207 — func readFile(t *testing.T, path string) string

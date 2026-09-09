@@ -19,16 +19,14 @@ memory. Don't add allocations or complexity without evidence that it helps.
 
 ## Prefer strconv over fmt
 
-When converting primitives to/from strings, `strconv` is faster than `fmt`:
+For primitive conversions, `strconv` expresses the operation directly and
+can avoid general formatting overhead. Measure the relevant inputs:
 
 ```go
-s := strconv.Itoa(rand.Int()) // ~2x faster than fmt.Sprint()
+s := strconv.Itoa(n)
 ```
 
-| Approach | Speed | Allocations |
-|----------|-------|-------------|
-| `fmt.Sprint` | 143 ns/op | 2 allocs/op |
-| `strconv.Itoa` | 64.2 ns/op | 1 allocs/op |
+No fixed speedup applies across inputs, escaping behavior, and toolchains.
 
 ---
 
@@ -39,7 +37,7 @@ Convert a fixed string to `[]byte` once outside the loop:
 ```go
 data := []byte("Hello world")
 for b.Loop() { // Go 1.24+
-    w.Write(data) // ~7x faster than []byte("...") each iteration
+    w.Write(data) // reuse when the writer does not mutate or retain the bytes
 }
 ```
 
@@ -67,14 +65,12 @@ Provide capacity hints when initializing slices with `make()`, particularly when
 data := make([]int, 0, size)
 ```
 
-Unlike maps, slice capacity is **not a hint**—the compiler allocates exactly that much memory. Subsequent `append()` operations incur zero allocations until capacity is reached.
+Unlike a map hint, a slice capacity fixes how many elements can be appended
+without growing its backing array. Allocator rounding and escape behavior are
+implementation details; appended element construction may allocate separately.
 
-| Approach | Time (100M iterations) |
-|----------|------------------------|
-| No capacity | 2.48s |
-| With capacity | 0.21s |
-
-The capacity version is **~12x faster** due to zero reallocations during append.
+Choose capacity from bounded expected demand; oversized preallocation can
+increase retained memory. Compare allocations and time on the actual workload.
 
 ---
 
@@ -92,7 +88,7 @@ func process(s string) { // not *string — strings are small fixed-size headers
 
 **Exceptions**:
 - Large structs where copying is expensive
-- Small structs that might grow in the future
+- Required identity, shared mutation, or an existing pointer API
 
 ---
 
@@ -152,10 +148,10 @@ without a new dependency. See
 
 | Pattern | Bad | Good | Improvement |
 |---------|-----|------|-------------|
-| Int to string | `fmt.Sprint(n)` | `strconv.Itoa(n)` | ~2x faster |
-| Repeated `[]byte` | `[]byte("str")` in loop | Convert once outside | ~7x faster |
+| Int to string | `fmt.Sprint(n)` | `strconv.Itoa(n)` | Avoids general formatting overhead |
+| Repeated `[]byte` | `[]byte("str")` in loop | Convert once outside | May avoid repeated conversion/allocation |
 | Map initialization | `make(map[K]V)` | `make(map[K]V, size)` | Fewer allocs |
-| Slice initialization | `make([]T, 0)` | `make([]T, 0, cap)` | ~12x faster |
+| Slice initialization | `make([]T, 0)` | `make([]T, 0, cap)` | Avoids backing-array growth within capacity |
 | Small fixed-size args | `*string`, `*io.Reader` | `string`, `io.Reader` | No indirection |
 | Simple string join | `s1 + " " + s2` | (already good) | Use `+` for few strings |
 | Loop string build | Repeated `+=` | `strings.Builder` | O(n) vs O(n²) |

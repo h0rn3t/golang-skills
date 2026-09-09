@@ -154,6 +154,11 @@ instead of every declaration. That is what produced the `gateway` result; on
 
 ## Adding a fixture
 
+The status table above is this corpus's half of the
+[fixture selection](../README.md#fixture-selection) a screening or decision run
+draws from: `gateway` is the only admitted row, and on a model whose control
+saturates there is nothing here to spend sessions on at all.
+
 A fixture earns its place only when `no-skill` is measurably worse than
 `baseline`; name the trap in the table above before adding one. `go test
 ./cmd/abrun` checks that every directory here has a golden test and that no

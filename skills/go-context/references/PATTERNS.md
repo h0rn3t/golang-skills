@@ -14,8 +14,9 @@ Common patterns for deriving, checking, and propagating `context.Context`.
 
 ## Context Immutability
 
-Contexts are immutable. It's safe to pass the same `ctx` to multiple calls that
-share the same deadline, cancellation signal, credentials, and parent trace:
+Context methods are safe for concurrent use. Pass the same `ctx` to calls that
+share the same deadline, cancellation signal, credentials, and parent trace.
+Mutable values carried by a context are not automatically synchronized:
 
 ```go
 // Safe: same context to sequential calls
@@ -65,16 +66,9 @@ Two exceptions where a fresh root is correct rather than lazy:
   `context.WithoutCancel(ctx)` (Go 1.21+) to keep the values while dropping the
   cancellation, or a fresh `context.WithTimeout(context.Background(), ...)`.
 
-**Default to passing a Context** even if you think you don't need to. Only use
-`context.Background()` directly if you have a good reason why passing a context
-would be a mistake:
-
-```go
-func LoadConfig(ctx context.Context) (*Config, error) {
-    // Even if not using ctx now, accepting it allows future
-    // additions without API changes
-}
-```
+Pass the caller's context when work blocks, can be cancelled, or needs request
+metadata. A pure formatting or arithmetic helper does not need an unused `ctx`
+for hypothetical future work. Preserve signatures required by an existing API.
 
 ---
 
@@ -242,9 +236,9 @@ place to change the implementation.
 | Custom types | Don't create; use `context.Context` interface |
 | Application data | Prefer parameters > receiver > globals > context values |
 | Request-scoped data | Appropriate for context values |
-| Sharing context | Safe — contexts are immutable |
+| Sharing context | Methods are safe concurrently; mutable values need their own synchronization |
 | `context.Background()` | Only for non-request-specific code |
-| Default | Pass context even if you think you don't need it |
+| Default | Pass context for cancellable/blocking work or request metadata; preserve existing API requirements |
 | `defer cancel()` | Always defer immediately after `WithTimeout`/`WithCancel`/`WithDeadline` |
 | Value keys | Use unexported struct types, provide accessor functions |
 | Cancellation check | `ctx.Err()` before expensive ops; `select` on `ctx.Done()` in loops |

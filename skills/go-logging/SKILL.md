@@ -1,6 +1,6 @@
 ---
 name: go-logging
-description: Use when choosing a logging approach, configuring slog, writing structured log statements, or deciding log levels in Go. Also use when making a Go service observable — request-scoped context, trace correlation, metric shape and label cardinality, dashboards and alerts as done-criteria — or when setting up production logging or migrating from log to slog, even if the user doesn't explicitly mention logging. Does not cover error handling strategy (see go-error-handling).
+description: Use when choosing a logging approach, configuring slog, writing structured log statements, or deciding log levels in Go. Also use when making a Go service observable — request-scoped context, trace correlation, metric shape and label cardinality, dashboards and alerts when observability work is requested — or when setting up production logging or migrating from log to slog, even if the user doesn't explicitly mention logging. Does not cover error handling strategy (see go-error-handling).
 ---
 
 # Go Logging
@@ -11,7 +11,7 @@ description: Use when choosing a logging approach, configuring slog, writing str
 
 ## Resource Routing
 
-- `references/LEVELS-AND-CONTEXT.md` - Read when choosing log levels, deciding logger-in-context versus explicit parameters, or excluding sensitive fields.
+- `references/LEVELS-AND-CONTEXT.md` - Read when choosing log levels, deciding logger-in-context versus explicit parameters, excluding sensitive fields, or planning requested metrics/dashboards/alerts.
 - `references/LOGGING-PATTERNS.md` - Read when configuring slog handlers, logging HTTP requests, testing handlers, or migrating from `log.Printf`.
 
 ## Core Principle
@@ -163,26 +163,11 @@ handle-once pattern and error wrapping guidance.
 
 ## Production Observability Checklist
 
-> **Advisory**: for a production service, in the stack the project already
-> runs. The metric shapes below are Prometheus terms because that is the
-> common case — translate them for OpenTelemetry or a vendor agent rather
-> than adding a second stack, and skip the checklist for a library or CLI.
-
-A feature in a service is not done until an operator can see it fail:
-
-- **Metrics** — counters for operations and errors, histograms for latency
-  (histograms aggregate across instances; summaries do not). Keep the query
-  that reads a metric next to its declaration.
-- **Cardinality** — label values stay bounded (method, route pattern, status);
-  never user IDs, full URLs, or request bodies.
-- **Logs** — structured key-value records carrying the request or trace ID,
-  which needs the enriched logger or context handler described above.
-- **Dashboards and alerts** — a metric nobody queries is not observability:
-  land each one in the project's dashboards and alert rules, or say plainly
-  that it shipped unwired.
-- **Profiles** — guard the `pprof` endpoint with auth (see
-  [go-security](../go-security/SKILL.md)); never expose it unauthenticated.
-  [go-troubleshooting](../go-troubleshooting/SKILL.md) owns reading them.
+Use the existing stack when observability or rollout readiness is in scope.
+Read the Production Observability Checklist in
+[LEVELS-AND-CONTEXT.md](references/LEVELS-AND-CONTEXT.md) for metric shape,
+cardinality, dashboard wiring, and profile access. A routine
+log change does not require new metrics, dashboards, or alerts.
 
 ---
 

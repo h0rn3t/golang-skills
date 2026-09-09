@@ -1,6 +1,6 @@
 ---
 name: go-naming
-description: Use when naming Go packages, types, functions, methods, variables, constants, or receivers, including new types and exported APIs. Package organization belongs to go-packages.
+description: Use when choosing or reviewing Go API names, renaming symbols, or resolving identifier conventions. Routine local variable creation alone does not qualify. Package organization belongs to go-packages.
 allowed-tools: Bash(bash:*)
 ---
 
@@ -46,10 +46,11 @@ What are you naming?
 
 ## MixedCaps (Required)
 
-> **Normative**: All Go identifiers must use MixedCaps.
+> **Default**: Use MixedCaps for Go identifiers, with the exceptions below.
 
-Underscores are allowed only in: test functions (`TestFoo_InvalidInput`),
-generated code, and OS/cgo interop.
+Preserve repository conventions, including an established `_` global prefix.
+Other common exceptions include test names (`TestFoo_InvalidInput`), generated
+code, and OS/cgo interop.
 
 ---
 
@@ -176,7 +177,9 @@ Never shadow Go's predeclared identifiers (`error`, `string`, `len`, `cap`,
 | Variable | length ~ scope size | `i` (small), `userCount` (large) |
 | Built-in names | Never shadow predeclared identifiers | See `go-style-core` |
 
-> **Validation**: After renaming identifiers, run `bash scripts/check-naming.sh` to verify no naming anti-patterns remain. Then run `go build ./...` to confirm the rename didn't break anything.
+> **Validation**: Resolve `scripts/check-naming.sh` from the installed directory
+> and inspect its findings only for the rename in scope. Use the go-linting gate
+> to verify affected packages and consumers, reusing unchanged results.
 
 ## Related Skills
 

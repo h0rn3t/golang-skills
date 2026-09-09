@@ -38,9 +38,10 @@ What do you need?
 
 ### Reach for `slices` and `maps` First
 
-The `slices` and `maps` packages (Go 1.21+) cover most hand-written loops.
-Writing the loop instead is a reviewable defect, not a style choice —
-`go fix ./...` rewrites many of them automatically.
+Check `slices` and `maps` (Go 1.21+) for an operation matching the contract.
+Preserve ordering, nil/empty behavior, ownership, early exits, and side effects;
+keep a loop when it expresses those requirements more clearly. Scope any
+`go fix -diff` preview through go-linting.
 
 | Loop you were about to write | Use |
 |---|---|
@@ -107,9 +108,13 @@ for i := range picture {
 picture := make([][]uint8, YSize)
 pixels := make([]uint8, XSize*YSize)
 for i := range picture {
-    picture[i], pixels = pixels[:XSize], pixels[XSize:]
+    picture[i], pixels = pixels[:XSize:XSize], pixels[XSize:]
 }
 ```
+
+Rows share one backing allocation, but each row's capacity is limited so
+appending reallocates rather than overwriting the next row. Existing elements
+still belong to the shared allocation; this is not a deep-copy pattern.
 
 ### Declaring Empty Slices
 
@@ -125,8 +130,9 @@ t := []string{}
 
 Both have `len` and `cap` of zero, but the nil slice is the preferred style.
 
-**Exception for JSON**: A nil slice encodes to `null`, while `[]string{}`
-encodes to `[]`. Use non-nil when you need a JSON array.
+**Wire contracts**: `encoding/json` v1 encodes a nil slice as `null` and a
+non-nil empty slice as `[]`; v2 defaults nil slices to `[]`. Check the encoder,
+options, and element type (for example `[]byte`) before choosing representation.
 
 When designing interfaces, avoid distinguishing between nil and non-nil
 zero-length slices.
@@ -157,9 +163,9 @@ presence.
 Be careful when copying a struct from another package. If the type has methods
 on its pointer type (`*T`), copying the value can cause aliasing bugs.
 
-**General rule:** Do not copy a value of type `T` if its methods are associated
-with the pointer type `*T`. This applies to `bytes.Buffer`, `sync.Mutex`,
-`sync.WaitGroup`, and types containing them.
+Check the type's copying contract, not just whether it has pointer receivers.
+Do not copy synchronization primitives after first use or values containing
+them; copying a nonempty `bytes.Buffer` also shares its backing data.
 
 ```go
 // Bad: copying a mutex
@@ -182,7 +188,7 @@ func increment(sc *SafeCounter) {
 |-------|-----------|
 | Slices | Always assign `append` result; `nil` slice preferred over `[]T{}` |
 | Sets | `map[T]struct{}` for membership-only sets |
-| Copying | `slices.Clone` / `maps.Clone`; don't copy `T` if methods are on `*T` |
+| Copying | `slices.Clone` / `maps.Clone` are shallow; honor type ownership and no-copy contracts |
 | Loops | Check `slices`/`maps` before writing one; `go fix -diff ./...` to confirm |
 
 ## Related Skills

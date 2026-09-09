@@ -6,21 +6,22 @@ severity is one line saying it is empty.
 
 ## Summary
 [Brief description of the changes]
-Net lines: +A / -B. Growth the change did not need is a finding below, not a footnote.
+Include line counts only when relevant to the requested review.
 
 ## Findings
 
-Every finding carries how it was established: `verified` names the run that
-proved it, `plausible` admits it was only read.
+Each finding identifies an executed check or a static proof of the affected
+path. Material unresolved hypotheses name missing evidence separately; they
+are not mandatory fixes merely because they are conceivable.
 
 ### Must Fix
 - [ ] [file:line] Description of critical issue
-      Evidence: verified (how) | plausible (not proven)
+      Evidence: executed check or static proof (how)
       Fix: the concrete action
 
 ### Should Fix
 - [ ] [file:line] Description of recommended improvement
-      Evidence: verified (how) | plausible (not proven)
+      Evidence: executed check or static proof (how)
       Fix: the concrete action
 - [ ] [file:line] delete: | yagni: | stdlib: | dep: | shrink: what can stop existing
       Fix: the shorter form
@@ -29,9 +30,7 @@ proved it, `plausible` admits it was only read.
 - [ ] [file:line] Description of minor suggestion
 
 ## Automated Checks
-- [ ] `gofmt -d .` — clean
-- [ ] `go vet ./...` — clean
-- [ ] `golangci-lint run` — clean
+List only checks selected through go-linting: exact command, scope, and result.
 
 Report a check that could not run as `unavailable (reason)`, not as clean.
 

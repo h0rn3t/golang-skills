@@ -45,8 +45,10 @@ Same for maps: reading a nil map is fine, writing panics. Adding a defensive
 `make(map...)` where the original had nil turns a panic into silent success — a
 behavior change wearing a bug fix's clothes.
 
-`slices.Clone(nil)` and `maps.Clone(nil)` return nil, so swapping a
-`make`+`copy` for `Clone` preserves nil-ness. See
+`slices.Clone(nil)` and `maps.Clone(nil)` return nil, while unconditional
+`make` produces a non-nil empty collection. A `make`+`copy` replacement must
+therefore preserve the original nil/empty policy explicitly. Clones are also
+shallow; retain nested copying when callers require independent mutation. See
 [go-defensive](../../go-defensive/SKILL.md).
 
 ## defer

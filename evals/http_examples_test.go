@@ -56,6 +56,8 @@ func TestBody(t *testing.T) {
   {"{\"Name\":\"ok\"}", 201, 1},
   {"{\"Name\":\"ok\"} \n\t", 201, 1},
   {"{\"Name\":\"ok\"} garbage", 400, 0},
+  {"{\"Name\":\"ok\"}]", 400, 0},
+  {"{\"Name\":\"ok\"}}", 400, 0},
   {"{\"Name\":\"ok\"} {}", 400, 0},
   {"{\"Name\":\"ok\"}" + strings.Repeat(" ", 1<<20), 400, 0},
  } {

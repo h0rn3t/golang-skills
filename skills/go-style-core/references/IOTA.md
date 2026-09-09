@@ -81,7 +81,9 @@ const (
 
 ## String Representation
 
-Always implement `String()` for enum types to aid debugging:
+Implement `String()` when callers, diagnostics, or a formatting contract need
+readable names. A private enum does not need extra methods solely because it
+uses `iota`:
 
 ```go
 func (o Operation) String() string {

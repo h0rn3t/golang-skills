@@ -15,9 +15,12 @@ description: Use when choosing or writing Go generics, constraints, type aliases
 
 ## When to Use Generics
 
-Start with concrete types. Generalize only when a second type appears.
+Start with concrete types for a concrete task. Generalize when actual callers
+need multiple types or the requested public contract is itself generic; do not
+wait for a second local instantiation when implementing that explicit API.
 
 ```
+When the public API is not already prescribed:
 Do multiple types share identical logic?
 ├─ No  → concrete types
 └─ Yes → Do they share a useful interface?
@@ -29,8 +32,9 @@ Do multiple types share identical logic?
 map/reduce); the alternative is `any` plus type switching; you are building a
 reusable container.
 
-**Avoid generics when**: only one type is ever instantiated; an interface
-already models the shared behavior; the generic version is harder to read.
+**Avoid adding generics when**: one concrete type satisfies the requested API;
+an interface already models the required behavior; or generalization makes the
+operation harder to read without serving a caller contract.
 
 > "Write code, don't design types." — Robert Griesemer and Ian Lance Taylor
 
@@ -67,8 +71,8 @@ Constraints:
 - A generic method cannot satisfy an interface — interface methods have no type
   parameters. If callers dispatch through an interface, keep the free function.
 - The receiver's own type parameters stay on the receiver; do not redeclare them.
-- Same restraint as generic functions: add the parameter when a second type
-  actually appears, not in anticipation.
+- Same restraint as generic functions: serve demonstrated callers or an
+  explicitly requested generic API, not speculative future flexibility.
 
 Go 1.27 extends function type inference to all assignments and conversions to
 matching function types. Assignment to a typed variable already supported
@@ -125,10 +129,10 @@ type table[K comparable, V any] struct {
 
 ## Type Aliases vs Type Definitions
 
-Type aliases (`type Old = new.Name`) are rare — use for package migration or
-gradual API refactoring. Generic type aliases (Go 1.24+) are legal
-(`type Set[T comparable] = map[T]struct{}`) and carry the same caution: an alias
-adds a name, not a type, so it buys nothing but a migration path.
+Use a definition for a distinct type with its own methods or invariants. An alias
+preserves type identity and can support migration or a useful public vocabulary.
+Generic aliases (Go 1.24+), such as `type Set[T comparable] = map[T]struct{}`,
+are valid when that identity is intended. Avoid an extra name that helps no caller.
 
 ---
 
@@ -164,13 +168,13 @@ you only need `==`.
 
 | Topic | Guidance |
 |-------|----------|
-| When to use | Multiple types, identical logic, no adequate interface |
-| Starting point | Concrete first; generalize on the second type |
+| When to use | Explicit generic API, or multiple types with shared logic and no adequate interface |
+| Starting point | Concrete first unless callers or the explicit API require generics |
 | Naming | `T`, `K`, `V`, `E` |
 | Generic methods | Go 1.27+; cannot satisfy an interface |
 | Ordering constraint | `cmp.Ordered`, never a hand-written one |
 | Generic hashing | `maphash.ComparableHasher[T]` (Go 1.27+) |
-| Type aliases | Migration only |
+| Type aliases | Preserve identity for migration or a useful public contract |
 | Pitfall | Single-use generics, `T` used only as an interface |
 
 ---

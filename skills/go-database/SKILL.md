@@ -15,8 +15,8 @@ description: Use when writing or reviewing Go SQL queries, transactions, reposit
 
 ## Stdlib First
 
-> **Normative**: `database/sql` plus a driver covers most services. An ORM is
-> rung four of the dependency ladder in [go-packages](../go-packages/SKILL.md).
+> `database/sql` plus a driver is a useful starting point. Choose an ORM or
+> native driver by the contract and existing stack through [go-packages](../go-packages/SKILL.md).
 
 ```
 What does the repository already use?
@@ -50,8 +50,8 @@ lifetime:
 
 | Setting | Why |
 |---|---|
-| `SetMaxOpenConns` | Below the server's `max_connections` minus headroom for other clients |
-| `SetMaxIdleConns` | Same as max open, or connections churn under load |
+| `SetMaxOpenConns` | Budget across all instances and pools, below server capacity with headroom for other clients |
+| `SetMaxIdleConns` | Retain enough for measured steady traffic without reserving the entire fleet's budget while idle |
 | `SetConnMaxLifetime` | Rotate through load balancers and credential changes |
 | `SetConnMaxIdleTime` | Release idle connections back to the server |
 
@@ -154,25 +154,27 @@ database decides whether an index or a rewrite is the fix.
   they have domain meaning. Preserve absent versus empty/zero values. Scan
   nullable columns into `sql.Null[T]` (Go 1.22+) or a pointer; scanning `NULL`
   into a `string` is a runtime error.
-- Migrations are versioned, forward-only files shipped with the binary via
-  `//go:embed` ([go-packages](../go-packages/SKILL.md)) and applied by a
-  migration step at deploy — never from `init()`. Each one states its rollback
-  or says it has none.
+- Follow the repository's versioned migration and deployment workflow.
+  `//go:embed` is an option when migrations ship with the binary, not a reason
+  to replace an existing migration service. Avoid migrations in `init()`;
+  state rollback or forward-recovery requirements for the change.
 
 ---
 
 ## Testing
 
-Integration tests run against a real database (a container or a CI service),
-not a mocked driver — a mock proves the code calls the mock. Unit-test only the
-row-to-struct mapping. [go-testing](../go-testing/SKILL.md) owns the
+Use a real database for SQL syntax, constraints, isolation, and transaction
+semantics. Unit tests with a controlled dependency can still check mapping,
+error propagation, and application decisions; they do not establish database
+behavior. [go-testing](../go-testing/SKILL.md) owns the
 integration harness in
 [`go-testing/references/INTEGRATION.md`](../go-testing/references/INTEGRATION.md).
 
-> **Validation**: `golangci-lint run` with `rowserrcheck`, `sqlclosecheck`,
-> `noctx`, and `gosec` from the [go-linting](../go-linting/SKILL.md) baseline,
-> then `go test -race ./...` with the integration tag. Report a skipped
-> integration run as skipped.
+> **Validation**: Select checks through [go-linting](../go-linting/SKILL.md).
+> Use the project's actual database test setup/tags for changed SQL semantics;
+> relevant analyzers include `rowserrcheck`, `sqlclosecheck`, `noctx`, and `gosec`.
+> Report unavailable integration evidence; do not invent a tag or infer database
+> correctness from a unit-test or lint pass.
 
 ---
 

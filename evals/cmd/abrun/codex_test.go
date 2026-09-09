@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -47,8 +48,8 @@ func TestParseCodexStream(t *testing.T) {
 	transcript := `Reading additional input from stdin...
 {"type":"thread.started","thread_id":"t1"}
 {"type":"item.completed","item":{"id":"i0","type":"error","message":"Skill descriptions were shortened"}}
-{"type":"item.completed","item":{"id":"i1","type":"command_execution","command":"/bin/zsh -lc 'cat /tmp/h/.codex/skills/go-code-refactor/SKILL.md'","exit_code":"0","aggregated_output":"see go-http/SKILL.md for servers"}}
-{"type":"item.completed","item":{"id":"i2","type":"command_execution","command":"/bin/zsh -lc 'cat /tmp/h/.codex/skills/r0/go-style-core/SKILL.md'","exit_code":"0"}}
+{"type":"item.completed","item":{"id":"i1","type":"command_execution","command":"/bin/zsh -lc 'cat /tmp/h/.codex/skills/go-code-refactor/SKILL.md'","exit_code":"0","aggregated_output":"---\nname: go-code-refactor\ndescription: Refactor Go code.\n---\nsee go-http/SKILL.md for servers"}}
+{"type":"item.completed","item":{"id":"i2","type":"command_execution","command":"/bin/zsh -lc 'cat /tmp/h/.codex/skills/r0/go-style-core/SKILL.md'","exit_code":"0","aggregated_output":"---\nname: go-style-core\ndescription: Go style.\n---\n# Go Style"}}
 {"type":"item.completed","item":{"id":"i3","type":"command_execution","command":"/bin/zsh -lc 'ls /tmp/w/golang-skills/952e678d/report'","exit_code":"0"}}
 {"type":"item.completed","item":{"id":"i4","type":"agent_message","text":"first pass"}}
 {"type":"item.completed","item":{"id":"i5","type":"agent_message","text":"final answer"}}
@@ -65,6 +66,35 @@ func TestParseCodexStream(t *testing.T) {
 	// Codex reports token counts, never dollars, so there is no honest $/run.
 	if cost != 0 {
 		t.Errorf("parseCodexStream cost = %v, want 0", cost)
+	}
+}
+
+func TestParseCodexStreamRequiresReadEvidence(t *testing.T) {
+	const path = "/tmp/h/.codex/skills/go-http/SKILL.md"
+	const body = "---\nname: go-http\ndescription: Go HTTP.\n---\n# Go HTTP\n"
+	for _, tt := range []struct {
+		name, event, command, output, exit string
+		want                               bool
+	}{
+		{name: "cat numeric exit", event: "item.completed", command: "cat " + path, output: body, exit: "0", want: true},
+		{name: "sed string exit", event: "item.completed", command: "sed -n '1,80p' " + path, output: body, exit: `"0"`, want: true},
+		{name: "failed read", event: "item.completed", command: "cat " + path, output: "cat: " + path + ": No such file or directory", exit: "1"},
+		{name: "failed after output", event: "item.completed", command: "cat " + path, output: body, exit: "1"},
+		{name: "absent conditional", event: "item.completed", command: "if [ -f " + path + " ]; then cat " + path + "; else echo ABSENT; fi", output: "ABSENT\n", exit: "0"},
+		{name: "echoed path", event: "item.completed", command: "echo " + path, output: path + "\n", exit: "0"},
+		{name: "started event", event: "item.started", command: "cat " + path, output: body, exit: "0"},
+		{name: "missing exit status", event: "item.completed", command: "cat " + path, output: body, exit: "null"},
+		{name: "missing output", event: "item.completed", command: "cat " + path, exit: "0"},
+		{name: "partial read without identity", event: "item.completed", command: "sed -n '20,40p' " + path, output: "# Go HTTP\nRead go-http/SKILL.md.\n", exit: "0"},
+		{name: "cross reference only", event: "item.completed", command: "cat " + path, output: "---\nname: go-code\ndescription: Go code.\n---\nRead go-http/SKILL.md.\n", exit: "0"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			transcript := fmt.Sprintf(`{"type":%q,"item":{"type":"command_execution","command":%q,"aggregated_output":%q,"exit_code":%s}}`, tt.event, tt.command, tt.output, tt.exit)
+			skills, _, _ := parseCodexStream([]byte(transcript))
+			if got := len(skills) == 1 && skills[0] == "go-http"; got != tt.want || len(skills) > 1 {
+				t.Errorf("parseCodexStream(%s) skills = %v, want go-http read=%v", tt.name, skills, tt.want)
+			}
+		})
 	}
 }
 

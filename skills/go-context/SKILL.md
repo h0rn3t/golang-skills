@@ -83,7 +83,9 @@ Consider these options in order of preference:
 Context values are appropriate for:
 - Request IDs and trace IDs
 - Authentication/authorization info that flows with requests
-- Deadlines and cancellation signals
+
+Deadlines and cancellation use `WithTimeout`/`WithCancel`, `Deadline`, and
+`Done`; storing a value with `WithValue` does not implement them.
 
 Context values are **not** appropriate for:
 - Optional function parameters
@@ -116,8 +118,9 @@ default:
 
 ### Context Immutability
 
-Contexts are immutable — it's safe to pass the same `ctx` to multiple
-concurrent calls that share the same deadline and cancellation signal.
+Context methods are safe for concurrent use, so calls can share the same
+`ctx`. Mutable objects stored in `Value` still need their own ownership and
+synchronization; the context does not protect them.
 
 ### Cancellation With a Reason
 

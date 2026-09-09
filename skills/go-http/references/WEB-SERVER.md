@@ -37,7 +37,7 @@ type Server struct {
 }
 
 // NewServer creates a Server with the given dependencies.
-// The caller must call Shutdown to release resources.
+// The caller owns the store and the http.Server used to serve these routes.
 func NewServer(store Store) *Server {
     s := &Server{store: store}
     s.router = http.NewServeMux()

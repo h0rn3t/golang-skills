@@ -14,7 +14,7 @@ description: Use when writing concurrent Go code with goroutines, channels, or m
 - `references/GOROUTINE-PATTERNS.md` - Read when starting, stopping, or waiting for goroutines.
 - `references/SYNC-PRIMITIVES.md` - Read when choosing between mutexes, atomics, channels, and once-like primitives.
 - `references/BUFFER-POOLING.md` - Read when considering channel-backed or sync.Pool-style reuse.
-- `references/ADVANCED-PATTERNS.md` - Read for worker pools, pipelines, errgroup, and cancellation-heavy patterns.
+- `references/ADVANCED-PATTERNS.md` - Read for errgroup, bounded fan-out, reply channels, and CPU-bound parallelization.
 
 ## Goroutine Lifetimes
 
@@ -39,10 +39,20 @@ channel), data races, memory issues, and resource leaks.
    goroutine per element of an unbounded input
 
 ```go
-// Good: clear lifetime with WaitGroup.Go (Go 1.25+)
+// maxWorkers is positive; process observes ctx and must not panic.
 var wg sync.WaitGroup
-for item := range queue {
-    wg.Go(func() { process(ctx, item) })
+for range maxWorkers {
+    wg.Go(func() {
+        for {
+            select {
+            case <-ctx.Done():
+                return
+            case item, ok := <-queue:
+                if !ok { return }
+                process(ctx, item)
+            }
+        }
+    })
 }
 wg.Wait()
 ```
@@ -61,9 +71,9 @@ and test timing-dependent behavior with `testing/synctest` (fake clock, no real
 sleeps) — see [go-testing](../go-testing/SKILL.md).
 
 > **Principle**: Never start a goroutine without knowing how it will stop.
-> **Validation**: `go test -race ./...` and `go vet ./...` (the `waitgroup`,
-> `loopclosure`, and `testinggoroutine` analyzers) — see
-> [go-linting](../go-linting/SKILL.md).
+> **Validation**: Select affected packages and required checks through
+> [go-linting](../go-linting/SKILL.md); race tests and the `waitgroup` /
+> `testinggoroutine` vet analyzers add evidence for changed coordination.
 
 ---
 
@@ -83,8 +93,9 @@ Do you need a goroutine at all?
    └─ Both fit                                           → the one with fewer lines
 ```
 
-A goroutine whose caller immediately waits for it is a function call with
-extra steps — it is on the hunt list in
+A goroutine whose caller only waits for its result usually needs no concurrency;
+retain a goroutine when it supplies a required scheduling or lifetime boundary.
+See
 [go-code-refactor](../go-code-refactor/references/OVER-ENGINEERING.md).
 
 ---

@@ -196,8 +196,9 @@ func main() {
 
 - Platform-specific code lives in `_linux.go` / `_windows.go` suffix files or
   behind `//go:build linux`; a runtime `if runtime.GOOS == ...` switch is the
-  last resort. Every constrained file needs a fallback so the package still
-  compiles under `go vet ./...` on any GOOS.
+  last resort. Provide implementations or a documented unsupported boundary for
+  each supported GOOS/GOARCH. Do not invent fallbacks for platforms outside the
+  project's support contract; verify the supported build configurations.
 - Static assets (templates, SQL, schemas) ship via `//go:embed` in the package
   that uses them — never by reading a relative path at runtime, which breaks
   as soon as the binary runs from another directory.

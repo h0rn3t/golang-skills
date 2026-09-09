@@ -54,7 +54,7 @@ stop at the first rung that holds:
    over sleep-based waits, a build tag over a runtime switch.
 5. **A module already in `go.mod`?** Use it. Never add a new one for what a few
    lines do — [go-packages](../../go-packages/SKILL.md) owns the module rungs
-   (stdlib → `golang.org/x/...` → existing module → new module).
+   (stdlib → existing module → new module, including `golang.org/x/...`).
 6. **Can it be one line?** One line.
 7. **Only then**: the minimum that works, in the fewest files — a new file only
    when the existing one is unwieldy.
@@ -71,11 +71,10 @@ order — Clarity > Simplicity > Concision — and it outranks every rung here.
 Two options on the same rung, same size → take the one correct on edge cases.
 Lazy means less code, not a flimsier algorithm.
 
-**A bug fix is a root-cause fix.** A report names a symptom. Before the edit,
-find every caller of the function you are about to touch ([GOPLS.md](GOPLS.md))
-and land the fix where they all route through: one guard in the shared
-function is a smaller diff than a guard in every caller, and patching only the
-path the ticket named leaves the sibling callers broken.
+**A bug fix is a root-cause fix.** Inspect callers before changing a shared
+function ([GOPLS.md](GOPLS.md)). Correct that function when its contract is
+wrong for the affected callers; fix an individual caller when it alone violates
+the contract. Preserve correct callers and independently changing policies.
 [go-troubleshooting](../../go-troubleshooting/SKILL.md) owns the method while
 the cause is still unknown.
 
@@ -126,7 +125,7 @@ code a swap may be observable; `MODERNIZATION.md` says what each can change.
 | A linear search loop | `slices.Contains`, `slices.ContainsFunc`, `slices.IndexFunc` |
 | A `sort.Slice` comparator; `sort.Strings` after a collect loop | `slices.SortFunc` with `cmp.Compare`; `slices.Sorted(maps.Keys(m))` (Go 1.23) |
 | Collect, dedupe, reverse, concat, min/max loops | `slices.Compact`, `Reverse`, `Max`/`Min`, `Concat` (Go 1.22), `Collect` (Go 1.23); `maps.Keys`, `Values`, `Collect` (Go 1.23) → [go-data-structures](../../go-data-structures/SKILL.md) |
-| Deep-copy helpers; `map[T]bool` used only for membership | `slices.Clone`, `maps.Clone`; `map[T]struct{}` |
+| Shallow-copy helpers; `map[T]bool` used only for membership | `slices.Clone`, `maps.Clone`; `map[T]struct{}`. Nested references still alias: preserve required deep copies |
 | `Index` plus manual slicing | `strings.Cut`, `CutPrefix`, `CutSuffix`, `CutLast` (Go 1.27) |
 | `strings.Split` then `range` over the slice | `strings.SplitSeq`, `FieldsSeq`, `Lines` (Go 1.24) — `Lines` keeps the newline |
 | `+=` string building in a loop | `strings.Builder` → [go-performance](../../go-performance/SKILL.md) |
@@ -141,7 +140,7 @@ code a swap may be observable; `MODERNIZATION.md` says what each can change.
 | `errors.As` with a declared target variable | `errors.AsType[T]` (Go 1.26) |
 | `sync.Once` plus a captured result field | `sync.OnceFunc`, `sync.OnceValue`, `sync.OnceValues` |
 | `wg.Add(1)` / `go func() { defer wg.Done() }()` | `wg.Go(f)` (Go 1.25) → [go-concurrency](../../go-concurrency/SKILL.md) |
-| A `WaitGroup`, an error channel, and first-error logic; a semaphore channel | `errgroup.Group` and `SetLimit` (`golang.org/x/sync`, the `x/` rung of the dependency ladder) |
+| A `WaitGroup`, an error channel, and first-error logic | Consider `errgroup.WithContext` (`golang.org/x/sync`, an external module); `SetLimit` bounds active work, cancellation must be observed by tasks |
 | A mutex around a single counter or flag with no compound invariant | `atomic.Int64`, `atomic.Bool` → [go-concurrency](../../go-concurrency/SKILL.md) |
 | A goroutine parked on `ctx.Done()` to run cleanup; a detached copy of a context | `context.AfterFunc`, `context.WithoutCancel` → [go-context](../../go-context/SKILL.md) |
 

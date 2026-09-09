@@ -37,7 +37,10 @@ func Encode(w io.Writer, req *Request) { ...
 
 Unexported types/functions with unobvious behavior should also have doc comments.
 
-> **Validation**: After adding doc comments, run `bash scripts/check-docs.sh` to verify no exported symbols are missing documentation. Fix any gaps before proceeding.
+> **Validation**: When needed, run the installed `scripts/check-docs.sh` against
+> the changed API's files/packages from the target project. Attribute findings
+> to the requested scope; report existing gaps instead of expanding a one-comment
+> change into a documentation sweep. Reuse checks selected through go-linting.
 
 ---
 

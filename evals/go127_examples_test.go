@@ -5,6 +5,20 @@ import (
 	"testing"
 )
 
+func TestContiguousRowsDoNotOverwriteOnAppend(t *testing.T) {
+	code := exampleBlock(t, "skills/go-data-structures/SKILL.md", "**Single allocation**")
+	runExampleTest(t, `package example
+import "testing"
+func TestRowOwnership(t *testing.T) {
+ const XSize, YSize = 2, 2
+`+code+`
+ picture[1][0] = 7
+ picture[0] = append(picture[0], 9)
+ if got := picture[1][0]; got != 7 { t.Errorf("row 1 after appending row 0 = %d, want 7", got) }
+}
+`)
+}
+
 func TestGo127GenericExamples(t *testing.T) {
 	method, _, _ := strings.Cut(exampleBlock(t, "skills/go-generics/SKILL.md", "## Generic Methods"), "\nn, ok :=")
 	hashing := exampleBlock(t, "skills/go-generics/SKILL.md", "### Hashing generic keys")
@@ -90,6 +104,57 @@ func TestUpdate(t *testing.T) {
  update(dst, dst, 6)
  if len(dst) != 0 { t.Errorf("same-map update=%v, want empty", dst) }
  update(nil, nil, 0)
+}
+`)
+}
+
+func TestQueueExampleBoundsConcurrency(t *testing.T) {
+	code := exampleBlock(t, "skills/go-concurrency/SKILL.md", "## Goroutine Lifetimes")
+	runExampleTest(t, `package example
+import ("context"; "sync"; "sync/atomic"; "testing"; "testing/synctest")
+func consume(ctx context.Context, queue <-chan int, maxWorkers int, process func(context.Context, int)) {
+`+code+`
+}
+func TestQueue(t *testing.T) {
+ synctest.Test(t, func(t *testing.T) {
+  queue := make(chan int, 64)
+  for i := range cap(queue) { queue <- i }
+  close(queue)
+  release, done := make(chan struct{}), make(chan struct{})
+  var active, completed atomic.Int32
+  go func() {
+   consume(t.Context(), queue, 8, func(_ context.Context, _ int) {
+    active.Add(1)
+    <-release
+    active.Add(-1)
+    completed.Add(1)
+   })
+   close(done)
+  }()
+  synctest.Wait()
+  if got := active.Load(); got != 8 { t.Errorf("active tasks = %d, want 8", got) }
+  close(release)
+  <-done
+  if got := completed.Load(); got != 64 { t.Errorf("completed tasks = %d, want 64", got) }
+ })
+}
+func TestIdleCancellation(t *testing.T) {
+ synctest.Test(t, func(t *testing.T) {
+  ctx, cancel := context.WithCancel(t.Context())
+  defer cancel()
+  done := make(chan struct{})
+  go func() {
+   consume(ctx, make(chan int), 8, func(context.Context, int) { t.Error("unexpected item") })
+   close(done)
+  }()
+  synctest.Wait()
+  cancel()
+  synctest.Wait()
+  select {
+  case <-done:
+  default: t.Fatal("idle queue workers did not exit after cancellation")
+  }
+ })
 }
 `)
 }

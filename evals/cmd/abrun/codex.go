@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -28,6 +29,9 @@ import (
 // leading boundary keeps a directory that merely ends in the name, such as
 // vendor-go-http, from matching.
 var codexSkillPath = regexp.MustCompile(`(?:^|[^A-Za-z0-9_-])(go-[a-z0-9-]+)/SKILL\.md`)
+
+var codexFrontmatter = regexp.MustCompile(`(?ms)^---\r?\n(.*?)^---[ \t]*\r?$`)
+var codexSkillName = regexp.MustCompile(`(?m)^name:[ \t]*["']?(go-[a-z0-9-]+)["']?[ \t]*\r?$`)
 
 // codexHomes gives every arm its own HOME and records it on the arm.
 //
@@ -213,19 +217,22 @@ func codexEnv(home, dir string) []string {
 type codexEvent struct {
 	Type string `json:"type"`
 	Item struct {
-		Type    string `json:"type"`
-		Command string `json:"command"`
-		Text    string `json:"text"`
+		Type     string          `json:"type"`
+		Command  string          `json:"command"`
+		Text     string          `json:"text"`
+		ExitCode json.RawMessage `json:"exit_code"`
+		Output   string          `json:"aggregated_output"`
 	} `json:"item"`
 }
 
 // parseCodexStream pulls the go-* skills the model read and its last message out
 // of a JSONL transcript.
 //
-// Only the command of a shell call is searched, never its output. A session that
-// reads one SKILL.md gets the whole file echoed back into the transcript, and
-// skills cross-reference each other by name, so scanning the output would score
-// every skill a loaded skill mentions as one the model reached for.
+// Evidence requires a completed successful command naming the SKILL.md path
+// and matching frontmatter returned in its output. Path mentions, failed reads
+// and cross-references alone do not count. Partial reads without frontmatter
+// remain unverified. This is transcript evidence, not filesystem provenance:
+// shell commands can synthesize output, and truncation can hide a real read.
 //
 // The cost return is always zero: codex reports token counts, not dollars, so
 // there is no number here that means the same thing as the claude and opencode
@@ -242,8 +249,16 @@ func parseCodexStream(out []byte) (skills []string, final string, cost float64) 
 		}
 		switch ev.Item.Type {
 		case "command_execution":
-			for _, name := range skillsInPaths(ev.Item.Command) {
-				fired[name] = true
+			if ev.Type != "item.completed" || (string(ev.Item.ExitCode) != "0" && string(ev.Item.ExitCode) != `"0"`) {
+				continue
+			}
+			paths := skillsInPaths(ev.Item.Command)
+			for _, block := range codexFrontmatter.FindAllStringSubmatch(ev.Item.Output, -1) {
+				for _, match := range codexSkillName.FindAllStringSubmatch(block[1], -1) {
+					if slices.Contains(paths, match[1]) {
+						fired[match[1]] = true
+					}
+				}
 			}
 		case "agent_message":
 			if ev.Type == "item.completed" && ev.Item.Text != "" {

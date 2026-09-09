@@ -12,7 +12,7 @@ allowed-tools: Bash(bash:*)
 ## Resource Routing
 
 - `assets/review-template.md` - Use when formatting review output with Must Fix, Should Fix, and Nits sections.
-- `scripts/pre-review.sh` - Run before manual review to collect gofmt, go vet, and golangci-lint results; a missing linter is reported as skipped, `--strict` makes it an error.
+- `scripts/pre-review.sh` - Run from the target project via the installed absolute script path when its checks fit the selected gate and add evidence; a missing linter is reported as skipped, `--strict` makes it an error.
 - `../go-http/references/WEB-SERVER.md` - Read when reviewing an HTTP server that combines concurrency, context, logging, error handling, and shutdown behavior.
 
 ## Review Procedure
@@ -25,30 +25,38 @@ allowed-tools: Bash(bash:*)
    `CONTRIBUTING.md`, `.golangci.yml`, the neighbors. They fix the report
    language, error style, and test style, and they outrank every rule here —
    [go-style-core](../go-style-core/SKILL.md) "House Style Wins".
-3. From the project, run `bash <installed-skill-dir>/scripts/pre-review.sh ./...` plus
-   `go fix -diff` over the packages in scope. Never spend review attention on
-   what a tool reports.
-4. **Subtract first**: before any style row, ask of each added block what could
-   stop existing — the Less Code section below. Unneeded growth is a Should Fix.
-5. Read the scope file-by-file; for each file, check the categories below in order
-6. Report every finding, at every severity — one you could not prove is
-   `plausible`, never dropped; filtering is the reader's pass, not yours
+3. Select evidence through [go-linting](../go-linting/SKILL.md): repository gate,
+   requested scope, and reusable results for unchanged code. Do not add this
+   skill's defaults to a narrower repository gate. Attribute tool findings to
+   the diff and distinguish pre-existing issues.
+4. Review correctness and affected contracts first. For added mechanisms,
+   consider the Less Code section when it identifies unnecessary complexity.
+   Growth alone is not a defect.
+5. Read the scope file-by-file and check the applicable categories below.
+6. Report supported findings at the requested severities. Separate material
+   unresolved hypotheses from required fixes; identify the missing evidence.
+   Honor the user's filters and omit unsupported style speculation.
 7. Report through `assets/review-template.md`, grouped by severity; findings
    carry the information, prose stays short ([go-style-core](../go-style-core/SKILL.md#how-much-to-say))
 
 > **Validation**: Every finding names a file and line, and carries its
-> `verified` / `plausible` marker — a guess dressed as `verified` costs trust.
+> evidence: an executed check, a static proof tracing the relevant path, or an
+> unresolved hypothesis. Static reasoning can prove a bug without a runtime run.
 > Name the checks you actually ran; a linter that was not installed or tests
 > that did not run are `unavailable`, never presented as clean.
 >
 > **Depth**: a fast pass over the whole diff, then a deep pass over the
 > risk-ordered files — the fast pass does not need a high reasoning-effort setting.
 
+A review-only request remains read-only. Implement fixes only when the user
+also authorized them; preserve unrelated work and do not expand a review into
+package-wide formatting, documentation, or modernization.
+
 ---
 
 ## Less Code
 
-- [ ] **Subtract first**: for each added block, what can stop existing? Name the cut tag and show the shorter form; the hunt list and the reach-for table live with the owner → [go-code-refactor](../go-code-refactor/SKILL.md#delete-before-you-restructure)
+- [ ] **Unnecessary mechanisms**: identify the extra complexity and a clearer whole operation; use cut tags only for a requested complexity audit → [go-code-refactor](../go-code-refactor/SKILL.md#delete-before-you-restructure)
 - [ ] **Shorter only where it reads as well**: never golf; validation at trust boundaries, data-loss error handling, and security checks are never "simplified" away, nor are the tests that fail when the logic breaks → [go-code-refactor](../go-code-refactor/references/OVER-ENGINEERING.md)
 
 ---
@@ -72,7 +80,7 @@ allowed-tools: Bash(bash:*)
 
 ## Error Handling
 
-- [ ] **Handle errors**: No discarded errors with `_`; handle, return, or (exceptionally) panic → [go-error-handling](../go-error-handling/SKILL.md)
+- [ ] **Handle errors**: Handle or return actionable failures; explain intentional discards whose failure cannot change the outcome → [go-error-handling](../go-error-handling/SKILL.md)
 - [ ] **Error strings**: Lowercase, no punctuation (unless starting with proper noun/acronym) → [go-error-handling](../go-error-handling/SKILL.md)
 - [ ] **In-band errors**: No magic values (-1, "", nil); use multiple returns with error or ok bool → [go-error-handling](../go-error-handling/SKILL.md)
 - [ ] **Indent error flow**: Handle errors first and return; keep normal path at minimal indentation → [go-error-handling](../go-error-handling/SKILL.md)
@@ -81,7 +89,7 @@ allowed-tools: Bash(bash:*)
 
 ## Naming
 
-- [ ] **MixedCaps**: Use `MixedCaps` or `mixedCaps`, never underscores; unexported is `maxLength` not `MAX_LENGTH` → [go-naming](../go-naming/SKILL.md)
+- [ ] **MixedCaps**: Use `MixedCaps` or `mixedCaps` while preserving documented repository, test, generated, and interop exceptions → [go-naming](../go-naming/SKILL.md)
 - [ ] **Initialisms**: Keep consistent case: `URL`/`url`, `ID`/`id`, `HTTP`/`http` (e.g., `ServeHTTP`, `xmlHTTPRequest`) → [go-naming](../go-naming/SKILL.md)
 - [ ] **Variable names**: Short names for limited scope (`i`, `r`, `c`); longer names for wider scope → [go-naming](../go-naming/SKILL.md)
 - [ ] **Receiver names**: One or two letter abbreviation of type (`c` for `Client`); no `this`, `self`, `me`; consistent across methods → [go-naming](../go-naming/SKILL.md)
@@ -94,22 +102,22 @@ allowed-tools: Bash(bash:*)
 
 - [ ] **Goroutine lifetimes**: Clear when/whether goroutines exit; document if not obvious → [go-concurrency](../go-concurrency/SKILL.md)
 - [ ] **Synchronous functions**: Prefer sync over async; let callers add concurrency if needed → [go-concurrency](../go-concurrency/SKILL.md)
-- [ ] **Contexts**: First parameter; not in structs; no custom Context types; pass even if you think you don't need to → [go-context](../go-context/SKILL.md)
+- [ ] **Contexts**: Propagate cancellation/deadlines where work uses them; preserve required signatures and avoid unused context on pure helpers → [go-context](../go-context/SKILL.md)
 
 ---
 
 ## Interfaces
 
-- [ ] **Interface location**: Define in consumer package, not implementor; return concrete types from producers → [go-interfaces](../go-interfaces/SKILL.md)
+- [ ] **Interface location**: Define new substitution boundaries at consumers; choose concrete versus interface returns from the intended public contract → [go-interfaces](../go-interfaces/SKILL.md)
 - [ ] **No premature interfaces**: Don't define before used; don't define "for mocking" on implementor side → [go-interfaces](../go-interfaces/SKILL.md)
-- [ ] **Receiver type**: Use pointer if mutating, has sync fields, or is large; value for small immutable types; don't mix → [go-interfaces](../go-interfaces/SKILL.md)
+- [ ] **Receiver type**: Check copying safety and required method sets; do not change interface satisfaction for consistency alone → [go-interfaces](../go-interfaces/SKILL.md)
 
 ---
 
 ## Data Structures
 
-- [ ] **Empty slices**: Prefer `var t []string` (nil) over `t := []string{}` (non-nil zero-length) → [go-data-structures](../go-data-structures/SKILL.md)
-- [ ] **Copying**: Be careful copying structs with pointer/slice fields; don't copy `*T` methods' receivers by value → [go-data-structures](../go-data-structures/SKILL.md)
+- [ ] **Empty slices**: Preserve the required nil/empty representation and encoder semantics → [go-data-structures](../go-data-structures/SKILL.md)
+- [ ] **Copying**: Check nested references and no-copy contracts; pointer receivers alone do not forbid copying → [go-data-structures](../go-data-structures/SKILL.md)
 
 ---
 
@@ -188,8 +196,8 @@ allowed-tools: Bash(bash:*)
 
 ## Generics
 
-- [ ] **When to use**: Only when multiple types share identical logic and interfaces don't suffice → [go-generics](../go-generics/SKILL.md)
-- [ ] **Type aliases**: Use definitions for new types; aliases only for package migration → [go-generics](../go-generics/SKILL.md)
+- [ ] **When to use**: Honor an explicit generic API; otherwise generalize shared logic only when callers need it and an interface does not suffice → [go-generics](../go-generics/SKILL.md)
+- [ ] **Type aliases**: Definitions create distinct types; aliases preserve identity for migration or a useful public contract → [go-generics](../go-generics/SKILL.md)
 
 ---
 
@@ -198,7 +206,7 @@ allowed-tools: Bash(bash:*)
 - [ ] **Examples**: Include runnable `Example` functions or tests demonstrating usage → [go-documentation](../go-documentation/SKILL.md)
 - [ ] **Useful test failures**: Messages include what was wrong, inputs, got, and want; order is `got != want` → [go-testing](../go-testing/SKILL.md)
 - [ ] **TestMain**: Use only when all tests need common setup with teardown; prefer scoped helpers first → [go-testing](../go-testing/SKILL.md)
-- [ ] **Real transports**: Prefer `httptest.NewTestServer(t, h)` + real client over mocking HTTP → [go-testing](../go-testing/SKILL.md)
+- [ ] **HTTP transport**: Use a production client; `NewTestServer` defaults to in-memory networking, while socket/TLS behavior needs a real-network server → [go-testing](../go-testing/SKILL.md)
 - [ ] **Test context**: Tests use `t.Context()`, not `context.Background()` → [go-testing](../go-testing/SKILL.md)
 - [ ] **No sleep-based waits**: Timing tests use `synctest`, not `time.Sleep` → [go-testing](../go-testing/SKILL.md)
 
@@ -206,14 +214,11 @@ allowed-tools: Bash(bash:*)
 
 ## Automated Checks
 
-```bash
-bash scripts/pre-review.sh ./...   # gofmt + go vet + golangci-lint (--json for structured output)
-go fix -diff ./...                 # pending modernizations
-go test -race ./...                # required if the diff touches goroutines
-```
-
-Fix everything these report before the checklist — a human review of
-machine-detectable defects (`gofmt` included) is wasted attention.
+Use the scope and commands selected by [go-linting](../go-linting/SKILL.md).
+Resolve bundled scripts relative to the installed skill directory and run
+against the target project. Reuse observed results for unchanged code. Report
+attributable diagnostics and unavailable checks; only fix them in authorized
+fix mode. A clean tool run does not replace review of contracts it cannot test.
 
 ---
 

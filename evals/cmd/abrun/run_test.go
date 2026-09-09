@@ -54,7 +54,7 @@ func Value() int { return 2 }
 	}{
 		{name: "name collision", source: collision, harness: true, edited: true, status: "HRN"},
 		{name: "real regression", source: regression, behavior: true, edited: true, gate: true, status: "ERR"},
-		{name: "empty diff", gate: true, status: "ERR"},
+		{name: "empty diff", gate: true, status: "ok "},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			bin, corpus, model := t.TempDir(), t.TempDir(), t.TempDir()
@@ -96,7 +96,7 @@ printf '%s\n' '{"type":"result","result":"Rewrote the helper; 3 lines now."}'
 			if got.LineGatePass != tt.gate {
 				t.Errorf("runOne(%s) line_gate_pass=%v (Δlines %+d), want %v", tt.name, got.LineGatePass, got.Delta.Lines, tt.gate)
 			}
-			if status := resultStatus(got); status != tt.status {
+			if status := resultStatus(got, corpusRefactor); status != tt.status {
 				t.Errorf("resultStatus(%s) = %q, want %q", tt.name, status, tt.status)
 			}
 			if !got.ReportedCounts {
@@ -112,13 +112,13 @@ printf '%s\n' '{"type":"result","result":"Rewrote the helper; 3 lines now."}'
 				t.Errorf("trace = %q, err = %v, want the session transcript", trace, err)
 			}
 
-			summary := summarizeArm(report{Results: []result{got}}, "baseline")
+			summary := summarizeArm(report{Corpus: corpusRefactor, Results: []result{got}}, "baseline")
 			if summary.HarnessFailures != boolCount(tt.harness) || summary.BehaviorFailures != boolCount(tt.behavior) {
 				t.Errorf("summary harness=%d behavior=%d, want %d and %d",
 					summary.HarnessFailures, summary.BehaviorFailures, boolCount(tt.harness), boolCount(tt.behavior))
 			}
-			if summary.Valid != 0 {
-				t.Errorf("summary valid = %d, want 0: no run here yields a usable behavioral verdict", summary.Valid)
+			if want := boolCount(tt.status == "ok "); summary.Valid != want {
+				t.Errorf("summary valid = %d, want %d", summary.Valid, want)
 			}
 		})
 	}
@@ -129,6 +129,42 @@ func boolCount(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+func TestRunOneNoOpNeedsCompletionAndRefactorCorpus(t *testing.T) {
+	for _, tt := range []struct {
+		name, corpus, fixture, final string
+		golden, empty, valid         bool
+	}{
+		{name: "completed refactor", corpus: corpusRefactor, fixture: "return 1", final: `{"type":"result","result":"No change needed."}`, golden: true, empty: true, valid: true},
+		{name: "missing completion", corpus: corpusRefactor, fixture: "return 1", golden: true},
+		{name: "implementation no edit with passing golden", corpus: corpusImplement, fixture: "return 1", final: `{"type":"result","result":"Done."}`, golden: true, empty: true},
+		{name: "unimplemented stub", corpus: corpusImplement, fixture: `panic("not implemented")`, final: `{"type":"result","result":"Done."}`, empty: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			bin, corpus := t.TempDir(), t.TempDir()
+			cli := filepath.Join(bin, "claude")
+			writeTestFile(t, cli, "#!/bin/sh\nprintf '%s\\n' \"$ABRUN_TEST_FINAL\"\n")
+			if err := os.Chmod(cli, 0o700); err != nil { //nolint:gosec // private test CLI must be executable
+				t.Fatal(err)
+			}
+			t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("ABRUN_TEST_FINAL", tt.final)
+			writeTestFile(t, filepath.Join(corpus, "task/task.go"), "package task\nfunc Value() int { "+tt.fixture+" }\n")
+			writeTestFile(t, filepath.Join(corpus, "_golden/task/golden_test.go"), `package task; import "testing"; func TestValue(t *testing.T) { if Value()!=1 { t.Fatal("golden mismatch") } }`)
+			got := runOne(options{corpus: tt.corpus, runner: runnerClaude, prompt: "%s", timeout: time.Minute}, corpus, arm{Name: "baseline"}, "task", 0)
+			if got.Err != "" || !got.Build || got.Edited || got.Golden != tt.golden || got.EmptyDiff != tt.empty {
+				t.Fatalf("runOne(%s) = %+v, want no error, build, no edit, golden=%v, empty=%v", tt.name, got, tt.golden, tt.empty)
+			}
+			if valid := resultStatus(got, tt.corpus) == "ok "; valid != tt.valid {
+				t.Errorf("resultStatus(%s) valid=%v, want %v", tt.name, valid, tt.valid)
+			}
+			summary := summarizeArm(report{Corpus: tt.corpus, Results: []result{got}}, "baseline")
+			if summary.Valid != boolCount(tt.valid) || summary.NoEdit != 1 || summary.EmptyDiffs != boolCount(tt.empty) {
+				t.Errorf("summarizeArm(%s) = %+v, want valid=%v, noedit=1, empty=%v", tt.name, summary, tt.valid, tt.empty)
+			}
+		})
+	}
 }
 
 func TestRunOneValidatesModelTestsAndKeepsSource(t *testing.T) {
@@ -178,7 +214,7 @@ fi
 			if got.Err != "" || !got.Build || !got.Golden || !got.Edited {
 				t.Fatalf("runOne(%s) = %+v, want edited, built and golden pass", tt.name, got)
 			}
-			if valid := resultStatus(got) == "ok "; valid != tt.valid {
+			if valid := resultStatus(got, corpusRefactor) == "ok "; valid != tt.valid {
 				t.Errorf("runOne(%s) valid=%v, want %v", tt.name, valid, tt.valid)
 			}
 			wantTests := "pass"
@@ -190,7 +226,7 @@ fi
 			if got.ModelTests != wantTests || (got.ModelTestFail != "") != !tt.valid {
 				t.Errorf("model tests=%q failure=%q, want %q with failure=%v", got.ModelTests, got.ModelTestFail, wantTests, !tt.valid)
 			}
-			summary := summarizeArm(report{Results: []result{got}}, "baseline")
+			summary := summarizeArm(report{Corpus: corpusRefactor, Results: []result{got}}, "baseline")
 			if valid := summary.Valid == 1; valid != tt.valid {
 				t.Errorf("summary valid=%v, want %v", valid, tt.valid)
 			}

@@ -36,13 +36,38 @@ func TestResultStatus(t *testing.T) {
 		{name: "build failure", in: result{Golden: true, Edited: true}, want: "ERR"},
 		{name: "golden failure", in: result{Build: true, Edited: true}, want: "ERR"},
 		{name: "no edit", in: result{Build: true, Golden: true}, want: "ERR"},
+		{name: "completed no-op", in: result{Build: true, Golden: true, EmptyDiff: true}, want: "ok "},
+		{name: "no-op runner error", in: result{Build: true, Golden: true, EmptyDiff: true, Err: "failed"}, want: "ERR"},
+		{name: "no-op build failure", in: result{Golden: true, EmptyDiff: true}, want: "ERR"},
+		{name: "no-op golden failure", in: result{Build: true, EmptyDiff: true}, want: "ERR"},
+		{name: "no-op model test failure", in: result{Build: true, Golden: true, EmptyDiff: true, ModelTests: "fail"}, want: "ERR"},
+		{name: "no-op leak", in: result{Build: true, Golden: true, EmptyDiff: true, Leaked: true}, want: "ERR"},
 		{name: "repository reference", in: result{Build: true, Golden: true, Edited: true, Leaked: true}, want: "ERR"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := resultStatus(tt.in); got != tt.want {
+			if got := resultStatus(tt.in, corpusRefactor); got != tt.want {
 				t.Errorf("resultStatus(%+v) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSummarizeArmCompletedNoOp(t *testing.T) {
+	for _, corpus := range []string{corpusRefactor, corpusImplement} {
+		t.Run(corpus, func(t *testing.T) {
+			rep := report{Corpus: corpus, Results: []result{
+				{Arm: "baseline", Build: true, Golden: true, Edited: true, Delta: metrics{Lines: -10}},
+				{Arm: "baseline", Build: true, Golden: true, EmptyDiff: true, LineGatePass: true},
+			}}
+			got := summarizeArm(rep, "baseline")
+			wantValid := 1
+			if corpus == corpusRefactor {
+				wantValid = 2
+			}
+			if got.Valid != wantValid || got.Lines != -10 || got.NoEdit != 1 || got.EmptyDiffs != 1 || got.LineGatePasses != 1 {
+				t.Errorf("summarizeArm(%s) = %+v, want valid=%d, lines=-10, noedit=1, empty=1, linegate=1", corpus, got, wantValid)
 			}
 		})
 	}

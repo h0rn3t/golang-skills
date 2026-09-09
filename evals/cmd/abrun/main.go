@@ -257,10 +257,8 @@ type result struct {
 	// ModelTests is pass, fail, or skipped (no test files). Older reports omit it.
 	ModelTests    string `json:"model_tests,omitempty"`
 	ModelTestFail string `json:"model_test_failure,omitempty"`
-	// Edited reports whether the fixture files actually changed. A session that
-	// touched nothing and reported success is not a behavior-preserving refactor
-	// with a zero delta; it is a run that never happened where it was measured,
-	// and averaging it in would hide that as a tie.
+	// Edited reports whether the fixture files actually changed. A completed
+	// empty diff can be a valid refactor; implementation tasks require an edit.
 	Edited bool `json:"edited"`
 	// Leaked reports that the transcript mentions the fixture corpus in the
 	// repository rather than the scratch copy. The hidden golden test sits there
@@ -281,10 +279,9 @@ type result struct {
 	// concision gate's own criterion measured the way analyze measures it. It is
 	// not a validity verdict — read it next to Build, Golden and Edited.
 	LineGatePass bool `json:"line_gate_pass"`
-	// EmptyDiff is a session that ran to completion and deliberately left every
-	// file as it found it. Edited==false with an error is a different thing: a
-	// session that never got as far as writing, which is why this is its own
-	// field rather than the negation of Edited.
+	// EmptyDiff reports an unchanged fixture after a session returned a final
+	// message without error. It does not establish intent or replace test gates.
+	// Older reports without this completion evidence keep no-edit runs invalid.
 	EmptyDiff bool `json:"empty_diff"`
 	// ReportedCounts reports whether the final message stated a line count or
 	// delta. It reads the model's prose, so it measures what the session
@@ -405,7 +402,7 @@ func run(o options) error {
 		mu.Lock()
 		defer mu.Unlock()
 		rep.Results[i] = res
-		printResult(res, o.verbose)
+		printResult(res, o.corpus, o.verbose)
 	})
 	rep.Finished = time.Now()
 
@@ -753,7 +750,7 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 	// session and again after a repair turn, so the recorded numbers always
 	// describe the tree as the run left it. It reports false when the run
 	// cannot continue.
-	measure := func() bool {
+	measure := func(final string) bool {
 		if afterDigest, err := fixtureDigest(pkgDir); err == nil {
 			res.Edited = afterDigest != beforeDigest
 		} else if res.Err == "" {
@@ -770,7 +767,7 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		res.After = after
 		res.Delta = after.sub(before)
 		res.LineGatePass = res.Delta.Lines <= 0
-		res.EmptyDiff = !res.Edited && res.Err == ""
+		res.EmptyDiff = !res.Edited && res.Err == "" && final != ""
 		res.GoFail, res.Build = "", false
 		if err := goCmd(o.timeout, work, "build", "./..."); err != nil {
 			res.GoFail = err.Error()
@@ -797,7 +794,7 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		res.Trace = filepath.Join(work, traceFile)
 	}
 	res.Leaked = bytes.Contains(turn.out, []byte(abDir))
-	if !measure() {
+	if !measure(turn.final) {
 		return res
 	}
 
@@ -827,7 +824,7 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 			if bytes.Contains(repair.out, []byte(abDir)) {
 				res.Leaked = true
 			}
-			if !measure() {
+			if !measure(repair.final) {
 				return res
 			}
 		}
@@ -1531,8 +1528,8 @@ func firstLine(s string) string {
 	return s
 }
 
-func printResult(r result, verbose bool) {
-	status := resultStatus(r)
+func printResult(r result, corpus string, verbose bool) {
+	status := resultStatus(r, corpus)
 	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  exp %+d  branch %+d  build=%v model_tests=%s golden=%v gate=%v skills=%v",
 		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Funcs, r.Delta.Exported, r.Delta.Branches, r.Build, r.ModelTests, r.Golden, r.LineGatePass, r.Skills)
 	if r.Err != "" {
@@ -1568,11 +1565,14 @@ func printResult(r result, verbose bool) {
 // own label rather than being folded into ERR: it is still excluded from the
 // means, because the run produced no behavioral verdict, but the reason it was
 // excluded is the harness and not the model, and only the label carries that.
-func resultStatus(r result) string {
+func resultStatus(r result, corpus string) string {
 	if r.HarnessFailure {
 		return "HRN"
 	}
-	if r.Err != "" || !r.Build || !r.Golden || r.ModelTests == "fail" || !r.Edited || r.Leaked {
+	if r.Err != "" || !r.Build || !r.Golden || r.ModelTests == "fail" || r.Leaked {
+		return "ERR"
+	}
+	if !r.Edited && (corpus != corpusRefactor || !r.EmptyDiff) {
 		return "ERR"
 	}
 	return "ok "
@@ -1684,7 +1684,7 @@ func summarizeArm(rep report, name string) armSummary {
 		if r.Leaked {
 			summary.Leaked++
 		}
-		if resultStatus(r) != "ok " {
+		if resultStatus(r, rep.Corpus) != "ok " {
 			continue
 		}
 		summary.Valid++
@@ -1731,10 +1731,9 @@ func printSummary(rep report) {
 			mean(summary.Lines), mean(summary.Types), mean(summary.Interfaces), mean(summary.Funcs), mean(summary.Pattern),
 			mean(summary.Exported), mean(summary.Branches),
 			percent(summary.Build), percent(summary.Golden), percent(summary.SkillFired), cost)
-		// Neither of these belongs in a column: they are not a worse score, they
-		// are a reason to distrust the row above them and go read the report.
+		// Keep no-op frequency visible even when valid refactors enter the mean.
 		if summary.NoEdit > 0 {
-			fmt.Printf("%-24s   %d run(s) changed no file, %d of them deliberately\n", "", summary.NoEdit, summary.EmptyDiffs)
+			fmt.Printf("%-24s   %d run(s) changed no file, %d after a session without errors\n", "", summary.NoEdit, summary.EmptyDiffs)
 		}
 		if summary.Leaked > 0 {
 			fmt.Printf("%-24s   %d run(s) referenced the repository and were excluded\n", "", summary.Leaked)

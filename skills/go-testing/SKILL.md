@@ -71,6 +71,10 @@ time advances only when every goroutine in the bubble is durably blocked. That
 turns a two-second timeout test into a microsecond one, deterministically.
 `go fix -testingcontext ./...` rewrites the `context.WithCancel` form.
 
+Choose transport by the assertion: `NewTestServer` is useful for handler/client
+contracts; real sockets, TLS handshakes, and connection deadlines require an
+appropriately configured network test server such as `NewServer`/`NewTLSServer`.
+
 ---
 
 ## Useful Test Failures
@@ -108,8 +112,10 @@ if diff := cmp.Diff(want, got); diff != "" {
 ```
 
 For protocol buffers, add `protocmp.Transform()` as a cmp option. Always
-include the direction key `(-want +got)` in diff messages. Avoid comparing
-JSON/serialized output — compare semantically instead.
+include the direction key `(-want +got)` in diff messages. Compare internal
+values semantically. When serialization is the contract, also test the wire
+representation: nil/empty, field names, headers, status, and documented error
+text. Do not decode away a distinction the public API promises to preserve.
 
 ---
 

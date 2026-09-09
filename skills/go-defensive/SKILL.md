@@ -24,12 +24,12 @@ When hardening code at API boundaries, check in this order:
 ```
 Reviewing an API boundary?
 ├─ 1. Error handling     → Return errors; don't panic (see go-error-handling)
-├─ 2. Input validation   → Copy slices/maps received from callers
-├─ 3. Output safety      → Copy slices/maps before returning to callers
+├─ 2. Input ownership    → Copy retained data when callers keep mutation rights
+├─ 3. Output ownership   → Copy internal data when callers need independent mutation
 ├─ 4. Resource cleanup   → Use defer for Close/Unlock/Cancel
 ├─ 5. Interface checks   → Route compile-time assertions to go-interfaces
 ├─ 6. Time correctness   → Use time.Time and time.Duration, not int/float
-├─ 7. Enum safety        → Zero value must mean unset (see go-style-core)
+├─ 7. Enum safety        → Choose useful default or unset by contract (go-style-core)
 ├─ 8. Crypto safety      → crypto/rand for keys, never math/rand
 └─ 9. Path safety        → os.Root for caller-supplied paths
 ```
@@ -40,15 +40,15 @@ Reviewing an API boundary?
 
 | Pattern | Rule | Details |
 |---------|------|---------|
-| Boundary copies | `slices.Clone` / `maps.Clone` on receive and return | [BOUNDARY-COPYING.md](references/BOUNDARY-COPYING.md) |
+| Boundary copies | Copy to the depth required by independent ownership | [BOUNDARY-COPYING.md](references/BOUNDARY-COPYING.md) |
 | Untrusted paths | `os.Root`, never `filepath.Join` + `os.Open` | Below |
 | Defer cleanup | `defer f.Close()` right after `os.Open` | Below |
 | Interface check | Compile-time satisfaction assertion | See go-interfaces |
 | Time types | `time.Time` / `time.Duration`, never raw int | [TIME-ENUMS-TAGS.md](references/TIME-ENUMS-TAGS.md) |
-| Enum start | Zero value must mean "unset" | See go-style-core |
+| Enum start | Preserve a useful zero default; otherwise reserve unset | See go-style-core |
 | Crypto rand | `crypto/rand` for keys, never `math/rand` | Below |
 | Must functions | Only at init; panic on failure | [MUST-FUNCTIONS.md](references/MUST-FUNCTIONS.md) |
-| Panic/recover | Never expose panics across packages | [PANIC-RECOVER.md](references/PANIC-RECOVER.md) |
+| Panic/recover | Return ordinary failures; recover only at a defined containment boundary | [PANIC-RECOVER.md](references/PANIC-RECOVER.md) |
 | Mutable globals | Replace with dependency injection | Below |
 
 ---
@@ -61,7 +61,7 @@ Reviewing an API boundary?
 | Bare `x.(T)` assertion | Use comma-ok; reflection code prefers `reflect.TypeAssert[T]` (Go 1.25+, see [go-interfaces](../go-interfaces/SKILL.md)) |
 | `append` aliasing | Both slices share the backing array while capacity allows. `s[:len(s):len(s)]` only caps capacity so the next `append` reallocates — existing elements still alias; `slices.Clone(s)` is the copy (see [go-data-structures](../go-data-structures/SKILL.md)) |
 | `int64` to `int32` without a bounds check | Values wrap silently; compare against `math.MaxInt32`/`math.MinInt32` first |
-| Float `==` | Use an epsilon comparison; exact money math needs integer units or `math/big` |
+| Float comparison | Preserve exact comparisons required by the contract; approximate results need domain-chosen absolute/relative tolerances and explicit NaN/Inf handling. Money needs exact units or arithmetic |
 | `defer` in a loop | Calls fire at function exit, not per iteration — extract the body (behavior note in [go-code-refactor](../go-code-refactor/references/BEHAVIOR-TRAPS.md)) |
 | Nil channel | Send and receive block forever, so an unmade channel field is a hang, not an error — a deliberate `nil` in a `select` is the idiom for disabling that case (channel ownership: [go-concurrency](../go-concurrency/SKILL.md)) |
 | Integer division by zero | Panics; guard the divisor (float division yields `Inf`/`NaN` instead) |
@@ -76,9 +76,9 @@ owns when an assertion is appropriate and the exact assertion shape.
 
 ## Copy Slices and Maps at Boundaries
 
-Slices and maps contain pointers to underlying data. Copy at API boundaries to
-prevent unintended modifications. Use the stdlib clones — never a hand-written
-`make`+`copy` loop:
+Slices and maps reference underlying data. Copy when mutation must be independent;
+fresh caller-owned results, explicit ownership transfer, and documented shared
+views do not require a second copy. Stdlib clones implement shallow copying:
 
 ```go
 d.trips = slices.Clone(trips)      // receiving
@@ -121,15 +121,14 @@ type User struct {
 }
 ```
 
-Field tags are a **serialization contract** — renaming a struct field without
-updating the tag silently breaks wire compatibility. Treat tags as part of
-the public API for any type that crosses a serialization boundary.
+Field tags are a **serialization contract**. Preserve the wire name when
+renaming a Go field; changing or removing its tag can break compatibility.
 
 ## Start Enums at One
 
-An enum's zero value must not pass for a valid member — an unset field then
-reads as a real state at the boundary. [go-style-core](../go-style-core/SKILL.md)
-owns the `iota` form and the exception where zero is the sensible default.
+Reserve zero for unset when absence must be detected. Keep zero as a valid
+member when it is the useful documented default. [go-style-core](../go-style-core/SKILL.md)
+owns this choice and the `iota` form; do not renumber an existing wire enum.
 
 ## Time, Struct Tags, and Embedding
 
@@ -168,7 +167,7 @@ with `encoding/hex` or `encoding/base64`.
 
 ## Confine Filesystem Access
 
-When a path comes from a caller, request, or config file, open it through
+When an untrusted path must stay inside a designated directory, open it through
 `os.Root` (Go 1.24+) instead of `filepath.Join` + `os.Open`. `Root` resolves
 every component inside the directory, so `../../etc/passwd` and a symlink
 pointing out of the tree both fail instead of escaping.
@@ -202,7 +201,8 @@ func safelyDo(work *Work) {
 ```
 
 **Key rules:**
-- Never expose panics across package boundaries — always convert to errors
+- Return ordinary failures as errors. Convert only intentional internal panics
+  at the matching boundary; unexpected programming panics normally propagate.
 - Acceptable to panic in `init()` if a library truly cannot set itself up
 - Use recover to isolate panics in server goroutine handlers
 

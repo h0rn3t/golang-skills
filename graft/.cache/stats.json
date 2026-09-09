@@ -1,0 +1,15 @@
+{
+  "nodeCount": 491,
+  "edgeCount": 1017,
+  "languages": [
+    "go",
+    "python"
+  ],
+  "totalCount": 491,
+  "readyCount": 0,
+  "staleCount": 0,
+  "dirty": true,
+  "syncing": false,
+  "syncedAt": "2026-09-09T16:49:10.183Z",
+  "lastFile": "README.md"
+}

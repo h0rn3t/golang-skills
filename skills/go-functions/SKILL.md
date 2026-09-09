@@ -19,7 +19,8 @@ API conventions and preserve signatures unless changing them is in scope.
 
 ## Function Grouping and Ordering
 
-Organize functions in a file by these rules:
+When organizing new code without a local convention, use this rough order;
+do not reorder unrelated functions during a body-only change:
 
 1. Functions sorted in **rough call order**
 2. Functions **grouped by receiver**
@@ -55,8 +56,9 @@ func (r *SomeType) SomeLongFunctionName(
 }
 ```
 
-Add `/* name */` comments for ambiguous arguments, or better yet, replace naked
-`bool` parameters with custom types.
+For ambiguous call sites, first use clear local names or a short `/* name */`
+comment. Introduce a meaningful type when it improves the API contract, not
+merely because a parameter is a `bool`.
 
 ---
 

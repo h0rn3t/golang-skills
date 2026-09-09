@@ -92,10 +92,11 @@ that spans them.
 **How a skill fires.** claude, copilot and opencode all give the model a skill
 tool, and `abrun` records the calls. Codex has none: skills arrive as a listing
 in the system prompt and a skill fires when the model reads its `SKILL.md`
-through the shell, so the codex runner scores a skill from the command that
-opened it — and only from the command, never from its output, because a loaded
-`SKILL.md` names other skills and scanning the output would credit every one it
-mentions.
+through the shell. Codex read evidence requires a completed command with exit 0,
+a named skill path, and the matching frontmatter identity in returned output.
+An absent/failed read, echoed path, or cross-reference is not loading evidence.
+Partial reads without frontmatter may remain unverified. This is transcript
+evidence, not a cryptographic check of the file or proof that its rules were used.
 
 **Tools.** The claude arm is restricted to `Skill,Read,Glob,Grep,Edit,Write` and
 the copilot arm to the same surface under copilot's names
@@ -201,13 +202,12 @@ run was valid, because a gate met while behavior broke has to stay visible.
 Per run: recursive line delta, declared types, interfaces, functions,
 pattern-flavored identifiers, whether the package still builds, whether the
 golden test passes, session cost, and which `go-*` skills fired. Two guards sit
-beside them. A run is invalid if the fixture files are byte-identical
-afterwards, because a session that wrote nothing scores a zero delta on every
-metric and would otherwise average in as a behavior-preserving tie. `empty_diff`
-narrows that to the case worth reading: a session that ran to completion without
-an error and deliberately left every file alone, which is what a gate permitting
-an empty diff is supposed to produce and is not the same as a session that
-failed before it wrote anything. A run is
+beside them. An implementation run must edit the fixture. A refactor can leave
+it byte-identical when `empty_diff` records a final response without a session
+error; it must still pass build, model tests when present, and independent golden.
+Such completed no-ops enter structural means at zero delta and remain separately
+counted. Historical records lacking completion evidence stay conservatively
+excluded; a final message alone does not prove intent or correctness. A run is
 also invalid if its transcript mentions the repository path, since the hidden
 golden test lives there and a session that found its way back to the checkout
 is measuring nothing. The summary averages structural deltas only over runs
@@ -318,9 +318,99 @@ here to reproduce rather than replace the earlier file; a control is a property
 of the served model version, so date every one of them and re-measure before
 comparing a skill edit across runs rather than inheriting the number.
 
+## How much to run
+
+The grid is `fixtures × arms × n`, so the published 4 × 2 × 5 is forty full
+sessions and there is no cheaper version of that shape. Most skill edits do not
+need it and should not start there, because an edit that never loads, never
+fires or is never read costs exactly as much as one that works: the 2026-09-08
+copilot run spent eighty sessions on a tree whose router had not loaded, and the
+first implementation discovery run lost half its baseline arm to a skill that
+never fired. Four tiers, in order, and each one is allowed to end the work.
+
+**Tier 0 — no sessions.** `(cd .. && go test -count=1 ./...)` covers what a
+skill edit can break without a model in the loop: frontmatter, skill
+architecture, cross-references, rule ownership and the pinned reference
+regressions. `abrun` adds two more checks of its own before the first session —
+the [arm preconditions](#arm-preconditions), plus `splice`, which fails when the
+`## Workflow` anchor a variant is spliced against is missing. This tier costs
+nothing and catches the failure mode that costs the most.
+
+**Tier 1 — screening, two to ten sessions.** One fixture from the selection
+below, two arms, `-n 1 -keep`, and then read `trace.jsonl` rather than the
+summary table. The questions are whether the arm loaded, whether the skill
+fired, whether the session opened the edited block, and whether what it wrote
+follows it. All four are properties of a single session, so `n=1` answers them
+and a mean does not. Screening establishes no effect and a Tier 1 number is
+never published — but it is where an edit is allowed to die, and most of them
+should: the 2026-09-09 gate candidate was confirmed to have read its own block
+and still did not apply it, which is a complete result that needed no grid.
+
+**Tier 2 — decision, ten to twenty sessions.** Only the fixtures that separated
+the arms on this runner and model, `-arms reference,baseline`, `-n 5` or more.
+This is the first tier that produces a Δ with an interval, and `reference`
+versus `baseline` is the only pair that answers whether an edit improved the
+previous skill; `no-skill` versus `baseline` answers a different question and
+cannot stand in for it.
+
+**Tier 3 — publication, the full grid and a second runner.** Every fixture,
+`n≥5`, and a replay under a runner that does not share the first one's tool set.
+Required before a number leaves `docs/evidence/` for a README, a `CHANGELOG`
+entry or a skill's own prose, and not required for anything else.
+
+### Fixture selection
+
+A fixture whose arms did not separate on the last control for this runner and
+model measures nothing on it. Running it anyway buys variance and sessions, so
+tiers 1 and 2 spend them only where a gap has actually been recorded.
+
+| Runner · model · effort | Arms separated | Arms tied | `-tasks` for tiers 1–2 |
+| --- | --- | --- | --- |
+| codex · `gpt-5.6-luna` · medium | `report` −17.6 (−24.4 … −10.8), `dispatch` −5.8 (−10.4 … −1.2) | `pricing` +2.6, `store` −3.6 | `report,dispatch` |
+| claude · Opus 5 · default | `report` −16.6 (Welch −31.1 … −2.1) | `dispatch` +2.0, `pricing` −0.4, `store` −1.6 | `report` |
+| claude · Opus 5 · medium | none; `pricing` −9.2 at p = 0.06 is the closest | `dispatch` +3.4, `report` −5.1, `store` +0.8 | `pricing`, expecting no decision at `n=5` |
+| claude · Sonnet 5 | `store` −8.2 (−15.2 … −1.2) | `dispatch` −4.4, `pricing` −3.0, `report` +2.8 | `store` |
+| opencode · `minimax-m3` | `report` −16.4 (−29.5 … −3.3), `store` −9.4 (−18.2 … −0.6) | `pricing` (−19.5 … +5.9), `dispatch` (−4.9 … +6.5) | `report,store` |
+| `-corpus implement`, any model | `gateway` on Opus 5 | `feed`, `catalog`, `ledger`; on `gpt-5.6-luna` every fixture, saturated 20/20 | `gateway`, and only where the control is not saturated |
+
+How the table is used follows from four things about it.
+
+Every interval in it is unadjusted and descriptive at `n=5` across four
+fixtures. They are strong enough to choose where to spend the next sessions and
+not strong enough to be an effect; the report behind each row says so itself.
+
+A tie is not a weaker signal, it is a fixture with no room on that model.
+`pricing` has separated on nothing measured so far, and `dispatch` only on
+`gpt-5.6-luna`.
+
+A configuration missing from the table has no selection yet, and the first run
+on it is a Tier 3 control rather than a screen — a control is what the rows are
+made of.
+
+A row is dated because a control is a property of a served model version and
+drifts: the `gpt-5.6-luna` implementation control moved −1.3 lines across the
+corpus between two consecutive days. Re-measure the selection when the model
+version moves instead of inheriting the row.
+
+Selection cuts sessions, not conclusions. A Tier 3 claim still runs every
+fixture, because a fixture that ties is what makes "the corpus moved" mean
+anything.
+
 ## Running it
 
 ```bash
+# Tier 1: screening, one fixture, one pass per arm, trace kept.
+go run ./cmd/abrun -runner codex -model gpt-5.6-luna -effort medium \
+  -tasks report -arms reference,baseline \
+  -reference-root ../golang-skills-before \
+  -n 1 -j 2 -seed 1 -keep -out screen.json
+
+# Tier 2: decision, the fixtures that separate on this runner and model.
+go run ./cmd/abrun -runner codex -model gpt-5.6-luna -effort medium \
+  -tasks report,dispatch -arms reference,baseline \
+  -reference-root ../golang-skills-before \
+  -n 5 -j 4 -seed 1 -keep -out decision.json
+
 # Discover whether the current plugin beats no skill on these fixtures.
 go run ./cmd/abrun -arms no-skill,baseline -n 3 -j 4 \
   -model claude-opus-4-1-20250805 -seed 1 -out control.json

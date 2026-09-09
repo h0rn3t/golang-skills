@@ -25,8 +25,8 @@ The fix is an API that keeps the two apart, applied once at the boundary.
 
 [go-database](../../go-database/SKILL.md) owns the query form. The security
 half: placeholders cover **values** only. Anything that is part of the SQL
-grammar — table, column, sort direction, `LIMIT` — cannot be a placeholder and
-must come from a closed set:
+grammar — table name, column name, sort direction — must come from a closed
+set. Values, including PostgreSQL `LIMIT $2` and `OFFSET $3`, use placeholders:
 
 ```go
 var sortCols = map[string]string{"created": "created_at", "name": "name"}
@@ -47,9 +47,9 @@ rows, err := db.QueryContext(ctx, q, orgID) // col is ours; orgID is a placehold
 ## Command execution
 
 `exec.Command` passes each argument as one `argv` element; no shell is
-involved, so metacharacters are inert. Injection only appears when a shell is
-reintroduced (`sh -c`, `bash -c`, `cmd /C`) or when the **program name** comes
-from input.
+involved, so shell metacharacters are not re-parsed. The selected program may
+still interpret arguments as options, expressions, URLs, or special file names.
+Keep the program fixed and validate arguments against that program's grammar.
 
 ```go
 // ✗ Bad — shell parses the string; input can add commands
@@ -66,8 +66,10 @@ cmd.Env = []string{"PATH=/usr/bin"} // do not inherit secrets from os.Environ()
 Also:
 
 - Set `cmd.Dir` explicitly; inherit nothing from the request.
-- Validate file-like arguments with `os.Root` first when the program will open
-  them — the subprocess does not know about your root.
+- An `os.Root` check does not confine a subprocess that later reopens a path.
+  Pass an already-open file through stdin or an inherited descriptor when the
+  tool supports it; otherwise use a suitable sandbox or controlled staging
+  directory. Do not claim a prior path check prevents a later symlink race.
 - Use `CommandContext` so a hung child dies with the request.
 
 ---
@@ -125,7 +127,7 @@ from **inside** your network: cloud metadata endpoints (`169.254.169.254`),
 syntax, not intent.
 
 ```go
-func safeTarget(raw string) (*url.URL, error) {
+func safeTarget(ctx context.Context, raw string) (*url.URL, error) {
     u, err := url.Parse(raw)
     if err != nil || (u.Scheme != "https" && u.Scheme != "http") {
         return nil, fmt.Errorf("unsupported url %q", raw)
@@ -146,9 +148,11 @@ func safeTarget(raw string) (*url.URL, error) {
 ```
 
 The resolve-then-connect gap (DNS rebinding) is real: pin the checked address
-by setting `http.Transport.DialContext` to dial the vetted IP, or accept the
-residual risk explicitly. Where the set of legitimate hosts is known, an
-**allowlist of hostnames** replaces all of this and is the better default.
+by setting `http.Transport.DialContext` to dial the vetted IP while preserving
+the original TLS server name. Account for configured proxies, which may resolve
+or connect elsewhere. Where legitimate hosts are known, use a hostname allowlist;
+if the contract also forbids private destinations, enforce the address policy
+at connection time even for an allowed hostname.
 Disable redirects (`CheckRedirect` returning `http.ErrUseLastResponse`) or
 re-validate each hop; a public URL that 302s to `127.0.0.1` defeats the check.
 
@@ -156,8 +160,8 @@ re-validate each hop; a public URL that 302s to `127.0.0.1` defeats the check.
 
 ## Redirects and headers
 
-`net/http` rejects CR and LF in header values, so classic header injection is
-closed. What remains:
+`net/http` validates outgoing request headers and sanitizes CR/LF when writing
+response header values. This does not validate the meaning of a header. Check:
 
 - **Open redirect**: `http.Redirect(w, r, r.FormValue("next"), 302)` sends
   users to an attacker's site from your domain. Accept only relative paths
@@ -177,11 +181,11 @@ Decoders are parsers running on attacker bytes; bound them.
 | Input | Bound |
 |---|---|
 | Request body | `http.MaxBytesReader(w, r.Body, limit)` before any decode |
-| JSON | `dec.DisallowUnknownFields()`; reject on `dec.More()` after the value |
-| XML | never `xml.Unmarshal` on untrusted input without a size cap; entity expansion |
+| JSON | Apply [go-http's single-document decoder](../../go-http/SKILL.md#handler-shape): bound the body and require EOF after the value before side effects; `More` is not an end-of-document check |
+| XML | Bound input and application work; do not add entity resolution for untrusted documents |
 | Regex on input | RE2 is linear — Go's `regexp` is safe; a third-party PCRE engine is not |
 | `strconv.Atoi` into a size | range-check before `make([]T, n)` |
-| Multipart upload | `r.ParseMultipartForm(maxMemory)` and check `FileHeader.Size` |
+| Multipart upload | Cap the whole body with `http.MaxBytesReader` before parsing; `maxMemory` only controls memory versus disk storage. Remove parsed temporary files with `MultipartForm.RemoveAll` and enforce per-file limits |
 
 `encoding/gob` and any format that instantiates types from the wire must
 never see untrusted bytes — that is deserialization RCE in other languages and

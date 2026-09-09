@@ -1,0 +1,62 @@
+# evals/cmd/abrun/main.go
+
+- corpusPrompt · function · L78-L83 — func corpusPrompt(corpus string) string
+- options · struct · L125-L143 — options
+- main · function · L145-L174 — func main()
+- exitError · struct · L176-L179 — exitError
+- Error · method · L181-L181 — func (e exitError) Error() string
+- arm · struct · L187-L194 — arm
+- metrics · struct · L207-L230 — metrics
+- sub · method · L232-L244 — func (m metrics) sub(o metrics) metrics
+- result · struct · L247-L316 — result
+- report · struct · L318-L329 — report
+- job · struct · L331-L335 — job
+- run · function · L337-L423 — func run(o options) error
+- validateOptions · function · L425-L453 — func validateOptions(o options) error
+- missingRunner · function · L455-L466 — func missingRunner(runner string) string
+- buildJobs · function · L468-L482 — func buildJobs(arms []arm, tasks []string, reps int, seed int64) []job
+- validateFixtures · function · L484-L505 — func validateFixtures(abDir string, tasks []string) error
+- containsFile · function · L507-L519 — func containsFile(dir string, match func(string) bool) (bool, error)
+- findTasks · function · L523-L556 — func findTasks(abDir, only string) ([]string, error)
+- buildArms · function · L561-L629 — func buildArms(root, referenceRoot, variantsDir, only string) ([]arm, func(), error)
+- pluginDigest · function · L631-L666 — func pluginDigest(root string) (string, error)
+- selectArms · function · L669-L690 — func selectArms(arms []arm, only string) ([]arm, error)
+- splice · function · L693-L708 — func splice(path, text string) error
+- runOne · function · L712-L851 — func runOne(o options, abDir string, a arm, taskName string, rep int) (res result)
+- sessionTurn · struct · L855-L862 — sessionTurn
+- runSession · function · L865-L883 — func runSession(o options, a arm, work, prompt string) sessionTurn
+- merge · method · L889-L905 — func (r *result) merge(t sessionTurn)
+- appendTrace · function · L909-L919 — func appendTrace(work string, out []byte) error
+- probeGolden · function · L928-L953 — func probeGolden(timeout time.Duration, work, taskName, goldenDir string) (bool, string, error)
+- repairFeedback · function · L965-L982 — func repairFeedback(taskName string, start, current int, failure string) string
+- assertionsOnly · function · L986-L1002 — func assertionsOnly(failure string) string
+- claudeSession · function · L1007-L1035 — func claudeSession(o options, armDir, work, prompt string) ([]byte, error)
+- classifyGolden · function · L1051-L1059 — func classifyGolden(built bool, output string) (behavior, harness bool)
+- reportedCounts · function · L1069-L1074 — func reportedCounts(final string) bool
+- hideTestFiles · function · L1083-L1093 — func hideTestFiles(dir string) error
+- fixtureDigest · function · L1098-L1125 — func fixtureDigest(dir string) (string, error)
+- analyze · function · L1128-L1157 — func analyze(dir string) (metrics, error)
+- lineCount · function · L1159-L1168 — func lineCount(data []byte) int
+- countDecls · function · L1171-L1215 — func countDecls(file *ast.File, m *metrics)
+- branchCount · function · L1220-L1236 — func branchCount(file *ast.File) int
+- patternHits · function · L1239-L1247 — func patternHits(name string) int
+- parseClaudeStream · function · L1251-L1274 — func parseClaudeStream(out []byte) (skills []string, final string, cost float64)
+- skillCalls · function · L1278-L1300 — func skillCalls(v any) []string
+- checkArmFrontmatter · function · L1311-L1331 — func checkArmFrontmatter(armDir string) error
+- checkFrontmatter · function · L1336-L1360 — func checkFrontmatter(text string) error
+- armSkillNames · function · L1368-L1388 — func armSkillNames(armDir string) ([]string, error)
+- checkArmSkills · function · L1402-L1436 — func checkArmSkills(armName, armDir string, loaded []string, reason string) error
+- normalizeSkill · function · L1440-L1449 — func normalizeSkill(s string) string
+- claude · function · L1451-L1464 — func claude(timeout time.Duration, dir string, args ...string) ([]byte, error)
+- commandOutput · function · L1466-L1477 — func commandOutput(cmd *exec.Cmd) ([]byte, error)
+- goCmd · function · L1479-L1489 — func goCmd(timeout time.Duration, dir string, args ...string) error
+- repoRoot · function · L1491-L1497 — func repoRoot() (string, error)
+- forEach · function · L1500-L1511 — func forEach(parallel, n int, f func(int))
+- sortedKeys · function · L1513-L1520 — func sortedKeys(m map[string]bool) []string
+- firstLine · function · L1524-L1529 — func firstLine(s string) string
+- printResult · function · L1531-L1562 — func printResult(r result, corpus string, verbose bool)
+- resultStatus · function · L1568-L1579 — func resultStatus(r result, corpus string) string
+- armSummary · struct · L1581-L1618 — armSummary
+- skillFired · function · L1626-L1631 — func skillFired(corpus string, skills []string) bool
+- summarizeArm · function · L1633-L1700 — func summarizeArm(rep report, name string) armSummary
+- printSummary · function · L1705-L1751 — func printSummary(rep report)

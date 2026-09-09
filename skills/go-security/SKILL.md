@@ -80,8 +80,8 @@ out, err := exec.CommandContext(ctx, "git", "log", "--end-of-options", ref, "--"
   [go-database](../go-database/SKILL.md) owns the query form.
 - Templates: `html/template` escapes per context (attribute, URL, JS).
   `template.HTML(userInput)` opts out of that — treat it as a finding.
-- Headers: `net/http` rejects CR/LF in header values, so header injection is
-  closed; a `Location` built from input still enables open redirects —
+- Headers: `net/http` validates request headers and sanitizes response CR/LF;
+  this does not validate meaning. A `Location` built from input can enable open redirects —
   accept relative paths or an allowlist of hosts.
 
 Full patterns, including SSRF checks with `net/netip`, in
@@ -141,10 +141,10 @@ service third. An issue with no reachable input is reported as `not reachable`,
 not dropped — a `sh -c` on a constant string is ugly, not a vulnerability, and
 the reader decides whether it stays.
 
-> **Validation**: `golangci-lint run --enable-only gosec ./...` for the
-> mechanical findings, `govulncheck ./...` for dependencies, and `go test
-> -fuzz=FuzzParse -fuzztime=30s` on any hand-written parser at a boundary. Report
-> a skipped check as skipped.
+> **Validation**: Select checks and package scope through go-linting. Security
+> audits may need `gosec`, `govulncheck`, and focused parser fuzzing where an
+> actual fuzz target exists. Report the checks and bounds used; do not invent
+> `FuzzParse`, run unrelated packages, or treat absent tools as a clean result.
 
 Restraint never cuts a security control: the restraint ladder in
 [go-code-refactor](../go-code-refactor/SKILL.md) names them as the code that

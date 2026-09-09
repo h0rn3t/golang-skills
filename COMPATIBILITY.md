@@ -51,9 +51,9 @@ scope for this repository.
 
 | API | Replaces |
 |---|---|
-| `uuid` (`uuid.New`, `NewV4`, `NewV7`, `Parse`) | `github.com/google/uuid` for the common cases |
+| `uuid` (`New`, `NewV4`, `NewV7`, `Parse`, `MustParse`, `Nil`, `Max`, `Compare`) | `github.com/google/uuid` for the common cases |
 | `encoding/json/v2` + `encoding/json/jsontext` | `encoding/json` for new code that needs its semantics or streaming |
-| `httptest.NewTestServer(tb, handler)` | `httptest.NewServer` + `defer srv.Close()` |
+| `httptest.NewTestServer(tb, handler)` (in-memory; reached only via `srv.Client()`) | `httptest.NewServer` + `defer srv.Close()` |
 | `synctest.Sleep` | Real sleeps inside `synctest.Test` bubbles |
 | `strings.CutLast`, `bytes.CutLast` | `LastIndex` + manual slicing |
 | `url.URL.Clone`, `url.Values.Clone` | Hand-written deep copies at boundaries |
@@ -63,6 +63,7 @@ scope for this repository.
 | `math/rand/v2.(*Rand).N` | `rand.N` package function when you need an explicit source |
 | `crypto/mldsa`, `crypto.MLDSAMu` | Post-quantum signatures |
 | `database/sql/driver.RowsColumnScanner` | Per-column driver scanning |
+| `database/sql.ConvertAssign` | Reimplementing `Rows.Scan`'s conversions in a custom `sql.Scanner` |
 
 ### Go 1.26
 

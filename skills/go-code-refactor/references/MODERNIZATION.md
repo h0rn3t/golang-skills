@@ -41,8 +41,10 @@ Preview before applying; a scoped refactor does not authorize unrelated
 modernization. Keep mechanical changes distinguishable from hand edits.
 
 `go tool fix help` prints the set your toolchain actually has — trust that over
-any list, including this one. If a fixer produces something wrong, say so in
-the report instead of quietly reverting it.
+any list, including this one. Go 1.27 added `atomictypes`, `embedlit`,
+`slicesbackward`, and `unsafefuncs`, renamed `waitgroup` to `waitgroupgo`, and
+dropped `fmtappendf`. If a fixer produces something wrong, say so in the report
+instead of quietly reverting it.
 [go-linting](../../go-linting/SKILL.md) catalogues the current analyzers.
 
 ## Tier 1 — safe swaps

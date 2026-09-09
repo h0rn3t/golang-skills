@@ -104,12 +104,12 @@ round-trips over hand-implemented client mocks:
 
 ```go
 func TestAPIIntegration(t *testing.T) {
-    // Start a test server with a fake backend
-    srv := httptest.NewServer(newFakeHandler())
-    t.Cleanup(srv.Close)
+    // Start a test server with a fake backend; NewTestServer owns the cleanup
+    srv := httptest.NewTestServer(t, newFakeHandler())
 
-    // Use a real HTTP client against the test server
-    client := api.NewClient(srv.URL)
+    // Use the production client over the server's transport
+    httpClient := srv.Client() // starts the in-memory server and fills srv.URL
+    client := api.NewClient(httpClient, srv.URL)
     result, err := client.GetUser(t.Context(), "user-123")
     if err != nil {
         t.Fatalf("GetUser() error: %v", err)
@@ -122,8 +122,13 @@ func TestAPIIntegration(t *testing.T) {
 
 Using the production client with a test server ensures your test exercises as
 much real code as possible, avoiding the complexity of imitating client
-behavior. `t.Context()` requires Go 1.24 or newer; use an explicit context with
-cleanup-managed cancellation when maintaining older Go versions.
+behavior. `httptest.NewTestServer` (Go 1.27+) registers its own cleanup and
+serves over an in-memory network, which is what makes it usable inside a
+`synctest` bubble. That network is reachable only through `srv.Client()`: the
+server's URL is `http://example.com`, so a constructor that builds its own
+client from the URL alone reaches the real example.com and never the handler.
+Take an `*http.Client` as a parameter — the design this section is arguing for
+anyway — or stay on `httptest.NewServer`, which listens on loopback.
 
 ---
 

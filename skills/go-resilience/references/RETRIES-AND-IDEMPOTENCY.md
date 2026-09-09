@@ -92,9 +92,10 @@ retries must survive process restarts. Keep redirects and transport-level
 replays within the operation's intended destinations and side-effect contract.
 
 Inspect status/error before decoding. Close each discarded response inside its
-attempt scope, not with a loop-wide defer that accumulates bodies. For connection
-reuse, drain only within bounded size/time; do not consume an unbounded error
-stream just to preserve a connection. Release the dependency permit before
+attempt scope, not with a loop-wide defer that accumulates bodies. On Go 1.27
+the transport drains a discarded HTTP/1 body on `Close` within its own bounds
+(256 KiB, 50 ms), so closing is enough for reuse; never consume an unbounded
+error stream just to preserve a connection. Release the dependency permit before
 backoff, and reacquire before a later attempt.
 
 A successful `Client.Do` return still leaves a live response body. If a helper

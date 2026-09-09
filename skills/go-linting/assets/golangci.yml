@@ -46,7 +46,7 @@ linters:
             - pkg: golang.org/x/exp/maps
               desc: use maps from the standard library (Go 1.21+)
             - pkg: github.com/google/uuid
-              desc: use the standard library uuid for New/NewV4/NewV7/Parse (Go 1.27+); keep only for v1/v3/v5
+              desc: use the standard library uuid for New/NewV4/NewV7, Parse/MustParse, Nil/Max, Compare (Go 1.27+); keep only for v1/v3/v5
     errorlint:
       # %v at a system boundary is deliberate (go-error-handling); keep the
       # comparison and type-assertion checks, which are never deliberate.

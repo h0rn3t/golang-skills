@@ -137,8 +137,10 @@ For graceful shutdown, `signal.NotifyContext` owns the lifetime;
 - `http.NewRequestWithContext(ctx, ...)` — the ctx-less form is unbounded;
   `noctx` in the lint gate flags it.
 - `defer resp.Body.Close()` on every response, error or not (`bodyclose`
-  flags it). Bound untrusted bodies and close them on every path. Read to EOF
-  within that bound when possible so the connection can be reused.
+  flags it). Bound untrusted bodies and close them on every path. Go 1.27
+  drains an unread HTTP/1 body on `Close` — up to 256 KiB and 50 ms — to keep
+  the connection reusable, so closing is the whole obligation; a manual read to
+  EOF only buys reuse for responses past those bounds.
 - Check `resp.StatusCode` before decoding; a 5xx body is not your struct.
 - For retry eligibility, `Retry-After`, replay safety, and coordinated budgets,
   use [go-resilience](../go-resilience/SKILL.md). HTTP status alone does not

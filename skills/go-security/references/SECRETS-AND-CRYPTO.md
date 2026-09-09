@@ -148,7 +148,13 @@ srv := &http.Server{
 - `InsecureSkipVerify: true` outside a test with a local self-signed server is
   a finding, always. For a private CA, set `RootCAs`.
 - `GODEBUG=tlsrsakex=1`-style knobs re-enable removed weak options; treat
-  their presence in a Dockerfile as a finding.
+  their presence in a Dockerfile as a finding. Several of them (`tlsrsakex`,
+  `tls3des`, `tls10server`, `tlsunsafeekm`) were removed in Go 1.27, so a
+  surviving pin now breaks the build instead of weakening TLS quietly.
+- Go 1.27 makes `x509.SystemCertPool` honor `SSL_CERT_FILE` and `SSL_CERT_DIR`
+  on Windows and macOS as well as Linux: an environment variable can now
+  replace the platform trust store. Audit it wherever the environment is not
+  yours; `GODEBUG=x509sslcertoverrideplatform=0` restores the platform store.
 - mTLS: `ClientAuth: tls.RequireAndVerifyClientCert` with `ClientCAs`; identity
   comes from `r.TLS.PeerCertificates[0]`, never from a header.
 - FIPS 140-3: `GODEBUG=fips140=on` switches to the validated module; code

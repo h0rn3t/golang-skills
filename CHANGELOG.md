@@ -4,6 +4,39 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Go 1.27 conformance pass over the skills, verified against an installed
+  go1.27.1 rather than from memory. Every inline `(Go 1.xx)` claim already
+  matched `$(go env GOROOT)/api/go1.NN.txt`; the guidance around them did not.
+  `go-troubleshooting` still taught count-comparison as the only way to find a
+  goroutine leak, so it now leads with the `goroutineleak` profile and states
+  what it cannot prove, and its timer row no longer points at a `go` directive
+  that stopped mattering when 1.27 removed `asynctimerchan`. `go-testing`
+  contradicted its own table by demoing `httptest.NewServer` in a `*testing.T`
+  test; the example moves to `NewTestServer` and both files now carry the
+  constraint that makes the swap safe — the in-memory server answers only
+  `srv.Client()`, and its `srv.URL` of `http://example.com` sends a
+  self-built client to the real example.com. `go-http` and `go-resilience`
+  drop the manual read-to-EOF for connection reuse, which 1.27 does on `Close`
+  within 256 KiB and 50 ms. `go-generics` reshapes the `maphash.Hasher`
+  example: constrained to `any` rather than `comparable`, since a Hasher buys
+  what the built-in map cannot do, and with the hash method that shows how the
+  seam fits together.
+
+### Added
+
+- `go-linting` lists the modernizers 1.27 added — `atomictypes`,
+  `slicesbackward`, `unsafefuncs` — plus `reflecttypefor`, and records that
+  `waitgroup` became `waitgroupgo` and `fmtappendf` is gone, so a pinned
+  command naming either now fails. Smaller 1.27 items reach the skill that owns
+  them: goroutine labels in traceback headers and why the panicking goroutine
+  usually lacks them (`go-troubleshooting`), `SystemCertPool` honoring
+  `SSL_CERT_FILE` on Windows and macOS (`go-security`), `sql.ConvertAssign` and
+  `driver.RowsColumnScanner` (`go-database`), require-block consolidation in
+  `go mod tidy` (`go-packages`), and `go doc -ex` / `go doc pkg@version`
+  (`go-documentation`).
+
 ## [1.3.0] - 2026-09-09
 
 ### Added

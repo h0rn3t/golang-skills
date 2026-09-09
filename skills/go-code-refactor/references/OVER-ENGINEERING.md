@@ -157,7 +157,7 @@ code a swap may be observable; `MODERNIZATION.md` says what each can change.
 | A random-string generator; a UUID module for `New`/`Parse` | `crypto/rand.Text()` (Go 1.24); stdlib `uuid` (Go 1.27) |
 | A fan-out or no-op log handler | `slog.NewMultiHandler` (Go 1.26), `slog.DiscardHandler` (Go 1.24) → [go-logging](../../go-logging/SKILL.md) |
 | N near-identical test functions; hand-rolled teardown, temp dirs, env and cwd restore | One table with `t.Run`; `t.Cleanup`, `t.TempDir`, `t.Setenv`, `t.Chdir` (Go 1.24), `t.Context()` (Go 1.24) → [go-testing](../../go-testing/SKILL.md) |
-| `httptest.NewServer` + `defer srv.Close()`; HTTP mocks on a real client path | `httptest.NewTestServer(t, h)` (Go 1.27) |
+| `httptest.NewServer` + `defer srv.Close()`; HTTP mocks on a real client path | `httptest.NewTestServer(t, h)` (Go 1.27) — only when the caller can use `srv.Client()` |
 | `time.Sleep` waits in concurrency tests; a `b.N` loop | `testing/synctest` (Go 1.25); `b.Loop()` (Go 1.24) |
 
 A row that makes the call site read worse is skipped — the ladder minimizes

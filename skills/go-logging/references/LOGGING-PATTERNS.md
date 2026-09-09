@@ -99,7 +99,8 @@ needed. See [go-logging](../SKILL.md#fanning-out-to-several-sinks) for the share
 
 ## Testing with slogtest
 
-Go 1.22+ provides `testing/slogtest` to verify handler implementations:
+`testing/slogtest` verifies handler implementations — the package is Go 1.21+,
+the `Run` form below Go 1.22+:
 
 ```go
 package myhandler_test

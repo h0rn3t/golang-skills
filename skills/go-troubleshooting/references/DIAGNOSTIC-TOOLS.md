@@ -57,8 +57,15 @@ runtime` → "godebug"; a stale one in a Dockerfile is a finding for
 ```bash
 curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=2' > goroutines.txt
 curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=1' # grouped counts
+curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutineleak?debug=1' # Go 1.27+: leaked only
 go test -timeout 30s ./pkg             # on timeout: dump of every goroutine, then fail
 ```
+
+On `goroutineleak` (Go 1.27+): `debug=1` prints the leaked stacks, `debug=2`
+degrades to every goroutine in panic format, and the plain endpoint returns a
+pprof profile for `go tool pprof`. Every read runs a leak-detecting GC cycle
+first, so `Profile.Count()` reports the last cycle's number and stays at zero
+until the profile has been read once — take the total from the output.
 
 [SIGQUIT normally dumps stacks and exits](https://pkg.go.dev/os/signal#hdr-Default_behavior_of_signals_in_Go_programs).
 Only use `kill -QUIT <pid>` when termination is authorized; prefer the existing
@@ -71,7 +78,8 @@ buf := make([]byte, 1<<20)
 n := runtime.Stack(buf, true)            // true = all goroutines
 os.Stderr.Write(buf[:n])
 
-pprof.Lookup("goroutine").WriteTo(w, 2)  // same as ?debug=2, from inside the process
+pprof.Lookup("goroutine").WriteTo(w, 2)      // same as ?debug=2, from inside the process
+pprof.Lookup("goroutineleak").WriteTo(w, 1)  // Go 1.27+: leaked goroutines only
 ```
 
 Grouping a `debug=2` dump by top frame:

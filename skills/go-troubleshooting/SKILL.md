@@ -71,7 +71,7 @@ proving its cause. Keep mitigation and causal evidence separate.
 | Stage/prod/CI only | Running revision, effective settings, schema and matching control | A difference with a causal path to the failure |
 | Panic | Complete panic message and trace; `GOTRACEBACK=all` for a subsequent authorized run | Faulting operation and how its inputs arrived there |
 | Hang / no response | Existing admin `/debug/pprof/goroutine?debug=2` | Wait dependencies, lock owners, and missing progress |
-| Goroutine leak | Comparable goroutine dumps/counts over time | Stacks persisting beyond their intended lifetime |
+| Goroutine leak | `/debug/pprof/goroutineleak?debug=1` (Go 1.27+), else comparable goroutine dumps/counts over time | Goroutines the runtime proved can no longer unblock; stacks persisting beyond their intended lifetime |
 | Memory grows | Comparable heap profiles and GC/runtime/process memory metrics | Retained allocations vs churn vs memory outside the Go heap |
 | CPU pegged | Bounded CPU profile under the affected workload | Hot call paths and whether they make progress |
 | Latency spikes | Execution trace or available `FlightRecorder` snapshot | Scheduling, GC, synchronization, syscall delays |
@@ -97,6 +97,12 @@ suspected nil values against the matching source or debugger.
   a panic. Preserve the full panic/defer chain before adding recovery logic.
 - `debug.SetCrashOutput` (Go 1.23+) can preserve future crash output if adding
   crash capture is in scope; it cannot recover an already lost trace.
+- Go 1.27 prints `runtime/pprof` goroutine labels in traceback headers —
+  `goroutine 19 [chan receive] {request_id: "abc-123"}` — which attributes a
+  stack to its request or job. Missing labels prove nothing: `pprof.Do`
+  restores the previous set in a defer, so the panicking goroutine's own labels
+  are usually gone by the time its trace prints, while the other goroutines in
+  a `GOTRACEBACK=all` dump still carry theirs.
 
 ### Hangs and Goroutine Leaks
 
@@ -104,14 +110,26 @@ For an existing, authorized admin listener:
 
 ```bash
 curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=2' > goroutines.txt
+curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutineleak?debug=1' > leaks.txt
 ```
+
+The `goroutineleak` profile (Go 1.27+) replaces the count-comparison ritual for
+the cases it covers: it lists goroutines blocked on a primitive that can never
+unblock again, decided by GC reachability rather than by inference. What it
+reports is a leak. What it omits may still be one — a goroutine waiting on a
+channel a live object could theoretically still use is reachable, so an empty
+profile narrows the search instead of ending it. Two cautions: `debug=1` gives
+leaked stacks only, while `debug=2` falls back to dumping every goroutine; and
+reading the profile forces a leak-detecting GC cycle, so capture it
+deliberately rather than scraping it on an interval.
 
 A blocked goroutine can be an idle worker. Compare equivalent workload windows
 and expected lifetimes. Use full stacks to find the creator and wait partners;
-`debug=1` groups stacks with counts, while `debug=2` helps inspect individual
-waits. Two goroutines in `Lock` do not prove lock-order inversion: establish the
-ownership/wait cycle. A missing `ctx.Done()` matters when no other termination
-path satisfies the caller's lifetime. For a local hanging test,
+on the `goroutine` profile `debug=1` groups stacks with counts, while `debug=2`
+helps inspect individual waits. Two goroutines in `Lock` do not prove
+lock-order inversion: establish the ownership/wait cycle. A missing
+`ctx.Done()` matters when no other termination path satisfies the caller's
+lifetime. For a local hanging test,
 `go test -timeout 30s ./pkg` yields stacks when it times out.
 
 ### Memory and Resources

@@ -110,16 +110,31 @@ constraint, and `|` for unions.
 
 ### Hashing generic keys
 
-For a generic container that needs its own hash table, use
-`hash/maphash.Hasher[T]` and `maphash.ComparableHasher[T]` (Go 1.27+) instead of
-hand-rolling a hash/equality pair:
+`hash/maphash.Hasher[K]` (Go 1.27+) is the seam between a hash-based container
+and its keys: one hash function plus the matching equivalence relation. It buys
+what the built-in map cannot do — keys that are not `comparable`, or an equality
+other than `==` — so constrain the container to `any`, not `comparable`.
+`maphash.ComparableHasher[K]{}` is the ready-made implementation for ordinary
+keys; a custom `Hasher` is a two-method type.
 
 ```go
-type table[K comparable, V any] struct {
-    hasher maphash.Hasher[K] // maphash.ComparableHasher[K]{}
-    seed   maphash.Seed
+type table[K, V any] struct {
+    hasher maphash.Hasher[K] // maphash.ComparableHasher[string]{} at an ordinary call site
+    seed   maphash.Seed      // one seed per table instance
+}
+
+func (t *table[K, V]) hash(k K) uint64 {
+    var h maphash.Hash
+    h.SetSeed(t.seed)
+    t.hasher.Hash(&h, k)
+    return h.Sum64()
 }
 ```
+
+A `Hasher` must be logically stateless, and `Equal(x, y)` must imply an equal
+hash — the container relies on both. `ComparableHasher` is itself constrained to
+`comparable`, so it can only be named where the key type is concrete: inside a
+`K any` container the field stays the `Hasher[K]` interface.
 
 ---
 

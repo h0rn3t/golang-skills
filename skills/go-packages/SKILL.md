@@ -32,7 +32,7 @@ Commonly added modules the standard library now covers:
 
 | Was | Use instead | Since |
 |---|---|---|
-| `github.com/google/uuid` | `uuid` — `New`, `NewV4`, `NewV7`, `Parse`, `MustParse` | 1.27 |
+| `github.com/google/uuid` | `uuid` — `New`/`NewV4`/`NewV7`, `Parse`/`MustParse`, `Nil`/`Max`, `Compare`, text marshaling | 1.27 |
 | A faster JSON encoder | `encoding/json/v2` + `encoding/json/jsontext` | 1.27 |
 | `github.com/sirupsen/logrus`, `go.uber.org/zap` | `log/slog` (see [go-logging](../go-logging/SKILL.md)) | 1.21 |
 | `github.com/pkg/errors` | `fmt.Errorf` with `%w`, `errors.Is`, `errors.AsType` | 1.13 / 1.26 |
@@ -63,8 +63,10 @@ not have (v1, v3, v5, custom sources).
 - **Tidy before committing** dependency changes: check with `go mod tidy -diff`
   (Go 1.23+), which prints what tidy would change and exits non-zero without
   touching the module files or inspecting unrelated Git changes; then apply
-  `go mod tidy`. `go mod tidy && git diff --exit-code` is the clean-checkout
-  form for CI.
+  `go mod tidy`. On `go 1.27+` modules tidy also merges duplicate `require`
+  blocks down to two — direct and indirect — so the first run after the bump
+  can produce a large diff that changes no dependency.
+  `go mod tidy && git diff --exit-code` is the clean-checkout form for CI.
 - **Scan before releasing**: `govulncheck ./...` for reachable CVEs in the
   module tree. The gate lives in [go-linting](../go-linting/SKILL.md); finding
   triage routes to [go-security](../go-security/SKILL.md).

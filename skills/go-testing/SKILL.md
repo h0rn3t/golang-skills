@@ -47,7 +47,7 @@ allowed-tools: Bash(bash:*)
 | Instead of | Use | Since |
 |---|---|---|
 | `context.Background()` in a test | `t.Context()` — cancelled at test end | 1.24 |
-| `httptest.NewServer` + `defer srv.Close()` | `httptest.NewTestServer(t, h)` — registers cleanup, in-memory transport | 1.27 |
+| `httptest.NewServer` + `defer srv.Close()` | `httptest.NewTestServer(t, h)` — registers cleanup, in-memory transport reached through `srv.Client()` | 1.27 |
 | `time.Sleep` to let goroutines settle | `synctest.Test` + `synctest.Wait` | 1.25 |
 | Real waits for timeout paths | `synctest.Sleep` inside a bubble (fake clock) | 1.27 |
 | `fmt.Println` in a test | `t.Output()` — interleaves correctly under `-parallel` | 1.25 |
@@ -56,7 +56,8 @@ allowed-tools: Bash(bash:*)
 ```go
 func TestFetch(t *testing.T) {
     srv := httptest.NewTestServer(t, http.HandlerFunc(handle))
-    got, err := Fetch(t.Context(), srv.Client(), srv.URL)
+    client := srv.Client() // starts the in-memory server and fills srv.URL
+    got, err := Fetch(t.Context(), client, srv.URL)
     if err != nil {
         t.Fatalf("Fetch(%q) error = %v, want nil", srv.URL, err)
     }
@@ -65,6 +66,13 @@ func TestFetch(t *testing.T) {
     }
 }
 ```
+
+`NewTestServer` serves over an in-memory network, so it works inside a
+`synctest` bubble — and only `srv.Client()` reaches it. Its `srv.URL` is
+`http://example.com` (empty until the first `Client()` call starts the server),
+so code that builds its own client from that URL talks to the real
+example.com instead of the handler. When the code under test cannot be handed
+an `*http.Client`, keep `httptest.NewServer`.
 
 Inside a `synctest.Test` bubble the clock is fake and starts at 2000-01-01 UTC;
 time advances only when every goroutine in the bubble is durably blocked. That

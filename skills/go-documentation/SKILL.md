@@ -126,7 +126,9 @@ func ExampleConfig_WriteTo() {
 }
 ```
 
-Examples appear in Godoc attached to the documented element.
+Examples appear in Godoc attached to the documented element. `go doc -ex
+<symbol>` (Go 1.27+) lists them from the terminal, and `go doc <pkg>@<version>`
+reads the docs of a version you have not imported.
 
 ---
 

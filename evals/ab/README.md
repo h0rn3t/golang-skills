@@ -152,12 +152,62 @@ before the independent golden run, even if the model's tests failed. This
 avoids helper-name collisions and prevents model tests from making the golden
 run pass. A passing golden result cannot override a model-test failure.
 
+A failing golden run has two possible causes and they must never be averaged
+together. `behavior_failure` is an overlay that compiled and then failed an
+assertion: the observable contract moved. `harness_failure` is an overlay that
+never reached an assertion, because a name it declares is also declared by the
+model's production code — the compiler says `redeclared in this block`, and the
+run carries no verdict about behavior at all. It prints as `HRN` rather than
+`ERR`, stays out of every mean, and is a harness fault to fix, not a regression
+to attribute. Every package-level name a golden declares therefore contains
+`golden`, and `TestGoldenHelpersAreCollisionResistant` fails the build if a new
+one does not. Neither field is set when the package failed to build on its own:
+that is already `build`, and the golden result means nothing after it.
+
+### The repair loop
+
+`-repair` grants one extra turn, and only when the first one missed: after the
+session the harness measures the package, replays the golden, and if either the
+line gate or the golden failed it returns the exact numbers and the assertion
+text, then lets the model act once more. `repair_fired` records that the second
+turn happened, `pre_repair` and `pre_repair_golden` the readings that triggered
+it, and `repair_feedback` the text the model was actually handed. Every recorded
+number describes the tree after the last turn.
+
+Two properties make the loop an experiment rather than a leak. The probe runs
+against a throwaway copy of the whole module, so the golden never enters the
+tree the model can read, and the model's own tests stay where it left them —
+`TestProbeGoldenLeavesTreeUntouched` fails if either stops holding. And the
+failure reaches the model as assertion text with file positions stripped: it is
+told what broke, not which file holds the test.
+
+The feedback names its counting convention on purpose. Stage 2 measured a
+session that read the same file as 101 lines where the harness read 138 —
+non-blank non-comment against physical — declared its gate met and changed
+nothing. The disagreement was about the definition, not the code, so the
+definition travels with the number.
+
+### Production LOC
+
+`lines` is the number every published line claim has to mean: **physical lines
+in the fixture package's non-test `*.go` files**, blank lines and comments
+included, a trailing line without a newline counted once. No file named
+`*_test.go` contributes, so a session can neither shrink the number by moving
+code into a test nor grow it by writing one. `Δlines` is the after-count minus
+the before-count under that definition, and `line_gate_pass` is that delta being
+at most zero — the concision gate's own criterion, recorded whether or not the
+run was valid, because a gate met while behavior broke has to stay visible.
+
 Per run: recursive line delta, declared types, interfaces, functions,
 pattern-flavored identifiers, whether the package still builds, whether the
 golden test passes, session cost, and which `go-*` skills fired. Two guards sit
 beside them. A run is invalid if the fixture files are byte-identical
 afterwards, because a session that wrote nothing scores a zero delta on every
-metric and would otherwise average in as a behavior-preserving tie. A run is
+metric and would otherwise average in as a behavior-preserving tie. `empty_diff`
+narrows that to the case worth reading: a session that ran to completion without
+an error and deliberately left every file alone, which is what a gate permitting
+an empty diff is supposed to produce and is not the same as a session that
+failed before it wrote anything. A run is
 also invalid if its transcript mentions the repository path, since the hidden
 golden test lives there and a session that found its way back to the checkout
 is measuring nothing. The summary averages structural deltas only over runs
@@ -180,7 +230,13 @@ report; record the source revisions beside it when publishing the file.
 Use `-keep` for comparisons: it now retains **every** run, including successful
 ones. The JSON `workdir` and console `source:` line locate the scratch tree;
 production source remains in place, model tests have the `.model` suffix,
-and the golden files are added separately. Archive these trees alongside the
+and the golden files are added separately. `trace.jsonl` at the root of that
+tree is the raw session transcript, reported as `trace_path`. It is what
+separates a measurement from a claim about one: `reported_counts` says the final
+message stated a line count, `commands` says how many shell calls the session
+actually made (codex only — the claude arms are granted no shell), and the trace
+says which ones. A report that cites a model's stated delta without the trace
+behind it is citing prose. Archive these trees alongside the
 report before temporary-directory cleanup. Without `-keep`, scratch trees are
 removed. Historical reports made with failure-only `-keep` cannot recover
 successful source retroactively.

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-var errTransport = errors.New("dial tcp: connection refused")
+var goldenErrTransport = errors.New("dial tcp: connection refused")
 
 // goldenSource serves a fixed table and a fixed set of failures, and counts
 // what it was asked for.
@@ -26,7 +26,7 @@ func (s *goldenSource) Get(sku string) (string, error) {
 	case "sku-2":
 		return "Sprocket", nil
 	case "sku-boom":
-		return "", errTransport
+		return "", goldenErrTransport
 	case "sku-shut":
 		return "", ErrClosed
 	}
@@ -43,7 +43,7 @@ func TestResolveErrorReachesEveryReason(t *testing.T) {
 		want error
 	}{
 		{name: "closed source", sku: "sku-shut", want: ErrClosed},
-		{name: "transport failure", sku: "sku-boom", want: errTransport},
+		{name: "transport failure", sku: "sku-boom", want: goldenErrTransport},
 	}
 
 	for _, tt := range tests {

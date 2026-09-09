@@ -10,10 +10,10 @@ import (
 // goldenAt is the reference instant every case formats.
 var goldenAt = time.Date(2026, 9, 7, 8, 30, 0, 0, time.UTC)
 
-// members decodes the document to its raw JSON members, so a case can ask what
-// a member actually rendered as without depending on the order the
+// goldenMembers decodes the document to its raw JSON members, so a case can ask
+// what a member actually rendered as without depending on the order the
 // implementation happens to emit them in.
-func members(t *testing.T, account string, events []Event) map[string]json.RawMessage {
+func goldenMembers(t *testing.T, account string, events []Event) map[string]json.RawMessage {
 	t.Helper()
 	data, err := Render(account, events)
 	if err != nil {
@@ -42,7 +42,7 @@ func TestRenderEmptyKeepsEveryMemberTyped(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			raw := members(t, "acct-1", tt.events)
+			raw := goldenMembers(t, "acct-1", tt.events)
 
 			want := map[string]string{"events": "[]", "kinds": "[]", "counts": "{}", "account": `"acct-1"`}
 			for member, wantJSON := range want {
@@ -62,7 +62,7 @@ func TestRenderDocument(t *testing.T) {
 		{ID: "e2", Kind: "login", At: goldenAt},
 	}
 
-	raw := members(t, "acct-2", events)
+	raw := goldenMembers(t, "acct-2", events)
 
 	wantMembers := map[string]string{
 		"account": `"acct-2"`,
@@ -77,7 +77,7 @@ func TestRenderDocument(t *testing.T) {
 		if member == "events" || member == "counts" {
 			// Order inside events is specified; key order inside counts is not,
 			// so compare those two through a decode rather than byte for byte.
-			assertJSONEqual(t, member, got, wantJSON)
+			goldenAssertJSONEqual(t, member, got, wantJSON)
 			continue
 		}
 		if got != wantJSON {
@@ -86,7 +86,7 @@ func TestRenderDocument(t *testing.T) {
 	}
 }
 
-func assertJSONEqual(t *testing.T, member, got, want string) {
+func goldenAssertJSONEqual(t *testing.T, member, got, want string) {
 	t.Helper()
 	var gotValue, wantValue any
 	if err := json.Unmarshal([]byte(got), &gotValue); err != nil {

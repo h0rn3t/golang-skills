@@ -254,6 +254,28 @@ func parseCodexStream(out []byte) (skills []string, final string, cost float64) 
 	return sortedKeys(fired), final, 0
 }
 
+// codexCommands counts the shell calls in a transcript. A session that claims a
+// line count in its final message and ran no command never measured one, and
+// that difference is the whole reason the transcript is kept.
+func codexCommands(out []byte) int {
+	count := 0
+	for line := range strings.SplitSeq(string(out), "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "{") {
+			continue
+		}
+		var ev codexEvent
+		if json.Unmarshal([]byte(line), &ev) != nil {
+			continue
+		}
+		// Codex reports a command twice, when it starts and when it finishes.
+		// Counting the completion counts attempts, not events.
+		if ev.Item.Type == "command_execution" && ev.Type == "item.completed" {
+			count++
+		}
+	}
+	return count
+}
+
 // skillsInPaths returns the go-* skills named by a SKILL.md path in text.
 func skillsInPaths(text string) []string {
 	found := map[string]bool{}

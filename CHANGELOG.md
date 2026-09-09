@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-09-09
+
 ### Fixed
 
 - Go 1.27 conformance pass over the skills, verified against an installed
@@ -23,6 +25,8 @@ All notable changes to this repository are documented here.
   example: constrained to `any` rather than `comparable`, since a Hasher buys
   what the built-in map cannot do, and with the hash method that shows how the
   seam fits together.
+- `plugin.json` and `marketplace.json` still advertised "each under 500 lines"
+  after the cap dropped to 400; the longest `SKILL.md` is 362 lines.
 
 ### Added
 

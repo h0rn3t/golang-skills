@@ -193,13 +193,13 @@ chmod +x ~/.claude/skills/go-*/scripts/*.sh
 
 ### Встановлення конкретної версії
 
-Кожен реліз — це git-тег (`v1.3.0`). Жоден із варіантів вище не приймає версію:
+Кожен реліз — це git-тег (`v1.3.1`). Жоден із варіантів вище не приймає версію:
 `npx skills add` і `/plugin marketplace add h0rn3t/golang-skills` слідують за
 типовою гілкою, тобто завжди дають найновіший реліз. Щоб зафіксувати версію,
 встановлюйте з checkout за тегом:
 
 ```bash
-git clone --branch v1.3.0 --depth 1 https://github.com/h0rn3t/golang-skills.git
+git clone --branch v1.3.1 --depth 1 https://github.com/h0rn3t/golang-skills.git
 cd golang-skills
 
 # ручне встановлення з цього checkout

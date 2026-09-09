@@ -46,6 +46,34 @@ All notable changes to this repository are documented here.
   the model can read, and the failure reaches the model with file positions
   stripped, both pinned by tests. Records `repair_fired`, `pre_repair`,
   `pre_repair_golden` and the generated `repair_feedback`.
+- Record the fixed gate's smoke on `gw2` and a re-score of all 30 stage 3
+  sessions. The code gate works: it caught the documentation-for-code trade in
+  two of three loop runs (Δlines −2 with Δcode +3, Δlines −1 with Δcode +3) and
+  refuses four of stage 3's fifteen loop runs where manual review found two, so
+  the published `line gate 15/15` is `code gate 11/15`. But the smoke found the
+  general form of the same hole: a run met both line gates by packing an
+  eight-field `http.Server` literal onto one 201-character line and spending the
+  lines on helpers (+47 tokens), and `gofmt` leaves that alone. Re-scoring the 30
+  in tokens — a unit no reflow moves — puts the loop arm at +4.13 against prose
+  +10.67 with the effect at −6.53 and p = 0.598, against −3.80 lines at
+  p = 0.01572. Stage 3's measured effect is line-shaped. Expanding to n=5 and
+  re-running the 30 both wait on a decision about the unit; no skill text
+  changes on this evidence.
+- Add `tokens` to `abrun`'s metrics: every production token except semicolons
+  and commas, the pure separators whose count follows the line breaks. Reported,
+  not gated — the gate's criterion is lines, and what a third axis would do to
+  the model's behavior is unmeasured.
+- Count code lines separately from comments in `abrun`, closing the hole stage 3
+  measured: two of its fifteen runs met the gate by deleting the doc comment
+  that justifies the server's timeouts and spending the lines on helpers. `code`
+  is the subset of production lines holding at least one Go token, `code_gate_pass`
+  is that delta at most zero, and a run clears the gate only with both flags —
+  `lines` and `line_gate_pass` keep their definitions so earlier reports stay
+  comparable. The repair loop now fires on either gate and hands the model both
+  numbers plus the rule that deleting a comment does not pay for a line of code.
+  On five real fixtures the token count agrees line for line with a naive
+  non-blank non-comment count; block comments and multi-line literals, where the
+  two diverge, are pinned by tests, as is the `gw2` trade through `runOne`.
 - Record stage 3 of the Pocock concision plan: the loop moved the line gate from
   8/15 to 15/15, the median from +0 to −3 and the worst case from +17 to +0
   (effect −3.80 lines, within-input randomization p = 0.01572), and repaired the

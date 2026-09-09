@@ -203,8 +203,13 @@ it lags the toolchain, mention the gap once — bumping it is the user's call an
 carries its own behavior changes.
 
 ```bash
-bash scripts/verify-refactor.sh baseline ./...
+bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" baseline ./...
 ```
+
+Set `REFACTOR_SKILL_DIR` to this installed skill's absolute directory; keep the
+working directory in the target project. If characterization tests are needed,
+run them against unchanged production code, then capture a new baseline with
+those tests included. Retain the earlier results for known failures.
 
 ### 2. Audit before rewriting
 
@@ -260,17 +265,22 @@ migration, never one atomic commit (`references/STRUCTURAL.md`).
 ### 5. Verify
 
 ```bash
-bash scripts/verify-refactor.sh after ./...
-bash scripts/verify-refactor.sh diff
+bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" after ./...
+bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" diff
 ```
 
-The diff must be empty. If a test fails, the refactor is wrong — revert that
-step and redo it smaller. **Never adjust a test to match the new code**: a test
-that had to change is proof that behavior changed.
+The diff compares recorded check results, not program behavior. An empty diff
+can include the same failures or skipped checks; a nonempty diff can include
+new passing tests or resolved failures. Inspect each difference and the actual
+baseline/after statuses. Attribute new failures before changing code; undo only
+your own failing transformation, preserving pre-existing user changes.
 
-One exception: if the toolchain was bumped as part of this work, the failure
-may belong to Go rather than to you. `references/MODERNIZATION.md` lists the
-releases that break green tests on their own. Attribute before rewriting.
+Keep assertions about observable behavior unchanged. Mechanical updates to
+references after an authorized rename and new characterization tests are
+allowed; weakening expectations to make the refactor pass is not. If a
+toolchain change was authorized, `references/MODERNIZATION.md` lists failures
+that may need attribution to that change. Passing checks support only the
+behavior they exercise; report what remains unverified.
 
 Watch tests that assert on error strings or JSON output — they catch the
 invisible breakages compilation misses.
@@ -300,7 +310,8 @@ defer f.Close()
 ```
 
 A marker naming no ceiling and no upgrade path rots into "later means never".
-`bash scripts/check-debt.sh ./...` lists every marker and exits 1 on those.
+`bash "$REFACTOR_SKILL_DIR/scripts/check-debt.sh" ./...` lists every marker and
+exits 1 on those.
 
 ---
 

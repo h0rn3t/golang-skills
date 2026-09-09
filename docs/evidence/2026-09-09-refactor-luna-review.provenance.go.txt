@@ -1,0 +1,169 @@
+// A codex session reaches a skill by reading its SKILL.md through the shell,
+// so the runner scores a read as an activation. Screening measured what that
+// misses. Two sessions asked for a path that did not exist, searched the shared
+// temp root, found another arm's materialized plugin and read that copy — a
+// 311-line variant without the text under test. Both were scored as the skill
+// firing, and neither had read the arm it was assigned.
+//
+// A skill path in a transcript is therefore not evidence about an arm on its
+// own. This file turns it into evidence: every SKILL.md a session opened is
+// resolved against that arm's own skills root, and a read from anywhere else
+// marks the run instead of quietly counting for it.
+package main
+
+import (
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+)
+
+// skillReadToken captures the whole path a command names, up to the first shell
+// quote or space, so the directory the read came from survives. codexSkillPath
+// then decides whether that path really names a go-* skill, which keeps one
+// rule for what a skill path is.
+var skillReadToken = regexp.MustCompile("[^\\s'\"`]*go-[a-z0-9-]+/SKILL\\.md")
+
+// foreignSkill is one SKILL.md a session read from outside its own arm. The
+// digest is what makes the finding checkable against the arm's own plugin
+// hashes; it is empty when the file is already gone.
+type foreignSkill struct {
+	Path   string `json:"path"`
+	Skill  string `json:"skill"`
+	Digest string `json:"sha256,omitempty"`
+}
+
+// skillProvenance splits the SKILL.md reads of one transcript three ways.
+// Unresolved is neither a pass nor a failure: a relative path, or an absolute
+// one that does not exist, is a read that never landed. It is kept because it
+// is what precedes a foreign read — both screening failures began by asking for
+// a path with an invented segment in it.
+type skillProvenance struct {
+	Assigned   []string
+	Foreign    []foreignSkill
+	Unresolved []string
+}
+
+// auditSkillReads resolves every SKILL.md path in the shell commands of one
+// codex transcript against the arm's own skills root under home.
+//
+// Only commands are scanned, never their output, for the same reason
+// parseCodexStream scans only commands: a session that reads one SKILL.md gets
+// the file echoed back, and skills name each other.
+func auditSkillReads(out []byte, home string) skillProvenance {
+	// Both sides are resolved before they are compared. The arm home comes from
+	// MkdirTemp as /var/folders/..., and the shell reports the same file as
+	// /private/var/folders/... on macOS, where /var is a symlink. Comparing the
+	// two as written reports every correct read as a foreign one, which is what
+	// the first checkpoint run measured.
+	root := resolvePath(filepath.Join(codexHomeDir(home), "skills"))
+	var p skillProvenance
+	seen := map[string]bool{}
+	for line := range strings.SplitSeq(string(out), "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "{") {
+			continue
+		}
+		var ev codexEvent
+		if json.Unmarshal([]byte(line), &ev) != nil || ev.Item.Type != "command_execution" {
+			continue
+		}
+		for _, token := range skillReadToken.FindAllString(ev.Item.Command, -1) {
+			names := skillsInPaths(token)
+			if len(names) == 0 {
+				// A directory that merely ends in a skill name, such as
+				// vendor-go-http, is not a skill read.
+				continue
+			}
+			path := expandHome(token, home)
+			if filepath.IsAbs(path) && fileExists(path) {
+				path = resolvePath(path)
+			}
+			if seen[path] {
+				continue
+			}
+			seen[path] = true
+			switch {
+			case !filepath.IsAbs(path):
+				p.Unresolved = append(p.Unresolved, path)
+			case !fileExists(path):
+				p.Unresolved = append(p.Unresolved, path)
+			case path == root || strings.HasPrefix(path, root+string(filepath.Separator)):
+				p.Assigned = append(p.Assigned, path)
+			default:
+				// Bytes decide, not the path. A copy of this arm's own file,
+				// wherever it sits, put the text under test in front of the
+				// model; what invalidates a run is reading a different variant.
+				digest := digestOf(path)
+				if digest != "" && digest == digestOf(filepath.Join(root, names[0], "SKILL.md")) {
+					p.Assigned = append(p.Assigned, path)
+					continue
+				}
+				p.Foreign = append(p.Foreign, foreignSkill{Path: path, Skill: names[0], Digest: digest})
+			}
+		}
+	}
+	sort.Strings(p.Assigned)
+	sort.Strings(p.Unresolved)
+	sort.Slice(p.Foreign, func(i, j int) bool { return p.Foreign[i].Path < p.Foreign[j].Path })
+	return p
+}
+
+// assignedSkills names the skills whose own-arm copy the session actually
+// opened. It is what the report's skill list has to mean: the screening
+// measured two sessions that spent their turns on paths with an invented
+// segment, opened nothing, and were still scored as having read the skill,
+// because the failed path named it.
+func (p skillProvenance) assignedSkills() []string {
+	found := map[string]bool{}
+	for _, path := range p.Assigned {
+		for _, name := range skillsInPaths(path) {
+			found[name] = true
+		}
+	}
+	return sortedKeys(found)
+}
+
+// expandHome resolves the three ways a session writes its own home before the
+// path is compared. Everything else stays as written and is reported
+// unresolved, because a path this harness cannot resolve is not a path it can
+// attribute to an arm.
+func expandHome(path, home string) string {
+	for _, prefix := range []string{"$CODEX_HOME", "${CODEX_HOME}"} {
+		if strings.HasPrefix(path, prefix) {
+			return filepath.Clean(codexHomeDir(home) + strings.TrimPrefix(path, prefix))
+		}
+	}
+	for _, prefix := range []string{"$HOME", "${HOME}", "~"} {
+		if strings.HasPrefix(path, prefix) {
+			return filepath.Clean(home + strings.TrimPrefix(path, prefix))
+		}
+	}
+	return filepath.Clean(path)
+}
+
+// resolvePath follows symlinks so two spellings of one file compare equal. A
+// path that cannot be resolved is returned unchanged: it is then reported as
+// written, which is what an unresolved read should show.
+func resolvePath(path string) string {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return resolved
+	}
+	return path
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+func digestOf(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%x", sha256.Sum256(data))
+}

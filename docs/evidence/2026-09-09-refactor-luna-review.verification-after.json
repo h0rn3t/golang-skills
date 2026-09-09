@@ -1,0 +1,24 @@
+[
+  {
+    "case": "same failures",
+    "exit": 0,
+    "json": {
+      "mode": "diff",
+      "identical": true,
+      "diff": "",
+      "truncated": false
+    },
+    "text": "identical: recorded check results match, including any failures or skips\n"
+  },
+  {
+    "case": "added passing test",
+    "exit": 1,
+    "json": {
+      "mode": "diff",
+      "identical": false,
+      "diff": "--- /var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/tmpzg_t6h_8/baseline.summary\t2026-09-09 16:30:00.452364159 +0300\n+++ /var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/tmpzg_t6h_8/after.summary\t2026-09-09 16:30:00.452460952 +0300\n@@ -1,2 +1,3 @@\n test: pass\n --- PASS: TestA\n+--- PASS: TestB",
+      "truncated": false
+    },
+    "text": "--- /var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/tmpzg_t6h_8/baseline.summary\t2026-09-09 16:30:00.452364159 +0300\n+++ /var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/tmpzg_t6h_8/after.summary\t2026-09-09 16:30:00.452460952 +0300\n@@ -1,2 +1,3 @@\n test: pass\n --- PASS: TestA\n+--- PASS: TestB\n\nDifferences above may include new tests, resolved failures, or regressions.\nInspect the results; record equality alone does not establish behavior.\n"
+  }
+]

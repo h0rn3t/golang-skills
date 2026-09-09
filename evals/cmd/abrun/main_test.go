@@ -81,9 +81,63 @@ func TestAnalyzeIncludesNestedGoFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("analyze(%q) error = %v, want nil", root, err)
 	}
-	want := metrics{Lines: 7, Files: 2, TestFiles: 1, Types: 2, Interfaces: 1, Funcs: 2, Exported: 4}
+	want := metrics{Lines: 7, Code: 6, Tokens: 29, Files: 2, TestFiles: 1, Types: 2, Interfaces: 1, Funcs: 2, Exported: 4}
 	if got != want {
 		t.Errorf("analyze(%q) = %+v, want %+v", root, got, want)
+	}
+}
+
+// TestCodeSize pins the count a deleted comment cannot move. It is the half of
+// the gate stage 3 was missing: under the physical count alone, two sessions
+// bought new helpers by deleting the paragraph that justified the server's
+// timeouts, and both trades passed.
+func TestCodeSize(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		src        string
+		code, toks int
+	}{
+		{name: "blank and comment-only lines hold no code", src: "package p\n\n// a\n//\n// b\nvar X = 1\n", code: 2, toks: 6},
+		{name: "code with a trailing comment counts once", src: "package p\n\nvar X = 1 // why\n", code: 2, toks: 6},
+		{name: "a block comment counts only where code shares the line",
+			src: "package p\n\n/*\nprose\n*/\nvar X = 1 /* here */\n", code: 2, toks: 6},
+		{name: "a multi-line string is code on every line it spans",
+			src: "package p\n\nvar X = `one\ntwo\nthree`\n", code: 4, toks: 6},
+		{name: "an empty file holds none", src: "", code: 0, toks: 0},
+		{name: "a last line without a newline still counts", src: "package p\n\nvar X = 1", code: 2, toks: 6},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			code, toks := codeSize("p.go", []byte(tt.src))
+			if code != tt.code || toks != tt.toks {
+				t.Errorf("codeSize(%q) = %d code, %d tokens, want %d and %d", tt.src, code, toks, tt.code, tt.toks)
+			}
+		})
+	}
+}
+
+// TestCodeSizeTokensIgnoreLineShape is the finding the gw2 smoke produced. A
+// session met both line gates by packing an eight-field struct literal onto one
+// 201-character line and spending the seven lines on helpers, and gofmt left
+// the result alone. Both line counts move under that reflow and the token count
+// must not, or the harness cannot tell a shorter package from a rearranged one.
+func TestCodeSizeTokensIgnoreLineShape(t *testing.T) {
+	const spread = `package p
+
+var X = T{
+	A: 1,
+	B: 2,
+	C: 3,
+}
+`
+	const packed = "package p\n\nvar X = T{A: 1, B: 2, C: 3}\n"
+
+	spreadCode, spreadToks := codeSize("p.go", []byte(spread))
+	packedCode, packedToks := codeSize("p.go", []byte(packed))
+	if spreadToks != packedToks {
+		t.Errorf("tokens = %d spread, %d packed; reflow must not move the count", spreadToks, packedToks)
+	}
+	if spreadCode <= packedCode {
+		t.Errorf("code = %d spread, %d packed; the line count is what reflow moves", spreadCode, packedCode)
 	}
 }
 

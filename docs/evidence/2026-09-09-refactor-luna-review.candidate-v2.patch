@@ -1,0 +1,573 @@
+diff --git a/skills/go-code-refactor/SKILL.md b/skills/go-code-refactor/SKILL.md
+index b96c650..8ab865a 100644
+--- a/skills/go-code-refactor/SKILL.md
++++ b/skills/go-code-refactor/SKILL.md
+@@ -27,7 +27,7 @@ target project using the resolved absolute script path.
+ - `references/MODERNIZATION.md` - Read before adopting a newer API; sorts Go 1.21–1.27 features into safe, conditional, and report-only.
+ - `references/OVER-ENGINEERING.md` - Read before adding any line (it owns the restraint ladder, the reach-for table, and the ship-then-question write rules), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
+ - `references/GOPLS.md` - Read before renaming, extracting, or inlining anything with more than one caller: semantic references and safe rename via gopls instead of grep.
+-- `scripts/verify-refactor.sh` - Run to capture baseline and final check results; use focused checks between edits.
++- `scripts/verify-refactor.sh` - Run to capture baseline and final check results, and to count production LOC before and after; use focused checks between edits.
+ - `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no upgrade path.
+ - `assets/refactor-report.md` - Use as the final report structure.
+ 
+@@ -175,12 +175,35 @@ literal. Error texts and the point where an unknown key fails do not move.
+ 
+ ## Concision Gate
+ 
+-This pass succeeds only when the final production code reads at least as
+-clearly as the starting code and contains no more production lines. Measure the
+-starting and final production line counts. Keep a transformation only when both
+-conditions hold. If none does, restore the starting code: an empty diff is a
+-successful concision result. Preserve validation, failure behavior, security
+-controls, and useful abstraction boundaries, and report the two counts.
++Keep a transformation only when the final code is at least as clear, behavior
++is preserved, and neither production LOC count increases:
++
++- **Physical LOC:** every line in the scoped non-test `*.go` files, including
++  blank lines and comments; include new files and account for deleted files.
++- **Code LOC:** lines containing Go tokens other than comments. A line with a
++  trailing comment counts once; every line of a multiline literal counts.
++
++Record both starting counts before the first edit, and compare after `gofmt`,
++with the counter this skill ships:
++
++```bash
++bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-baseline ./internal/gateway
++bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-diff ./internal/gateway
++```
++
++`loc-diff` exits 0 when neither count grew and 1 when one did; that status is
++the verdict. Do not estimate the numbers, do not substitute a nonblank-line
++count, and do not report a pass the counter did not print. If it cannot run,
++report that instead of claiming the gate passed. The `baseline`, `after` and
++`diff` modes compare check records and say nothing about size.
++
++Keep documentation that explains a decision or contract. Removing comments
++or blank lines cannot compensate for added code; do not compress statements
++onto one line to meet the limit. Preserve validation, failure behavior,
++security controls, and useful abstraction boundaries. If a transformation
++fails, revise it or undo only your own edits. An empty diff is successful when
++no qualifying improvement exists. Report starting and final physical/code
++counts, their deltas, and the checks supporting behavior preservation.
+ 
+ ---
+ 
+@@ -203,9 +226,14 @@ it lags the toolchain, mention the gap once — bumping it is the user's call an
+ carries its own behavior changes.
+ 
+ ```bash
+-bash scripts/verify-refactor.sh baseline ./...
++bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" baseline ./...
+ ```
+ 
++Set `REFACTOR_SKILL_DIR` to this installed skill's absolute directory; keep the
++working directory in the target project. If characterization tests are needed,
++run them against unchanged production code, then capture a new baseline with
++those tests included. Retain the earlier results for known failures.
++
+ ### 2. Audit before rewriting
+ 
+ Name what makes the code hard to follow *before* proposing fixes. The naming is
+@@ -260,17 +288,22 @@ migration, never one atomic commit (`references/STRUCTURAL.md`).
+ ### 5. Verify
+ 
+ ```bash
+-bash scripts/verify-refactor.sh after ./...
+-bash scripts/verify-refactor.sh diff
++bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" after ./...
++bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" diff
+ ```
+ 
+-The diff must be empty. If a test fails, the refactor is wrong — revert that
+-step and redo it smaller. **Never adjust a test to match the new code**: a test
+-that had to change is proof that behavior changed.
++The diff compares recorded check results, not program behavior. An empty diff
++can include the same failures or skipped checks; a nonempty diff can include
++new passing tests or resolved failures. Inspect each difference and the actual
++baseline/after statuses. Attribute new failures before changing code; undo only
++your own failing transformation, preserving pre-existing user changes.
+ 
+-One exception: if the toolchain was bumped as part of this work, the failure
+-may belong to Go rather than to you. `references/MODERNIZATION.md` lists the
+-releases that break green tests on their own. Attribute before rewriting.
++Keep assertions about observable behavior unchanged. Mechanical updates to
++references after an authorized rename and new characterization tests are
++allowed; weakening expectations to make the refactor pass is not. If a
++toolchain change was authorized, `references/MODERNIZATION.md` lists failures
++that may need attribution to that change. Passing checks support only the
++behavior they exercise; report what remains unverified.
+ 
+ Watch tests that assert on error strings or JSON output — they catch the
+ invisible breakages compilation misses.
+@@ -300,7 +333,8 @@ defer f.Close()
+ ```
+ 
+ A marker naming no ceiling and no upgrade path rots into "later means never".
+-`bash scripts/check-debt.sh ./...` lists every marker and exits 1 on those.
++`bash "$REFACTOR_SKILL_DIR/scripts/check-debt.sh" ./...` lists every marker and
++exits 1 on those.
+ 
+ ---
+ 
+diff --git a/skills/go-code-refactor/assets/refactor-report.md b/skills/go-code-refactor/assets/refactor-report.md
+index df98d8a..aa7b93e 100644
+--- a/skills/go-code-refactor/assets/refactor-report.md
++++ b/skills/go-code-refactor/assets/refactor-report.md
+@@ -10,8 +10,10 @@ paragraph restating them is noise.
+ ## Summary
+ 
+ One paragraph: what scope was covered, and what the code now reads like that it
+-did not before. No feature tour. End with the instrument: `net: -<N> lines`
+-(and `-<M> deps` if any). A positive number needs a sentence of justification.
++did not before. No feature tour. End with the instrument the counter printed:
++`net: -<N> physical, -<M> code` (and `-<K> deps` if any). Either number growing
++needs a sentence of justification; a number nothing measured is not an
++instrument.
+ 
+ ## Deleted
+ 
+@@ -53,10 +55,17 @@ lint findings    17          4
+ diff             — empty —
+ ```
+ 
+-Paste the real `verify-refactor.sh diff` result. **Report a skipped check as
++Paste the real `verify-refactor.sh diff` result and explain material differences,
++including new tests or resolved failures. An empty diff means matching records,
++which may include failures; report baseline/after statuses and behavior covered
++by the checks separately. **Report a skipped check as
+ skipped**, never as passed: if `golangci-lint` was not installed or a
+ build-tagged file could not be compiled here, say so on its own line.
+ 
++Paste the `loc-diff` block as printed: both starting counts, both final counts,
++and its verdict. A count taken after the first edit is not a starting count,
++and a verdict the counter did not print is not a verdict.
++
+ ## Findings — not applied
+ 
+ Bugs, races, ignored errors, and Tier 3 modernizations. One line of rationale
+diff --git a/skills/go-code-refactor/scripts/verify-refactor.sh b/skills/go-code-refactor/scripts/verify-refactor.sh
+index 196bf48..4cf15ce 100755
+--- a/skills/go-code-refactor/scripts/verify-refactor.sh
++++ b/skills/go-code-refactor/scripts/verify-refactor.sh
+@@ -1,7 +1,7 @@
+ #!/usr/bin/env bash
+ set -uo pipefail
+ 
+-VERSION="1.0.0"
++VERSION="1.1.0"
+ SCRIPT_NAME="$(basename "$0")"
+ 
+ usage() {
+@@ -12,19 +12,27 @@ USAGE
+     bash $SCRIPT_NAME [options] <mode> [path]
+ 
+ DESCRIPTION
+-    Captures a verifiable record of build, vet, test, race, and lint results
+-    so a refactor can be proven to change nothing observable.
++    Captures build, vet, test, and race results, with informational lint findings.
++    Matching records alone do not prove that observable behavior is unchanged.
+ 
+     Modes:
+-      baseline   Record the state before any edit
+-      after      Record the state after a refactor step
+-      diff       Compare after against baseline (empty diff = behavior held)
+-      leaks      Run tests with the goroutine-leak profile (Go 1.26+)
++      baseline      Record the state before any edit
++      after         Record the state after a refactor step
++      diff          Compare recorded check results, including failures and skips
++      leaks         Run tests with the goroutine-leak profile (Go 1.26+)
++      loc-baseline  Record the starting production LOC, before the first edit
++      loc-diff      Recount and compare against that record
+ 
+     Results are written under .refactor-verify/ in the working directory.
+ 
+-    Exits 0 if all checks pass (or the diff is empty), 1 if a check failed
+-    or the diff is non-empty, 2 on usage or environment error.
++    The check modes say nothing about size and the loc modes say nothing about
++    behavior. Physical LOC counts every line of the non-test *.go files, blank
++    lines and comments included; code LOC counts only the lines holding at
++    least one Go token, so a deleted comment cannot pay for a line of code.
++
++    Exits 0 if all checks pass (or the diff is empty, or neither LOC count
++    grew), 1 if a check failed, the diff is non-empty, or a count grew,
++    2 on usage or environment error.
+ 
+ OPTIONS
+     -h, --help       Show this help message
+@@ -34,8 +42,9 @@ OPTIONS
+     --out DIR        Result directory (default: .refactor-verify)
+ 
+ ARGUMENTS
+-    mode             baseline | after | diff | leaks
+-    path             Package pattern (default: ./...)
++    mode             baseline | after | diff | leaks | loc-baseline | loc-diff
++    path             Package pattern (default: ./...); the loc modes count the
++                     directory it names, recursively
+ 
+ EXAMPLES
+     bash $SCRIPT_NAME baseline ./...
+@@ -43,6 +52,8 @@ EXAMPLES
+     bash $SCRIPT_NAME diff
+     bash $SCRIPT_NAME --json after ./...
+     bash $SCRIPT_NAME leaks ./...
++    bash $SCRIPT_NAME loc-baseline ./internal/gateway
++    bash $SCRIPT_NAME --json loc-diff ./internal/gateway
+ EOF
+ }
+ 
+@@ -112,7 +123,7 @@ if ! [[ "$LIMIT" =~ ^[0-9]+$ ]]; then
+ fi
+ 
+ case "$MODE" in
+-    baseline|after|diff|leaks) ;;
++    baseline|after|diff|leaks|loc-baseline|loc-diff) ;;
+     "") echo "error: missing mode" >&2; usage >&2; exit 2 ;;
+     *)  echo "error: unknown mode: $MODE" >&2; usage >&2; exit 2 ;;
+ esac
+@@ -126,6 +137,317 @@ if ! command -v go &>/dev/null; then
+ fi
+ 
+ mkdir -p "$OUT_DIR" || { echo "error: cannot create $OUT_DIR" >&2; exit 2; }
++OUT_ABS="$(cd "$OUT_DIR" && pwd)" || { echo "error: cannot resolve $OUT_DIR" >&2; exit 2; }
++
++# ------------------------------------------------------------------ loc modes
++# The counter is a Go program because the second number needs the Go scanner:
++# a nonblank-line count reads a multiline string as code it is not, and a
++# hand-rolled comment stripper reads a comment inside a raw string as a comment.
++# It is built rather than `go run` so the exit status reaching the caller is the
++# gate verdict and not "exit status 1" from the toolchain.
++if [[ "$MODE" == "loc-baseline" || "$MODE" == "loc-diff" ]]; then
++    LOC_DIR="${TARGET%%/...}"
++    LOC_DIR="${LOC_DIR:-.}"
++    if [[ ! -d "$LOC_DIR" ]]; then
++        echo "error: not a directory: $LOC_DIR" >&2
++        exit 2
++    fi
++    LOC_ABS="$(cd "$LOC_DIR" && pwd)" || { echo "error: cannot resolve $LOC_DIR" >&2; exit 2; }
++    LOC_RECORD="$OUT_ABS/loc.baseline.json"
++    if [[ "$MODE" == "loc-diff" && ! -f "$LOC_RECORD" ]]; then
++        echo "error: no starting count recorded; run loc-baseline before the first edit" >&2
++        exit 2
++    fi
++    LOC_WORK="$(mktemp -d)" || { echo "error: cannot create a temp directory" >&2; exit 2; }
++    trap 'rm -rf "$LOC_WORK"' EXIT
++    printf 'module refactorloc\n\ngo 1.21\n' >"$LOC_WORK/go.mod"
++    cat >"$LOC_WORK/main.go" <<'GOEOF'
++// Counts the production LOC of one directory two ways: every physical line of
++// its non-test *.go files, and the subset of those lines holding at least one
++// Go token. Both numbers gate a concision pass, because a physical count alone
++// lets a deleted doc comment pay for added code.
++package main
++
++import (
++	"crypto/sha256"
++	"encoding/json"
++	"flag"
++	"fmt"
++	"go/scanner"
++	"go/token"
++	"os"
++	"path/filepath"
++	"sort"
++	"strings"
++)
++
++// convention travels with every result: a line count is only checkable
++// against the rule that produced it.
++const convention = "physical: every line of the non-test *.go files, blank lines and comments included\n" +
++	"code: only the lines holding at least one Go token"
++
++type fileCount struct {
++	Path     string `json:"path"`
++	Physical int    `json:"physical"`
++	Code     int    `json:"code"`
++	Digest   string `json:"sha256"`
++}
++
++type counts struct {
++	Root       string      `json:"root"`
++	Physical   int         `json:"physical"`
++	Code       int         `json:"code"`
++	Files      int         `json:"files"`
++	TestFiles  int         `json:"test_files"`
++	ScanErrors int         `json:"scan_errors"`
++	Detail     []fileCount `json:"detail"`
++}
++
++func main() {
++	root := flag.String("root", "", "directory whose non-test *.go files are counted")
++	asJSON := flag.Bool("json", false, "print JSON instead of text")
++	save := flag.String("save", "", "write this run's counts to a file")
++	baseline := flag.String("baseline", "", "compare this run against a saved file")
++	flag.Parse()
++
++	if *root == "" {
++		fail("-root is required")
++	}
++	now, err := count(*root)
++	if err != nil {
++		fail(err.Error())
++	}
++	if *save != "" {
++		data, err := json.MarshalIndent(now, "", "  ")
++		if err != nil {
++			fail(err.Error())
++		}
++		if err := os.WriteFile(*save, append(data, '\n'), 0o644); err != nil {
++			fail(err.Error())
++		}
++	}
++	if *baseline == "" {
++		report(now, *save, *asJSON)
++		return
++	}
++	before, err := load(*baseline)
++	if err != nil {
++		fail(err.Error())
++	}
++	os.Exit(compare(before, now, *asJSON))
++}
++
++func fail(msg string) {
++	fmt.Fprintf(os.Stderr, "error: %s\n", msg)
++	os.Exit(2)
++}
++
++// count walks root and counts every non-test *.go file under it. Test files are
++// counted but contribute no lines: adding a characterization test is part of a
++// refactor, and moving code into a test is not a way to shrink the package.
++func count(root string) (counts, error) {
++	c := counts{Root: root}
++	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
++		if err != nil {
++			return err
++		}
++		name := d.Name()
++		if d.IsDir() || !strings.HasSuffix(name, ".go") {
++			return nil
++		}
++		if strings.HasSuffix(name, "_test.go") {
++			c.TestFiles++
++			return nil
++		}
++		data, err := os.ReadFile(path)
++		if err != nil {
++			return err
++		}
++		rel, err := filepath.Rel(root, path)
++		if err != nil {
++			rel = path
++		}
++		code, scanErrors := codeCount(path, data)
++		c.Files++
++		c.Physical += lineCount(data)
++		c.Code += code
++		c.ScanErrors += scanErrors
++		c.Detail = append(c.Detail, fileCount{
++			Path:     filepath.ToSlash(rel),
++			Physical: lineCount(data),
++			Code:     code,
++			Digest:   fmt.Sprintf("%x", sha256.Sum256(data)),
++		})
++		return nil
++	})
++	sort.Slice(c.Detail, func(i, j int) bool { return c.Detail[i].Path < c.Detail[j].Path })
++	return c, err
++}
++
++// lineCount counts physical lines. A trailing line without a newline counts
++// once; an empty file counts zero.
++func lineCount(data []byte) int {
++	if len(data) == 0 {
++		return 0
++	}
++	lines := strings.Count(string(data), "\n")
++	if data[len(data)-1] != '\n' {
++		lines++
++	}
++	return lines
++}
++
++// codeCount counts the physical lines holding at least one Go token. A blank
++// line and a comment-only line hold none; a line of code with a trailing
++// comment holds several and counts once. A multiline literal counts on every
++// line it spans, because those lines are code. The returned error count is the
++// scanner's: a file it cannot tokenize has an untrustworthy code number, and
++// the caller reports that rather than a quiet approximation.
++func codeCount(path string, data []byte) (int, int) {
++	file := token.NewFileSet().AddFile(path, -1, len(data))
++	scanErrors := 0
++	var s scanner.Scanner
++	// Mode 0 drops comments, which is the point: what remains is code.
++	s.Init(file, data, func(token.Position, string) { scanErrors++ }, 0)
++	lines := make(map[int]bool)
++	for {
++		pos, tok, lit := s.Scan()
++		if tok == token.EOF {
++			break
++		}
++		if tok == token.SEMICOLON && lit == "\n" {
++			// Inserted by the scanner at a line end. Its position is the
++			// newline itself, so counting the line it spans would credit the
++			// next line.
++			continue
++		}
++		start := file.Line(pos)
++		for line := start; line <= start+strings.Count(lit, "\n"); line++ {
++			lines[line] = true
++		}
++	}
++	return len(lines), scanErrors
++}
++
++func load(path string) (counts, error) {
++	var c counts
++	data, err := os.ReadFile(path)
++	if err != nil {
++		return c, err
++	}
++	if err := json.Unmarshal(data, &c); err != nil {
++		return c, fmt.Errorf("parse %s: %w", path, err)
++	}
++	return c, nil
++}
++
++func report(c counts, saved string, asJSON bool) {
++	if asJSON {
++		printJSON(map[string]any{"mode": "loc-baseline", "counts": c, "record": saved, "convention": convention})
++		return
++	}
++	fmt.Printf("--- loc baseline (%s) ---\n", c.Root)
++	fmt.Printf("physical %d, code %d, production files %d, test files %d\n", c.Physical, c.Code, c.Files, c.TestFiles)
++	fmt.Println(convention)
++	warn(c)
++	if saved != "" {
++		fmt.Printf("record: %s\n", saved)
++	}
++}
++
++// compare returns the exit status: 0 when neither count grew, 1 when either did.
++func compare(before, now counts, asJSON bool) int {
++	physical, code, files := now.Physical-before.Physical, now.Code-before.Code, now.Files-before.Files
++	pass := physical <= 0 && code <= 0
++	added, removed := changedFiles(before, now)
++	if asJSON {
++		printJSON(map[string]any{
++			"mode": "loc-diff", "root": now.Root, "before": before, "after": now,
++			"delta":   map[string]int{"physical": physical, "code": code, "files": files},
++			"added":   added,
++			"removed": removed, "gate_pass": pass, "convention": convention,
++		})
++	} else {
++		fmt.Printf("--- loc diff (%s) ---\n", now.Root)
++		fmt.Printf("physical %d -> %d (%+d)\n", before.Physical, now.Physical, physical)
++		fmt.Printf("code     %d -> %d (%+d)\n", before.Code, now.Code, code)
++		fmt.Printf("files    %d -> %d (%+d)\n", before.Files, now.Files, files)
++		if len(added) > 0 {
++			fmt.Printf("added: %s\n", strings.Join(added, ", "))
++		}
++		if len(removed) > 0 {
++			fmt.Printf("removed: %s\n", strings.Join(removed, ", "))
++		}
++		fmt.Println(convention)
++		warn(now)
++		if pass {
++			fmt.Println("gate: PASS, neither production LOC count grew")
++		} else {
++			fmt.Println("gate: FAIL, a production LOC count grew")
++			fmt.Println("Both counts gate: deleting a comment does not pay for a line of code,")
++			fmt.Println("and documentation that explains a decision stays.")
++		}
++	}
++	if pass {
++		return 0
++	}
++	return 1
++}
++
++// changedFiles names the production files the two runs do not share, so a count
++// that moved because a file appeared or disappeared says so.
++func changedFiles(before, now counts) (added, removed []string) {
++	was := map[string]bool{}
++	for _, f := range before.Detail {
++		was[f.Path] = true
++	}
++	is := map[string]bool{}
++	for _, f := range now.Detail {
++		is[f.Path] = true
++		if !was[f.Path] {
++			added = append(added, f.Path)
++		}
++	}
++	for _, f := range before.Detail {
++		if !is[f.Path] {
++			removed = append(removed, f.Path)
++		}
++	}
++	sort.Strings(added)
++	sort.Strings(removed)
++	return added, removed
++}
++
++func warn(c counts) {
++	if c.ScanErrors > 0 {
++		fmt.Printf("warning: %d scanner error(s); the code count is unreliable until the package parses\n", c.ScanErrors)
++	}
++}
++
++func printJSON(payload map[string]any) {
++	data, err := json.MarshalIndent(payload, "", "  ")
++	if err != nil {
++		fail(err.Error())
++	}
++	fmt.Println(string(data))
++}
++GOEOF
++    if ! (cd "$LOC_WORK" && GOWORK=off GOFLAGS= go build -o loc . >"$LOC_WORK/build.log" 2>&1); then
++        echo "error: cannot build the LOC counter" >&2
++        cat "$LOC_WORK/build.log" >&2
++        exit 2
++    fi
++    LOC_ARGS=(-root "$LOC_ABS")
++    $JSON_OUTPUT && LOC_ARGS+=(-json)
++    if [[ "$MODE" == "loc-baseline" ]]; then
++        LOC_ARGS+=(-save "$LOC_RECORD")
++    else
++        LOC_ARGS+=(-baseline "$LOC_RECORD")
++    fi
++    LOC_RC=0
++    "$LOC_WORK/loc" "${LOC_ARGS[@]}" || LOC_RC=$?
++    exit "$LOC_RC"
++fi
+ 
+ # ------------------------------------------------------------------ diff mode
+ if [[ "$MODE" == "diff" ]]; then
+@@ -141,13 +463,13 @@ if [[ "$MODE" == "diff" ]]; then
+             "$(json_escape "$DISPLAY")" \
+             "$($TRUNCATED && echo true || echo false)"
+     elif [[ $DIFF_RC -eq 0 ]]; then
+-        echo "identical: same checks pass, same tests run"
++        echo "identical: recorded check results match, including any failures or skips"
+     else
+         echo "$DISPLAY"
+         $TRUNCATED && echo "... (truncated at $LIMIT lines)"
+         echo
+-        echo "Differences above. Any change in test counts or verdicts means"
+-        echo "behavior moved. Investigate before shipping the refactor."
++        echo "Differences above may include new tests, resolved failures, or regressions."
++        echo "Inspect the results; record equality alone does not establish behavior."
+     fi
+     exit "$DIFF_RC"
+ fi
+@@ -283,8 +605,8 @@ else
+     echo "--- full log: $LOG ---"
+     if [[ "$MODE" == "baseline" && "$FAILED" -eq 1 ]]; then
+         echo
+-        echo "Baseline is red. Stop and report it: later failures cannot be" >&2
+-        echo "attributed to the refactor if they were already failing." >&2
++        echo "Baseline is red. Record known failures and continue independently" >&2
++        echo "verifiable work; distinguish new failures before attributing them." >&2
+     fi
+ fi
+ 

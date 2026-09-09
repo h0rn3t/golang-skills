@@ -12,13 +12,13 @@ USAGE
     bash $SCRIPT_NAME [options] <mode> [path]
 
 DESCRIPTION
-    Captures a verifiable record of build, vet, test, race, and lint results
-    so a refactor can be proven to change nothing observable.
+    Captures build, vet, test, and race results, with informational lint findings.
+    Matching records alone do not prove that observable behavior is unchanged.
 
     Modes:
       baseline   Record the state before any edit
       after      Record the state after a refactor step
-      diff       Compare after against baseline (empty diff = behavior held)
+      diff       Compare recorded check results, including failures and skips
       leaks      Run tests with the goroutine-leak profile (Go 1.26+)
 
     Results are written under .refactor-verify/ in the working directory.
@@ -141,13 +141,13 @@ if [[ "$MODE" == "diff" ]]; then
             "$(json_escape "$DISPLAY")" \
             "$($TRUNCATED && echo true || echo false)"
     elif [[ $DIFF_RC -eq 0 ]]; then
-        echo "identical: same checks pass, same tests run"
+        echo "identical: recorded check results match, including any failures or skips"
     else
         echo "$DISPLAY"
         $TRUNCATED && echo "... (truncated at $LIMIT lines)"
         echo
-        echo "Differences above. Any change in test counts or verdicts means"
-        echo "behavior moved. Investigate before shipping the refactor."
+        echo "Differences above may include new tests, resolved failures, or regressions."
+        echo "Inspect the results; record equality alone does not establish behavior."
     fi
     exit "$DIFF_RC"
 fi
@@ -283,8 +283,8 @@ else
     echo "--- full log: $LOG ---"
     if [[ "$MODE" == "baseline" && "$FAILED" -eq 1 ]]; then
         echo
-        echo "Baseline is red. Stop and report it: later failures cannot be" >&2
-        echo "attributed to the refactor if they were already failing." >&2
+        echo "Baseline is red. Record known failures and continue independently" >&2
+        echo "verifiable work; distinguish new failures before attributing them." >&2
     fi
 fi
 

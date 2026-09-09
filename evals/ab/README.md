@@ -185,7 +185,11 @@ The feedback names its counting convention on purpose. Stage 2 measured a
 session that read the same file as 101 lines where the harness read 138 —
 non-blank non-comment against physical — declared its gate met and changed
 nothing. The disagreement was about the definition, not the code, so the
-definition travels with the number.
+definition travels with the number. It names both counts for the same reason:
+stage 3 measured two sessions that met a physical-line gate by deleting the doc
+comment justifying the server's timeouts and spending the lines on helpers, and
+a gate whose second half the model cannot see is a gate it can pay for with
+documentation.
 
 ### Production LOC
 
@@ -197,6 +201,28 @@ code into a test nor grow it by writing one. `Δlines` is the after-count minus
 the before-count under that definition, and `line_gate_pass` is that delta being
 at most zero — the concision gate's own criterion, recorded whether or not the
 run was valid, because a gate met while behavior broke has to stay visible.
+
+`code` is the subset of those lines holding **at least one Go token**: a blank
+line and a comment-only line hold none, a line of code with a trailing comment
+counts once, and a multi-line literal counts on every line it spans. It exists
+because the physical count lets documentation pay for code — stage 3 measured
+two runs that met the gate by deleting the paragraph justifying the server's
+timeouts and buying helpers with the eight lines. `code_gate_pass` is `Δcode` at
+most zero, and a run clears the gate only with both flags: `line_gate_pass`
+keeps its old definition so earlier reports stay comparable, and `code_gate_pass`
+is the one that cannot be met by deleting a comment. When the repair loop is on,
+either failing grants the repair turn.
+
+`tokens` counts every production token except semicolons and commas — the pure
+separators whose count follows the line breaks, since an inserted semicolon
+exists because a statement ended at a newline and `gofmt` requires a trailing
+comma in a composite literal only while it spans lines. It is **reported, not
+gated**: the gate's own criterion is lines, and what a third axis would do to
+the model's behavior is unmeasured. Read it whenever a line delta looks good,
+because a line is a unit the model can resize — one measured session met both
+line gates by packing an eight-field `http.Server` literal onto a single
+201-character line, spending the freed lines on three helpers, and `gofmt`
+leaves that result alone.
 
 Per run: recursive line delta, declared types, interfaces, functions,
 pattern-flavored identifiers, whether the package still builds, whether the

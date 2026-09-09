@@ -35,6 +35,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/parser"
+	"go/scanner"
 	"go/token"
 	"math/rand"
 	"os"
@@ -211,7 +212,21 @@ type metrics struct {
 	// without a newline counted once. No file under a _test.go name
 	// contributes, so a session cannot shrink this number by moving code into
 	// a test, and cannot grow it by writing one.
-	Lines      int `json:"lines"`
+	Lines int `json:"lines"`
+	// Code is the subset of Lines holding at least one Go token, so a blank line
+	// and a comment-only line are excluded. It exists because Lines lets
+	// documentation pay for code: stage 3 measured two runs that met the gate by
+	// deleting the paragraph justifying the server's timeouts and spending the
+	// eight lines on new helpers. Lines keeps its definition so past reports stay
+	// comparable; this is the number that says whether the code itself shrank.
+	Code int `json:"code"`
+	// Tokens counts every Go token in the production files except semicolons and
+	// commas, the pure separators whose count follows the line breaks. It is the
+	// one size measure no line reflow can move: re-flowing an eight-field struct
+	// literal onto one line pays a line-based gate seven lines and leaves this
+	// number alone. It is reported, not gated — the gate's own criterion is
+	// lines, and what a third axis would do to the model's behavior is unmeasured.
+	Tokens     int `json:"tokens"`
 	Files      int `json:"files"`
 	TestFiles  int `json:"test_files"`
 	Types      int `json:"types"`
@@ -232,6 +247,8 @@ type metrics struct {
 func (m metrics) sub(o metrics) metrics {
 	return metrics{
 		Lines:      m.Lines - o.Lines,
+		Code:       m.Code - o.Code,
+		Tokens:     m.Tokens - o.Tokens,
 		Files:      m.Files - o.Files,
 		TestFiles:  m.TestFiles - o.TestFiles,
 		Types:      m.Types - o.Types,
@@ -280,7 +297,10 @@ type result struct {
 	// LineGatePass reports whether production lines failed to grow, which is the
 	// concision gate's own criterion measured the way analyze measures it. It is
 	// not a validity verdict — read it next to Build, Golden and Edited.
+	// CodeGatePass asks the same of Delta.Code, and it is the one that cannot be
+	// met by deleting documentation. A run passes the gate only with both.
 	LineGatePass bool `json:"line_gate_pass"`
+	CodeGatePass bool `json:"code_gate_pass"`
 	// EmptyDiff is a session that ran to completion and deliberately left every
 	// file as it found it. Edited==false with an error is a different thing: a
 	// session that never got as far as writing, which is why this is its own
@@ -770,6 +790,7 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		res.After = after
 		res.Delta = after.sub(before)
 		res.LineGatePass = res.Delta.Lines <= 0
+		res.CodeGatePass = res.Delta.Code <= 0
 		res.EmptyDiff = !res.Edited && res.Err == ""
 		res.GoFail, res.Build = "", false
 		if err := goCmd(o.timeout, work, "build", "./..."); err != nil {
@@ -813,12 +834,12 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		case probeErr != nil:
 			res.Err = fmt.Sprintf("probe golden: %v", probeErr)
 			return res
-		case res.LineGatePass && probePass:
+		case res.LineGatePass && res.CodeGatePass && probePass:
 			// Nothing to repair; the loop costs no extra turn.
 		default:
 			pre := res.After
 			res.RepairFired, res.PreRepair, res.PreRepairGolden = true, &pre, probePass
-			res.RepairFeedback = repairFeedback(taskName, before.Lines, pre.Lines, probeFail)
+			res.RepairFeedback = repairFeedback(taskName, before, pre, probeFail)
 			repair := runSession(o, a, work, res.RepairFeedback)
 			res.merge(repair)
 			if err := appendTrace(work, repair.out); err == nil && o.keep {
@@ -963,24 +984,32 @@ func probeGolden(timeout time.Duration, work, taskName, goldenDir string) (bool,
 // The disagreement was about the definition, not the code, so the definition
 // travels with the number.
 //
+// It names both counts for the same reason. Stage 3 measured two sessions that
+// met a physical-line gate by deleting the doc comment justifying the server's
+// timeouts and spending the lines on helpers. A gate the model cannot see the
+// second half of is a gate it can pay for with documentation.
+//
 // The independent failure arrives as assertion text with file positions
 // stripped: the model is told what broke, not which file holds the test.
-func repairFeedback(taskName string, start, current int, failure string) string {
+func repairFeedback(taskName string, start, current metrics, failure string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Package under review: ./%s\n\n", taskName)
-	fmt.Fprintf(&b, "Starting production LOC: %d\n", start)
-	fmt.Fprintf(&b, "Current production LOC: %d\n", current)
-	if current > start {
-		fmt.Fprintf(&b, "Gate: FAIL, growth +%d\n", current-start)
-	} else {
-		b.WriteString("Gate: PASS on line count.\n")
+	fmt.Fprintf(&b, "Starting production LOC: %d physical, %d code\n", start.Lines, start.Code)
+	fmt.Fprintf(&b, "Current production LOC: %d physical, %d code\n", current.Lines, current.Code)
+	delta := current.sub(start)
+	verdict := "PASS"
+	if delta.Lines > 0 || delta.Code > 0 {
+		verdict = "FAIL"
 	}
-	b.WriteString("LOC counts physical lines in the package's non-test *.go files, blank lines and comments included.\n")
+	fmt.Fprintf(&b, "Gate: %s, physical %+d, code %+d\n", verdict, delta.Lines, delta.Code)
+	b.WriteString("Physical LOC counts every line in the package's non-test *.go files, blank lines and comments included. " +
+		"Code LOC counts only the lines holding at least one Go token.\n")
+	b.WriteString("Both counts gate: deleting a comment does not pay for a line of code, and documentation that explains a decision stays.\n")
 	if failure != "" {
 		fmt.Fprintf(&b, "\nIndependent contract failure:\n%s\n", assertionsOnly(failure))
 	}
 	b.WriteString("\nRepair the implementation or restore the starting version.\n")
-	fmt.Fprintf(&b, "Done when LOC <= %d and the contract test passes.\n", start)
+	fmt.Fprintf(&b, "Done when physical LOC <= %d, code LOC <= %d, and the contract test passes.\n", start.Lines, start.Code)
 	return b.String()
 }
 
@@ -1149,6 +1178,8 @@ func analyze(dir string) (metrics, error) {
 		}
 		m.Files++
 		m.Lines += lineCount(data)
+		code, tokens := codeSize(path, data)
+		m.Code, m.Tokens = m.Code+code, m.Tokens+tokens
 		file, err := parser.ParseFile(fset, path, data, parser.SkipObjectResolution)
 		if err != nil {
 			return fmt.Errorf("parse %s: %w", path, err)
@@ -1168,6 +1199,48 @@ func lineCount(data []byte) int {
 		lines++
 	}
 	return lines
+}
+
+// codeSize measures one file twice from a single scan.
+//
+// code is the physical lines that hold at least one Go token: a blank line and
+// a comment-only line hold none, a line of code with a trailing comment counts
+// once, and a multi-line literal counts on every line it spans.
+//
+// tokens is every token except the pure separators, semicolons and commas,
+// whose count follows the line breaks: an inserted semicolon exists because a
+// statement ended at a newline, and gofmt requires a trailing comma in a
+// composite literal only while it spans lines. Lines are what the gate asks
+// about, but a line is a unit the model can resize: re-flowing an eight-field
+// struct literal onto one line pays a line gate seven lines and leaves the
+// token count alone.
+func codeSize(path string, data []byte) (code, tokens int) {
+	file := token.NewFileSet().AddFile(path, -1, len(data))
+	var s scanner.Scanner
+	// Mode 0 drops comments, which is the whole point: what remains is code.
+	// Scan errors are ignored here — a file that does not parse is already an
+	// analyze error, reported by the caller.
+	s.Init(file, data, nil, 0)
+	lines := make(map[int]bool)
+	for {
+		pos, tok, lit := s.Scan()
+		if tok == token.EOF {
+			return len(lines), tokens
+		}
+		if tok == token.SEMICOLON || tok == token.COMMA {
+			// An inserted semicolon sits on the newline itself, so counting the
+			// line it spans would credit the next line. Explicit semicolons and
+			// commas go with it: whether a statement ends at a newline and whether
+			// a literal carries a trailing comma is exactly the line shape this
+			// count is meant to ignore.
+			continue
+		}
+		tokens++
+		start := file.Line(pos)
+		for line := start; line <= start+strings.Count(lit, "\n"); line++ {
+			lines[line] = true
+		}
+	}
 }
 
 // countDecls adds one file's declarations to m.
@@ -1533,8 +1606,9 @@ func firstLine(s string) string {
 
 func printResult(r result, verbose bool) {
 	status := resultStatus(r)
-	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  exp %+d  branch %+d  build=%v model_tests=%s golden=%v gate=%v skills=%v",
-		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Funcs, r.Delta.Exported, r.Delta.Branches, r.Build, r.ModelTests, r.Golden, r.LineGatePass, r.Skills)
+	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  code %+d  tok %+d  types %+d  funcs %+d  exp %+d  branch %+d  build=%v model_tests=%s golden=%v gate=%v code_gate=%v skills=%v",
+		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Code, r.Delta.Tokens, r.Delta.Types, r.Delta.Funcs, r.Delta.Exported, r.Delta.Branches,
+		r.Build, r.ModelTests, r.Golden, r.LineGatePass, r.CodeGatePass, r.Skills)
 	if r.Err != "" {
 		fmt.Printf("  error: %s", r.Err)
 	}
@@ -1549,8 +1623,10 @@ func printResult(r result, verbose bool) {
 		fmt.Printf("       golden failed on a name collision with the model's code, not on behavior\n")
 	}
 	if r.RepairFired && r.PreRepair != nil {
-		fmt.Printf("       repair turn: lines %+d -> %+d, golden %v -> %v\n",
-			r.PreRepair.Lines-r.Before.Lines, r.Delta.Lines, r.PreRepairGolden, r.Golden)
+		fmt.Printf("       repair turn: lines %+d -> %+d, code %+d -> %+d, tokens %+d -> %+d, golden %v -> %v\n",
+			r.PreRepair.Lines-r.Before.Lines, r.Delta.Lines,
+			r.PreRepair.Code-r.Before.Code, r.Delta.Code,
+			r.PreRepair.Tokens-r.Before.Tokens, r.Delta.Tokens, r.PreRepairGolden, r.Golden)
 	}
 	if r.WorkDir != "" {
 		fmt.Printf("       source: %s\n", r.WorkDir)
@@ -1586,6 +1662,8 @@ type armSummary struct {
 	Golden            int
 	SkillFired        int
 	Lines             int
+	Code              int
+	Tokens            int
 	Types             int
 	Interfaces        int
 	Funcs             int
@@ -1600,9 +1678,12 @@ type armSummary struct {
 	// them in overstates one arm's regressions.
 	BehaviorFailures int
 	HarnessFailures  int
-	// LineGatePasses and EmptyDiffs count over completed runs, not valid ones: a
-	// gate the model met while breaking behavior still has to be visible.
+	// LineGatePasses, CodeGatePasses and EmptyDiffs count over completed runs,
+	// not valid ones: a gate the model met while breaking behavior still has to
+	// be visible. A physical pass well above the code pass is the arm paying for
+	// code with documentation.
 	LineGatePasses int
+	CodeGatePasses int
 	EmptyDiffs     int
 	ReportedCounts int
 	// RepairsFired and RepairsRescued count the loop: how often a second turn
@@ -1663,6 +1744,9 @@ func summarizeArm(rep report, name string) armSummary {
 		if r.LineGatePass {
 			summary.LineGatePasses++
 		}
+		if r.CodeGatePass {
+			summary.CodeGatePasses++
+		}
 		if r.EmptyDiff {
 			summary.EmptyDiffs++
 		}
@@ -1671,7 +1755,7 @@ func summarizeArm(rep report, name string) armSummary {
 		}
 		if r.RepairFired {
 			summary.RepairsFired++
-			if r.LineGatePass && r.Golden {
+			if r.LineGatePass && r.CodeGatePass && r.Golden {
 				summary.RepairsRescued++
 			}
 		}
@@ -1689,6 +1773,8 @@ func summarizeArm(rep report, name string) armSummary {
 		}
 		summary.Valid++
 		summary.Lines += r.Delta.Lines
+		summary.Code += r.Delta.Code
+		summary.Tokens += r.Delta.Tokens
 		summary.Types += r.Delta.Types
 		summary.Interfaces += r.Delta.Interfaces
 		summary.Funcs += r.Delta.Funcs
@@ -1703,8 +1789,8 @@ func summarizeArm(rep report, name string) armSummary {
 // pass their model tests (if present) and hidden golden test.
 // Failed sessions remain visible in the counts.
 func printSummary(rep report) {
-	fmt.Printf("%-24s %5s %6s %5s %8s %7s %7s %7s %9s %6s %8s %7s %7s %6s %8s\n",
-		"arm", "runs", "errors", "valid", "Δlines", "Δtypes", "Δiface", "Δfuncs", "Δpattern", "Δexp", "Δbranch", "build", "golden", "skill", "$/run")
+	fmt.Printf("%-24s %5s %6s %5s %8s %7s %8s %7s %7s %7s %9s %6s %8s %7s %7s %6s %8s\n",
+		"arm", "runs", "errors", "valid", "Δlines", "Δcode", "Δtokens", "Δtypes", "Δiface", "Δfuncs", "Δpattern", "Δexp", "Δbranch", "build", "golden", "skill", "$/run")
 	for _, a := range rep.Arms {
 		summary := summarizeArm(rep, a.Name)
 		completed := summary.Runs - summary.Errors
@@ -1726,9 +1812,10 @@ func printSummary(rep report) {
 		if summary.Costed > 0 {
 			cost = summary.Cost / float64(summary.Costed)
 		}
-		fmt.Printf("%-24s %5d %6d %5d %8.1f %7.2f %7.2f %7.2f %9.2f %6.2f %8.2f %6d%% %6d%% %5d%% %8.4f\n",
+		fmt.Printf("%-24s %5d %6d %5d %8.1f %7.2f %8.2f %7.2f %7.2f %7.2f %9.2f %6.2f %8.2f %6d%% %6d%% %5d%% %8.4f\n",
 			a.Name, summary.Runs, summary.Errors, summary.Valid,
-			mean(summary.Lines), mean(summary.Types), mean(summary.Interfaces), mean(summary.Funcs), mean(summary.Pattern),
+			mean(summary.Lines), mean(summary.Code), mean(summary.Tokens),
+			mean(summary.Types), mean(summary.Interfaces), mean(summary.Funcs), mean(summary.Pattern),
 			mean(summary.Exported), mean(summary.Branches),
 			percent(summary.Build), percent(summary.Golden), percent(summary.SkillFired), cost)
 		// Neither of these belongs in a column: they are not a worse score, they
@@ -1742,8 +1829,9 @@ func printSummary(rep report) {
 		if summary.HarnessFailures > 0 {
 			fmt.Printf("%-24s   %d golden failure(s) were harness collisions, not behavior changes\n", "", summary.HarnessFailures)
 		}
-		fmt.Printf("%-24s   line gate %d/%d, behavior failures %d, counts reported %d/%d\n",
-			"", summary.LineGatePasses, completed, summary.BehaviorFailures, summary.ReportedCounts, completed)
+		fmt.Printf("%-24s   line gate %d/%d, code gate %d/%d, behavior failures %d, counts reported %d/%d\n",
+			"", summary.LineGatePasses, completed, summary.CodeGatePasses, completed,
+			summary.BehaviorFailures, summary.ReportedCounts, completed)
 		if summary.RepairsFired > 0 {
 			fmt.Printf("%-24s   repair turn fired %d time(s), cleared gate and golden in %d\n",
 				"", summary.RepairsFired, summary.RepairsRescued)

@@ -1,0 +1,45 @@
+{
+  "luna": {
+    "sessions": 10,
+    "build": 10,
+    "golden": 10,
+    "physical_gate": 9,
+    "code_gate": 10,
+    "empty_diff": 0,
+    "model_tests_pass": 5,
+    "mean_delta": {
+      "lines": -3.2,
+      "code": -2.8,
+      "tokens": -8.5,
+      "funcs": 0,
+      "types": 0,
+      "branches": -0.8
+    },
+    "comment_removal_runs": [
+      {
+        "task": "gw4",
+        "rep": 0
+      }
+    ],
+    "cost_reported_usd": null
+  },
+  "sonnet": {
+    "sessions": 10,
+    "build": 10,
+    "golden": 10,
+    "physical_gate": 5,
+    "code_gate": 6,
+    "empty_diff": 2,
+    "model_tests_pass": 1,
+    "mean_delta": {
+      "lines": 3.9,
+      "code": 2.6,
+      "tokens": 23.5,
+      "funcs": 1.4,
+      "types": 0.1,
+      "branches": -0.4
+    },
+    "comment_removal_runs": [],
+    "cost_reported_usd": 3.2822208
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "prompt": "Refactor the Go package in ./%s so it reads better. Keep observable behavior identical: the exported API, error texts, and rendered output must not change. Apply the changes to the files.",
+  "corpus": "refactor",
+  "runner": "codex",
+  "model": "gpt-5.6-luna",
+  "effort": "medium",
+  "reps": 1,
+  "seed": 1,
+  "arms": [
+    {
+      "name": "reference",
+      "source": "/tmp/go-refactor-luna-review-20260909/verification-reference",
+      "sha256": "f1d1df6bbc5262a8ce9a653fe707d8f8ce36828039f63f220f6dcdb835a24fe3"
+    },
+    {
+      "name": "baseline",
+      "source": "/Users/eugeneshershen/.config/superpowers/worktrees/golang-skills/refactor-luna-review",
+      "sha256": "579afc3675befc85a46879cee169b5a24228041849fb386ba39bd7efcc6f83e9"
+    }
+  ],
+  "results": [
+    {
+      "arm": "reference",
+      "task": "gw0",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 135,
+        "code": 94,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 12
+      },
+      "after": {
+        "lines": 130,
+        "code": 89,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 10
+      },
+      "delta": {
+        "lines": -5,
+        "code": -5,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -2
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "line_gate_pass": true,
+      "code_gate_pass": true,
+      "empty_diff": false,
+      "reported_counts": false,
+      "commands": 8,
+      "trace_path": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2745777172/trace.jsonl",
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2745777172",
+      "output": "Refactored [gw0/gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2745777172/gw0/gateway.go):\n\n- Clarified local variable names.\n- Simplified account ID comparison with `cmp.Compare`.\n- Preserved exported API, errors, filtering, sorting, and output behavior.\n\nVerified with `gofmt`, `go build`, `go vet`, `go test`, and `go test -race`."
+    },
+    {
+      "arm": "baseline",
+      "task": "gw0",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 135,
+        "code": 94,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 12
+      },
+      "after": {
+        "lines": 130,
+        "code": 89,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 10
+      },
+      "delta": {
+        "lines": -5,
+        "code": -5,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -2
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "line_gate_pass": true,
+      "code_gate_pass": true,
+      "empty_diff": false,
+      "reported_counts": false,
+      "commands": 7,
+      "trace_path": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1533279112/trace.jsonl",
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1533279112",
+      "output": "Refactored [gw0/gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1533279112/gw0/gateway.go) to use `cmp.Compare` for clearer stable sorting.\n\nPreserved API, errors, and output. Verification passed: `gofmt`, build, vet, tests, race check, and LOC gate."
+    }
+  ],
+  "finished": "2026-09-09T18:17:31.127731+03:00"
+}

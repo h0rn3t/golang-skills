@@ -1,0 +1,299 @@
+package main
+
+// The concision gate asks the model for two numbers the harness also measures.
+// A gate is only checkable when both counters answer the same question, so the
+// counter the skill ships — verify-refactor.sh's loc modes — is tested here,
+// against analyze itself, rather than in the script suite that cannot reach it.
+//
+// Screening measured why this test exists: four sessions were told to use a
+// token-aware counter, none produced a starting measurement, and one wrote its
+// own counter that reported 133 physical lines where the harness read 132.
+
+import (
+	"encoding/json"
+	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// locScript is the script under test, relative to this package directory. Every
+// run works in a temporary tree, so the path is resolved before the chdir.
+const locScript = "../../../skills/go-code-refactor/scripts/verify-refactor.sh"
+
+func locScriptPath(t *testing.T) string {
+	t.Helper()
+	path, err := filepath.Abs(locScript)
+	if err != nil {
+		t.Fatalf("resolve %s: %v", locScript, err)
+	}
+	return path
+}
+
+// locResult is the part of the script's --json baseline output this test reads.
+type locResult struct {
+	Counts struct {
+		Physical   int `json:"physical"`
+		Code       int `json:"code"`
+		Files      int `json:"files"`
+		TestFiles  int `json:"test_files"`
+		ScanErrors int `json:"scan_errors"`
+	} `json:"counts"`
+}
+
+// docHeavyPackage carries every shape a line count gets wrong when it is not
+// token-aware: a doc comment, a block comment spanning lines, a raw string
+// holding what looks like a comment, and a line of code with a trailing one.
+const docHeavyPackage = `// Package demo documents a decision.
+//
+// The timeouts below are deliberate.
+package demo
+
+/* a block comment
+   spanning three
+   lines */
+
+const raw = ` + "`" + `line one
+// not a comment
+line three` + "`" + `
+
+func f() int { // trailing comment
+	return 1
+}
+`
+
+func TestLocCounterMatchesAnalyze(t *testing.T) {
+	tests := []struct {
+		name  string
+		files map[string]string
+		// physical and code are asserted literally as well as against
+		// analyze, so the two implementations cannot agree on a wrong number.
+		physical, code, files_, testFiles int
+	}{
+		{
+			name:     "comments and raw strings",
+			files:    map[string]string{"a.go": docHeavyPackage},
+			physical: 16, code: 7, files_: 1,
+		},
+		{
+			// A file whose last line has no newline is one line, not zero.
+			name:     "no trailing newline",
+			files:    map[string]string{"b.go": "package demo\n\nfunc g() int { return 2 }"},
+			physical: 3, code: 2, files_: 1,
+		},
+		{
+			// Test files are counted and contribute no lines: a session cannot
+			// shrink the package by moving code into a test.
+			name: "test file excluded",
+			files: map[string]string{
+				"b.go":      "package demo\n\nfunc g() int { return 2 }\n",
+				"b_test.go": "package demo\n\nimport \"testing\"\n\nfunc TestG(t *testing.T) { _ = g() }\n",
+			},
+			physical: 3, code: 2, files_: 1, testFiles: 1,
+		},
+		{
+			name: "nested directory",
+			files: map[string]string{
+				"b.go":     "package demo\n\nfunc g() int { return 2 }\n",
+				"sub/c.go": "package sub\n\nfunc h() int { return 3 }\n",
+				"sub/d.go": "package sub\n\n// note\nfunc i() int { return 4 }\n",
+			},
+			physical: 10, code: 6, files_: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			dir := writeLocFixture(t, tt.files)
+			got := runLocBaseline(t, dir)
+			want, err := analyze(dir)
+			if err != nil {
+				t.Fatalf("analyze(%s): %v", dir, err)
+			}
+			if got.Counts.Physical != want.Lines || got.Counts.Code != want.Code {
+				t.Errorf("script counted physical %d, code %d; analyze counted %d and %d",
+					got.Counts.Physical, got.Counts.Code, want.Lines, want.Code)
+			}
+			if got.Counts.Files != want.Files || got.Counts.TestFiles != want.TestFiles {
+				t.Errorf("script counted %d production and %d test files; analyze counted %d and %d",
+					got.Counts.Files, got.Counts.TestFiles, want.Files, want.TestFiles)
+			}
+			if got.Counts.Physical != tt.physical || got.Counts.Code != tt.code {
+				t.Errorf("physical = %d, code = %d, want %d and %d",
+					got.Counts.Physical, got.Counts.Code, tt.physical, tt.code)
+			}
+			if got.Counts.Files != tt.files_ || got.Counts.TestFiles != tt.testFiles {
+				t.Errorf("production files = %d, test files = %d, want %d and %d",
+					got.Counts.Files, got.Counts.TestFiles, tt.files_, tt.testFiles)
+			}
+			if got.Counts.ScanErrors != 0 {
+				t.Errorf("scan errors = %d, want 0 on a package that parses", got.Counts.ScanErrors)
+			}
+		})
+	}
+}
+
+// TestLocCounterGateVerdict drives the sequence the gate asks for: record the
+// starting counts, edit, recount. The exit status is the verdict, so a session
+// cannot report a pass the tool did not give it.
+func TestLocCounterGateVerdict(t *testing.T) {
+	tests := []struct {
+		name string
+		// after replaces the fixture between the two runs. A nil value deletes
+		// the file.
+		after    map[string]*string
+		wantExit int
+	}{
+		{
+			name:     "unchanged package passes",
+			wantExit: 0,
+		},
+		{
+			// The failure stage 3 measured: the doc paragraph pays for helpers.
+			// Physical falls, code rises, and the gate still fails.
+			name: "documentation paying for code fails",
+			after: map[string]*string{
+				"a.go": ptr("package demo\n\nfunc f() int {\n\treturn one() + zero()\n}\n\nfunc one() int {\n\treturn 1\n}\n\nfunc zero() int {\n\treturn 0\n}\n"),
+			},
+			wantExit: 1,
+		},
+		{
+			name: "a new file counts against the gate",
+			after: map[string]*string{
+				"c.go": ptr("package demo\n\nfunc h() int { return 3 }\n"),
+			},
+			wantExit: 1,
+		},
+		{
+			name: "a deleted file counts for it",
+			after: map[string]*string{
+				"a.go": ptr("package demo\n\nfunc f() int { return 1 }\n"),
+				"b.go": nil,
+			},
+			wantExit: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			dir := writeLocFixture(t, map[string]string{
+				"a.go": docHeavyPackage,
+				"b.go": "package demo\n\nfunc g() int { return 2 }\n",
+			})
+			if out, err := runLoc(t, dir, "loc-baseline"); err != nil {
+				t.Fatalf("loc-baseline: %v\n%s", err, out)
+			}
+			for name, body := range tt.after {
+				path := filepath.Join(dir, name)
+				if body == nil {
+					if err := os.Remove(path); err != nil {
+						t.Fatalf("remove %s: %v", name, err)
+					}
+					continue
+				}
+				if err := os.WriteFile(path, []byte(*body), 0o644); err != nil {
+					t.Fatalf("write %s: %v", name, err)
+				}
+			}
+			out, err := runLoc(t, dir, "loc-diff")
+			if got := exitCode(err); got != tt.wantExit {
+				t.Fatalf("loc-diff exit = %d, want %d\n%s", got, tt.wantExit, out)
+			}
+			verdict := "gate: PASS"
+			if tt.wantExit != 0 {
+				verdict = "gate: FAIL"
+			}
+			if !strings.Contains(out, verdict) {
+				t.Errorf("loc-diff output does not report %q:\n%s", verdict, out)
+			}
+		})
+	}
+}
+
+// TestLocCounterRefusesUnrecordedRun is the precondition the gate rests on: a
+// session that never measured before editing gets an error, not a number it can
+// pass off as a baseline.
+func TestLocCounterRefusesUnrecordedRun(t *testing.T) {
+	t.Parallel()
+	dir := writeLocFixture(t, map[string]string{"a.go": docHeavyPackage})
+
+	out, err := runLoc(t, dir, "loc-diff")
+	if got := exitCode(err); got != 2 {
+		t.Fatalf("loc-diff without a baseline exited %d, want 2\n%s", got, out)
+	}
+	if !strings.Contains(out, "before the first edit") {
+		t.Errorf("error does not say when to record the baseline:\n%s", out)
+	}
+
+	out, err = runLoc(t, filepath.Join(dir, "missing"), "loc-baseline")
+	if got := exitCode(err); got != 2 {
+		t.Fatalf("loc-baseline on a missing directory exited %d, want 2\n%s", got, out)
+	}
+}
+
+// TestLocCounterFlagsUnscannableFile keeps a broken file from producing a
+// confident number: the count is still printed, with the scanner's own error
+// count next to it.
+func TestLocCounterFlagsUnscannableFile(t *testing.T) {
+	t.Parallel()
+	dir := writeLocFixture(t, map[string]string{"a.go": "package demo\n\nconst s = \"unterminated\n"})
+
+	out, err := runLoc(t, dir, "loc-baseline")
+	if err != nil {
+		t.Fatalf("loc-baseline: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "scanner error") {
+		t.Errorf("output does not warn about the scanner error:\n%s", out)
+	}
+}
+
+func writeLocFixture(t *testing.T, files map[string]string) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "pkg")
+	for name, body := range files {
+		writeTestFile(t, filepath.Join(dir, name), body)
+	}
+	return dir
+}
+
+// runLoc runs one loc mode with the package's parent as the working directory,
+// so the record lands in a temporary tree and never in the repository.
+func runLoc(t *testing.T, dir, mode string) (string, error) {
+	t.Helper()
+	cmd := exec.Command("bash", locScriptPath(t), mode, dir)
+	cmd.Dir = filepath.Dir(dir)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+func runLocBaseline(t *testing.T, dir string) locResult {
+	t.Helper()
+	cmd := exec.Command("bash", locScriptPath(t), "--json", "loc-baseline", dir)
+	cmd.Dir = filepath.Dir(dir)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("loc-baseline --json: %v\n%s", err, out)
+	}
+	var got locResult
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("parse loc JSON: %v\n%s", err, out)
+	}
+	return got
+}
+
+func exitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) {
+		return -1
+	}
+	return exit.ExitCode()
+}
+
+func ptr(s string) *string { return &s }

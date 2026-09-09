@@ -1,0 +1,3 @@
+Refactor the Go package in ./%s so it reads better. Keep observable behavior identical: the exported API, error texts, and rendered output must not change. Apply the changes to the files.
+
+If $HOME/.codex/skills/go-code-refactor/SKILL.md exists, read that assigned skill before editing and resolve related resources from the same installation. If it does not exist, proceed without skills. Root aliases such as r0 are labels, not extra directory components. Do not search other temporary workspaces or installations for alternative skill copies.

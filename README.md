@@ -188,6 +188,39 @@ To uninstall: `rm -rf ~/.claude/skills/go-*`.
 2. Navigate to **Rules** → **Add Rule** → **Remote Rule (Github)**
 3. Enter: `https://github.com/h0rn3t/golang-skills`
 
+### Pinning a version
+
+Every release is a git tag (`v1.3.0`). None of the installers above takes a
+version argument — `npx skills add` and `/plugin marketplace add
+h0rn3t/golang-skills` both follow the default branch, so they always give you
+the newest release. To pin one, install from a tagged checkout:
+
+```bash
+git clone --branch v1.3.0 --depth 1 https://github.com/h0rn3t/golang-skills.git
+cd golang-skills
+
+# manual install from this checkout
+cp -R skills/go-* ~/.claude/skills/
+
+# or register the checkout itself as the marketplace, in Claude Code
+/plugin marketplace add /absolute/path/to/golang-skills
+/plugin install golang-skills@golang-skills
+```
+
+The tag stays put, so the skills stay put: nothing moves until you clone a
+different one. Useful commands:
+
+```bash
+# every released version
+git ls-remote --tags https://github.com/h0rn3t/golang-skills.git
+
+# which version a checkout or install is
+grep '"version"' .claude-plugin/plugin.json
+
+# move an installed plugin to the newest release
+/plugin marketplace update golang-skills
+```
+
 ### Prerequisites
 
 The skills themselves are Markdown and need nothing. The bundled scripts shell
@@ -334,7 +367,7 @@ and pinned by `TestGoVersionBaseline` in `evals/eval_test.go`.
 .
 ├── skills/
 │   └── go-*/
-│       ├── SKILL.md      # Core rules (< 500 lines each)
+│       ├── SKILL.md      # Core rules (<= 400 lines each)
 │       ├── references/   # Detailed guidance, loaded on demand
 │       ├── scripts/      # Automation scripts and helpers
 │       └── assets/       # Output templates (5 skills)

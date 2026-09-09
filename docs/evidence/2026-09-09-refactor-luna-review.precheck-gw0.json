@@ -1,0 +1,174 @@
+{
+  "prompt": "Refactor the Go package in ./%s so it reads better. Keep observable behavior identical: the exported API, error texts, and rendered output must not change. Apply the changes to the files.",
+  "corpus": "refactor",
+  "runner": "codex",
+  "model": "gpt-5.6-luna",
+  "effort": "medium",
+  "reps": 1,
+  "seed": 1,
+  "arms": [
+    {
+      "name": "reference",
+      "source": "/tmp/go-refactor-luna-review-20260909/verification-reference",
+      "sha256": "f1d1df6bbc5262a8ce9a653fe707d8f8ce36828039f63f220f6dcdb835a24fe3"
+    },
+    {
+      "name": "baseline",
+      "source": "/Users/eugeneshershen/.config/superpowers/worktrees/golang-skills/refactor-luna-review",
+      "sha256": "579afc3675befc85a46879cee169b5a24228041849fb386ba39bd7efcc6f83e9"
+    }
+  ],
+  "results": [
+    {
+      "arm": "reference",
+      "task": "gw0",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 135,
+        "code": 94,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 12
+      },
+      "after": {
+        "lines": 131,
+        "code": 90,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 10
+      },
+      "delta": {
+        "lines": -4,
+        "code": -4,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -2
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "foreign_skills": [
+        {
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-codex-3825324395/.codex/skills/go-code-refactor/SKILL.md",
+          "skill": "go-code-refactor",
+          "sha256": "48a0ba1f4ba5a19c3d70ec1e7667b42d733f6db1b18718c837f84be6e93acef3"
+        },
+        {
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-codex-3825324395/.codex/skills/go-code/SKILL.md",
+          "skill": "go-code",
+          "sha256": "448ab7cb344baf5fc5ddcebe08232b1d1cf1989862177791c0aeee1ebd681dc0"
+        },
+        {
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-codex-3825324395/.codex/skills/go-style-core/SKILL.md",
+          "skill": "go-style-core",
+          "sha256": "6df390321ddfaaf61b228ef9cea4e1daf3bccdbc13a492d457a1dbaadcb632e1"
+        }
+      ],
+      "line_gate_pass": true,
+      "code_gate_pass": true,
+      "empty_diff": false,
+      "reported_counts": false,
+      "commands": 7,
+      "trace_path": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2811563325/trace.jsonl",
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2811563325",
+      "output": "Refactored [gw0/gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2811563325/gw0/gateway.go):\n\n- Simplified account sorting with `cmp.Compare`.\n- Flattened the filtering loop for easier reading.\n- Preserved API, errors, ordering, and JSON output.\n\nVerified with `gofmt`, build, `go vet`, tests, race tests, and lint checks."
+    },
+    {
+      "arm": "baseline",
+      "task": "gw0",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 135,
+        "code": 94,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 12
+      },
+      "after": {
+        "lines": 131,
+        "code": 90,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 10
+      },
+      "delta": {
+        "lines": -4,
+        "code": -4,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -2
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "foreign_skills": [
+        {
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-codex-2462103074/.codex/skills/go-code-refactor/SKILL.md",
+          "skill": "go-code-refactor",
+          "sha256": "fe8e0e0fbf9cc7a1b256bb5c1e506095713a7532973bbfd8ee8d37aeb8182f9a"
+        },
+        {
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-codex-2462103074/.codex/skills/go-code/SKILL.md",
+          "skill": "go-code",
+          "sha256": "448ab7cb344baf5fc5ddcebe08232b1d1cf1989862177791c0aeee1ebd681dc0"
+        },
+        {
+          "path": "/private/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-codex-2462103074/.codex/skills/go-style-core/SKILL.md",
+          "skill": "go-style-core",
+          "sha256": "6df390321ddfaaf61b228ef9cea4e1daf3bccdbc13a492d457a1dbaadcb632e1"
+        }
+      ],
+      "line_gate_pass": true,
+      "code_gate_pass": true,
+      "empty_diff": false,
+      "reported_counts": true,
+      "commands": 9,
+      "trace_path": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2760579006/trace.jsonl",
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2760579006",
+      "output": "Refactored [gw0/gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2760579006/gw0/gateway.go):\n\n- Simplified account ID sorting with `strings.Compare`.\n- Flattened the active-account filter.\n- Preserved the original copy behavior, including nil/empty JSON semantics.\n\nVerification passed: `go test ./...`, `go vet`, race tests, formatting, and refactor LOC gate. Production code decreased by 4 lines."
+    }
+  ],
+  "finished": "2026-09-09T18:13:02.695772+03:00"
+}

@@ -16,10 +16,10 @@ func goldenAccounts() []Account {
 	}
 }
 
-// serve drives one request through the server's handler. Only NewServer is
+// goldenServe drives one request through the server's handler. Only NewServer is
 // part of the fixture's API, so everything behind it is the implementation's
 // own business.
-func serve(t *testing.T, method, target string) *httptest.ResponseRecorder {
+func goldenServe(t *testing.T, method, target string) *httptest.ResponseRecorder {
 	t.Helper()
 	srv := NewServer(":8080", goldenAccounts())
 	if srv == nil {
@@ -62,7 +62,7 @@ func TestNewServerBoundsSlowClients(t *testing.T) {
 }
 
 func TestHealth(t *testing.T) {
-	rec := serve(t, http.MethodGet, "/healthz")
+	rec := goldenServe(t, http.MethodGet, "/healthz")
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("GET /healthz = %d, want %d", rec.Code, http.StatusOK)
@@ -73,7 +73,7 @@ func TestHealth(t *testing.T) {
 }
 
 func TestListOrdersByID(t *testing.T) {
-	rec := serve(t, http.MethodGet, "/accounts")
+	rec := goldenServe(t, http.MethodGet, "/accounts")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /accounts = %d, want %d", rec.Code, http.StatusOK)
 	}
@@ -108,7 +108,7 @@ func TestListFiltersByActive(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.target, func(t *testing.T) {
-			rec := serve(t, http.MethodGet, tt.target)
+			rec := goldenServe(t, http.MethodGet, tt.target)
 			if rec.Code != http.StatusOK {
 				t.Fatalf("GET %s = %d, want %d", tt.target, rec.Code, http.StatusOK)
 			}
@@ -130,7 +130,7 @@ func TestListFiltersByActive(t *testing.T) {
 }
 
 func TestListRejectsUnknownActiveValue(t *testing.T) {
-	rec := serve(t, http.MethodGet, "/accounts?active=maybe")
+	rec := goldenServe(t, http.MethodGet, "/accounts?active=maybe")
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("GET /accounts?active=maybe = %d, want %d", rec.Code, http.StatusBadRequest)
@@ -141,7 +141,7 @@ func TestListRejectsUnknownActiveValue(t *testing.T) {
 }
 
 func TestGetOne(t *testing.T) {
-	rec := serve(t, http.MethodGet, "/accounts/a-2")
+	rec := goldenServe(t, http.MethodGet, "/accounts/a-2")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /accounts/a-2 = %d, want %d", rec.Code, http.StatusOK)
 	}
@@ -174,7 +174,7 @@ func TestStatusCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := serve(t, tt.method, tt.target)
+			rec := goldenServe(t, tt.method, tt.target)
 			if rec.Code != tt.wantCode {
 				t.Errorf("%s %s = %d, want %d", tt.method, tt.target, rec.Code, tt.wantCode)
 			}

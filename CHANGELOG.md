@@ -4,7 +4,26 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-09
+
 ### Added
+
+- Give the `go-code-refactor` concision gate a counter instead of an
+  instruction: `verify-refactor.sh` gains `loc-baseline` and `loc-diff`, which
+  record both production LOC counts and each file's digest before the first
+  edit, recount afterwards, and return the verdict as the exit status. The
+  count is token-aware, because a nonblank-line count reads a multiline string
+  as code it is not; the convention is the harness's own and is verified
+  against it on comments, raw strings, a missing trailing newline, nested
+  directories, and added and deleted production files. The gate and the report
+  template now name those commands. Screening on 5 fixtures x 2 arms with
+  GPT-5.6-Luna medium: build and independent golden 5/5 in both arms, the
+  counter runs in 4 of the 4 sessions that read the new text against none
+  before, both LOC gates pass 4/5 against 3/5, and the means move from +0.2
+  physical and +0.2 code to -0.4 and -1.2. Two of those four recorded the
+  baseline after their first edit and every input has n=1, so this is one
+  screening and not a reliability claim.
+- Document how to install a pinned version from a release tag, in both READMEs.
 
 - Add Go 1.27 guidance for promoted fields in struct literals, copying retained
   substrings only when justified by profiling, and merging/filtering maps in
@@ -38,6 +57,57 @@ All notable changes to this repository are documented here.
 - Run model-authored tests separately before hidden golden tests in `abrun`,
   exclude their failures from valid results, and retain successful source with
   `-keep`. Add executable example and runner regressions plus quality cases.
+
+- Add `-repair` to `abrun`: after the session it measures production lines,
+  replays the golden against a throwaway copy of the module, and if either the
+  line gate or the golden failed it returns the exact numbers and the assertion
+  text and grants one repair turn. The probe never puts the golden in the tree
+  the model can read, and the failure reaches the model with file positions
+  stripped, both pinned by tests. Records `repair_fired`, `pre_repair`,
+  `pre_repair_golden` and the generated `repair_feedback`.
+- Record stage 3 of the Pocock concision plan: the loop moved the line gate from
+  8/15 to 15/15, the median from +0 to −3 and the worst case from +17 to +0
+  (effect −3.80 lines, within-input randomization p = 0.01572), and repaired the
+  `nil → null` wire regression the 5×5 run shipped as a behavior failure. Four
+  of five criteria pass; the fifth does not, because two runs met the gate by
+  deleting the doc comment that justifies the server's timeouts. Expanding to
+  n=5 is blocked until the gate counts code separately from comments.
+- Record stage 2 of the Pocock concision plan: exact numeric feedback against
+  generic repair on the ten problem outputs of the 5×5 run. Feedback repaired
+  10/10 against 1/10 (paired sign test p = 0.00391), added no golden failure
+  where generic repair added one, and fixed the `nil → null` wire regression
+  generic repair left in place. The finding that transfers is a definition, not
+  a prompt: one fixture holds 138 physical lines and 101 non-blank non-comment
+  lines, and generic repair reported the second number and stopped, so any
+  feedback about lines has to name the counting convention.
+- Record stage 1 of the Pocock concision plan: the candidate refactor prompt that
+  permits an empty diff, measured against the current prompt on five fixed
+  gateway inputs with the plugin held constant. Golden 5/5 on both arms, line
+  gate 4/5 against 5/5, and the first genuine empty diff in the series. The
+  line difference between prompts is not established (paired p = 0.6250), so no
+  prompt or skill text changes on this evidence.
+
+### Changed
+
+- Separate a harness collision from a behavior regression in `abrun`. A golden
+  overlay that fails to build because the model's production code declares one
+  of its names is now `harness_failure`, prints as `HRN`, and stays out of every
+  mean; an overlay that compiled and failed an assertion is `behavior_failure`.
+  A broken public contract (`undefined: NewServer`) stays the model's. Rename
+  every colliding golden helper (`serve` → `goldenServe`, `members`,
+  `assertJSONEqual`, `fakeStore`, `errTransport`) and add
+  `TestGoldenHelpersAreCollisionResistant` so a new one cannot reappear.
+- Record `line_gate_pass`, `empty_diff`, `reported_counts`, `commands` and
+  `trace_path` per run, and retain the raw session transcript as `trace.jsonl`
+  under `-keep`, so a stated line count is checkable against the commands the
+  session actually ran. Pin the production LOC definition in `metrics.Lines` and
+  `evals/ab/README.md`. Closes stage 0 of the Pocock concision plan.
+- Lower the `SKILL.md` cap from the Agent Skills spec ceiling of 500 lines to
+  400 in `evals/eval_test.go`, `docs/SKILL_AUTHORING_TEMPLATE.md`, both READMEs,
+  and the release-watch prompt. No skill changes: the largest is
+  `go-code-refactor` at 328 lines, and `abrun` splices variant arms into that
+  same file, so the working maximum is ~354. The cap bounds growth; shortening a
+  skill still needs measured evidence, not a smaller number.
 
 ## [1.1.0] - 2026-09-08
 

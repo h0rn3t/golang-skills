@@ -1,0 +1,3 @@
+Refactor the Go package in ./%s so it reads better. Keep observable behavior identical: the exported API, error texts, and rendered output must not change. Apply the changes to the files.
+
+Before editing, invoke the Skill tool with skill="golang-skills:go-code-refactor". This tool entry is the assigned, fixed plugin for this run. Load related guidance from that same plugin as needed. Use this native Skill invocation instead of filesystem discovery for the entrypoint. If the assigned Skill invocation fails, report that failure and stop instead of substituting another version.

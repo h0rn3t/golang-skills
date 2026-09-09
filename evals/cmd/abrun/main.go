@@ -40,6 +40,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -99,6 +100,10 @@ const (
 // xhigh that was served at the model's default is a report that lies.
 var effortRunners = []string{runnerClaude, runnerCodex, runnerCopilot}
 
+// traceFile is the raw session transcript, written at the root of the scratch
+// tree so it sits outside the fixture package that gets measured and digested.
+const traceFile = "trace.jsonl"
+
 // maxSteps bounds one session where the runner can express a ceiling:
 // --max-turns for claude, the build agent's step ceiling for opencode. The
 // copilot CLI has no equivalent, so a copilot session is bounded by -timeout
@@ -134,6 +139,7 @@ type options struct {
 	timeout       time.Duration
 	verbose       bool
 	keep          bool
+	repair        bool
 }
 
 func main() {
@@ -154,6 +160,7 @@ func main() {
 	flag.DurationVar(&o.timeout, "timeout", 10*time.Minute, "per-run timeout")
 	flag.BoolVar(&o.verbose, "verbose", false, "print the model's final message for every run")
 	flag.BoolVar(&o.keep, "keep", false, "keep every run's scratch tree, including successful source and model tests (.model)")
+	flag.BoolVar(&o.repair, "repair", false, "after the session, return the measured line count and any independent failure and grant one repair turn")
 	flag.Parse()
 
 	if err := run(o); err != nil {
@@ -198,6 +205,12 @@ const referenceArm = "reference"
 // are counted but excluded from the structure numbers, because adding a
 // characterization test is a legitimate part of a refactor.
 type metrics struct {
+	// Lines is the production line count, and it is the number every line
+	// claim in an evidence report has to mean: physical lines in the package's
+	// non-test *.go files, blank lines and comments included, a trailing line
+	// without a newline counted once. No file under a _test.go name
+	// contributes, so a session cannot shrink this number by moving code into
+	// a test, and cannot grow it by writing one.
 	Lines      int `json:"lines"`
 	Files      int `json:"files"`
 	TestFiles  int `json:"test_files"`
@@ -254,6 +267,48 @@ type result struct {
 	// next to the fixtures, so a session that found its way back to the checkout
 	// is not evidence about anything.
 	Leaked bool `json:"leaked,omitempty"`
+	// BehaviorFailure is a golden overlay that compiled and then failed an
+	// assertion: the observable contract moved. HarnessFailure is a golden run
+	// that never reached an assertion, because a name the overlay declares is
+	// also declared by the model's production code. The second one is the
+	// harness colliding with the model, not evidence about behavior, and
+	// counting it as a behavior break is what made one 5×5 arm look worse than
+	// it was. Neither is set when the package failed to build on its own: that
+	// failure is already Build, and the golden result carries no information.
+	BehaviorFailure bool `json:"behavior_failure,omitempty"`
+	HarnessFailure  bool `json:"harness_failure,omitempty"`
+	// LineGatePass reports whether production lines failed to grow, which is the
+	// concision gate's own criterion measured the way analyze measures it. It is
+	// not a validity verdict — read it next to Build, Golden and Edited.
+	LineGatePass bool `json:"line_gate_pass"`
+	// EmptyDiff is a session that ran to completion and deliberately left every
+	// file as it found it. Edited==false with an error is a different thing: a
+	// session that never got as far as writing, which is why this is its own
+	// field rather than the negation of Edited.
+	EmptyDiff bool `json:"empty_diff"`
+	// ReportedCounts reports whether the final message stated a line count or
+	// delta. It reads the model's prose, so it measures what the session
+	// claimed, never what it did — Commands and the retained trace are what
+	// show whether it measured anything.
+	ReportedCounts bool `json:"reported_counts"`
+	// RepairFired reports that -repair granted a second turn, which happens only
+	// when the first turn missed the line gate or failed the independent check.
+	// PreRepair and PreRepairGolden are the readings that triggered it, so the
+	// report shows what the loop was handed and what it did with it.
+	RepairFired     bool     `json:"repair_fired,omitempty"`
+	PreRepair       *metrics `json:"pre_repair,omitempty"`
+	PreRepairGolden bool     `json:"pre_repair_golden,omitempty"`
+	// RepairFeedback is the exact text returned to the model. It is recorded
+	// because the feedback is generated per run: without it the report cannot
+	// say what the session was actually told.
+	RepairFeedback string `json:"repair_feedback,omitempty"`
+	// Commands counts the shell calls across every turn. Only the codex runner
+	// reports it; the claude arms are granted no shell at all.
+	Commands int `json:"commands,omitempty"`
+	// Trace is the retained JSONL transcript, written for every runner and kept
+	// with -keep. A final message claiming a measurement is checkable against
+	// the commands the session actually ran.
+	Trace string `json:"trace_path,omitempty"`
 	// GoFail carries the go build or go test output when one of them failed,
 	// so a behavior break is diagnosable from the report alone.
 	GoFail  string  `json:"go_failure,omitempty"`
@@ -694,55 +749,87 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		return res
 	}
 
-	prompt := fmt.Sprintf(o.prompt, taskName)
-	var out []byte
-	var sessionErr error
-	switch o.runner {
-	case runnerOpencode:
-		out, sessionErr = opencodeSession(o, a.home, work, prompt)
-		res.Skills, res.Output, res.Cost = parseOpencodeStream(out)
-	case runnerCopilot:
-		out, sessionErr = copilotSession(o, a, work, prompt)
-		res.Skills, res.Output, res.Cost = parseCopilotStream(out)
-	case runnerCodex:
-		out, sessionErr = codexSession(o, a.home, work, prompt)
-		res.Skills, res.Output, res.Cost = parseCodexStream(out)
-	default:
-		out, sessionErr = claudeSession(o, a.dir, work, prompt)
-		res.Skills, res.Output, res.Cost = parseClaudeStream(out)
-	}
-	if sessionErr != nil {
-		res.Err = sessionErr.Error()
-	}
-	res.Leaked = bytes.Contains(out, []byte(abDir))
-	if afterDigest, err := fixtureDigest(pkgDir); err == nil {
-		res.Edited = afterDigest != beforeDigest
-	} else if res.Err == "" {
-		res.Err = fmt.Sprintf("digest result: %v", err)
-		return res
-	}
-
-	after, err := analyze(pkgDir)
-	if err != nil {
-		if res.Err == "" {
-			res.Err = fmt.Sprintf("analyze result: %v", err)
+	// measure re-reads everything a turn can change. It runs after the first
+	// session and again after a repair turn, so the recorded numbers always
+	// describe the tree as the run left it. It reports false when the run
+	// cannot continue.
+	measure := func() bool {
+		if afterDigest, err := fixtureDigest(pkgDir); err == nil {
+			res.Edited = afterDigest != beforeDigest
+		} else if res.Err == "" {
+			res.Err = fmt.Sprintf("digest result: %v", err)
+			return false
 		}
-		return res
-	}
-	res.After = after
-	res.Delta = after.sub(before)
-	if err := goCmd(o.timeout, work, "build", "./..."); err != nil {
-		res.GoFail = err.Error()
-	} else {
-		res.Build = true
+		after, err := analyze(pkgDir)
+		if err != nil {
+			if res.Err == "" {
+				res.Err = fmt.Sprintf("analyze result: %v", err)
+			}
+			return false
+		}
+		res.After = after
+		res.Delta = after.sub(before)
+		res.LineGatePass = res.Delta.Lines <= 0
+		res.EmptyDiff = !res.Edited && res.Err == ""
+		res.GoFail, res.Build = "", false
+		if err := goCmd(o.timeout, work, "build", "./..."); err != nil {
+			res.GoFail = err.Error()
+		} else {
+			res.Build = true
+		}
+		res.ModelTests, res.ModelTestFail = "skipped", ""
+		if after.TestFiles > 0 {
+			res.ModelTests = "pass"
+			if err := goCmd(o.timeout, work, "test", "-count=1", "./..."); err != nil {
+				res.ModelTests = "fail"
+				res.ModelTestFail = err.Error()
+			}
+		}
+		return true
 	}
 
-	res.ModelTests = "skipped"
-	if after.TestFiles > 0 {
-		res.ModelTests = "pass"
-		if err := goCmd(o.timeout, work, "test", "-count=1", "./..."); err != nil {
-			res.ModelTests = "fail"
-			res.ModelTestFail = err.Error()
+	turn := runSession(o, a, work, fmt.Sprintf(o.prompt, taskName))
+	res.merge(turn)
+	// The transcript is written before anything is measured, so it survives even
+	// a run that fails from here on. A final message that claims a measurement
+	// is only checkable against the commands the session actually ran.
+	if err := appendTrace(work, turn.out); err == nil && o.keep {
+		res.Trace = filepath.Join(work, traceFile)
+	}
+	res.Leaked = bytes.Contains(turn.out, []byte(abDir))
+	if !measure() {
+		return res
+	}
+
+	golden := filepath.Join(abDir, "_golden", taskName)
+	// The repair loop closes the gap stage 2 measured: a session that is handed
+	// its own numbers back, in the harness's own counting convention, together
+	// with the independent failure, repairs what a generic re-review does not.
+	// The probe runs on a throwaway copy of the whole module, so the golden
+	// never enters the tree the model can see.
+	if o.repair && res.Err == "" {
+		probePass, probeFail, probeErr := probeGolden(o.timeout, work, taskName, golden)
+		switch {
+		case probeErr != nil:
+			res.Err = fmt.Sprintf("probe golden: %v", probeErr)
+			return res
+		case res.LineGatePass && probePass:
+			// Nothing to repair; the loop costs no extra turn.
+		default:
+			pre := res.After
+			res.RepairFired, res.PreRepair, res.PreRepairGolden = true, &pre, probePass
+			res.RepairFeedback = repairFeedback(taskName, before.Lines, pre.Lines, probeFail)
+			repair := runSession(o, a, work, res.RepairFeedback)
+			res.merge(repair)
+			if err := appendTrace(work, repair.out); err == nil && o.keep {
+				res.Trace = filepath.Join(work, traceFile)
+			}
+			if bytes.Contains(repair.out, []byte(abDir)) {
+				res.Leaked = true
+			}
+			if !measure() {
+				return res
+			}
 		}
 	}
 
@@ -753,17 +840,168 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		return res
 	}
 
-	golden := filepath.Join(abDir, "_golden", taskName)
 	if err := os.CopyFS(pkgDir, os.DirFS(golden)); err != nil {
 		res.Err = fmt.Sprintf("copy golden: %v", err)
 		return res
 	}
 	if err := goCmd(o.timeout, work, "test", "./"+taskName+"/..."); err != nil {
 		res.GoFail = err.Error()
+		res.BehaviorFailure, res.HarnessFailure = classifyGolden(res.Build, err.Error())
 	} else {
 		res.Golden = true
 	}
 	return res
+}
+
+// sessionTurn is what one model invocation leaves behind. It exists because a
+// repair run has two turns and both have to be folded into one result.
+type sessionTurn struct {
+	out      []byte
+	skills   []string
+	final    string
+	cost     float64
+	commands int
+	err      error
+}
+
+// runSession dispatches one turn to the configured runner.
+func runSession(o options, a arm, work, prompt string) sessionTurn {
+	var t sessionTurn
+	switch o.runner {
+	case runnerOpencode:
+		t.out, t.err = opencodeSession(o, a.home, work, prompt)
+		t.skills, t.final, t.cost = parseOpencodeStream(t.out)
+	case runnerCopilot:
+		t.out, t.err = copilotSession(o, a, work, prompt)
+		t.skills, t.final, t.cost = parseCopilotStream(t.out)
+	case runnerCodex:
+		t.out, t.err = codexSession(o, a.home, work, prompt)
+		t.skills, t.final, t.cost = parseCodexStream(t.out)
+		t.commands = codexCommands(t.out)
+	default:
+		t.out, t.err = claudeSession(o, a.dir, work, prompt)
+		t.skills, t.final, t.cost = parseClaudeStream(t.out)
+	}
+	return t
+}
+
+// merge folds one turn into the result. Skills and cost accumulate across
+// turns, because a repair turn can reach a skill the first one did not and
+// spends money of its own; the final message is the latest turn's, since that
+// is the session's own last word on what it did.
+func (r *result) merge(t sessionTurn) {
+	if t.err != nil && r.Err == "" {
+		r.Err = t.err.Error()
+	}
+	for _, s := range t.skills {
+		if !slices.Contains(r.Skills, s) {
+			r.Skills = append(r.Skills, s)
+		}
+	}
+	sort.Strings(r.Skills)
+	r.Cost += t.cost
+	r.Commands += t.commands
+	if t.final != "" {
+		r.Output = t.final
+	}
+	r.ReportedCounts = reportedCounts(r.Output)
+}
+
+// appendTrace adds one turn's transcript to the run's trace file, so a repair
+// run keeps both turns in the order they happened.
+func appendTrace(work string, out []byte) error {
+	f, err := os.OpenFile(filepath.Join(work, traceFile), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(out); err != nil {
+		_ = f.Close() //nolint:errcheck // the write error is the one worth reporting
+		return err
+	}
+	return f.Close()
+}
+
+// probeGolden replays the golden test against a throwaway copy of the module
+// and returns whether it passed plus the failure text.
+//
+// The copy is the whole point. The golden must never appear in the tree the
+// model can read, or the next turn would be repairing against a test it can
+// see, which is a different experiment. The probe leaves the model's tree
+// untouched, including the tests the model wrote.
+func probeGolden(timeout time.Duration, work, taskName, goldenDir string) (bool, string, error) {
+	probe, err := os.MkdirTemp("", "abrun-probe-")
+	if err != nil {
+		return false, "", err
+	}
+	defer func() {
+		_ = os.RemoveAll(probe) //nolint:errcheck // best-effort cleanup of the probe copy
+	}()
+	// MkdirTemp already created the directory, and CopyFS refuses to overwrite,
+	// so the copy goes into a fresh child.
+	root := filepath.Join(probe, "module")
+	if err := os.CopyFS(root, os.DirFS(work)); err != nil {
+		return false, "", err
+	}
+	pkgDir := filepath.Join(root, taskName)
+	if err := hideTestFiles(pkgDir); err != nil {
+		return false, "", err
+	}
+	if err := os.CopyFS(pkgDir, os.DirFS(goldenDir)); err != nil {
+		return false, "", err
+	}
+	if err := goCmd(timeout, root, "test", "./"+taskName+"/..."); err != nil {
+		return false, err.Error(), nil
+	}
+	return true, "", nil
+}
+
+// repairFeedback is the text the loop returns to the model.
+//
+// It names the counting convention on purpose. Stage 2 measured a session that
+// read the same file as 101 lines where the harness read 138 — non-blank and
+// non-comment against physical — declared the gate met and changed nothing.
+// The disagreement was about the definition, not the code, so the definition
+// travels with the number.
+//
+// The independent failure arrives as assertion text with file positions
+// stripped: the model is told what broke, not which file holds the test.
+func repairFeedback(taskName string, start, current int, failure string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Package under review: ./%s\n\n", taskName)
+	fmt.Fprintf(&b, "Starting production LOC: %d\n", start)
+	fmt.Fprintf(&b, "Current production LOC: %d\n", current)
+	if current > start {
+		fmt.Fprintf(&b, "Gate: FAIL, growth +%d\n", current-start)
+	} else {
+		b.WriteString("Gate: PASS on line count.\n")
+	}
+	b.WriteString("LOC counts physical lines in the package's non-test *.go files, blank lines and comments included.\n")
+	if failure != "" {
+		fmt.Fprintf(&b, "\nIndependent contract failure:\n%s\n", assertionsOnly(failure))
+	}
+	b.WriteString("\nRepair the implementation or restore the starting version.\n")
+	fmt.Fprintf(&b, "Done when LOC <= %d and the contract test passes.\n", start)
+	return b.String()
+}
+
+// assertionsOnly reduces a go test failure to the lines a model can act on: the
+// assertion messages, without the positions that would name the hidden test.
+func assertionsOnly(failure string) string {
+	var kept []string
+	for line := range strings.SplitSeq(failure, "\n") {
+		line = strings.TrimSpace(filePosition.ReplaceAllString(line, ""))
+		line = strings.TrimSpace(strings.TrimPrefix(line, ":"))
+		if line == "" || strings.HasPrefix(line, "FAIL") || strings.HasPrefix(line, "ok ") {
+			continue
+		}
+		if !slices.Contains(kept, line) {
+			kept = append(kept, line)
+		}
+		if len(kept) == 8 {
+			break
+		}
+	}
+	return strings.Join(kept, "\n")
 }
 
 // claudeSession runs one headless refactoring session in work with the arm's
@@ -798,6 +1036,49 @@ func claudeSession(o options, armDir, work, prompt string) ([]byte, error) {
 	}
 	return claude(o.timeout, work, args...)
 }
+
+// goldenCollision matches the compiler reporting that the golden overlay and
+// the model's production code declare the same name. hideTestFiles already
+// takes the model's own test files out of the build, so what is left to collide
+// is a production declaration — a helper named serve against the overlay's own
+// serve, which is what happened once in the 5×5 concision run.
+//
+// Only this exact shape is excused. A golden that fails to build because the
+// model renamed or deleted an exported symbol says "undefined", and that is a
+// broken contract the model owns, not a harness fault.
+var goldenCollision = regexp.MustCompile(`redeclared in this block|other declaration of`)
+
+// classifyGolden splits a failed golden run into the two causes that must never
+// be averaged together. built is whether the model's package compiled before
+// the overlay was added.
+func classifyGolden(built bool, output string) (behavior, harness bool) {
+	if !built {
+		return false, false
+	}
+	if goldenCollision.MatchString(output) {
+		return false, true
+	}
+	return true, false
+}
+
+// lineCountClaim matches a line or LOC count in the model's final message: a
+// number next to the word, in either order, within one clause. It is a
+// heuristic about prose and is reported as such — a session can state a count
+// it never measured, and the trace is what settles that.
+var lineCountClaim = regexp.MustCompile(`(?i)(\d+\s*(?:production\s+)?(?:lines?|loc)\b|\b(?:lines?|loc)\b[^.;\n]{0,24}?\d+)`)
+
+// reportedCounts reports whether final states a line count at all. A file:line
+// reference is not a count, so a bare path is stripped before the search.
+func reportedCounts(final string) bool {
+	if final == "" {
+		return false
+	}
+	return lineCountClaim.MatchString(filePosition.ReplaceAllString(final, ""))
+}
+
+// filePosition matches a compiler-style path:line reference, which names a
+// location rather than counting anything.
+var filePosition = regexp.MustCompile(`[\w./-]+\.go:\d+(?::\d+)?`)
 
 // hideTestFiles renames every _test.go in dir out of the build, so a test the
 // model wrote cannot collide with the golden file or, worse, be the reason the
@@ -1252,8 +1533,8 @@ func firstLine(s string) string {
 
 func printResult(r result, verbose bool) {
 	status := resultStatus(r)
-	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  exp %+d  branch %+d  build=%v model_tests=%s golden=%v skills=%v",
-		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Funcs, r.Delta.Exported, r.Delta.Branches, r.Build, r.ModelTests, r.Golden, r.Skills)
+	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  exp %+d  branch %+d  build=%v model_tests=%s golden=%v gate=%v skills=%v",
+		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Funcs, r.Delta.Exported, r.Delta.Branches, r.Build, r.ModelTests, r.Golden, r.LineGatePass, r.Skills)
 	if r.Err != "" {
 		fmt.Printf("  error: %s", r.Err)
 	}
@@ -1264,8 +1545,18 @@ func printResult(r result, verbose bool) {
 	if r.ModelTestFail != "" {
 		fmt.Printf("       model tests: %s\n", firstLine(r.ModelTestFail))
 	}
+	if r.HarnessFailure {
+		fmt.Printf("       golden failed on a name collision with the model's code, not on behavior\n")
+	}
+	if r.RepairFired && r.PreRepair != nil {
+		fmt.Printf("       repair turn: lines %+d -> %+d, golden %v -> %v\n",
+			r.PreRepair.Lines-r.Before.Lines, r.Delta.Lines, r.PreRepairGolden, r.Golden)
+	}
 	if r.WorkDir != "" {
 		fmt.Printf("       source: %s\n", r.WorkDir)
+	}
+	if r.Trace != "" {
+		fmt.Printf("       trace: %s (%d command(s), counts reported=%v)\n", r.Trace, r.Commands, r.ReportedCounts)
 	}
 	if verbose && r.Output != "" {
 		fmt.Println("       --- output ---")
@@ -1273,7 +1564,14 @@ func printResult(r result, verbose bool) {
 	}
 }
 
+// resultStatus labels one run for the operator. A harness collision gets its
+// own label rather than being folded into ERR: it is still excluded from the
+// means, because the run produced no behavioral verdict, but the reason it was
+// excluded is the harness and not the model, and only the label carries that.
 func resultStatus(r result) string {
+	if r.HarnessFailure {
+		return "HRN"
+	}
 	if r.Err != "" || !r.Build || !r.Golden || r.ModelTests == "fail" || !r.Edited || r.Leaked {
 		return "ERR"
 	}
@@ -1297,6 +1595,21 @@ type armSummary struct {
 	NoEdit            int
 	Leaked            int
 	ModelTestFailures int
+	// BehaviorFailures and HarnessFailures split the golden failures. Only the
+	// first is a claim about the model; reporting a raw golden rate that mixes
+	// them in overstates one arm's regressions.
+	BehaviorFailures int
+	HarnessFailures  int
+	// LineGatePasses and EmptyDiffs count over completed runs, not valid ones: a
+	// gate the model met while breaking behavior still has to be visible.
+	LineGatePasses int
+	EmptyDiffs     int
+	ReportedCounts int
+	// RepairsFired and RepairsRescued count the loop: how often a second turn
+	// was granted, and how often the run cleared both the gate and the golden
+	// afterwards. The second number is the only one that says the loop worked.
+	RepairsFired   int
+	RepairsRescued int
 	// Cost covers every session that reported one, including the invalid runs:
 	// a failed session still spends money, so excluding it would understate
 	// what the corpus costs to replay.
@@ -1340,6 +1653,27 @@ func summarizeArm(rep report, name string) armSummary {
 		}
 		if r.ModelTests == "fail" {
 			summary.ModelTestFailures++
+		}
+		if r.BehaviorFailure {
+			summary.BehaviorFailures++
+		}
+		if r.HarnessFailure {
+			summary.HarnessFailures++
+		}
+		if r.LineGatePass {
+			summary.LineGatePasses++
+		}
+		if r.EmptyDiff {
+			summary.EmptyDiffs++
+		}
+		if r.ReportedCounts {
+			summary.ReportedCounts++
+		}
+		if r.RepairFired {
+			summary.RepairsFired++
+			if r.LineGatePass && r.Golden {
+				summary.RepairsRescued++
+			}
 		}
 		if skillFired(rep.Corpus, r.Skills) {
 			summary.SkillFired++
@@ -1400,10 +1734,19 @@ func printSummary(rep report) {
 		// Neither of these belongs in a column: they are not a worse score, they
 		// are a reason to distrust the row above them and go read the report.
 		if summary.NoEdit > 0 {
-			fmt.Printf("%-24s   %d run(s) changed no file and were excluded\n", "", summary.NoEdit)
+			fmt.Printf("%-24s   %d run(s) changed no file, %d of them deliberately\n", "", summary.NoEdit, summary.EmptyDiffs)
 		}
 		if summary.Leaked > 0 {
 			fmt.Printf("%-24s   %d run(s) referenced the repository and were excluded\n", "", summary.Leaked)
+		}
+		if summary.HarnessFailures > 0 {
+			fmt.Printf("%-24s   %d golden failure(s) were harness collisions, not behavior changes\n", "", summary.HarnessFailures)
+		}
+		fmt.Printf("%-24s   line gate %d/%d, behavior failures %d, counts reported %d/%d\n",
+			"", summary.LineGatePasses, completed, summary.BehaviorFailures, summary.ReportedCounts, completed)
+		if summary.RepairsFired > 0 {
+			fmt.Printf("%-24s   repair turn fired %d time(s), cleared gate and golden in %d\n",
+				"", summary.RepairsFired, summary.RepairsRescued)
 		}
 	}
 }

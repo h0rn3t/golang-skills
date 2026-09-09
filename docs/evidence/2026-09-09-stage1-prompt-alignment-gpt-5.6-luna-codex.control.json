@@ -1,0 +1,289 @@
+{
+  "prompt": "Refactor the Go package in ./%s so it reads better. Keep observable behavior identical: the exported API, error texts, and rendered output must not change. Apply the changes to the files.",
+  "corpus": "refactor",
+  "runner": "codex",
+  "model": "gpt-5.6-luna",
+  "effort": "medium",
+  "reps": 1,
+  "seed": 1,
+  "arms": [
+    {
+      "name": "baseline",
+      "source": "/Users/eugeneshershen/golang-skills",
+      "sha256": "5509f19786639774c1bc6e6bc822d5f8fd7ae56efab7836976fbff63a6b89148"
+    }
+  ],
+  "results": [
+    {
+      "arm": "baseline",
+      "task": "gw2",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-linting",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 127,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "after": {
+        "lines": 127,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "delta": {
+        "lines": 0,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "line_gate_pass": true,
+      "empty_diff": false,
+      "reported_counts": false,
+      "commands": 12,
+      "trace_path": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2104347968/trace.jsonl",
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2104347968",
+      "output": "Refactored [gw2/gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2104347968/gw2/gateway.go):\n\n- Renamed `getOnly` to `requireGET` for clearer intent.\n- Preserved exported API, error text, routing, and output.\n- Verified with `gofmt`, build, vet, tests, race checks, `go fix`, and lint.\n\nAll checks pass."
+    },
+    {
+      "arm": "baseline",
+      "task": "gw0",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 135,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 12
+      },
+      "after": {
+        "lines": 137,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 12
+      },
+      "delta": {
+        "lines": 2,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "line_gate_pass": false,
+      "empty_diff": false,
+      "reported_counts": false,
+      "commands": 11,
+      "trace_path": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-842105551/trace.jsonl",
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-842105551",
+      "output": "Refactored [gateway.go](\u003c/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-842105551/gw0/gateway.go\u003e):\n\n- Flattened `/accounts` query handling.\n- Clarified internal type and handler names.\n- Preserved exported API, errors, and output behavior.\n\nVerification passed: `gofmt`, build, vet, tests, race, and lint checks."
+    },
+    {
+      "arm": "baseline",
+      "task": "gw1",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 145,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 16
+      },
+      "after": {
+        "lines": 140,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 15
+      },
+      "delta": {
+        "lines": -5,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -1
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "line_gate_pass": true,
+      "empty_diff": false,
+      "reported_counts": false,
+      "commands": 7,
+      "trace_path": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2543910891/trace.jsonl",
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2543910891",
+      "output": "Refactored [gw1/gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-2543910891/gw1/gateway.go).\n\n- Simplified request routing with direct per-route returns.\n- Preserved exported API, error text, lookup order, and rendered output.\n- Verified with `gofmt`, `go test ./...`, `go vet ./...`, and race checks."
+    },
+    {
+      "arm": "baseline",
+      "task": "gw4",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 132,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 14
+      },
+      "after": {
+        "lines": 129,
+        "files": 1,
+        "test_files": 1,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 12
+      },
+      "delta": {
+        "lines": -3,
+        "files": 0,
+        "test_files": 1,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": -2
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "pass",
+      "edited": true,
+      "line_gate_pass": true,
+      "empty_diff": false,
+      "reported_counts": false,
+      "commands": 23,
+      "trace_path": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1934413167/trace.jsonl",
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1934413167",
+      "output": "Refactored `gw4`:\n\n- Separated server setup from request routing.\n- Centralized known-route method validation.\n- Preserved exported API, errors, status codes, headers, and rendered output.\n- Added characterization tests in [gateway_test.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1934413167/gw4/gateway_test.go).\n\nVerification passed: `go test`, race tests, `go vet`, build, and refactor gate. Production code decreased from 119 to 115 nonblank lines."
+    },
+    {
+      "arm": "baseline",
+      "task": "gw3",
+      "rep": 0,
+      "skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 126,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 11
+      },
+      "after": {
+        "lines": 124,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 11
+      },
+      "delta": {
+        "lines": -2,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 0,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 0
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "line_gate_pass": true,
+      "empty_diff": false,
+      "reported_counts": true,
+      "commands": 11,
+      "trace_path": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1779040015/trace.jsonl",
+      "workdir": "/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1779040015",
+      "output": "Refactored [gw3/gateway.go](/var/folders/p2/6zhdz7hs66lc8055sxqydmj80000gn/T/abrun-work-1779040015/gw3/gateway.go):\n\n- Clarified route variable names.\n- Centralized the `/accounts/` prefix.\n- Reduced unnecessary whitespace while preserving flow and behavior.\n- Production line count reduced from 125 to 124.\n\nVerified with `gofmt`, build, vet, tests, race checks, lint, and behavior-preservation diff; all pass."
+    }
+  ],
+  "finished": "2026-09-09T14:35:21.223103+03:00"
+}

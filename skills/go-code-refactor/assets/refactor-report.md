@@ -10,8 +10,10 @@ paragraph restating them is noise.
 ## Summary
 
 One paragraph: what scope was covered, and what the code now reads like that it
-did not before. No feature tour. End with the instrument: `net: -<N> lines`
-(and `-<M> deps` if any). A positive number needs a sentence of justification.
+did not before. No feature tour. End with the instrument the counter printed:
+`net: -<N> physical, -<M> code` (and `-<K> deps` if any). Either number growing
+needs a sentence of justification; a number nothing measured is not an
+instrument.
 
 ## Deleted
 
@@ -53,9 +55,16 @@ lint findings    17          4
 diff             — empty —
 ```
 
-Paste the real `verify-refactor.sh diff` result. **Report a skipped check as
+Paste the real `verify-refactor.sh diff` result and explain material differences,
+including new tests or resolved failures. An empty diff means matching records,
+which may include failures; report baseline/after statuses and behavior covered
+by the checks separately. **Report a skipped check as
 skipped**, never as passed: if `golangci-lint` was not installed or a
 build-tagged file could not be compiled here, say so on its own line.
+
+Paste the `loc-diff` block as printed: both starting counts, both final counts,
+and its verdict. A count taken after the first edit is not a starting count,
+and a verdict the counter did not print is not a verdict.
 
 ## Findings — not applied
 

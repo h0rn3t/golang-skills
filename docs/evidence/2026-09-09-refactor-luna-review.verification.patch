@@ -1,0 +1,126 @@
+diff --git a/skills/go-code-refactor/SKILL.md b/skills/go-code-refactor/SKILL.md
+index b96c650..b9309c3 100644
+--- a/skills/go-code-refactor/SKILL.md
++++ b/skills/go-code-refactor/SKILL.md
+@@ -203,9 +203,14 @@ it lags the toolchain, mention the gap once — bumping it is the user's call an
+ carries its own behavior changes.
+ 
+ ```bash
+-bash scripts/verify-refactor.sh baseline ./...
++bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" baseline ./...
+ ```
+ 
++Set `REFACTOR_SKILL_DIR` to this installed skill's absolute directory; keep the
++working directory in the target project. If characterization tests are needed,
++run them against unchanged production code, then capture a new baseline with
++those tests included. Retain the earlier results for known failures.
++
+ ### 2. Audit before rewriting
+ 
+ Name what makes the code hard to follow *before* proposing fixes. The naming is
+@@ -260,17 +265,22 @@ migration, never one atomic commit (`references/STRUCTURAL.md`).
+ ### 5. Verify
+ 
+ ```bash
+-bash scripts/verify-refactor.sh after ./...
+-bash scripts/verify-refactor.sh diff
++bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" after ./...
++bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" diff
+ ```
+ 
+-The diff must be empty. If a test fails, the refactor is wrong — revert that
+-step and redo it smaller. **Never adjust a test to match the new code**: a test
+-that had to change is proof that behavior changed.
++The diff compares recorded check results, not program behavior. An empty diff
++can include the same failures or skipped checks; a nonempty diff can include
++new passing tests or resolved failures. Inspect each difference and the actual
++baseline/after statuses. Attribute new failures before changing code; undo only
++your own failing transformation, preserving pre-existing user changes.
+ 
+-One exception: if the toolchain was bumped as part of this work, the failure
+-may belong to Go rather than to you. `references/MODERNIZATION.md` lists the
+-releases that break green tests on their own. Attribute before rewriting.
++Keep assertions about observable behavior unchanged. Mechanical updates to
++references after an authorized rename and new characterization tests are
++allowed; weakening expectations to make the refactor pass is not. If a
++toolchain change was authorized, `references/MODERNIZATION.md` lists failures
++that may need attribution to that change. Passing checks support only the
++behavior they exercise; report what remains unverified.
+ 
+ Watch tests that assert on error strings or JSON output — they catch the
+ invisible breakages compilation misses.
+@@ -300,7 +310,8 @@ defer f.Close()
+ ```
+ 
+ A marker naming no ceiling and no upgrade path rots into "later means never".
+-`bash scripts/check-debt.sh ./...` lists every marker and exits 1 on those.
++`bash "$REFACTOR_SKILL_DIR/scripts/check-debt.sh" ./...` lists every marker and
++exits 1 on those.
+ 
+ ---
+ 
+diff --git a/skills/go-code-refactor/assets/refactor-report.md b/skills/go-code-refactor/assets/refactor-report.md
+index df98d8a..1e44cc6 100644
+--- a/skills/go-code-refactor/assets/refactor-report.md
++++ b/skills/go-code-refactor/assets/refactor-report.md
+@@ -53,7 +53,10 @@ lint findings    17          4
+ diff             — empty —
+ ```
+ 
+-Paste the real `verify-refactor.sh diff` result. **Report a skipped check as
++Paste the real `verify-refactor.sh diff` result and explain material differences,
++including new tests or resolved failures. An empty diff means matching records,
++which may include failures; report baseline/after statuses and behavior covered
++by the checks separately. **Report a skipped check as
+ skipped**, never as passed: if `golangci-lint` was not installed or a
+ build-tagged file could not be compiled here, say so on its own line.
+ 
+diff --git a/skills/go-code-refactor/scripts/verify-refactor.sh b/skills/go-code-refactor/scripts/verify-refactor.sh
+index 196bf48..a76bdef 100755
+--- a/skills/go-code-refactor/scripts/verify-refactor.sh
++++ b/skills/go-code-refactor/scripts/verify-refactor.sh
+@@ -12,13 +12,13 @@ USAGE
+     bash $SCRIPT_NAME [options] <mode> [path]
+ 
+ DESCRIPTION
+-    Captures a verifiable record of build, vet, test, race, and lint results
+-    so a refactor can be proven to change nothing observable.
++    Captures build, vet, test, and race results, with informational lint findings.
++    Matching records alone do not prove that observable behavior is unchanged.
+ 
+     Modes:
+       baseline   Record the state before any edit
+       after      Record the state after a refactor step
+-      diff       Compare after against baseline (empty diff = behavior held)
++      diff       Compare recorded check results, including failures and skips
+       leaks      Run tests with the goroutine-leak profile (Go 1.26+)
+ 
+     Results are written under .refactor-verify/ in the working directory.
+@@ -141,13 +141,13 @@ if [[ "$MODE" == "diff" ]]; then
+             "$(json_escape "$DISPLAY")" \
+             "$($TRUNCATED && echo true || echo false)"
+     elif [[ $DIFF_RC -eq 0 ]]; then
+-        echo "identical: same checks pass, same tests run"
++        echo "identical: recorded check results match, including any failures or skips"
+     else
+         echo "$DISPLAY"
+         $TRUNCATED && echo "... (truncated at $LIMIT lines)"
+         echo
+-        echo "Differences above. Any change in test counts or verdicts means"
+-        echo "behavior moved. Investigate before shipping the refactor."
++        echo "Differences above may include new tests, resolved failures, or regressions."
++        echo "Inspect the results; record equality alone does not establish behavior."
+     fi
+     exit "$DIFF_RC"
+ fi
+@@ -283,8 +283,8 @@ else
+     echo "--- full log: $LOG ---"
+     if [[ "$MODE" == "baseline" && "$FAILED" -eq 1 ]]; then
+         echo
+-        echo "Baseline is red. Stop and report it: later failures cannot be" >&2
+-        echo "attributed to the refactor if they were already failing." >&2
++        echo "Baseline is red. Record known failures and continue independently" >&2
++        echo "verifiable work; distinguish new failures before attributing them." >&2
+     fi
+ fi
+ 

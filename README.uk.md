@@ -340,7 +340,7 @@ go run ./cmd/evalrun -set validation -kind all -j 2 -out evals-results.json
 .
 ├── skills/
 │   └── go-*/
-│       ├── SKILL.md      # Базові правила (< 500 рядків кожен)
+│       ├── SKILL.md      # Базові правила (<= 400 рядків кожен)
 │       ├── references/   # Детальні настанови, вантажаться на вимогу
 │       ├── scripts/      # Скрипти автоматизації та хелпери
 │       └── assets/       # Шаблони виводу (5 скілів)

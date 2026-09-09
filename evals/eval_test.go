@@ -1083,8 +1083,8 @@ func TestStructure(t *testing.T) {
 			}
 
 			bodyLines := strings.Count(body, "\n")
-			if bodyLines >= 500 {
-				t.Errorf("body is %d lines (spec recommends < 500)", bodyLines)
+			if bodyLines >= 400 {
+				t.Errorf("body is %d lines (this repository caps bodies at 400)", bodyLines)
 			}
 
 			// Check shebang on all .sh files
@@ -1203,11 +1203,16 @@ func TestSkillArchitecture(t *testing.T) {
 			if match := danglingRouting.FindString(content); match != "" {
 				t.Fatalf("dangling reference-routing fragment remains: %q", match)
 			}
-			// 500 is the ceiling the Agent Skills spec sets on a skill body; the
-			// TestStructure check below keeps the body itself under it. Bulky
-			// examples still belong in references, which cap at 300 lines each.
-			if lines := strings.Count(content, "\n") + 1; lines > 500 {
-				t.Fatalf("SKILL.md has %d lines, want <= 500; move bulky examples into references", lines)
+			// The Agent Skills spec sets the ceiling at 500; this repository caps
+			// at 400, which no skill reaches — the largest is go-code-refactor at
+			// 328, and abrun splices variant arms into that same file, so the
+			// working maximum is already ~354. The cap is a ratchet against
+			// growth, not a mandate to cut: shortening a skill needs measured
+			// evidence, not a smaller number. The TestStructure check above keeps
+			// the body itself under it. Bulky examples still belong in
+			// references, which cap at 300 lines each.
+			if lines := strings.Count(content, "\n") + 1; lines > 400 {
+				t.Fatalf("SKILL.md has %d lines, want <= 400; move bulky examples into references", lines)
 			}
 			maxBlock := maxFencedBlockLines(content)
 			if maxBlock > 40 {

@@ -334,7 +334,7 @@ and pinned by `TestGoVersionBaseline` in `evals/eval_test.go`.
 .
 ├── skills/
 │   └── go-*/
-│       ├── SKILL.md      # Core rules (< 500 lines each)
+│       ├── SKILL.md      # Core rules (<= 400 lines each)
 │       ├── references/   # Detailed guidance, loaded on demand
 │       ├── scripts/      # Automation scripts and helpers
 │       └── assets/       # Output templates (5 skills)

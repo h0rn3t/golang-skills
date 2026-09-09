@@ -20,6 +20,7 @@ allowed-tools: Bash(bash:*)
 - `references/TEST-ORGANIZATION.md` - Read when structuring packages, black-box tests, or larger test suites.
 - `references/VALIDATION-APIS.md` - Read when choosing `t.Error`, `t.Fatal`, `cmp.Diff`, or assertion style.
 - `references/INTEGRATION.md` - Read when testing external services, HTTP handlers, databases, or long-running setup.
+- `../go-http/references/JSON-V2.md` - Read when testing JSON v2 defaults, migration compatibility, or golden bytes (Go 1.27+).
 
 ## Quick Reference
 
@@ -116,8 +117,10 @@ if diff := cmp.Diff(want, got); diff != "" {
 ```
 
 For protocol buffers, add `protocmp.Transform()` as a cmp option. Always
-include the direction key `(-want +got)` in diff messages. Avoid comparing
-JSON/serialized output — compare semantically instead.
+include the direction key `(-want +got)` in diff messages. Compare serialized
+output semantically when formatting is irrelevant; compare bytes when exact
+serialization is the contract. For JSON v2 options and golden-test limits, see
+[JSON v2 at API boundaries](../go-http/references/JSON-V2.md#json-in-golden-tests).
 
 ---
 

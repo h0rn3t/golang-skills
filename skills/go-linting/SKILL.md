@@ -94,6 +94,15 @@ inspect the preview before applying changes.
 Select a subset with `go fix -waitgroupgo ./...`, or exclude with
 `-NAME=false`. Review the diff: these carry fixes, not just diagnostics, and a
 few change allocation behavior.
+After applying fixes, build the affected packages and review retained comments:
+modernizers can leave unused imports/variables or discard comments inside a
+rewritten loop. Use the existing gate once on the final code, not a duplicate
+verification cycle.
+
+The toolchain's registered set differs from gopls and independently versioned
+`modernize` suites. Optional `appendclipped` and `slicesdelete` rewrites can
+change nilness or zero the old slice tail; do not classify them as unconditional
+behavior-preserving swaps. Check the installed tool's help before naming flags.
 
 ---
 
@@ -143,12 +152,14 @@ teach instead of leaving it to review attention:
 | `usetesting` | `t.Context`, `t.TempDir`, `t.Setenv` over hand-rolled forms | [go-testing](../go-testing/SKILL.md) |
 | `godot` | Doc comments end in a period | [go-documentation](../go-documentation/SKILL.md) |
 | `exhaustive` | `switch` covers every enum member (`default` counts) | [go-style-core](../go-style-core/SKILL.md) |
+| `nolintlint` | Suppressions name the linter and explain why | Nolint directives below |
+| `usestdlibvars` | Named HTTP method/status constants | [go-http](../go-http/SKILL.md) |
 | `gosec` | String-built SQL, `sh -c`, `template.HTML` on input, weak hashes, `InsecureSkipVerify`, `math/rand` for secrets | [go-security](../go-security/SKILL.md) |
 
 Opt-in, not in the baseline: `contextcheck` (context lost mid-chain; noisy on
 deliberate breaks), `testifylint` (only in repositories that use testify),
-`modernize` (same rewrites as `go fix`, useful when the gate runs only in
-golangci-lint).
+`modernize` (overlaps `go fix`; check the pinned version's analyzer set, useful
+when the gate runs only in golangci-lint).
 
 `govulncheck` is not a golangci-lint linter — install and run it separately:
 `go install golang.org/x/vuln/cmd/govulncheck@latest` locally, and a pinned

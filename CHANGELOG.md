@@ -4,6 +4,23 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- A shared JSON v2 boundary reference with bounded single-document decoding,
+  compatibility options, nil collections, streaming/newline differences, and
+  golden-test limits; routed from HTTP, package, defensive, and testing skills.
+- An `errors.AsType` branch example that preserves the original error, with
+  executable checks for second-branch matching and JSON input boundaries.
+- `nolintlint` requiring named linters and explanations, and `usestdlibvars`
+  for HTTP methods/status codes in the maintained lint configuration.
+
+### Changed
+
+- New-module guidance checks the actual `go` directive and local/CI toolchains
+  after `go mod init`, without assuming its default or upgrading existing code.
+- Modernization guidance distinguishes installed analyzer sets and calls out
+  post-fix compilation, comment retention, and behavior-changing slice rewrites.
+
 ## [1.3.1] - 2026-09-09
 
 ### Fixed

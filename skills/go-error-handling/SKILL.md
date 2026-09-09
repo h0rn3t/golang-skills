@@ -181,6 +181,24 @@ if errors.As(err, &pathErr) { /* ... */ }
 `go fix -errorsastype ./...` rewrites the old form. Keep `errors.Is` for
 sentinel comparison — `AsType` replaces `As`, not `Is`.
 
+### Matching multiple typed errors
+
+Keep the original `err` visible to every branch; name each extracted cause:
+
+```go
+if pathErr, ok := errors.AsType[*fs.PathError](err); ok {
+    return pathErr.Path
+} else if linkErr, ok := errors.AsType[*os.LinkError](err); ok {
+    return linkErr.New
+}
+```
+
+With `if err, ok := errors.AsType[*fs.PathError](err); ok`, a following
+`else if` sees that result's typed nil on a failed match, not the original
+error. Do not reuse `err` for the extracted cause in such a chain.
+[gopls `errorsastypeshadow`](https://go.dev/gopls/analyzers#errorsastypeshadow)
+detects this mistake; test a cause matching the second branch, including wrapping.
+
 ---
 
 ## Error Wrapping

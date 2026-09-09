@@ -12,6 +12,7 @@ description: Use when writing or reviewing Go HTTP code — handlers, routing wi
 ## Resource Routing
 
 - `references/WEB-SERVER.md` - Read when assembling a complete server: routing, handler, graceful shutdown, and where the other go-* skills meet in one `main`.
+- `references/JSON-V2.md` - Read when choosing JSON v2 I/O APIs, decoding a bounded document, migrating wire formats, or testing exact JSON bytes (Go 1.27+).
 
 ## Stdlib First
 

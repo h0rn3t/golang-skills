@@ -16,6 +16,7 @@ description: Use when hardening Go API boundaries or checking slice/map copies, 
 - `references/MUST-FUNCTIONS.md` - Read when deciding whether a panic-on-error helper is acceptable.
 - `references/PANIC-RECOVER.md` - Read when evaluating panic, recover, or crash containment.
 - `references/TIME-ENUMS-TAGS.md` - Read when handling time types, struct tags, or embedding in public structs.
+- `../go-http/references/JSON-V2.md` - Read when JSON v2 changes nil collections, tags, accepted input, or compatibility at an API boundary (Go 1.27+).
 
 ## Defensive Checklist Priority
 

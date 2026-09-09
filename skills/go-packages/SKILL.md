@@ -43,6 +43,8 @@ Commonly added modules the standard library now covers:
 `omitempty`, case-matching, and error semantics. Keep v1 for existing wire
 formats; reach for v2 for new code or when you need `jsontext` streaming. Both
 ship in the toolchain — no build tag or `GOEXPERIMENT` needed on Go 1.27.
+For I/O forms and compatibility options, read
+[JSON v2 at API boundaries](../go-http/references/JSON-V2.md).
 
 `github.com/google/uuid` stays justified for the algorithms stdlib `uuid` does
 not have (v1, v3, v5, custom sources).
@@ -51,6 +53,13 @@ not have (v1, v3, v5, custom sources).
 
 ## Adding and Auditing Dependencies
 
+- **After `go mod init`**, inspect the generated `go` directive and the local
+  and CI toolchains. For a new module targeting Go 1.27, set
+  `go mod edit -go=1.27.0` if needed; do not infer the directive from the
+  installed version or bump an existing module as an incidental cleanup.
+  `go test ./...` includes `stdversion` in Go 1.27 and rejects standard-library
+  APIs newer than the effective file version. `go fix` also gates replacements
+  by supported version, so an empty preview alone does not prove a 1.27 target.
 - **Before adding a module**, check the ladder above, license compatibility,
   and maintenance status. Follow the host and repository's approval policy;
   do not ask again for an already authorized dependency change.

@@ -4,6 +4,16 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- `go-code-routing.sh` never learned that `go-code` was loaded under the
+  plugin, because the Skill tool names a plugin skill `golang-skills:go-code`
+  and the hook accepted only bare `go-*` names; the gate was silent in every
+  plugin session. It now strips the plugin prefix. `TestRoutingGate` sends the
+  prefixed name, and `docs/evidence/2026-09-10-routing-gate-sonnet-5.ru.md`
+  records four Sonnet 5 sessions on 1.6.0 versus v1.5.0 plus the live session
+  in which the corrected hook blocked once and the model recovered.
+
 ## [1.6.0] - 2026-09-10
 
 ### Added

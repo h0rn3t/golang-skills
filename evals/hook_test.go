@@ -113,8 +113,10 @@ func TestRoutingGate(t *testing.T) {
 		edit := routingPayload("PreToolUse", "s2", "Write",
 			map[string]any{"file_path": "/repo/api/handler.go", "content": handler})
 
+		// A plugin install names the skill "golang-skills:go-code"; the gate must
+		// see through the prefix, or it never learns that go-code was loaded.
 		if code, _ := hookEvent(t, script, state, routingPayload("PostToolUse", "s2", "Skill",
-			map[string]any{"skill": "go-code"})); code != 0 {
+			map[string]any{"skill": "golang-skills:go-code"})); code != 0 {
 			t.Fatalf("recording Skill go-code: exit %d, want 0", code)
 		}
 

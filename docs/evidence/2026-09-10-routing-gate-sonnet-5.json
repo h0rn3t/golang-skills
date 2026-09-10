@@ -1,0 +1,240 @@
+{
+  "prompt": "Implement the Go package in ./%s. Every exported declaration is already there with its documentation; write the bodies so the package does what the documentation says. Do not change the exported signatures. Apply the changes to the files.",
+  "corpus": "implement",
+  "runner": "claude",
+  "model": "claude-sonnet-5",
+  "reps": 1,
+  "seed": 1,
+  "arms": [
+    {
+      "name": "reference",
+      "source": "/tmp/claude-1000/-home-coder-shershen-golang-skills/2b7768da-364a-472c-a37c-5371b2f749fe/scratchpad/ref-1.5.0",
+      "sha256": "7508ebce79eccfeccb99bfa5d9b1ccc97ce3ab7095a689c14b3b8e67fe8eeae8"
+    },
+    {
+      "name": "baseline",
+      "source": "/home/coder/shershen/golang-skills",
+      "sha256": "37dc60e1d30d3259f0aeb3ed1fae6c7b4351f04e43ffc59118a97a010b218c93"
+    }
+  ],
+  "results": [
+    {
+      "arm": "reference",
+      "task": "catalog",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-error-handling"
+      ],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 72,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 36,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "line_gate_pass": false,
+      "empty_diff": false,
+      "reported_counts": false,
+      "trace_path": "/tmp/abrun-work-1331424799/trace.jsonl",
+      "cost_usd": 0.124872,
+      "workdir": "/tmp/abrun-work-1331424799",
+      "output": "Implemented `Resolve`: it dedupes repeated SKUs to one round trip each, skips SKUs the source reports as `ErrNotFound`, and wraps any other failure in an unexported `resolveError` that includes the SKU in its message (for logs) while unwrapping to the source's original error (so callers can still `errors.Is`/`errors.As` it, e.g. against `ErrClosed`)."
+    },
+    {
+      "arm": "reference",
+      "task": "gateway",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-http"
+      ],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 115,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 7
+      },
+      "delta": {
+        "lines": 78,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 4,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 7
+      },
+      "build": true,
+      "golden": false,
+      "model_tests": "skipped",
+      "edited": true,
+      "behavior_failure": true,
+      "line_gate_pass": false,
+      "empty_diff": false,
+      "reported_counts": false,
+      "trace_path": "/tmp/abrun-work-3625102475/trace.jsonl",
+      "go_failure": "go test ./gateway/...: exit status 1: --- FAIL: TestStatusCodes (0.00s)\n    --- FAIL: TestStatusCodes/head_to_health (0.00s)\n        golden_test.go:179: HEAD /healthz = 200, want 405\n    --- FAIL: TestStatusCodes/head_to_list (0.00s)\n        golden_test.go:179: HEAD /accounts = 200, want 405\n    --- FAIL: TestStatusCodes/head_to_account (0.00s)\n        golden_test.go:179: HEAD /accounts/a-1 = 200, want 405\nFAIL\nFAIL\tabeval/gateway\t0.004s\nFAIL",
+      "cost_usd": 0.216671,
+      "workdir": "/tmp/abrun-work-3625102475",
+      "output": "Implemented `gateway.NewServer` in `gateway/gateway.go`: builds a sorted-by-ID slice and an ID-indexed map from a defensive copy of `accounts`, registers `GET /healthz`, `GET /accounts` (with `active` query-param filtering and 400 on invalid values), and `GET /accounts/{id}` (404 on unknown) via `http.ServeMux`'s built-in 404/405 handling, and returns an `*http.Server` with timeouts (`ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout`, `IdleTimeout`, `MaxHeaderBytes`) appropriate for an unproxied internet-facing edge. `go vet` ran clean via the edit hook."
+    },
+    {
+      "arm": "baseline",
+      "task": "gateway",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-http",
+        "go-linting",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 37,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 0
+      },
+      "after": {
+        "lines": 131,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 6,
+        "pattern_names": 0,
+        "exported": 2,
+        "branches": 9
+      },
+      "delta": {
+        "lines": 94,
+        "files": 0,
+        "test_files": 0,
+        "types": 0,
+        "interfaces": 0,
+        "funcs": 5,
+        "pattern_names": 0,
+        "exported": 0,
+        "branches": 9
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "line_gate_pass": false,
+      "empty_diff": false,
+      "reported_counts": false,
+      "trace_path": "/tmp/abrun-work-61777704/trace.jsonl",
+      "cost_usd": 0.2682226,
+      "workdir": "/tmp/abrun-work-61777704",
+      "output": "Implementation complete. Filled in `NewServer` in `gateway/gateway.go`:\n\n- Sorts a copy of `accounts` by ID and builds a lookup map for `/accounts/{id}`.\n- Registers `/healthz`, `/accounts`, `/accounts/{id}` on an `http.ServeMux`, each wrapped in a `requireGET` middleware that returns 405 (with `Allow: GET`) for any non-GET method, including HEAD — since the mux alone would silently route HEAD to a GET handler.\n- `/accounts` filters by the `active` query param, strictly requiring the literal strings `\"true\"`/`\"false\"`; any other value gets a 400 naming the `active` parameter. Filtered/unfiltered results are always non-nil slices so they marshal to `[]` rather than `null`.\n- `/accounts/{id}` returns 404 via `http.NotFound` for unknown IDs.\n- Unregistered paths fall through to the mux's default 404.\n- Since this is described as an internet-facing edge server with slow/idle clients, the `http.Server` sets `ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout`, and `IdleTimeout` (bare `http.Server` has none of these, which is a slowloris risk).\n\n`go vet` ran clean via the repo's PostToolUse hook after each edit. I don't have a shell tool in this session, so I couldn't run `go build`/`go test`/`gofmt -l`/`golangci-lint` myself — worth running those before merging if you have a terminal handy."
+    },
+    {
+      "arm": "baseline",
+      "task": "catalog",
+      "rep": 0,
+      "skills": [
+        "go-code",
+        "go-error-handling",
+        "go-style-core"
+      ],
+      "before": {
+        "lines": 36,
+        "files": 1,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 1,
+        "funcs": 1,
+        "pattern_names": 0,
+        "exported": 4,
+        "branches": 0
+      },
+      "after": {
+        "lines": 73,
+        "files": 1,
+        "test_files": 0,
+        "types": 2,
+        "interfaces": 1,
+        "funcs": 3,
+        "pattern_names": 0,
+        "exported": 5,
+        "branches": 4
+      },
+      "delta": {
+        "lines": 37,
+        "files": 0,
+        "test_files": 0,
+        "types": 1,
+        "interfaces": 0,
+        "funcs": 2,
+        "pattern_names": 0,
+        "exported": 1,
+        "branches": 4
+      },
+      "build": true,
+      "golden": true,
+      "model_tests": "skipped",
+      "edited": true,
+      "line_gate_pass": false,
+      "empty_diff": false,
+      "reported_counts": false,
+      "trace_path": "/tmp/abrun-work-1590830074/trace.jsonl",
+      "cost_usd": 0.2175708,
+      "workdir": "/tmp/abrun-work-1590830074",
+      "output": "`go vet` already confirmed the package compiles cleanly (via the edit hooks), and there are no existing tests to run.\n\n**Summary:** Implemented `Resolve` in `catalog/catalog.go` — it walks `skus`, calling `Source.Get` once per distinct SKU (caching repeats), skipping SKUs that return `ErrNotFound`, and returning immediately on any other error. Added an exported `ResolveError` type (`SKU` + `Err`, with `Error()` and `Unwrap()`) so an operator gets the SKU and cause in the log line while a caller can still use `errors.Is`/`errors.As` to reach the underlying `Source` error."
+    }
+  ],
+  "finished": "2026-09-10T11:09:40.647634305Z"
+}

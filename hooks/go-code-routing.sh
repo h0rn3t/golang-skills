@@ -59,9 +59,10 @@ state="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/${sess
 loaded="$state/loaded"
 reminded="$state/reminded"
 
-record() { # record <skill>
-    [[ "$1" =~ ^go-[a-z-]+$ ]] || return 0
-    mkdir -p "$state" && printf '%s\n' "$1" >> "$loaded"
+record() { # record <skill> — a plugin install names skills "golang-skills:go-code"
+    local name="${1##*:}"
+    [[ "$name" =~ ^go-[a-z-]+$ ]] || return 0
+    mkdir -p "$state" && printf '%s\n' "$name" >> "$loaded"
 }
 
 has() { # has <file> <skill>

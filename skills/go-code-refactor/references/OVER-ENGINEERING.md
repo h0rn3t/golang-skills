@@ -125,7 +125,7 @@ code a swap may be observable; `MODERNIZATION.md` says what each can change.
 |---|---|
 | A linear search loop | `slices.Contains`, `slices.ContainsFunc`, `slices.IndexFunc` |
 | A `sort.Slice` comparator; `sort.Strings` after a collect loop | `slices.SortFunc` with `cmp.Compare`; `slices.Sorted(maps.Keys(m))` (Go 1.23) |
-| Collect, dedupe, reverse, concat, min/max loops | `slices.Compact`, `Reverse`, `Max`/`Min`, `Concat` (Go 1.22), `Collect` (Go 1.23); `maps.Keys`, `Values`, `Collect` (Go 1.23) → [go-data-structures](../../go-data-structures/SKILL.md) |
+| Collect, dedupe, reverse, concat, min/max loops | `slices.Compact`, `Reverse`, `Max`/`Min` (Go 1.21), `Concat` (Go 1.22), `Collect` (Go 1.23); `maps.Keys`, `Values`, `Collect` (Go 1.23) → [go-data-structures](../../go-data-structures/SKILL.md) |
 | Deep-copy helpers; `map[T]bool` used only for membership | `slices.Clone`, `maps.Clone`; `map[T]struct{}` |
 | `Index` plus manual slicing | `strings.Cut`, `CutPrefix`, `CutSuffix`, `CutLast` (Go 1.27) |
 | `strings.Split` then `range` over the slice | `strings.SplitSeq`, `FieldsSeq`, `Lines` (Go 1.24) — `Lines` keeps the newline |

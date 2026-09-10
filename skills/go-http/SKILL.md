@@ -124,6 +124,7 @@ Construct an `http.Server`; bare `http.ListenAndServe` sets no timeouts.
 | `IdleTimeout` | Reclaim keep-alive connections |
 | `MaxHeaderBytes`, `MaxHeaderValueCount` (Go 1.27+) | Cap header abuse |
 | `Handler: http.NewCrossOriginProtection().Handler(mux)` | CSRF for state-changing requests (Go 1.25+) |
+| `DisableClientPriority` (Go 1.27+) | HTTP/2 only: ignore RFC 9218 client priorities and serve round-robin, so one client cannot starve others; no-op with a custom write scheduler |
 | `BaseContext` | Expose process shutdown to handlers |
 
 For graceful shutdown, `signal.NotifyContext` owns the lifetime;

@@ -19,14 +19,14 @@ linters:
     - exhaustive    # go-style-core: switch covers every iota enum member
     - godot         # go-documentation: doc comments are full sentences
     - noctx         # go-context / go-http: outbound calls carry a context
-    - nolintlint    # go-linting: конкретний лінтер і пояснення приглушення
+    - nolintlint    # go-linting: a suppression names its linter and its reason
     - perfsprint    # go-performance: strconv over fmt.Sprint
     - prealloc      # go-performance: capacity hints for appended slices
     - rowserrcheck  # go-database: rows.Err checked after the loop
     - sloglint      # go-logging: static message, key-value attrs, snake_case keys
     - sqlclosecheck # go-database: rows and statements closed
     - usetesting    # go-testing: t.Context, t.TempDir, t.Setenv over hand-rolled forms
-    - usestdlibvars # go-http: іменовані HTTP-методи та коди статусу
+    - usestdlibvars # go-http: named HTTP methods and status codes
   settings:
     revive:
       rules:

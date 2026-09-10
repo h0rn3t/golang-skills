@@ -147,6 +147,12 @@ srv := &http.Server{
 
 - `InsecureSkipVerify: true` outside a test with a local self-signed server is
   a finding, always. For a private CA, set `RootCAs`.
+- **Do not set `CurvePreferences` to "harden" TLS.** The default carries the
+  post-quantum hybrids — `X25519MLKEM768` (Go 1.24+), `SecP256r1MLKEM768` and
+  `SecP384r1MLKEM1024` (Go 1.26+), standalone `MLKEM1024` (Go 1.27+) — and the
+  field's own doc says setting it explicitly is how you turn them off. A pinned
+  curve list written before 1.24 silently downgrades every handshake to
+  classical key exchange; treat one in a review as a finding and delete it.
 - `GODEBUG=tlsrsakex=1`-style knobs re-enable removed weak options; treat
   their presence in a Dockerfile as a finding. Several of them (`tlsrsakex`,
   `tls3des`, `tls10server`, `tlsunsafeekm`) were removed in Go 1.27, so a
@@ -159,6 +165,13 @@ srv := &http.Server{
   comes from `r.TLS.PeerCertificates[0]`, never from a header.
 - FIPS 140-3: `GODEBUG=fips140=on` switches to the validated module; code
   changes are rarely needed.
+- Post-quantum *signatures* are opt-in, unlike key exchange: `crypto/mldsa`
+  (FIPS 204), the `tls.MLDSA44`/`MLDSA65`/`MLDSA87` signature schemes, and
+  `x509.MLDSA` arrive in Go 1.27, but they only apply once a chain is issued
+  with them. Public CAs do not issue ML-DSA certificates yet, so this is a
+  private-PKI and internal-mTLS option today, not a default to switch on.
+  `crypto/mldsa` returns an error under FIPS 140-3 module v1.0.0 — v1.26.0 or
+  later is required.
 
 ---
 

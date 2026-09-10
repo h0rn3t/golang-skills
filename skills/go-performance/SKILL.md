@@ -142,8 +142,8 @@ go test -bench=. -benchmem -count=10 ./...
 ### Before reaching for a faster library
 
 Check the standard library first — `encoding/json/v2` (Go 1.27+) and the
-`*Seq` iterator variants (`strings.SplitSeq`, `maps.Keys`) remove allocations
-without a new dependency. See
+iterator variants (`strings.SplitSeq` Go 1.24+, `maps.Keys` Go 1.23+) remove
+allocations without a new dependency. See
 [go-packages](../go-packages/SKILL.md) for the dependency ladder.
 
 ---

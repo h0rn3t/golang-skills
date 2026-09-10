@@ -58,7 +58,7 @@ scope for this repository.
 | `strings.CutLast`, `bytes.CutLast` | `LastIndex` + manual slicing |
 | `url.URL.Clone`, `url.Values.Clone` | Hand-written deep copies at boundaries |
 | `http.Server.MaxHeaderValueCount` (default `DefaultMaxHeaderValueCount` = 500) | Custom header-count guards |
-| `http.Server.DisableClientPriority` | — |
+| `http.Server.DisableClientPriority` | A custom HTTP/2 write scheduler installed only to ignore client priority |
 | `hash/maphash.ComparableHasher[T]`, `maphash.Hasher[T]` | Hand-rolled hash/equality pairs for generic containers |
 | `math/rand/v2.(*Rand).N` | `rand.N` package function when you need an explicit source |
 | `crypto/mldsa`, `crypto.MLDSAMu` | Post-quantum signatures |

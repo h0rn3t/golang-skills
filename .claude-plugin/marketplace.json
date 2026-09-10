@@ -4,7 +4,7 @@
     "name": "h0rn3t"
   },
   "metadata": {
-    "description": "24 modular skills for idiomatic Go 1.27, derived from Effective Go, Google Go Style Guide, Uber Go Style Guide, and Go Wiki CodeReviewComments. Backed by 68 reference files, 10 automation scripts (all with --json, --limit, --force), 5 asset templates, a go-verify subagent, and a PostToolUse gofmt/vet hook.",
+    "description": "24 modular skills for idiomatic Go 1.27, derived from Effective Go, Google Go Style Guide, Uber Go Style Guide, and Go Wiki CodeReviewComments. Backed by 68 reference files, 10 automation scripts (--json on all ten, --limit where output is unbounded, --force on the three that write files), 5 asset templates, a go-verify subagent, and a PostToolUse gofmt/vet hook.",
     "version": "1.3.1"
   },
   "plugins": [

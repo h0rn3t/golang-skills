@@ -77,14 +77,14 @@ inspect the preview before applying changes.
 | `errorsastype` | `errors.AsType[T]` instead of `errors.As` (Go 1.26+) |
 | `newexpr` | `new(expr)` instead of a temp variable (Go 1.26+) |
 | `embedlit` | Direct promoted fields in composite literals (Go 1.27); see [initialization](../go-style-core/references/INITIALIZATION.md#embedded-fields-in-go-127) |
-| `testingcontext` | `t.Context()` instead of `context.WithCancel` in tests |
+| `testingcontext` | `t.Context()` instead of `context.WithCancel` in tests (Go 1.24+) |
 | `forvar` | Deletes `x := x` loop captures (dead since Go 1.22) |
 | `atomictypes` | `atomic.Int64` and friends instead of basic types in `sync/atomic` calls (Go 1.19+) |
 | `slicesbackward` | `for i, v := range slices.Backward(s)` instead of a backward index loop (Go 1.23+) |
 | `unsafefuncs` | `unsafe.Slice`/`unsafe.String` instead of pointer arithmetic |
 | `reflecttypefor` | `reflect.TypeFor[T]()` instead of `reflect.TypeOf(x)` (Go 1.22+) |
-| `rangeint`, `minmax`, `omitzero`, `any` | `for i := range n`, `min`/`max`, `omitzero` tags, `any` |
-| `slicessort`, `slicescontains`, `mapsloop`, `stringsseq`, `stditerators` | `slices`/`maps`/iterator APIs instead of hand-written loops |
+| `rangeint`, `minmax`, `omitzero`, `any` | `for i := range n` (Go 1.22+), `min`/`max`, `omitzero` tags (Go 1.24+), `any` |
+| `slicessort`, `slicescontains`, `mapsloop`, `stringsseq`, `stditerators` | `slices`/`maps` APIs instead of hand-written loops; `SplitSeq`/`FieldsSeq` (Go 1.24+) and `Len`/`At`-to-iterator rewrites (Go 1.23+) |
 | `stringsbuilder`, `stringscut`, `stringscutprefix` | `strings.Builder`, `Cut`, `CutPrefix` |
 
 `atomictypes`, `embedlit`, `slicesbackward`, and `unsafefuncs` are new in Go

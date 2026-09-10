@@ -1820,6 +1820,38 @@
         "Includes cases for overwrite-before-filter ordering and visible mutations through aliases without claiming execution"
       ],
       "set": "validation"
+    },
+    {
+      "id": 60,
+      "prompt": "Review this Go 1.27 handler for security problems and fix them. It reads `sort` and `file` from the query string, builds the query as fmt.Sprintf(\"SELECT id, name FROM users ORDER BY %s\", sort), opens the export with os.Open(filepath.Join(\"/srv/exports\", file)), checks the caller with if r.Header.Get(\"X-Api-Token\") == cfg.Token, and on failure logs slog.Warn(\"auth failed\", \"header\", r.Header.Get(\"Authorization\")). Explain each finding before changing it. Do not run commands.",
+      "expected_output": "Four distinct trust-boundary findings: an identifier interpolated into SQL, a traversable path join, a non-constant-time token comparison, and a credential written to a log.",
+      "target_skills": [
+        "go-security"
+      ],
+      "assertions": [
+        "Validates the sort column against an allowlist and states that a placeholder cannot parameterize an identifier",
+        "Replaces filepath.Join plus os.Open with os.Root/os.OpenRoot rather than string-checking the name for '..'",
+        "Compares the token with subtle.ConstantTimeCompare instead of ==",
+        "Removes the Authorization header from the log line rather than truncating or hashing it in place",
+        "Does not 'fix' the SQL by escaping quotes or by switching to a placeholder in the ORDER BY position"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 61,
+      "prompt": "Review this Go 1.27 TLS setup for a service calling an internal API. It builds &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: os.Getenv(\"ENV\") == \"staging\", CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256}} and returns fmt.Errorf(\"dial %s with token %s: %w\", addr, cfg.Token, err) when the handshake fails. Say what you would change and why. Do not run commands.",
+      "expected_output": "InsecureSkipVerify rejected regardless of environment, the pinned CurvePreferences identified as silently disabling the default post-quantum key exchanges, and the token removed from the error text.",
+      "target_skills": [
+        "go-security"
+      ],
+      "assertions": [
+        "Rejects InsecureSkipVerify even behind an environment check and points to RootCAs for a private CA",
+        "Flags the explicit CurvePreferences as turning off the default hybrids (X25519MLKEM768 and the Go 1.26+/1.27 additions) and recommends deleting the field",
+        "Removes cfg.Token from the wrapped error rather than relying on log filtering downstream",
+        "Keeps %w so the caller can still match the underlying error",
+        "Does not add a hand-written CipherSuites list or otherwise re-specify what the crypto/tls defaults already provide"
+      ],
+      "set": "validation"
     }
   ]
 }

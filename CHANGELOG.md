@@ -14,12 +14,46 @@ All notable changes to this repository are documented here.
 - `nolintlint` requiring named linters and explanations, and `usestdlibvars`
   for HTTP methods/status codes in the maintained lint configuration.
 
+- `TestVersionClaimsMatchToolchain` and `TestAnalyzerToolAttribution`, which
+  resolve two kinds of claim no build or link check can see: an inline
+  `(Go 1.NN)` marker against `$GOROOT/api`, and an analyzer name against the
+  tool that actually registers it. Both reproduce a real defect fixed below.
+- Two `go-security` quality evals, covering the trust-boundary review (SQL
+  identifier, path traversal, token comparison, credential in a log line) and
+  the TLS config review. It was the only skill with no quality eval.
+
 ### Changed
 
 - New-module guidance checks the actual `go` directive and local/CI toolchains
   after `go mod init`, without assuming its default or upgrading existing code.
 - Modernization guidance distinguishes installed analyzer sets and calls out
   post-fix compilation, comment retention, and behavior-changing slice rewrites.
+- The plugin manifests described all ten scripts as taking `--json`, `--limit`,
+  and `--force`. Only `--json` is universal; the manifests now match the README,
+  which was already accurate.
+
+### Fixed
+
+- `MODERNIZATION.md` credited `waitgroupgo` to `go vet`. The vet analyzer is
+  `waitgroup`; `waitgroupgo` belongs to `go fix`, and `go vet -waitgroupgo`
+  fails with "flag provided but not defined". The Go 1.27 rename applied to the
+  fix tool only.
+- `OVER-ENGINEERING.md` dated `slices.Compact`, `Reverse`, `Max`/`Min` to Go
+  1.22 along with `Concat`. Only `Concat` is 1.22; the rest are 1.21. This is
+  the one inline claim the 1.3.1 conformance pass missed, so that release's
+  "every inline claim matched" note was not quite true.
+- `crypto/mldsa` and `http.Server.DisableClientPriority` sat in the
+  `COMPATIBILITY.md` Go 1.27 table while no skill recommended them, against
+  that file's own scope rule. Post-quantum signatures and the
+  `CurvePreferences` downgrade trap now live in `go-security`, and the HTTP/2
+  priority switch in `go-http`.
+- Ukrainian comments in the shipped `golangci.yml` baseline, the only
+  non-English text under `skills/`.
+- Version markers missing from the `go fix` table rows for `testingcontext`,
+  `rangeint`, `omitzero`, `stringsseq`, and `stditerators`, and from
+  `maps.Keys` in `go-performance`.
+- An empty `skills/go-code-review/references/` directory, invisible to git but
+  present in every working tree that had it.
 
 ## [1.3.1] - 2026-09-09
 

@@ -293,7 +293,7 @@ how a refactor loses the reviewer's trust.
 
 | Tool | What it finds |
 |---|---|
-| `go vet ./...` | `waitgroupgo` (misplaced `wg.Add`), `hostport` (the IPv6 address bug), `stdversion` (stdlib symbols newer than the `go` directive) |
+| `go vet ./...` | `waitgroup` (misplaced `wg.Add`), `hostport` (the IPv6 address bug), `stdversion` (stdlib symbols newer than the `go` directive) |
 | `bash scripts/verify-refactor.sh leaks ./...` | Goroutine leaks — the `goroutineleak` pprof profile is GA in Go 1.27, so this turns "looks like it leaks" into a concrete list |
 | `GODEBUG=checkfinalizers=1` | Finalizer and cleanup misuse (Go 1.25+) |
 | `golangci-lint run` | Expect the finding count to drop after the refactor; report before and after |

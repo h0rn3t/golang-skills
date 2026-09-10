@@ -4,6 +4,36 @@
 two or more versions of `go-code-refactor/SKILL.md` and reports what changed in
 the code the model wrote — not in the prose it produced.
 
+## Sonnet 5 medium control, both corpora at n=5 (2026-09-10)
+
+Refactor [report](../../docs/evidence/2026-09-10-go-refactor-control-sonnet-5-medium-n5.md),
+implement [report](../../docs/evidence/2026-09-10-go-implement-control-sonnet-5-medium.md):
+the n=1 medium run below repeated at five repetitions per cell on release
+1.7.0, plus the implementation corpus under identical conditions and the same
+arm digest. 80 sessions, no CLI errors.
+
+The refactor corpus is the strongest result recorded on a Claude model here.
+Corpus difference −9.7 lines, reproducing the n=1 reading of −9.6, with
+correctness tied at 20/20 build and golden in both arms. **Three of four
+fixtures separate**: `dispatch` −15.8 with arms that do not overlap
+(p = 0.00794, 0.032 after Bonferroni), `report` −9.3 (p = 0.00794) and
+`pricing` −9.0 (p = 0.024, exploratory after correction); `store` is a tie.
+`dispatch` shows the mechanism — four of five control sessions extract
+`put`/`del`/`eventKey` helpers and grow the package, while the skilled arm
+folds the branches into one path and adds 0.20 functions. New functions fall
+1.45 → 0.58 per session and the concision gate passes 16/20 against 10/20.
+Cost 4.38x.
+
+The implementation corpus separates nothing: −1.78 lines across the three
+evaluable fixtures, correctness 13/15 against 14/15, no fixture under p = 0.05,
+and `Δiface`/`Δpattern` zero in all 40 sessions. `gateway` is still unusable on
+this model at this effort — 8 of 10 sessions fail the HEAD/405 contract in both
+arms, including 5/5 skilled sessions in which `go-http` loaded and which carries
+the rule since `f12c73b`. Three of those skilled sessions also rendered the
+empty account list as `null`. Cost 4.54x. The pair is the same statement the
+`gpt-5.6-luna` runs made: the plugin pays for removing structure from working
+code, not for filling an empty body.
+
 ## Sonnet 5 high control (2026-09-10)
 
 [Report](../../docs/evidence/2026-09-10-go-refactor-control-sonnet-5-high.md):

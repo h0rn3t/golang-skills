@@ -4,6 +4,36 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Full Sonnet 5 controls at `-effort medium` on release 1.7.0, both corpora,
+  n=5 per fixture and arm, 80 sessions and one plugin digest:
+  [`docs/evidence/2026-09-10-go-refactor-control-sonnet-5-medium-n5.md`](docs/evidence/2026-09-10-go-refactor-control-sonnet-5-medium-n5.md)
+  and
+  [`docs/evidence/2026-09-10-go-implement-control-sonnet-5-medium.md`](docs/evidence/2026-09-10-go-implement-control-sonnet-5-medium.md).
+  The refactor corpus turns the n=1 direction into a measurement and
+  reproduces it: −9.7 lines against −9.6, correctness tied at 20/20 build and
+  golden in both arms, new functions 1.45 → 0.58 per session, concision gate
+  16/20 against 10/20. Three of four fixtures separate — `dispatch` −15.8 with
+  arms that do not overlap (p = 0.00794, 0.032 with Bonferroni), `report` −9.3
+  (p = 0.00794), `pricing` −9.0 (p = 0.024, exploratory after correction) —
+  and `store` is a tie. The implementation corpus separates nothing: −1.78
+  lines across the three evaluable fixtures, 13/15 correctness against 14/15,
+  no fixture under p = 0.05. `gateway` remains unusable on this model at this
+  effort, failing the documented HEAD/405 contract in 8 of 10 sessions across
+  both arms — including 5/5 skilled sessions in which `go-http` loaded, which
+  has carried the `ServeMux` HEAD rule since `f12c73b`; three of those also
+  rendered the empty account list as `null`. Cost is 4.38x and 4.54x.
+
+### Changed
+
+- Both READMEs read the Sonnet 5 refactoring cell as ✅ at medium effort,
+  set by the n=5 pair above rather than qualified by the one-repetition runs,
+  with the effort level named in the cell and the cost column carrying 4.4x at
+  medium beside 3.3x at the CLI default and 5.6x at high. The new-code cell
+  stays ➖ and now rests on a null result rather than on the slightly adverse
+  2026-09-08 reading.
+
 ## [1.7.0] - 2026-09-10
 
 ### Fixed

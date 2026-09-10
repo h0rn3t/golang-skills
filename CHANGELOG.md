@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-09-10
+
 ### Added
 
 - A shared JSON v2 boundary reference with bounded single-document decoding,

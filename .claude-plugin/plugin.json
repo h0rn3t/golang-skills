@@ -1,7 +1,7 @@
 {
   "name": "golang-skills",
   "description": "24 modular skills for idiomatic Go 1.27 — each under 400 lines, backed by 68 reference files, 10 automation scripts (--json on all ten, --limit where output is unbounded, --force on the three that write files), and 5 asset templates. Covers HTTP servers and clients, database/sql access, trust-boundary security, retries and idempotency, overload and failure containment, root-cause troubleshooting, behavior-preserving refactoring of existing code, generic methods, errors.AsType, synctest, the go fix modernizers, the stdlib-first dependency ladder, plus error handling, naming, testing, concurrency, interfaces, generics, documentation, logging, and performance. One shared verification gate (vet, test -race, go fix, lint, govulncheck) defines done, and the bundled golangci-lint baseline enforces the skills' rules. Ships a go-verify subagent and a PostToolUse gofmt/vet hook. Activates automatically with progressive disclosure and conditional cross-references.",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "author": {
     "name": "h0rn3t"
   },

@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-09-10
+
 ### Fixed
 
 - `go-code-routing.sh` never learned that `go-code` was loaded under the

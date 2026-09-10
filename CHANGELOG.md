@@ -4,6 +4,30 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-09-10
+
+### Added
+
+- `hooks/go-code-routing.sh`, a routing gate for the Claude Code plugin. The
+  `go-code` router asked the model to load `go-style-core` and the owner skills
+  before the first edit, and the 2026-09-08 Sonnet 5 sessions in
+  `docs/evidence` show that prose alone did not make it happen: 0 of 4 loaded
+  `go-error-handling` before editing. The hook records loaded skills from
+  `Skill` calls and direct `SKILL.md` reads, then blocks the first `.go` edit
+  in a session that loaded `go-code` until `go-style-core` and the owners the
+  edited content points at are loaded, naming them once per session so a retry
+  always passes. `TestRoutingGate` drives one session through every branch;
+  `TestHookScriptsSyntax` checks `hooks.json` against the scripts it names.
+
+### Changed
+
+- `go-code` states what loading a skill means on each host: the `Skill` tool
+  in Claude Code, a read of the sibling `SKILL.md` in Codex. Step 2 loads
+  `go-style-core` before reading the code; step 3 ends only when every
+  selected owner is in context, before the first edit. The routing table moves
+  out of Related Skills into its own section, Route Before The First Edit,
+  which step 3 links to.
+
 ## [1.5.0] - 2026-09-10
 
 ### Changed

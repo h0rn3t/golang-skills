@@ -17,8 +17,9 @@ content the agent already knows is omitted, procedural decision trees guide
 multi-step tasks, 68 reference files load on demand via progressive disclosure,
 10 bundled scripts automate common checks, and 5 asset templates ensure
 consistent output. The Claude Code plugin also ships a `go-verify` subagent
-that runs the verification gate and a PostToolUse hook that runs `gofmt` and
-`go vet` on every edited `.go` file.
+that runs the verification gate, a PostToolUse hook that runs `gofmt` and
+`go vet` on every edited `.go` file, and a routing gate that holds the first
+Go edit until `go-code` has loaded `go-style-core` and the owner skills.
 
 ## Skills Included
 
@@ -93,6 +94,7 @@ skills only.
 |------|--------------|
 | `agents/go-verify.md` | Opt-in Claude agent for requested checks: "check it builds" selects build; "run the gate" selects the full gate. Reports findings and unavailable checks, with `INCOMPLETE` when required evidence is missing. Routine checks stay inline unless the user or host requests delegation |
 | `hooks/go-vet-on-edit.sh` | PostToolUse hook: after every `Edit`/`Write` of a `.go` file it runs `gofmt -l` and `go vet` on that package and hands the findings back to the agent. Silent when clean; never blocks the edit |
+| `hooks/go-code-routing.sh` | Routing gate for the `go-code` router. PostToolUse on `Skill` and `Read` records which go-* skills the session loaded; PreToolUse on `Edit`/`Write` of a `.go` file, in a session that loaded `go-code`, blocks the edit (exit 2) until `go-style-core` and the owners the edited content points at are loaded, naming them. Each skill is named once per session, so a retry always passes. Silent in sessions that never loaded `go-code` |
 
 The shared instructions support Claude and GPT-6 without a model-specific
 fork. `go-style-core` owns user-scope precedence, progress updates, report
@@ -110,8 +112,9 @@ Invoke `$go-code <task>` or an individual skill such as `$go-error-handling`.
 Install the whole pack for the router's sibling references. With a partial
 installation, it reports missing guidance and continues using available skills.
 Resolve scripts relative to the installed skill and run them against the target
-project. Codex does not need this repository's Claude agent or PostToolUse hook;
-the selected checks run directly when no hook output is available.
+project. Codex has no skill tool and no hooks: `go-code` tells it to read each
+selected sibling `SKILL.md` directly before the first edit, and the selected
+checks run directly when no hook output is available.
 
 ## Installation
 
@@ -190,13 +193,13 @@ To uninstall: `rm -rf ~/.claude/skills/go-*`.
 
 ### Pinning a version
 
-Every release is a git tag (`v1.5.0`). None of the installers above takes a
+Every release is a git tag (`v1.6.0`). None of the installers above takes a
 version argument — `npx skills add` and `/plugin marketplace add
 h0rn3t/golang-skills` both follow the default branch, so they always give you
 the newest release. To pin one, install from a tagged checkout:
 
 ```bash
-git clone --branch v1.5.0 --depth 1 https://github.com/h0rn3t/golang-skills.git
+git clone --branch v1.6.0 --depth 1 https://github.com/h0rn3t/golang-skills.git
 cd golang-skills
 
 # manual install from this checkout
@@ -372,7 +375,7 @@ and pinned by `TestGoVersionBaseline` in `evals/eval_test.go`.
 │       ├── scripts/      # Automation scripts and helpers
 │       └── assets/       # Output templates (5 skills)
 ├── agents/               # go-verify subagent (Claude Code plugin)
-├── hooks/                # PostToolUse gofmt/vet hook (Claude Code plugin)
+├── hooks/                # gofmt/vet and go-code routing hooks (Claude Code plugin)
 ├── evals/
 │   ├── evals.json        # Trigger and quality eval definitions
 │   ├── cmd/evalrun/      # Opt-in headless eval runner (claude -p)

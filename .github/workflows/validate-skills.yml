@@ -71,6 +71,7 @@ jobs:
         run: |
           python3 -c "import json; json.load(open('hooks/hooks.json'))"
           bash -n hooks/go-vet-on-edit.sh
+          bash -n hooks/go-code-routing.sh
           test -f agents/go-verify.md
 
       # Every relative markdown link resolves. A dead path is worse than no

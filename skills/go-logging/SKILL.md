@@ -117,6 +117,9 @@ slog.Info("server started", "addr", addr)
 slog.Debug("cache lookup", "key", key, "hit", hit)
 ```
 
+On a hot path, guard attribute construction that allocates with
+`logger.Enabled(ctx, slog.LevelDebug)` so a disabled level costs one check.
+
 ---
 
 ## Request-Scoped Logging
@@ -124,7 +127,9 @@ slog.Debug("cache lookup", "key", key, "hit", hit)
 > **Advisory**: Derive loggers from context to carry request-scoped fields.
 
 Use middleware to enrich a logger with request ID, user ID, or trace ID, then
-pass the enriched logger downstream via context or as an explicit parameter.
+pass the enriched logger downstream — in the context for handler and
+middleware chains, as an explicit parameter for libraries and background
+workers ([the decision table](references/LEVELS-AND-CONTEXT.md#when-to-use-each)).
 Keep the full context-key and middleware implementation in the logging patterns
 reference so request-scoped logging has one owner.
 
@@ -141,23 +146,16 @@ Use that retrieved logger's `InfoContext` method downstream.
 
 ## Log or Return, Not Both
 
-The handle-once rule belongs to [go-error-handling](../go-error-handling/SKILL.md).
-In logging work, apply it by choosing either a local log-and-recover path or a
-return path with context, not both for the same error.
-
-**Exception**: HTTP handlers and other top-of-stack boundaries may log detailed
-errors server-side while returning a sanitized message to the client:
+The handle-once rule and its one exception — a handler at the top of the
+chain logs the detail and answers with a status — belong to
+[go-error-handling](../go-error-handling/SKILL.md#error-flow). The logging
+side of that exception is the `*Context` call, so the request's fields reach
+the record:
 
 ```go
-if err != nil {
-    slog.Error("checkout failed", "err", err, "user_id", uid)
-    http.Error(w, "internal error", http.StatusInternalServerError)
-    return
-}
+slog.ErrorContext(r.Context(), "checkout failed", "err", err, "user_id", uid)
+http.Error(w, "internal error", http.StatusInternalServerError)
 ```
-
-See [go-error-handling](../go-error-handling/SKILL.md) for the full
-handle-once pattern and error wrapping guidance.
 
 ---
 
@@ -180,9 +178,10 @@ A feature in a service is not done until an operator can see it fail:
 - **Dashboards and alerts** — a metric nobody queries is not observability:
   land each one in the project's dashboards and alert rules, or say plainly
   that it shipped unwired.
-- **Profiles** — guard the `pprof` endpoint with auth (see
-  [go-security](../go-security/SKILL.md)); never expose it unauthenticated.
-  [go-troubleshooting](../go-troubleshooting/SKILL.md) owns reading them.
+- **Profiles** — mount `net/http/pprof` on a separate internal listener,
+  never on the public mux ([go-security](../go-security/SKILL.md#http-surface)
+  owns the rule); [go-troubleshooting](../go-troubleshooting/SKILL.md) owns
+  reading them.
 
 ---
 
@@ -194,20 +193,6 @@ A feature in a service is not done until an operator can see it fail:
 - Full credit card numbers, SSNs
 - Request/response bodies that may contain user data
 - Entire slices or maps of unbounded size
-
----
-
-## Quick Reference
-
-| Do | Don't |
-|----|-------|
-| `slog.Info("msg", "key", val)` | `log.Printf("msg %v", val)` |
-| Static message + structured fields | `fmt.Sprintf` in message |
-| `snake_case` keys | camelCase or inconsistent keys |
-| Log OR return errors | Log AND return the same error |
-| Derive logger from context | Create a new logger per call |
-| Use `slog.Error` with `"err"` attr | `slog.Info` for errors |
-| Pre-check `Enabled()` on hot paths | Always allocate log args |
 
 ---
 

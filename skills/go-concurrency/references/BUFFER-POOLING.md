@@ -1,5 +1,9 @@
 # Buffer Pooling with Channels
 
+> Sources: source/effective-go/effective_go.html (A leaky buffer)
+> Authority: advisory
+> Last verified: 2026-09-10
+
 Use a buffered channel as a free list to reuse allocated buffers, avoiding
 repeated allocations. This "leaky buffer" pattern uses `select` with `default`
 for non-blocking operations.

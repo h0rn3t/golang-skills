@@ -1,13 +1,16 @@
 # Error Wrapping Reference
 
+> Sources: source/uber-go-style/style.md (Error Wrapping); https://go.dev/blog/go1.13-errors; https://pkg.go.dev/errors#AsType
+> Authority: advisory
+> Minimum Go: `errors.AsType` 1.26
+> Last verified: 2026-09-10
+
 This reference covers error wrapping with `%v` vs `%w`, placement conventions,
 adding context to errors, and logging best practices.
 
 ---
 
 ## Wrapping Errors: %v vs %w
-
-> **Advisory**: Recommended best practice.
 
 The choice between `%v` and `%w` significantly impacts how errors are propagated
 and inspected.
@@ -65,8 +68,6 @@ if errors.Is(err, fs.ErrNotExist) {
 
 ## Placement of %w
 
-> **Advisory**: Recommended best practice.
-
 Place `%w` at the **end** of the error string so error text mirrors error chain
 structure:
 
@@ -99,8 +100,6 @@ fmt.Println(err3) // err3-1 err2-1 err1 err2-2 err3-2
 ---
 
 ## Adding Information to Errors
-
-> **Advisory**: Recommended best practice.
 
 ### Add Context, Not Redundancy
 
@@ -144,32 +143,9 @@ return err
 
 ## Logging Errors
 
-> **Advisory**: Recommended best practice.
-
-When you do log errors, use `log/slog` (Go 1.21+) with structured key-value
-pairs and the appropriate level:
-
-- **`slog.Error`**: Reserve for actionable issues that need investigation.
-- **`slog.Warn`**: For issues that may need attention but aren't immediately
-  actionable.
-- **`slog.Debug`**: For development tracing — only emitted when the handler's
-  level is set to `LevelDebug`.
-
-```go
-// Good: Structured logging with appropriate levels
-for _, q := range queries {
-    slog.Debug("handling query", "query", q)
-    q.Run()
-}
-
-// Good: Guard expensive formatting behind a level check
-if slog.Default().Enabled(context.Background(), slog.LevelDebug) {
-    slog.Debug("query plan", "explain", q.Explain())
-}
-
-// Bad: Expensive call evaluated even when debug logging is disabled
-slog.Debug("query plan", "explain", q.Explain())
-```
+When the error is handled by logging, [go-logging](../../go-logging/SKILL.md)
+owns the level, the attribute shape, and the `Enabled` guard for expensive
+attributes; log it once, at the point that handles it.
 
 ### Protect Sensitive Information
 

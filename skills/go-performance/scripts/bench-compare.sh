@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 SCRIPT_NAME="$(basename "$0")"
 
 usage() {
@@ -22,6 +22,9 @@ EXIT CODES
     0    Benchmarks ran successfully
     1    go test failed (compilation error, test failure, no benchmarks found)
     2    Usage error (missing arguments, bad flags, file exists without --force)
+
+    With --json the object carries "status" (ok | no_benchmarks | error) and
+    "exit_code", this script's exit code; "go_exit_code" is go test's own.
 
 OPTIONS
     -h, --help           Show this help message
@@ -196,15 +199,21 @@ if [[ -n "$BASELINE" ]]; then
     fi
 fi
 
+# STATUS names the outcome so a JSON consumer cannot mistake go test's exit 0
+# on a package without benchmarks for success; exit_code below is FINAL_EXIT,
+# the code this script exits with, never go test's.
 FINAL_EXIT=0
+STATUS="ok"
 if [[ $GO_EXIT -ne 0 ]]; then
     FINAL_EXIT=1
+    STATUS="error"
     if ! $JSON_OUTPUT; then
         log ""
         log "error: go test exited with code $GO_EXIT"
     fi
 elif [[ $BENCH_COUNT -eq 0 ]]; then
     FINAL_EXIT=1
+    STATUS="no_benchmarks"
     if ! $JSON_OUTPUT; then
         log ""
         log "error: no benchmarks found matching filter: $FILTER"
@@ -241,7 +250,9 @@ if $JSON_OUTPUT; then
     printf '"benchmarks_found":%d,' "$BENCH_COUNT"
     printf '"baseline":"%s",' "$escaped_baseline"
     printf '"save":"%s",' "$escaped_save"
-    printf '"exit_code":%d,' "$GO_EXIT"
+    printf '"status":"%s",' "$STATUS"
+    printf '"exit_code":%d,' "$FINAL_EXIT"
+    printf '"go_exit_code":%d,' "$GO_EXIT"
     printf '"output":"%s"' "$escaped_output"
     if $TRUNCATED; then
         printf ',"truncated":true'

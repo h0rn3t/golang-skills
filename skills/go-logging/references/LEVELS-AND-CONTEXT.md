@@ -1,5 +1,10 @@
 # Levels and Context
 
+> Sources: https://pkg.go.dev/log/slog; https://google.github.io/styleguide/go/best-practices#logging
+> Authority: advisory
+> Minimum Go: `log/slog` 1.21; `slog.NewMultiHandler` 1.26
+> Last verified: 2026-09-10
+
 Detailed guidance on log level semantics, context-based logging patterns,
 performance considerations, and what to keep out of logs.
 

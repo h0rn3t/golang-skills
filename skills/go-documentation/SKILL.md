@@ -6,6 +6,9 @@ allowed-tools: Bash(bash:*)
 
 # Go Documentation
 
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `go doc -ex` and
+> `go doc <pkg>@<version>` require Go 1.27+; doc links and `#` headings Go 1.19+.
+
 ## Resource Routing
 
 - `scripts/check-docs.sh` - Run when checking exported functions, types, methods, constants, and packages for missing doc comments.
@@ -108,7 +111,7 @@ Key principles:
 - Context cancellation returning `ctx.Err()` is implied — don't restate it
 - Read-only ops are assumed thread-safe; mutations assumed unsafe — don't restate
 - Always document cleanup requirements (e.g., `Call Stop to release resources`)
-- Use pointer in error type docs (`*PathError`) for correct `errors.Is`/`errors.As`
+- Use pointer in error type docs (`*PathError`) for correct `errors.Is`/`errors.AsType`
 - Don't name results just to enable naked returns — clarity > brevity
 
 ---
@@ -128,24 +131,7 @@ func ExampleConfig_WriteTo() {
 
 Examples appear in Godoc attached to the documented element. `go doc -ex
 <symbol>` (Go 1.27+) lists them from the terminal, and `go doc <pkg>@<version>`
-reads the docs of a version you have not imported.
-
----
-
-## Quick Reference
-
-| Topic | Key Rule |
-|-------|----------|
-| Doc comments | Start with name, use full sentences |
-| Line length | ~80 chars, prioritize readability |
-| Package comments | One per package, above `package` clause |
-| Parameters | Document non-obvious behavior only |
-| Contexts | Document exceptions to implied behavior |
-| Concurrency | Document ambiguous thread safety |
-| Cleanup | Always document resource release |
-| Errors | Document sentinels and types (note pointer) |
-| Examples | Use runnable examples in test files |
-| Formatting | Blank lines for paragraphs, indent for code |
+(Go 1.27+) reads the docs of a version you have not imported.
 
 ---
 

@@ -72,6 +72,37 @@ Honor an explicitly selected library and verify its actual composition semantics
   mesh, and broker retries must compose to a bounded policy rather than retry
   independently. Every real attempt passes dependency admission and breaker gates.
 
+The whole policy in one function — the caller classifies the failure, the
+loop owns the budget, the wait, and cancellation:
+
+```go
+// retry makes at most attempts calls (the first included), waiting between
+// them with capped exponential backoff and jitter. A server-requested delay
+// is a floor, never shrunk to maxWait. It stops on success, on a failure the
+// caller marks non-retryable, when attempts are spent, or when ctx ends.
+func retry(ctx context.Context, attempts int, base, maxWait time.Duration,
+    attempt func(context.Context) (retryAfter time.Duration, retryable bool, err error)) error {
+    for i := range attempts {
+        retryAfter, retryable, err := attempt(ctx)
+        if err == nil || !retryable || i == attempts-1 {
+            return err
+        }
+        wait := min(base<<i, maxWait)
+        wait = wait/2 + rand.N(wait/2+1) // jitter within [wait/2, wait]
+        wait = max(wait, retryAfter)     // Retry-After is a lower bound
+        select {
+        case <-ctx.Done():
+            return errors.Join(ctx.Err(), err)
+        case <-time.After(wait):
+        }
+    }
+    return nil // attempts <= 0: nothing was tried
+}
+```
+
+`attempt` closes or drains a discarded response before returning, and the
+permit for the dependency is released before the wait, not held through it.
+
 ## Idempotency and Delivery
 
 A key is meaningful only when the receiver enforces it. Keep one key per logical

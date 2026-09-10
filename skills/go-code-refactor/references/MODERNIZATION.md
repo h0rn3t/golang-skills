@@ -30,10 +30,9 @@ Use the package scope and apply conditions in
 Preview before applying; a scoped refactor does not authorize unrelated
 modernization. Keep mechanical changes distinguishable from hand edits.
 
-`go tool fix help` is authoritative. Go 1.27 added `atomictypes`, `embedlit`,
-`slicesbackward`, and `unsafefuncs`, renamed `waitgroup` to `waitgroupgo`, and
-dropped `fmtappendf`. Report incorrect fixes; do not silently discard them.
-[go-linting](../../go-linting/SKILL.md) catalogues the current analyzers.
+`go tool fix help` is authoritative; [go-linting](../../go-linting/SKILL.md#modernization-go-fix)
+catalogues the current analyzers and each release's renames and removals.
+Report incorrect fixes; do not silently discard them.
 
 ## Tier 1 — safe swaps
 
@@ -292,6 +291,7 @@ blocked on a reachable channel or mutex.
 | Tool | What it finds |
 |---|---|
 | `go vet ./...` | `waitgroup` (misplaced `wg.Add`), `hostport` (the IPv6 address bug), `stdversion` (stdlib symbols newer than the `go` directive) |
+| `go fix -diff -buildtag -plusbuild <pkgs>` | `buildtag`: malformed `//go:build` or `// +build` directives; `plusbuild`: obsolete `// +build` lines the `//go:build` form made redundant (Go 1.17+) — hygiene, not modernization |
 | `bash scripts/verify-refactor.sh leaks ./...` | Runs tests but reports leak verification as incomplete (exit 3 if tests pass); it does not collect a profile |
 | `GODEBUG=checkfinalizers=1` | Finalizer and cleanup misuse (Go 1.25+) |
 | `golangci-lint run` | Expect the finding count to drop after the refactor; report before and after |

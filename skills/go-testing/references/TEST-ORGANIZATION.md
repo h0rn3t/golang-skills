@@ -1,6 +1,10 @@
 # Test Organization Reference
 
-Sources: Google Go Style Guide (best-practices, decisions).
+> Sources: source/google-go-styleguide/best-practices.md (Test Doubles, Test Structure); source/google-go-styleguide/decisions.md (Test packages)
+> Authority: advisory
+> Last verified: 2026-09-10
+
+Detailed reference for test doubles, test packages, and where a test belongs.
 
 ---
 

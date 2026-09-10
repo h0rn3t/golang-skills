@@ -1,5 +1,9 @@
 # Identifier Naming Rules
 
+> Sources: source/effective-go/effective_go.html (Names); source/golang-wiki/CodeReviewComments.md (Initialisms, Package Names, Receiver Names); source/google-go-styleguide/decisions.md (Naming)
+> Authority: advisory
+> Last verified: 2026-09-10
+
 Detailed rules and examples for naming Go packages, interfaces, receivers,
 constants, initialisms, and functions.
 

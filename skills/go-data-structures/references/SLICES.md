@@ -1,6 +1,8 @@
 # Go Slice Internals
 
-> **Source**: Effective Go
+> Sources: source/effective-go/effective_go.html (Slices); https://go.dev/blog/slices-intro
+> Authority: normative for slice semantics
+> Last verified: 2026-09-10
 
 ---
 

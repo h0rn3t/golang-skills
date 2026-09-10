@@ -156,7 +156,7 @@ func Chdir(dir string) error
 ```
 
 Noting `*PathError` (not `PathError`) enables correct use of `errors.Is` and
-`errors.As`.
+`errors.AsType`.
 
 For package-wide error conventions, document in the package comment.
 

@@ -1,5 +1,9 @@
 # Avoiding Repetition
 
+> Sources: source/google-go-styleguide/decisions.md (Repetitive names)
+> Authority: advisory
+> Last verified: 2026-09-10
+
 This reference covers how to avoid redundant naming in Go by considering the context
 where names appear—package, receiver type, and surrounding code.
 

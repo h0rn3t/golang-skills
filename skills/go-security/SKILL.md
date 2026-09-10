@@ -51,8 +51,8 @@ once — not at every call site downstream, where it is forgotten.
 | SSRF | Resolve host, reject `netip.Addr.IsPrivate()`/loopback, allowlist | review |
 | Predictable tokens | `crypto/rand.Text()` / `rand.Read` | `gosec` G404 |
 | Timing leak on compare | `subtle.ConstantTimeCompare(a, b) == 1` | review |
-| Weak password hash | argon2id (or `crypto/pbkdf2` when stdlib-only) | `gosec` G401/G501 |
-| Plain TLS | `MinVersion: tls.VersionTLS12`; never `InsecureSkipVerify` | `gosec` G402 |
+| Weak password hash | argon2id (or `crypto/pbkdf2` when stdlib-only) | review — G401/G501 catch MD5/SHA1 only, not `sha256.Sum256(password)` |
+| Weak TLS | Never `InsecureSkipVerify`; leave `MinVersion` unset (1.2 is the default) unless the service is TLS 1.3-only; a `CurvePreferences` list that omits the ML-KEM hybrids is a finding | `gosec` G402 |
 | CSRF | `http.NewCrossOriginProtection().Handler(mux)` | review |
 | Secret in log | `slog.LogValuer` returning `"[REDACTED]"` | review |
 | Known CVE in deps | `govulncheck ./...` (gate) | gate |

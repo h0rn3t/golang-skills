@@ -22,24 +22,6 @@ allowed-tools: Bash(bash:*)
 - `references/INTEGRATION.md` - Read when testing external services, HTTP handlers, databases, or long-running setup.
 - `../go-http/references/JSON-V2.md` - Read when testing JSON v2 defaults, migration compatibility, or golden bytes (Go 1.27+).
 
-## Quick Reference
-
-| Pattern | Use When |
-|---------|----------|
-| `t.Error` | Default — report failure, keep running |
-| `t.Fatal` | Setup failed or continuing is meaningless |
-| `cmp.Diff` | Comparing structs, slices, maps, protos |
-| Table-driven | Many cases share identical logic |
-| Subtests | Need filtering, parallel execution, or naming |
-| `t.Helper()` | Any test helper function (call as first statement) |
-| `t.Cleanup()` | Teardown in helpers instead of defer |
-| `t.Parallel()` | Independent tests and subtests; never with shared globals, `t.Setenv`, or `t.Chdir` |
-| `t.Context()` | Any test that calls a ctx-taking API (Go 1.24+) |
-| `httptest.NewTestServer(t, h)` | Testing an HTTP handler or client (Go 1.27+) |
-| `synctest.Test` | Concurrency or timeout behavior (Go 1.25+) |
-
----
-
 ## Use the Toolchain's Test APIs
 
 > **Normative**: Prefer the standard-library helper over hand-rolled setup and
@@ -159,6 +141,10 @@ or multiple branches — write separate test functions instead.
 **Key rules:**
 - Use field names when cases span many lines or have same-type adjacent fields
 - Include inputs in failure messages — never identify rows by index
+- `t.Parallel()` on each subtest is the default for a pure function
+  (`gen-table-test.sh --parallel` emits it); leave it off when the table
+  touches globals, `t.Setenv`, `t.Chdir`, or a shared fixture. No `tt := tt`
+  capture line — loop variables are per-iteration since Go 1.22.
 
 > **Validation**: Run `go test -run TestXxx -v` on the new tests, with `-race`
 > when the code under test starts a goroutine — tests that pass without it
@@ -175,14 +161,15 @@ or multiple branches — write separate test functions instead.
 > for teardown.
 
 ```go
-func setupTestDB(t *testing.T) *sql.DB {
+func newStore(t *testing.T) *Store {
     t.Helper()
-    db, err := sql.Open("sqlite3", ":memory:")
+    dir := t.TempDir()
+    s, err := Open(dir)
     if err != nil {
-        t.Fatalf("Could not open database: %v", err)
+        t.Fatalf("Open(%q) error = %v", dir, err)
     }
-    t.Cleanup(func() { db.Close() })
-    return db
+    t.Cleanup(func() { s.Close() })
+    return s
 }
 ```
 
@@ -212,7 +199,7 @@ if gotErr := err != nil; gotErr != tt.wantErr {
 
 ## Related Skills
 
-- **Error testing**: See [go-error-handling](../go-error-handling/SKILL.md) when testing error semantics with `errors.Is`/`errors.As` or sentinel errors
+- **Error testing**: See [go-error-handling](../go-error-handling/SKILL.md) when testing error semantics with `errors.Is`/`errors.AsType` or sentinel errors
 - **Interface mocking**: See [go-interfaces](../go-interfaces/SKILL.md) when creating test doubles by implementing interfaces at the consumer side
 - **Naming test functions**: See [go-naming](../go-naming/SKILL.md) when naming test functions, subtests, or test helper utilities
 - **Linter integration**: See [go-linting](../go-linting/SKILL.md) when running linters alongside tests in CI or pre-commit hooks

@@ -83,7 +83,13 @@ the syntax it gets right.
 - **Require honest reporting.** Where a skill tells the agent to run something,
   it also says: report a skipped or failing step as skipped or failing.
 - **Name the Go version inline** for anything newer than 1.21, and route the
-  skill's `> Compatibility:` note to `COMPATIBILITY.md`.
+  skill's `> Compatibility:` note to `COMPATIBILITY.md`. `TestSkillArchitecture`
+  requires the note in any `SKILL.md` whose body names a Go version.
+- **Keep examples short and paired.** A before/after pair of a few lines each
+  shows the decision; a complete program invites the reader to copy its bulk.
+  Every self-contained example is compiled by an `exampleBlock` test in
+  `evals/`; mark a deliberate fragment so by starting it mid-function or by
+  saying so in the sentence before it.
 
 These defaults incorporate [OpenAI's GPT-6 Astra prompting guidance](https://developers.openai.com/api/docs/guides/latest-model/gpt-6-astra.md#prompting-best-practices)
 on instruction priority, follow-through, communication, delegation, and bounded
@@ -106,7 +112,9 @@ does not establish model quality. See [the cross-model review](CROSS_MODEL_REVIE
 
 ## Reference Headers
 
-Start reference files with compact provenance when source authority matters:
+Start every reference file with compact provenance, directly under its title
+(`TestLongReferenceTOCs` requires the `Sources`, `Authority`, and
+`Last verified` lines in the first 12 lines):
 
 ```md
 > Sources: source/path.md; official docs URL

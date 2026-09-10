@@ -6,8 +6,12 @@ description: Use when choosing or writing Go generics, constraints, type aliases
 # Go Generics and Type Parameters
 
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Generic **methods**
-> and inference in function-type conversions require Go 1.27+;
-> generic type aliases require Go 1.24+; generics themselves, Go 1.18+.
+> and inference in function-type conversions require Go 1.27+; self-referential
+> constraints Go 1.26+; generic type aliases Go 1.24+; generics themselves, Go
+> 1.18+. Neither the compiler nor `stdversion` gates these language features
+> by the `go` directive — code that uses them compiles on a 1.27 toolchain with
+> `go 1.26` in go.mod and fails on a real 1.26 toolchain; verify on the CI
+> toolchain.
 
 ## Resource Routing
 
@@ -64,8 +68,8 @@ n, ok := store.Get[int]("count")
 
 Constraints:
 
-- A generic method cannot satisfy an interface — interface methods have no type
-  parameters. If callers dispatch through an interface, keep the free function.
+- A generic method cannot satisfy an interface; [go-interfaces](../go-interfaces/SKILL.md#generic-methods-cannot-satisfy-interfaces)
+  owns that rule and the assertion that catches it.
 - The receiver's own type parameters stay on the receiver; do not redeclare them.
 - Same restraint as generic functions: add the parameter when a second type
   actually appears, not in anticipation.
@@ -107,6 +111,27 @@ type Numeric interface {
 
 Use `~` for underlying types so named types (`type Celsius float64`) satisfy the
 constraint, and `|` for unions.
+
+### Self-referential constraints (Go 1.26+)
+
+A type parameter may appear in its own constraint, so a constraint can require
+that a type combines with, compares to, or produces its own kind:
+
+```go
+type Adder[A Adder[A]] interface{ Add(A) A }
+
+func Sum[A Adder[A]](zero A, xs ...A) A {
+    for _, x := range xs {
+        zero = zero.Add(x)
+    }
+    return zero
+}
+```
+
+Reach for it only when the method genuinely takes or returns the implementing
+type; `comparable` or `cmp.Ordered` covers equality and ordering. Go 1.25
+rejects the declaration as an invalid recursive type, and the `go` directive
+does not gate it (see the Compatibility note).
 
 ### Hashing generic keys
 
@@ -172,21 +197,6 @@ func Process(r io.Reader) error
 
 **Don't over-constrain.** `comparable` beats `interface{ ~int | ~string }` when
 you only need `==`.
-
----
-
-## Quick Reference
-
-| Topic | Guidance |
-|-------|----------|
-| When to use | Multiple types, identical logic, no adequate interface |
-| Starting point | Concrete first; generalize on the second type |
-| Naming | `T`, `K`, `V`, `E` |
-| Generic methods | Go 1.27+; cannot satisfy an interface |
-| Ordering constraint | `cmp.Ordered`, never a hand-written one |
-| Generic hashing | `maphash.ComparableHasher[T]` (Go 1.27+) |
-| Type aliases | Migration only |
-| Pitfall | Single-use generics, `T` used only as an interface |
 
 ---
 

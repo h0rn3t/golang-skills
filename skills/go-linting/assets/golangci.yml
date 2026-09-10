@@ -18,6 +18,7 @@ linters:
     - errorlint     # go-error-handling: errors.Is/AsType, never == or a type assertion
     - exhaustive    # go-style-core: switch covers every iota enum member
     - godot         # go-documentation: doc comments are full sentences
+    - modernize     # go-style-core: current Go idioms; appendclipped/slicesdelete stay off (they change nilness)
     - noctx         # go-context / go-http: outbound calls carry a context
     - nolintlint    # go-linting: a suppression names its linter and its reason
     - perfsprint    # go-performance: strconv over fmt.Sprint

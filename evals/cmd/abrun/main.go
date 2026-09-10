@@ -43,6 +43,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -281,6 +282,18 @@ type result struct {
 	// concision gate's own criterion measured the way analyze measures it. It is
 	// not a validity verdict — read it next to Build, Golden and Edited.
 	LineGatePass bool `json:"line_gate_pass"`
+	// FixHunksBefore and FixHunks are the modernizations `go fix -diff` still
+	// proposes for the package's production files, before the session and
+	// after the last turn. Zero after means the toolchain has no modernizer
+	// left for the code in the tree; it says nothing about what no analyzer
+	// covers (cmp.Or, errors.Join, iter.Seq), so read it as a floor and not as
+	// a modernity score. Both are absent when the reading could not be taken
+	// and FixUnmeasured says which one failed and why: a package that does not
+	// type-check produces an empty diff for the wrong reason, and recording
+	// that as zero would read as fully modern.
+	FixHunksBefore *int   `json:"fix_hunks_before,omitempty"`
+	FixHunks       *int   `json:"fix_hunks,omitempty"`
+	FixUnmeasured  string `json:"fix_hunks_unmeasured,omitempty"`
 	// EmptyDiff is a session that ran to completion and deliberately left every
 	// file as it found it. Edited==false with an error is a different thing: a
 	// session that never got as far as writing, which is why this is its own
@@ -743,6 +756,10 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		return res
 	}
 	res.Before = before
+	fixBefore, fixBeforeErr := fixHunks(o.timeout, work, taskName)
+	if fixBeforeErr == nil {
+		res.FixHunksBefore = &fixBefore
+	}
 	beforeDigest, err := fixtureDigest(pkgDir)
 	if err != nil {
 		res.Err = fmt.Sprintf("digest fixture: %v", err)
@@ -777,6 +794,12 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		} else {
 			res.Build = true
 		}
+		res.FixHunks = nil
+		hunks, fixErr := fixHunks(o.timeout, work, taskName)
+		if fixErr == nil {
+			res.FixHunks = &hunks
+		}
+		res.FixUnmeasured = fixNote(fixBeforeErr, fixErr)
 		res.ModelTests, res.ModelTestFail = "skipped", ""
 		if after.TestFiles > 0 {
 			res.ModelTests = "pass"
@@ -1157,6 +1180,70 @@ func analyze(dir string) (metrics, error) {
 		return nil
 	})
 	return m, err
+}
+
+// fixHunks counts the modernizations `go fix -diff` still proposes for the
+// package. It is the cheapest objective reading of "reaches for what the
+// toolchain already ships": zero means no analyzer has anything left to say
+// about the code in the tree, and the count is deterministic and costs no
+// model call.
+//
+// go fix -diff exits non-zero exactly when the diff is not empty, so the exit
+// status carries no error information. A real failure — most often a package
+// that does not type-check — shows up as diagnostics on stderr with an empty
+// diff on stdout, and that case has to stay distinguishable from a package
+// with nothing left to fix rather than being recorded as a clean zero.
+func fixHunks(timeout time.Duration, work, pkg string) (int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "go", "fix", "-diff", "./"+pkg)
+	cmd.Dir = work
+	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if ctx.Err() != nil {
+		return 0, fmt.Errorf("go fix -diff timed out after %s", timeout)
+	}
+	if diagnostics := strings.TrimSpace(stderr.String()); diagnostics != "" {
+		return 0, fmt.Errorf("go fix -diff: %s", diagnostics)
+	}
+	if err != nil && len(out) == 0 {
+		return 0, fmt.Errorf("go fix -diff: %w", err)
+	}
+	return countFixHunks(out), nil
+}
+
+// fixNote names the reading that could not be taken, so an absent count is
+// never read as a zero one. It is empty when both readings came back.
+func fixNote(before, after error) string {
+	var notes []string
+	if before != nil {
+		notes = append(notes, "before: "+firstLine(before.Error()))
+	}
+	if after != nil {
+		notes = append(notes, "after: "+firstLine(after.Error()))
+	}
+	return strings.Join(notes, "; ")
+}
+
+// countFixHunks counts the unified-diff hunks in a go fix diff, skipping the
+// ones in a _test.go file so the number follows the same production-only rule
+// as the line count: a session can neither improve nor worsen it by writing a
+// test. A file header is `--- <path> (old)`, which is why both ends of the
+// line are checked — a removed line of Go source can begin with `--- ` too.
+func countFixHunks(diff []byte) int {
+	hunks, production := 0, false
+	for line := range strings.Lines(string(diff)) {
+		line = strings.TrimRight(line, "\n")
+		switch {
+		case strings.HasPrefix(line, "--- ") && strings.HasSuffix(line, " (old)"):
+			production = !strings.HasSuffix(strings.TrimSuffix(line, " (old)"), "_test.go")
+		case production && strings.HasPrefix(line, "@@"):
+			hunks++
+		}
+	}
+	return hunks
 }
 
 func lineCount(data []byte) int {
@@ -1552,6 +1639,13 @@ func printResult(r result, verbose bool) {
 		fmt.Printf("       repair turn: lines %+d -> %+d, golden %v -> %v\n",
 			r.PreRepair.Lines-r.Before.Lines, r.Delta.Lines, r.PreRepairGolden, r.Golden)
 	}
+	if pending := fixColumn(r); pending != "" {
+		fmt.Printf("       go fix pending: %s hunk(s) before->after", pending)
+		if r.FixUnmeasured != "" {
+			fmt.Printf(" (%s)", r.FixUnmeasured)
+		}
+		fmt.Println()
+	}
 	if r.WorkDir != "" {
 		fmt.Printf("       source: %s\n", r.WorkDir)
 	}
@@ -1576,6 +1670,22 @@ func resultStatus(r result) string {
 		return "ERR"
 	}
 	return "ok "
+}
+
+// fixColumn renders one run's pending modernizations as before->after. A
+// reading that could not be taken prints as n/a rather than as a zero, which
+// would read as a package with nothing left to modernize.
+func fixColumn(r result) string {
+	if r.FixHunksBefore == nil && r.FixHunks == nil && r.FixUnmeasured == "" {
+		return ""
+	}
+	count := func(n *int) string {
+		if n == nil {
+			return "n/a"
+		}
+		return strconv.Itoa(*n)
+	}
+	return count(r.FixHunksBefore) + "->" + count(r.FixHunks)
 }
 
 type armSummary struct {
@@ -1610,6 +1720,15 @@ type armSummary struct {
 	// afterwards. The second number is the only one that says the loop worked.
 	RepairsFired   int
 	RepairsRescued int
+	// FixBefore and FixAfter total the pending go fix hunks over the valid
+	// runs that could be read at both ends, FixMeasured counts those runs, and
+	// FixClean the ones the toolchain had nothing left to propose for. Runs
+	// whose diff could not be taken are left out of all four rather than
+	// averaged in as clean.
+	FixBefore   int
+	FixAfter    int
+	FixMeasured int
+	FixClean    int
 	// Cost covers every session that reported one, including the invalid runs:
 	// a failed session still spends money, so excluding it would understate
 	// what the corpus costs to replay.
@@ -1695,6 +1814,14 @@ func summarizeArm(rep report, name string) armSummary {
 		summary.Pattern += r.Delta.Pattern
 		summary.Exported += r.Delta.Exported
 		summary.Branches += r.Delta.Branches
+		if r.FixHunksBefore != nil && r.FixHunks != nil {
+			summary.FixMeasured++
+			summary.FixBefore += *r.FixHunksBefore
+			summary.FixAfter += *r.FixHunks
+			if *r.FixHunks == 0 {
+				summary.FixClean++
+			}
+		}
 	}
 	return summary
 }
@@ -1744,6 +1871,11 @@ func printSummary(rep report) {
 		}
 		fmt.Printf("%-24s   line gate %d/%d, behavior failures %d, counts reported %d/%d\n",
 			"", summary.LineGatePasses, completed, summary.BehaviorFailures, summary.ReportedCounts, completed)
+		if summary.FixMeasured > 0 {
+			fixMean := func(sum int) float64 { return float64(sum) / float64(summary.FixMeasured) }
+			fmt.Printf("%-24s   go fix pending %.2f -> %.2f hunk(s)/run, nothing left to propose in %d/%d\n",
+				"", fixMean(summary.FixBefore), fixMean(summary.FixAfter), summary.FixClean, summary.FixMeasured)
+		}
 		if summary.RepairsFired > 0 {
 			fmt.Printf("%-24s   repair turn fired %d time(s), cleared gate and golden in %d\n",
 				"", summary.RepairsFired, summary.RepairsRescued)

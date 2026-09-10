@@ -1,5 +1,9 @@
 # Refactoring Shared Policy Tables
 
+> Sources: evals/ab/README.md (selection-once experiments); source/google-go-styleguide/guide.md (Least mechanism)
+> Authority: project policy
+> Last verified: 2026-09-10
+
 When several functions select fields of the same policy record, a shared
 table can remove repeated selection. Matching keys or equal numbers in
 independently changing policies alone do not justify combining them:

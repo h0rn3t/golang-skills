@@ -1,5 +1,9 @@
 # Advanced Concurrency Patterns
 
+> Sources: https://pkg.go.dev/golang.org/x/sync/errgroup; source/effective-go/effective_go.html (Concurrency)
+> Authority: advisory
+> Last verified: 2026-09-10
+
 Situational patterns for bounded work, request/response multiplexing, and
 CPU-bound parallelization.
 

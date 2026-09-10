@@ -1,5 +1,9 @@
 # Formatting Reference
 
+> Sources: source/effective-go/effective_go.html (Formatting); source/google-go-styleguide/guide.md (Formatting, Line length); source/uber-go-style/style.md (Line Length)
+> Authority: advisory; gofmt conformance is normative
+> Last verified: 2026-09-10
+
 ## gofmt is Required
 
 All Go source files **must** conform to `gofmt` output. No exceptions.

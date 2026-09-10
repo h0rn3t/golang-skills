@@ -1,5 +1,9 @@
 # String Optimization Patterns
 
+> Sources: source/uber-go-style/style.md (Prefer strconv over fmt, Avoid repeated string-to-byte conversions, Prefer Specifying Container Capacity)
+> Authority: advisory
+> Last verified: 2026-09-10
+
 ## Retained Substrings
 
 A long-lived substring can keep a large input allocation alive. When profiling

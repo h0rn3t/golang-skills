@@ -1,6 +1,8 @@
 # Panic and Recover Patterns
 
-> **Source**: Effective Go
+> Sources: source/effective-go/effective_go.html (Panic, Recover); source/uber-go-style/style.md (Do not Panic)
+> Authority: advisory
+> Last verified: 2026-09-10
 
 ## Panic Guidelines
 

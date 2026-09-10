@@ -1,4 +1,8 @@
-# Time, Struct Tags, and Embedding Patterns
+# Time and Struct Tag Patterns
+
+> Sources: source/uber-go-style/style.md (Use "time" to handle time, Start Enums at One, Use field tags in marshaled structs)
+> Authority: advisory
+> Last verified: 2026-09-10
 
 ## Use time.Time and time.Duration
 
@@ -56,36 +60,11 @@ type Config struct {
 }
 ```
 
-## Avoid Embedding Types in Public Structs
+## Embedding in Public Structs
 
-Embedded types leak implementation details and inhibit type evolution.
-
-**Bad**
-```go
-type ConcreteList struct {
-  *AbstractList
-}
-```
-
-**Good**
-```go
-type ConcreteList struct {
-  list *AbstractList
-}
-
-func (l *ConcreteList) Add(e Entity) {
-  l.list.Add(e)
-}
-
-func (l *ConcreteList) Remove(e Entity) {
-  l.list.Remove(e)
-}
-```
-
-Embedding problems:
-- Adding methods to embedded interface is a breaking change
-- Removing methods from embedded struct is a breaking change
-- Replacing the embedded type is a breaking change
+Owned by [go-interfaces](../../go-interfaces/references/EMBEDDING.md#dont-embed-in-public-structs):
+an embedded type's method set becomes public API, so adding, removing, or
+replacing it is a breaking change. Use an unexported field and forward methods.
 
 ## Use Field Tags in Marshaled Structs
 

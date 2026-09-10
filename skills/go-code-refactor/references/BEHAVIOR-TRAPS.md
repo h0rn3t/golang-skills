@@ -10,7 +10,7 @@ These are why a Go refactor needs verification rather than confidence.
 
 ## Contents
 
-- [nil vs empty slices and maps](#nil-vs-empty)
+- [nil vs empty slices and maps](#nil-vs-empty-slices-and-maps)
 - [defer](#defer)
 - [Error handling](#error-handling)
 - [Interfaces and typed nil](#interfaces-and-typed-nil)

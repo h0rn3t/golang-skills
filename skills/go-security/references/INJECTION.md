@@ -64,9 +64,14 @@ exec.Command("sh", "-c", "convert "+name+" out.png")
 exec.Command(r.FormValue("tool"), "--version")
 
 // ✓ Good — fixed program, input is data, "--" stops option parsing
-cmd := exec.CommandContext(ctx, "convert", "--", name, "out.png")
+cmd := exec.CommandContext(ctx, "gzip", "--keep", "--", name)
 cmd.Env = []string{"PATH=/usr/bin"} // do not inherit secrets from os.Environ()
 ```
+
+`--` protects only against option parsing. A program with its own file-name
+grammar — ImageMagick reads `msl:`/`ephemeral:` prefixes, `ffmpeg` reads
+protocol prefixes — stays injectable: normalize to `./`+`filepath.Base(name)`
+and allow-list the extension before the call.
 
 Also:
 
@@ -135,7 +140,7 @@ from **inside** your network: cloud metadata endpoints (`169.254.169.254`),
 syntax, not intent.
 
 ```go
-func safeTarget(raw string) (*url.URL, error) {
+func safeTarget(ctx context.Context, raw string) (*url.URL, error) {
     u, err := url.Parse(raw)
     if err != nil || (u.Scheme != "https" && u.Scheme != "http") {
         return nil, fmt.Errorf("unsupported url %q", raw)

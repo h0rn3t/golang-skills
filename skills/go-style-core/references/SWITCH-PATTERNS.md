@@ -1,5 +1,9 @@
 # Switch Patterns
 
+> Sources: https://go.dev/ref/spec#Switch_statements; source/effective-go/effective_go.html (Switch)
+> Authority: normative
+> Last verified: 2026-09-10
+
 Detailed patterns for Go `switch` statements, including expression-less
 switches, comma cases, break behavior, and labeled breaks.
 

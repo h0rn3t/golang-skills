@@ -68,7 +68,7 @@ pattern alone rarely proves ownership, causality, or a leak.
 
 | Symptom | Mechanism | Confirm | Owner |
 |---|---|---|---|
-| Goroutine count rises | Goroutine waiting after its owner finished; worker has no effective termination path | Comparable dumps show growth/persistence beyond expected lifetime; inspect the growing stack and its owner | [go-concurrency](../../go-concurrency/SKILL.md) |
+| Goroutine count rises | Goroutine waiting after its owner finished; worker has no effective termination path | `/debug/pprof/goroutineleak?debug=1` (Go 1.27+) lists goroutines that can never unblock; else comparable dumps show growth beyond the expected lifetime — inspect the growing stack and its owner | [go-concurrency](../../go-concurrency/SKILL.md) |
 | | HTTP client body not closed → connection goroutines held | `bodyclose` linter; dump shows `net/http.(*persistConn)` stacks | [go-http](../../go-http/SKILL.md) |
 | Heap `inuse` rises, GC runs | Map used as a cache without eviction; slice of pointers retaining everything; global `append` | `pprof -sample_index=inuse_space -top`; `gctrace` live heap climbs | [go-data-structures](../../go-data-structures/SKILL.md) |
 | | Subslice `s[:n]` of a large buffer keeps the whole array alive | Look for `bytes` held from a read buffer; `slices.Clone` the part you keep | [go-data-structures](../../go-data-structures/SKILL.md) |

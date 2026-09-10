@@ -101,6 +101,14 @@ const defaultTimeout = 30 * time.Second
 
 ---
 
+## Error Names
+
+> **Normative**: Sentinel errors are `ErrNotFound` when exported and
+> `errNotFound` when not; error types end in `Error` (`NotFoundError`), never
+> `ErrNotFoundError`. `errname` in the lint baseline enforces both.
+
+---
+
 ## Initialisms and Acronyms
 
 > **Normative**: Initialisms maintain consistent case throughout.
@@ -169,7 +177,6 @@ Never shadow Go's predeclared identifiers (`error`, `string`, `len`, `cap`,
 
 ## Related Skills
 
-- **Interface naming**: See [go-interfaces](../go-interfaces/SKILL.md) when naming interfaces with the `-er` suffix or choosing receiver types
-- **Package naming**: See [go-packages](../go-packages/SKILL.md) when naming packages, avoiding `util`/`common`, or resolving import collisions
-- **Error naming**: See [go-error-handling](../go-error-handling/SKILL.md) when naming sentinel errors (`ErrFoo`) or custom error types
+- **Receiver type**: See [go-interfaces](../go-interfaces/SKILL.md) when choosing pointer versus value receivers; their names are this skill's Receiver Names
+- **Package splitting and imports**: See [go-packages](../go-packages/SKILL.md) when splitting packages or resolving import collisions; package names are this skill's Package Names
 - **Scope and style principles**: See [go-style-core](../go-style-core/SKILL.md) when variable name length depends on scope, when avoiding built-in shadowing, or when balancing clarity vs concision in identifier names

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="1.1.0"
+VERSION="1.2.0"
 
 for arg in "$@"; do
     case "$arg" in
@@ -17,7 +17,9 @@ OPTIONS
     -h, --help       Show this help message
     -v, --version    Show version
     --json           Output results as JSON
-    --no-bare-return Skip the bare 'return err' check (high false-positive rate)
+    --bare-return    Also flag bare 'return err' for review (off by default: the
+                     skill allows a bare return when annotation adds nothing)
+    --no-bare-return Accepted for compatibility; the check is already off
     --limit N        Show at most N results (default: all)
 EOF
             exit 0

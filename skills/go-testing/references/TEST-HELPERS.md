@@ -1,8 +1,11 @@
 # Test Helpers, Assertions, and Comparisons
 
+> Sources: source/google-go-styleguide/decisions.md (Test helpers, Assertion libraries); source/uber-go-style/style.md (Test Tables)
+> Authority: advisory
+> Last verified: 2026-09-10
+
 Detailed reference for writing test helpers, choosing assertion style, and
 choosing between t.Error and t.Fatal.
-Sources: Google Go Style Guide, Uber Go Style Guide.
 
 ---
 

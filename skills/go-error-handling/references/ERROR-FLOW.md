@@ -1,54 +1,18 @@
 # Error Flow Patterns
 
+> Sources: source/uber-go-style/style.md (Handle Errors Once); source/golang-wiki/CodeReviewComments.md (Indent Error Flow)
+> Authority: advisory
+> Last verified: 2026-09-10
+
 Detailed patterns for error flow, the handle-once principle, and logging
 decisions.
 
 ## Indent Error Flow
 
-Handle errors before proceeding with normal code. This improves readability by
-enabling the reader to find the normal path quickly.
-
-```go
-// Good: Error handling first, normal code unindented
-if err != nil {
-    // error handling
-    return // or continue, etc.
-}
-// normal code
-```
-
-```go
-// Bad: Normal code hidden in else clause
-if err != nil {
-    // error handling
-} else {
-    // normal code that looks abnormal due to indentation
-}
-```
-
-### Avoid If-with-Initializer for Long-Lived Variables
-
-If you use a variable for more than a few lines, move the declaration out:
-
-```go
-// Good: Declaration separate from error check
-x, err := f()
-if err != nil {
-    return err
-}
-// lots of code that uses x
-// across multiple lines
-```
-
-```go
-// Bad: Variable scoped to else block, hard to read
-if x, err := f(); err != nil {
-    return err
-} else {
-    // lots of code that uses x
-    // across multiple lines
-}
-```
+Handle errors first and return; keep the success path unindented. The nesting,
+`else`, and `if`-with-initializer scope rules live in
+[go-style-core](../../go-style-core/SKILL.md#reduce-nesting) and its
+[SCOPE.md](../../go-style-core/references/SCOPE.md).
 
 ---
 
@@ -136,24 +100,8 @@ func process(ctx context.Context, id string) error {
 }
 ```
 
-### Structured Logging
+### Levels and Structure
 
-Prefer structured logging (`slog` in Go 1.21+, or `log/slog`-compatible
-libraries) over `log.Printf` for production code:
-
-```go
-// Good: structured fields are machine-parseable
-slog.Error("fetch failed", "id", id, "err", err)
-
-// Avoid: unstructured string interpolation
-log.Printf("fetch failed for %s: %v", id, err)
-```
-
-### Verbosity Levels
-
-| Level | Use for |
-|-------|---------|
-| Error | Actionable failures that need attention |
-| Warn  | Degraded behavior that doesn't require immediate action |
-| Info  | Key lifecycle events (startup, shutdown, config loaded) |
-| Debug | Diagnostic detail useful during development |
+Which level, structured attributes, and what must never reach a log line are
+[go-logging](../../go-logging/SKILL.md)'s rules; this reference only decides
+whether the error is logged or returned.

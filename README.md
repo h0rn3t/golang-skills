@@ -17,8 +17,8 @@ content the agent already knows is omitted, procedural decision trees guide
 multi-step tasks, 68 reference files load on demand via progressive disclosure,
 10 bundled scripts automate common checks, and 5 asset templates ensure
 consistent output. The Claude Code plugin also ships a `go-verify` subagent
-that runs the verification gate, a PostToolUse hook that runs `gofmt` and
-`go vet` on every edited `.go` file, and a routing gate that holds the first
+that runs the verification gate, a PostToolUse hook that runs `gofmt`,
+`go vet`, and `go fix -diff` on every edited `.go` file, and a routing gate that holds the first
 Go edit until `go-code` has loaded `go-style-core` and the owner skills.
 
 ## Skills Included
@@ -93,7 +93,7 @@ skills only.
 | File | What it does |
 |------|--------------|
 | `agents/go-verify.md` | Opt-in Claude agent for requested checks: "check it builds" selects build; "run the gate" selects the full gate. Reports findings and unavailable checks, with `INCOMPLETE` when required evidence is missing. Routine checks stay inline unless the user or host requests delegation |
-| `hooks/go-vet-on-edit.sh` | PostToolUse hook: after every `Edit`/`Write` of a `.go` file it runs `gofmt -l` and `go vet` on that package and hands the findings back to the agent. Silent when clean; never blocks the edit |
+| `hooks/go-vet-on-edit.sh` | PostToolUse hook: after every `Edit`/`Write` of a `.go` file it runs `gofmt -l`, `go vet`, and `go fix -diff` (report only) on that package and hands the findings back to the agent. Silent when clean; never blocks the edit |
 | `hooks/go-code-routing.sh` | Routing gate for the `go-code` router. PostToolUse on `Skill` and `Read` records which go-* skills the session loaded; PreToolUse on `Edit`/`Write` of a `.go` file, in a session that loaded `go-code`, blocks the edit (exit 2) until `go-style-core` and the owners the edited content points at are loaded, naming them. Each skill is named once per session, so a retry always passes. Silent in sessions that never loaded `go-code` |
 
 The shared instructions support Claude and GPT-6 without a model-specific
@@ -193,13 +193,13 @@ To uninstall: `rm -rf ~/.claude/skills/go-*`.
 
 ### Pinning a version
 
-Every release is a git tag (`v1.6.1`). None of the installers above takes a
+Every release is a git tag (`v1.7.0`). None of the installers above takes a
 version argument — `npx skills add` and `/plugin marketplace add
 h0rn3t/golang-skills` both follow the default branch, so they always give you
 the newest release. To pin one, install from a tagged checkout:
 
 ```bash
-git clone --branch v1.6.1 --depth 1 https://github.com/h0rn3t/golang-skills.git
+git clone --branch v1.7.0 --depth 1 https://github.com/h0rn3t/golang-skills.git
 cd golang-skills
 
 # manual install from this checkout
@@ -305,11 +305,17 @@ These are practical interpretations of the tests, not guarantees for every proje
 | **GPT-5.6-Luna / Codex** | [✅ Helps: far fewer unnecessary helpers; latest test covers only `report`](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md) | [➖ No visible benefit on size or correctness; the skills tend to add helpers on `gateway`, at a spread too wide to measure at n = 5](docs/evidence/2026-09-08-go-new-code-gateway-gpt-5.6-luna-codex.md) | Not measured in USD | **Worth using for refactoring.** |
 | **Opus 5 / Claude** | [✅ Helps: less unnecessary structure, especially on `report`](docs/evidence/2026-09-07-go-refactor-control-opus5.md) | [➖ Small gain in the latest run; only two tasks tested](docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md) | New code ≈ **2.8×**; refactoring unavailable | **Worth using for refactoring.** |
 | **MiniMax M3 / OpenCode** | [✅ Helps: less code and fewer unnecessary helpers](docs/evidence/2026-09-07-go-refactor-control-minimax-m3.md) | [➖ Benefit unproven: fewer passing sessions](docs/evidence/2026-09-07-go-implement-discovery-minimax-m3.md) | Refactoring ≈ **2.5×**, new code ≈ **1.9×** | **Better refactoring, not a cost saving.** |
-| **Sonnet 5 / Claude** | [🟡 Fewer helpers, but some tasks improve and others worsen](docs/evidence/2026-09-08-go-refactor-control-sonnet-5.md) | [➖ Same correctness, more code and helpers](docs/evidence/2026-09-08-go-implement-control-sonnet-5.md) | Refactoring ≈ **3.3×**, new code ≈ **2.3×** | **Questionable benefit at this price.** |
+| **Sonnet 5 / Claude** | [🟡 Fewer helpers, but some tasks improve and others worsen](docs/evidence/2026-09-08-go-refactor-control-sonnet-5.md); how much room is left depends on the reasoning effort — at n = 1 the corpus gap is [−9.6 lines at medium](docs/evidence/2026-09-10-go-refactor-control-sonnet-5-medium.md) and [−1.8 at high](docs/evidence/2026-09-10-go-refactor-control-sonnet-5-high.md), because the unaided control improves faster than the skilled arm | [➖ Same correctness, more code and helpers](docs/evidence/2026-09-08-go-implement-control-sonnet-5.md) | Refactoring ≈ **3.3×** at the CLI default (n = 5); ≈ 3.9× at medium and ≈ 5.6× at high (n = 1). New code ≈ **2.3×** | **Questionable benefit at this price; fix the effort level before comparing two runs.** |
 
 Uses the latest available control run for each model + tool + work type by
-JSON `finished` (September 7–8, 2026, local time). A newer subset run does not
-cover the full corpus. In runs containing variants, this compares **baseline
+JSON `finished` (September 7–8, 2026, local time), with one exception: a newer
+run with fewer repetitions does not displace one with more. The two
+September 10 Sonnet 5 runs are one repetition per cell, so they qualify the
+Sonnet row rather than setting it — the three runs made that day disagree with
+each other by more than any of them can measure. Reasoning effort belongs to a
+control's identity: the same model and plugin tree on the same day produced a
+−9.6 and a −1.8 corpus difference at medium and high. A newer subset run does
+not cover the full corpus. In runs containing variants, this compares **baseline
 against no skills**, not the best variant. Historical results and detailed
 numbers remain in the linked reports.
 
@@ -375,7 +381,7 @@ and pinned by `TestGoVersionBaseline` in `evals/eval_test.go`.
 │       ├── scripts/      # Automation scripts and helpers
 │       └── assets/       # Output templates (5 skills)
 ├── agents/               # go-verify subagent (Claude Code plugin)
-├── hooks/                # gofmt/vet and go-code routing hooks (Claude Code plugin)
+├── hooks/                # gofmt/vet/go fix and go-code routing hooks (Claude Code plugin)
 ├── evals/
 │   ├── evals.json        # Trigger and quality eval definitions
 │   ├── cmd/evalrun/      # Opt-in headless eval runner (claude -p)

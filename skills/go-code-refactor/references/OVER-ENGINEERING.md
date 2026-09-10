@@ -283,7 +283,7 @@ that reaches the diff:
 go build ./... && go test ./...          # the code was actually unused
 go vet ./...                             # unreachable and ineffectual paths
 golangci-lint run --enable unused ./...  # unused unexported symbols
-go fix -diff ./...                       # stdlib replacements the tool can make
+go fix -diff <packages in the diff>      # stdlib replacements the tool can make
 ```
 
 Exported symbols need one more step: grep the module for callers, and confirm

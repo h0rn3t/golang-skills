@@ -66,8 +66,13 @@ No-Go-file targets are successful empty scans and include a status marker:
 `go-performance/scripts/bench-compare.sh`:
 
 ```json
-{"count":1,"package":"./...","filter":".","benchmarks_found":1,"baseline":"","save":"","exit_code":0,"output":"Benchmark..."}
+{"count":1,"package":"./...","filter":".","benchmarks_found":1,"baseline":"","save":"","status":"ok","exit_code":0,"go_exit_code":0,"output":"Benchmark..."}
 ```
+
+`status` is `ok`, `no_benchmarks` (go test passed but no `Benchmark` line
+matched the filter; the script exits 1), or `error` (go test failed; exit 1).
+`exit_code` is the script's own exit code, the one the process returns;
+`go_exit_code` is go test's, which is 0 in the `no_benchmarks` case.
 
 `go-testing/scripts/gen-table-test.sh`:
 

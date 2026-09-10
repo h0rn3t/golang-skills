@@ -1,6 +1,8 @@
 # Constants and iota Patterns
 
-> **Source**: Uber Style Guide, Google Style Guide
+> Sources: source/uber-go-style/style.md (Start Enums at One); source/google-go-styleguide/decisions.md (Constant naming)
+> Authority: advisory
+> Last verified: 2026-09-10
 
 Detailed patterns for designing enumerated constants with `iota` in Go.
 

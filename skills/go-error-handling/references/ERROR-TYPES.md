@@ -1,5 +1,9 @@
 # Error Types Reference
 
+> Sources: source/uber-go-style/style.md (Error Types); https://pkg.go.dev/errors
+> Authority: advisory
+> Last verified: 2026-09-10
+
 This reference covers structured error types, sentinel errors, and how to choose
 the right error type for your use case.
 

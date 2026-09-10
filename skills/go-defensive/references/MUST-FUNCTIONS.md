@@ -1,6 +1,8 @@
 # Must Functions
 
-> **Source**: Uber Style Guide, Go standard library conventions
+> Sources: source/uber-go-style/style.md (Do not Panic); https://pkg.go.dev/regexp#MustCompile
+> Authority: advisory
+> Last verified: 2026-09-10
 
 `Must` functions wrap a fallible function and panic on error. Use them **only**
 during program initialization where failure means the program cannot run.

@@ -12,12 +12,14 @@ USAGE
     bash $SCRIPT_NAME [options] [local-prefix]
 
 DESCRIPTION
-    Creates a .golangci.yml with a curated set of linters (errcheck,
-    goimports, revive, govet, staticcheck) and runs golangci-lint.
-    If local-prefix is provided, configures goimports to group local
-    imports separately.
+    Creates a .golangci.yml from the bundled baseline (errcheck, revive,
+    govet, staticcheck, the skill-enforcing linters, and the goimports
+    formatter), verifies it against the golangci-lint schema, and runs
+    golangci-lint. If local-prefix is provided, configures goimports to
+    group local imports separately.
 
-    Exits 0 if lint passes, 1 if lint issues found, 2 on error.
+    Exits 0 if lint passes, 1 if lint issues found, 2 on error (including
+    a generated config that fails schema verification).
 
 OPTIONS
     -h, --help       Show this help message
@@ -119,6 +121,12 @@ LINT_OUTPUT=""
 LINT_EXIT=0
 if ! command -v golangci-lint &>/dev/null; then
     echo "error: golangci-lint is not installed" >&2
+    exit 2
+fi
+
+if ! VERIFY_OUTPUT=$(golangci-lint config verify --config "$CONFIG_PATH" 2>&1); then
+    echo "error: $CONFIG_PATH failed schema verification:" >&2
+    echo "$VERIFY_OUTPUT" >&2
     exit 2
 fi
 

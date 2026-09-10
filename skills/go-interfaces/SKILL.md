@@ -59,24 +59,29 @@ implementation neither requires nor rules out an interface.
 
 ## Generality: Hide Implementation, Expose Interface
 
-If a type exists only to implement an interface with no exported methods beyond
-that interface, return the interface from constructors to hide the implementation:
+Return an interface from a constructor only when it is a **pre-existing** one
+owned by the consumer or the standard library, and the type has no exported
+methods beyond it:
 
 ```go
 func NewHash() hash.Hash32 {
-    return &myHash{}  // unexported type
+    return &myHash{}  // unexported type; hash.Hash32 is the stdlib's interface
 }
 ```
 
-Benefits: implementation can change without affecting callers, substituting
-algorithms requires only changing the constructor call.
+An interface declared beside the constructor in order to be returned is the
+Bad case above, whatever the type's method set.
 
 ---
 
 ## Type Assertions: Comma-Ok Idiom
 
-Without checking, a failed assertion causes a runtime panic. Always use the
-comma-ok idiom to test safely:
+Without checking, a failed assertion panics. Use the comma-ok idiom whenever
+the dynamic type is data-dependent; a bare `x.(T)` is acceptable only where a
+mismatch is a programming error that should panic, such as a recover guard
+re-panicking a foreign value ([PANIC-RECOVER.md](../go-defensive/references/PANIC-RECOVER.md)).
+Reflection code uses `reflect.TypeAssert[T]` (Go 1.25+) instead of
+`v.Interface().(T)`.
 
 ```go
 str, ok := value.(string)
@@ -117,7 +122,10 @@ point. See [go-generics](../go-generics/SKILL.md).
 ## Embedding
 
 Avoid embedding types in public structs — the inner type's full method set
-becomes part of your public API. Use unexported fields instead.
+becomes part of your public API, so adding, removing, or replacing the embedded
+type is a breaking change. Use an unexported field and forward the methods you
+mean to export; [EMBEDDING.md](references/EMBEDDING.md#dont-embed-in-public-structs)
+has the before/after. This skill owns the rule; go-defensive routes here.
 
 ---
 
@@ -150,22 +158,10 @@ conversion would catch the error.
 ## Receiver Type
 
 If in doubt, use a pointer receiver. Don't mix receiver types on a single
-type — if any method needs a pointer, use pointers for all methods. Use value
-receivers only for small, immutable types (`Point`, `time.Time`) or basic types.
-
----
-
-## Quick Reference
-
-| Concept | Pattern | Notes |
-|---------|---------|-------|
-| Consumer owns interface | Define interfaces where used | Not in the implementing package |
-| Safe type assertion | `v, ok := x.(Type)` | Returns zero value + false |
-| Type switch | `switch v := x.(type)` | Variable has correct type per case |
-| Interface embedding | `type RW interface { Reader; Writer }` | Union of methods |
-| Struct embedding | `type S struct { *T }` | Promotes T's methods |
-| Interface check | `var _ I = (*T)(nil)` | Compile-time verification |
-| Generality | Return interface from constructor | Hide implementation |
+type — if any method needs a pointer, use pointers for all methods. Value
+receivers fit maps, funcs, channels, slices that are not resliced or
+reallocated, and small immutable structs or basic types;
+[RECEIVER-TYPE.md](references/RECEIVER-TYPE.md) has the full decision list.
 
 ---
 

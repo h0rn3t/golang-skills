@@ -4,6 +4,46 @@
 two or more versions of `go-code-refactor/SKILL.md` and reports what changed in
 the code the model wrote — not in the prose it produced.
 
+## Sonnet 5 high control (2026-09-10)
+
+[Report](../../docs/evidence/2026-09-10-go-refactor-control-sonnet-5-high.md):
+the medium run below with one flag changed, `-effort high`. 8/8 valid,
+correctness tied at 4/4, routing 4/4 and deeper — eleven skill loads against
+five. The corpus difference collapses from −9.6 to −1.8 because both arms
+moved toward each other: the unaided control gained 3.3 lines of concision and
+the skilled arm lost 4.6. On `report` the medium skilled arm held the package
+at its original size while the control grew 14; at high **both arms grew 12
+lines and three functions**. Effort is therefore a condition a control has to
+fix and name, not a detail — the same model and tree on the same day give −9.6
+and −1.8. Cost is 5.60x, the highest recorded here. n=1, so read the three
+2026-09-10 runs as a range to test at n=5, never as effects: they disagree with
+each other by more than any of them can measure.
+
+## Sonnet 5 medium control (2026-09-10)
+
+[Report](../../docs/evidence/2026-09-10-go-refactor-control-sonnet-5-medium.md):
+Claude CLI with `-effort medium`, n=1 per fixture and arm, 8/8 valid, and the
+same-conditions pair to the Haiku run below — same seed, tree and digest, one
+day, only the model differs. `go-code-refactor` fired 4/4 against Haiku's 1/4,
+which is what makes Haiku's number a property of the tier and not of the arm.
+One repetition supports no effect, but the direction is clean: −15.8 lines
+against −6.2, three fixtures moving the same way and none against, the gate at
+4/4 against 2/4, correctness tied at 4/4, and `report` — the over-engineering
+trap — rewritten to the same 50 lines while the control grew 14. Cost is 3.94x.
+
+## Haiku 4.5 control (2026-09-10)
+
+[Report](../../docs/evidence/2026-09-10-go-refactor-control-haiku-4-5.md):
+Claude CLI, n=1 per fixture and arm, 8 sessions, 7/8 valid. One repetition
+supports no structural claim; what it establishes is that `go-code-refactor`
+reached **1 of 4** baseline sessions on this tier, against 19/20 on Opus 5 and
+20/20 on codex, with the arm loading correctly in every one of them. A wording
+comparison on Haiku is measuring the router until that changes. Behavior held
+4/4 in the skilled arm against 3/4 in the control, and this is the first run
+carrying `fix_hunks`: `dispatch`'s one pending modernization was removed by both
+arms and no session introduced another. Its control pair is the Sonnet 5 run
+above.
+
 ## Opus 5 medium control (2026-09-08)
 
 [Report](../../docs/evidence/2026-09-08-go-refactor-control-opus-5-medium.md):
@@ -199,7 +239,8 @@ at most zero — the concision gate's own criterion, recorded whether or not the
 run was valid, because a gate met while behavior broke has to stay visible.
 
 Per run: recursive line delta, declared types, interfaces, functions,
-pattern-flavored identifiers, whether the package still builds, whether the
+pattern-flavored identifiers, modernizations `go fix` still proposes,
+whether the package still builds, whether the
 golden test passes, session cost, and which `go-*` skills fired. Two guards sit
 beside them. A run is invalid if the fixture files are byte-identical
 afterwards, because a session that wrote nothing scores a zero delta on every
@@ -218,6 +259,32 @@ A wording that helps shows up as fewer lines with the golden test still green.
 A wording that licenses growth shows up as `Δtypes`, `Δiface` and `Δpattern`
 rising — that is the number the "only if it improves the solution" phrasing was
 added to move.
+
+### Pending modernizations
+
+`fix_hunks` is the number of unified-diff hunks `go fix -diff` still proposes
+for the fixture package after the last turn, and `fix_hunks_before` the same
+count on the fixture as shipped. It is the one reading of "reaches for what the
+toolchain already ships" that costs nothing and needs no judgment: the analyzers
+decide, not a rubric. Hunks in a `*_test.go` file are skipped, so the number
+follows the same production-only rule as `lines`. Zero means no analyzer has
+anything left to say about the code in the tree; it says nothing about what no
+analyzer covers — `cmp.Or`, `errors.Join`, `iter.Seq` — so read it as a floor
+and not as a modernity score.
+
+`dispatch` ships with one pending hunk (`for i := 0; i < len(events); i++`);
+the other three refactor fixtures ship with none. So the corpus asks two
+questions of every arm: does a session that touches that loop leave it modern,
+and does any session introduce a construct the toolchain would undo?
+
+Both fields are absent, and `fix_hunks_unmeasured` says which reading failed and
+why, when the diff could not be taken. `go fix -diff` exits non-zero exactly
+when the diff is not empty, so the exit status carries no error information: a
+package that does not type-check produces an empty diff on stdout with the type
+errors on stderr, and recording that as zero would read as a fully modern tree.
+The summary averages the pair over the valid runs that could be read at both
+ends and counts the ones left with nothing to propose; a run that could not be
+read stays out of the mean.
 
 ## Evidence contract
 

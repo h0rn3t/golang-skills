@@ -1,6 +1,8 @@
 # Variable Scope and Declaration Patterns
 
-> **Source**: Uber Style Guide, Google Style Guide
+> Sources: source/uber-go-style/style.md (Reduce Scope of Variables, Local Variable Declarations); source/google-go-styleguide/decisions.md (Declarations)
+> Authority: advisory
+> Last verified: 2026-09-10
 
 Detailed patterns for choosing between `var` and `:=` and reducing variable
 scope in Go.

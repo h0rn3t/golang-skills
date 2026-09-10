@@ -1,5 +1,9 @@
 # Variable Names
 
+> Sources: source/google-go-styleguide/decisions.md (Variable names); source/golang-wiki/CodeReviewComments.md (Variable Names)
+> Authority: advisory
+> Last verified: 2026-09-10
+
 This reference provides detailed guidance on naming variables in Go, covering scope-based
 naming, single-letter conventions, and avoiding type redundancy.
 

@@ -1,5 +1,9 @@
 # Blank Identifier Patterns
 
+> Sources: source/effective-go/effective_go.html (The blank identifier); source/uber-go-style/style.md (Verify Interface Compliance)
+> Authority: advisory for usage patterns; language semantics follow the Go specification
+> Last verified: 2026-09-10
+
 The blank identifier `_` serves multiple roles in Go: discarding unwanted
 values, importing packages for side effects, and verifying interface compliance
 at compile time.

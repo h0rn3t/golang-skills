@@ -21,7 +21,7 @@ What do you need?
 │  ├─ Fixed size known at compile time → Array [N]T
 │  └─ Dynamic size → Slice []T
 │     ├─ Know approximate size? → make([]T, 0, capacity)
-│     └─ Unknown size or nil-safe for JSON? → var s []T (nil)
+│     └─ Unknown size → var s []T (nil); allocate when the contract needs [] under encoding/json v1
 ├─ Key-value lookup
 │  └─ Map map[K]V
 │     ├─ Know approximate size? → make(map[K]V, capacity)
@@ -173,9 +173,14 @@ with the pointer type `*T`. This applies to `bytes.Buffer`, `sync.Mutex`,
 `sync.WaitGroup`, and types containing them.
 
 ```go
+type SafeCounter struct {
+    mu    sync.Mutex
+    count int
+}
+
 // Bad: copying a mutex
 var mu sync.Mutex
-mu2 := mu  // almost always a bug
+mu2 := mu // almost always a bug
 
 // Good: pass by pointer
 func increment(sc *SafeCounter) {
@@ -186,15 +191,6 @@ func increment(sc *SafeCounter) {
 ```
 
 ---
-
-## Quick Reference
-
-| Topic | Key Point |
-|-------|-----------|
-| Slices | Always assign `append` result; `nil` slice preferred over `[]T{}` |
-| Sets | `map[T]struct{}` for membership-only sets |
-| Copying | `slices.Clone` / `maps.Clone` (nil in, nil out); don't copy `T` if methods are on `*T` |
-| Loops | Check `slices`/`maps` before writing one; `go fix -diff ./...` to confirm |
 
 ## Related Skills
 

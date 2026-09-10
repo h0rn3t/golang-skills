@@ -5,6 +5,9 @@ description: Use when designing or reviewing Go function APIs, parameters, retur
 
 # Go Function Design
 
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Returning
+> `iter.Seq[T]` requires Go 1.23+.
+
 ## Resource Routing
 
 - `references/SIGNATURES.md` - Read when designing parameters, return values, named results, or signature readability.
@@ -57,6 +60,14 @@ func (r *SomeType) SomeLongFunctionName(
 
 Add `/* name */` comments for ambiguous arguments, or better yet, replace naked
 `bool` parameters with custom types.
+
+`ctx context.Context` is the first parameter and is never stored;
+[go-context](../go-context/SKILL.md) owns its placement and values.
+
+| Result the caller | Return |
+|---|---|
+| Consumes once, in order, possibly large or lazily produced | `iter.Seq[T]` (Go 1.23+); loop form in [CONTROL-FLOW.md](../go-style-core/references/CONTROL-FLOW.md) |
+| Stores, indexes, sorts, or re-reads | `[]T` |
 
 ---
 
@@ -112,19 +123,6 @@ When functional options fit, preserve the repository's convention. Without one,
 start with function-valued options for simple configuration updates; use an
 interface and concrete option types when callers need capabilities that justify
 them. Implementation and tradeoffs live in the constructor reference above.
-
----
-
-## Quick Reference
-
-| Topic | Rule |
-|-------|------|
-| File ordering | Type -> constructor -> exported -> unexported -> utils |
-| Signature wrapping | All args on own lines with trailing comma |
-| Naked parameters | Add `/* name */` comments or use custom types |
-| Pointers to interfaces | Almost never needed; pass interfaces by value |
-| Printf function names | End with `f` for `go vet` support |
-| Constructor configuration | Choose by caller needs; defaults, overrides, then validation |
 
 ---
 

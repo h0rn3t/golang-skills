@@ -153,16 +153,21 @@ srv := &http.Server{
 
 - `InsecureSkipVerify: true` outside a test with a local self-signed server is
   a finding, always. For a private CA, set `RootCAs`.
-- **Do not set `CurvePreferences` to "harden" TLS.** The default carries the
-  post-quantum hybrids — `X25519MLKEM768` (Go 1.24+), `SecP256r1MLKEM768` and
-  `SecP384r1MLKEM1024` (Go 1.26+), standalone `MLKEM1024` (Go 1.27+) — and the
-  field's own doc says setting it explicitly is how you turn them off. A pinned
-  curve list written before 1.24 silently downgrades every handshake to
-  classical key exchange; treat one in a review as a finding and delete it.
+- **`CurvePreferences`**: the default already negotiates the post-quantum
+  hybrids — `X25519MLKEM768` (Go 1.24+), `SecP256r1MLKEM768` and
+  `SecP384r1MLKEM1024` (Go 1.26+) — so an explicit list is needed only to add
+  standalone `MLKEM1024` (Go 1.27+), which is opt-in (`defaultCurveEnabled` in
+  `crypto/tls` returns false for it). The review finding is a list that
+  **omits** the hybrids: one written before 1.24 downgrades every handshake to
+  classical key exchange. A list that includes them is deliberate hardening;
+  keep it.
 - `GODEBUG=tlsrsakex=1`-style knobs re-enable removed weak options; treat
-  their presence in a Dockerfile as a finding. Several of them (`tlsrsakex`,
-  `tls3des`, `tls10server`, `tlsunsafeekm`) were removed in Go 1.27, so a
-  surviving pin now breaks the build instead of weakening TLS quietly.
+  their presence as a finding. `tlsrsakex`, `tls3des`, `tls10server`, and
+  `tlsunsafeekm` were removed in Go 1.27: a `godebug` line in `go.mod` or a
+  `//go:debug` directive naming one fails the build, while an environment
+  pin (`GODEBUG=tlsrsakex=1` in a Dockerfile) makes the binary refuse to
+  start — neither weakens TLS quietly, but the second one is a crash loop
+  discovered at deploy.
 - Go 1.27 makes `x509.SystemCertPool` honor `SSL_CERT_FILE` and `SSL_CERT_DIR`
   on Windows and macOS as well as Linux: an environment variable can now
   replace the platform trust store. Audit it wherever the environment is not
@@ -174,11 +179,11 @@ srv := &http.Server{
   with build-time `GOFIPS140`, check its supported algorithms and deployment
   requirements, and verify the binary with `go version -m`. See the
   [Go FIPS documentation](https://go.dev/blog/fips140).
-- Post-quantum *signatures* are opt-in, unlike key exchange: `crypto/mldsa`
-  (FIPS 204), the `tls.MLDSA44`/`MLDSA65`/`MLDSA87` signature schemes, and
-  `x509.MLDSA` arrive in Go 1.27, but they only apply once a chain is issued
-  with them. Public CAs do not issue ML-DSA certificates yet, so this is a
-  private-PKI and internal-mTLS option today, not a default to switch on.
+- Post-quantum *signatures*: Go 1.27 advertises the `tls.MLDSA44`/`MLDSA65`/
+  `MLDSA87` schemes by default, but they are used only once a chain is issued
+  with `x509.MLDSA` keys (`crypto/mldsa`, FIPS 204) — the certificate, not
+  `tls.Config`, is the opt-in. Public CAs do not issue ML-DSA certificates
+  yet, so this is a private-PKI and internal-mTLS option today.
   `crypto/mldsa` returns an error under FIPS 140-3 module v1.0.0 — v1.26.0 or
   later is required.
 

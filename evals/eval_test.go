@@ -14,6 +14,10 @@ import (
 	"testing"
 )
 
+// versionClaim matches an inline Go version claim such as "Go 1.26+" or
+// "(Go 1.27)". Any SKILL.md that carries one is version-sensitive.
+var versionClaim = regexp.MustCompile(`\bGo 1\.[0-9]+`)
+
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
@@ -532,12 +536,15 @@ func TestScriptFunctional(t *testing.T) {
 		t.Parallel()
 		script := scriptPath("go-error-handling", "check-errors.sh")
 		fixture := filepath.Join(fixturesDir, "errors", "violations.go")
-		out := runCommand(t, 1, "bash", script, "--json", fixture)
 
+		// The default run reports only the rules the skill states as rules:
+		// string comparison on err.Error() and log-and-return. A bare
+		// `return err` is allowed when annotation adds nothing
+		// (go-error-handling "Error Wrapping"), so it is not a default finding.
+		out := runCommand(t, 1, "bash", script, "--json", fixture)
 		if !json.Valid(out) {
 			t.Fatalf("--json output is not valid JSON:\n%s", out)
 		}
-
 		var result struct {
 			Findings []jsonFinding `json:"findings"`
 			Total    int           `json:"total"`
@@ -545,60 +552,74 @@ func TestScriptFunctional(t *testing.T) {
 		if err := json.Unmarshal(out, &result); err != nil {
 			t.Fatalf("parse JSON: %v\n%s", err, out)
 		}
-		if result.Total != 6 {
-			t.Fatalf("expected exactly 6 error findings, got %d\n%s", result.Total, out)
+		if result.Total != 2 {
+			t.Fatalf("default run should report the 2 non-bare-return findings, got %d\n%s", result.Total, out)
 		}
-		requireFinding(t, result.Findings, "evals/fixtures/errors/violations.go", 11, "bare-return-err", "wrapping context")
 		requireFinding(t, result.Findings, "evals/fixtures/errors/violations.go", 19, "string-error-compare", "errors.Is")
-		requireFinding(t, result.Findings, "evals/fixtures/errors/violations.go", 22, "bare-return-err", "wrapping context")
 		requireFinding(t, result.Findings, "evals/fixtures/errors/violations.go", 30, "log-and-return", "logged")
-		requireFinding(t, result.Findings, "evals/fixtures/errors/violations.go", 31, "bare-return-err", "wrapping context")
-		requireFinding(t, result.Findings, "evals/fixtures/errors/violations.go", 39, "bare-return-err", "wrapping context")
+		for _, finding := range result.Findings {
+			if finding.Rule == "bare-return-err" {
+				t.Fatalf("default run emitted a bare-return finding, which the skill allows: %#v\n%s", finding, out)
+			}
+		}
 
-		out = runCommand(t, 1, "bash", script, "--json", "--no-bare-return", fixture)
-		var noBareResult struct {
+		// --bare-return opts into the review of every bare return err.
+		out = runCommand(t, 1, "bash", script, "--json", "--bare-return", fixture)
+		var bareResult struct {
 			Findings []jsonFinding `json:"findings"`
 			Total    int           `json:"total"`
+		}
+		if err := json.Unmarshal(out, &bareResult); err != nil {
+			t.Fatalf("parse --bare-return JSON: %v\n%s", err, out)
+		}
+		if bareResult.Total != 6 {
+			t.Fatalf("--bare-return should add 4 bare-return findings to the 2 defaults, got %d\n%s", bareResult.Total, out)
+		}
+		for _, line := range []int{11, 22, 31, 39} {
+			requireFinding(t, bareResult.Findings, "evals/fixtures/errors/violations.go", line, "bare-return-err", "bare return err")
+		}
+
+		// --no-bare-return stays accepted for older callers and changes nothing.
+		out = runCommand(t, 1, "bash", script, "--json", "--no-bare-return", fixture)
+		var noBareResult struct {
+			Total int `json:"total"`
 		}
 		if err := json.Unmarshal(out, &noBareResult); err != nil {
 			t.Fatalf("parse no-bare errors JSON: %v\n%s", err, out)
 		}
 		if noBareResult.Total != 2 {
-			t.Fatalf("--no-bare-return should suppress 4 bare-return findings and leave 2, got %d\n%s", noBareResult.Total, out)
+			t.Fatalf("--no-bare-return should match the default run (2 findings), got %d\n%s", noBareResult.Total, out)
 		}
-		for _, finding := range noBareResult.Findings {
-			if finding.Rule == "bare-return-err" {
-				t.Fatalf("--no-bare-return emitted bare-return finding: %#v\n%s", finding, out)
+
+		// The bare-return analysis still handles 3-result tuples and multiline
+		// returns when opted in, and stays silent on them by default.
+		for _, tc := range []struct{ name, fixture string }{
+			{"tuple", filepath.Join(fixturesDir, "errors", "tuple", "tuple.go")},
+			{"multiline", filepath.Join(fixturesDir, "errors", "multiline", "multiline.go")},
+		} {
+			out = runCommand(t, 0, "bash", script, "--json", tc.fixture)
+			var quiet struct {
+				Total int `json:"total"`
 			}
+			if err := json.Unmarshal(out, &quiet); err != nil {
+				t.Fatalf("parse %s JSON: %v\n%s", tc.name, err, out)
+			}
+			if quiet.Total != 0 {
+				t.Fatalf("%s fixture without --bare-return produced %d findings\n%s", tc.name, quiet.Total, out)
+			}
+			out = runCommand(t, 1, "bash", script, "--json", "--bare-return", tc.fixture)
+			var loud struct {
+				Findings []jsonFinding `json:"findings"`
+				Total    int           `json:"total"`
+			}
+			if err := json.Unmarshal(out, &loud); err != nil {
+				t.Fatalf("parse %s --bare-return JSON: %v\n%s", tc.name, err, out)
+			}
+			if loud.Total != 1 {
+				t.Fatalf("%s 3-result tuple return should produce one finding with --bare-return, got %d\n%s", tc.name, loud.Total, out)
+			}
+			requireFinding(t, loud.Findings, "evals/fixtures/errors/"+tc.name+"/"+tc.name+".go", 6, "bare-return-err", "bare return err")
 		}
-
-		tupleFixture := filepath.Join(fixturesDir, "errors", "tuple", "tuple.go")
-		out = runCommand(t, 1, "bash", script, "--json", tupleFixture)
-		var tupleResult struct {
-			Findings []jsonFinding `json:"findings"`
-			Total    int           `json:"total"`
-		}
-		if err := json.Unmarshal(out, &tupleResult); err != nil {
-			t.Fatalf("parse tuple errors JSON: %v\n%s", err, out)
-		}
-		if tupleResult.Total != 1 {
-			t.Fatalf("3-result tuple return should produce one finding, got %d\n%s", tupleResult.Total, out)
-		}
-		requireFinding(t, tupleResult.Findings, "evals/fixtures/errors/tuple/tuple.go", 6, "bare-return-err", "wrapping context")
-
-		multilineFixture := filepath.Join(fixturesDir, "errors", "multiline", "multiline.go")
-		out = runCommand(t, 1, "bash", script, "--json", multilineFixture)
-		var multilineResult struct {
-			Findings []jsonFinding `json:"findings"`
-			Total    int           `json:"total"`
-		}
-		if err := json.Unmarshal(out, &multilineResult); err != nil {
-			t.Fatalf("parse multiline errors JSON: %v\n%s", err, out)
-		}
-		if multilineResult.Total != 1 {
-			t.Fatalf("multiline 3-result tuple return should produce one finding, got %d\n%s", multilineResult.Total, out)
-		}
-		requireFinding(t, multilineResult.Findings, "evals/fixtures/errors/multiline/multiline.go", 6, "bare-return-err", "wrapping context")
 
 		out = runCommand(t, 0, "bash", script, "--json", filepath.Join(fixturesDir, "errors", "clean"))
 		var cleanResult struct {
@@ -611,12 +632,12 @@ func TestScriptFunctional(t *testing.T) {
 			t.Fatalf("clean error fixture produced %d findings\n%s", cleanResult.Total, out)
 		}
 
-		out = runCommand(t, 0, "bash", script, "--json", "--no-bare-return", filepath.Join(fixturesDir, "errors", "clean"))
+		out = runCommand(t, 0, "bash", script, "--json", "--bare-return", filepath.Join(fixturesDir, "errors", "clean"))
 		if err := json.Unmarshal(out, &cleanResult); err != nil {
-			t.Fatalf("parse clean errors no-bare JSON: %v\n%s", err, out)
+			t.Fatalf("parse clean errors --bare-return JSON: %v\n%s", err, out)
 		}
 		if cleanResult.Total != 0 {
-			t.Fatalf("clean error fixture with --no-bare-return produced %d findings\n%s", cleanResult.Total, out)
+			t.Fatalf("clean error fixture with --bare-return produced %d findings\n%s", cleanResult.Total, out)
 		}
 
 		out = runCommand(t, 0, "bash", script, "--json", filepath.Join(fixturesDir, "no_go_files"))
@@ -1050,22 +1071,12 @@ func TestStructure(t *testing.T) {
 			if len(desc) > 1024 {
 				t.Errorf("description is %d chars (max 1024)", len(desc))
 			}
-			versionSensitive := map[string]bool{
-				"go-code-review":     true,
-				"go-concurrency":     true,
-				"go-context":         true,
-				"go-style-core":      true,
-				"go-defensive":       true,
-				"go-error-handling":  true,
-				"go-generics":        true,
-				"go-logging":         true,
-				"go-security":        true,
-				"go-resilience":      true,
-				"go-testing":         true,
-				"go-troubleshooting": true,
-			}
-			if versionSensitive[dirName] && !strings.Contains(body, "> Compatibility:") {
-				t.Error("version-sensitive skill must preserve compatibility metadata in the body")
+			// A skill that names a Go version anywhere in its body is
+			// version-sensitive and must route to COMPATIBILITY.md. Deriving
+			// the requirement from the text, not from a list, means a new
+			// "(Go 1.NN+)" claim cannot arrive without the note.
+			if versionClaim.MatchString(body) && !strings.Contains(body, "> Compatibility:") {
+				t.Errorf("body names a Go version (%q) but has no `> Compatibility:` note routing to COMPATIBILITY.md", versionClaim.FindString(body))
 			}
 			frontmatterKeys := map[string]bool{}
 			if fm, _, ok := splitFrontmatter(content); ok {
@@ -1289,6 +1300,17 @@ func TestLongReferenceTOCs(t *testing.T) {
 		lines := readLines(t, path)
 		if len(lines) > 300 {
 			t.Errorf("%s has %d lines, want <= 300; split or trim oversized references", path, len(lines))
+		}
+		// Every reference states where its rules come from and how binding
+		// they are (SKILL_AUTHORING_TEMPLATE.md, "Reference Headers"). Without
+		// the header a reader cannot tell Uber's preference from the Go spec,
+		// and nothing dates the content — the Godoc syntax in
+		// go-documentation rotted for years exactly this way.
+		head := strings.Join(lines[:min(len(lines), 12)], "\n")
+		for _, field := range []string{"> Sources:", "> Authority:", "> Last verified:"} {
+			if !strings.Contains(head, field) {
+				t.Errorf("%s has no %q line in its first 12 lines; add the provenance header", path, field)
+			}
 		}
 		if len(lines) <= 200 {
 			return nil
@@ -2011,7 +2033,7 @@ func TestCrossRefs(t *testing.T) {
 	t.Parallel()
 	skillDirs := findSkillDirs(t)
 	reFileRef := regexp.MustCompile(`\((?:references|scripts|assets)/[^)]+\)`)
-	reCrossSkill := regexp.MustCompile(`\(\.\./go-[^/]+/SKILL\.md\)`)
+	reCrossSkill := regexp.MustCompile(`\(\.\./go-[^/]+/SKILL\.md(?:#[^)]+)?\)`)
 
 	for _, dir := range skillDirs {
 		dirName := filepath.Base(dir)
@@ -2023,22 +2045,26 @@ func TestCrossRefs(t *testing.T) {
 				t.Fatalf("read SKILL.md: %v", err)
 			}
 
-			refs := reFileRef.FindAllString(string(content), -1)
-			for _, ref := range refs {
-				relPath := ref[1 : len(ref)-1] // strip parens
+			// A link may carry a heading anchor; the file must exist and the
+			// heading must be there, or the model lands at the top of the
+			// wrong file with no error.
+			check := func(kind, ref string) {
+				target := ref[1 : len(ref)-1] // strip parens
+				relPath, anchor, _ := strings.Cut(target, "#")
 				absPath := filepath.Join(dir, relPath)
 				if _, err := os.Stat(absPath); os.IsNotExist(err) {
-					t.Errorf("broken reference: %s -> %s", dirName, relPath)
+					t.Errorf("broken %s: %s -> %s", kind, dirName, target)
+					return
+				}
+				if anchor != "" && strings.HasSuffix(absPath, ".md") && !hasHeadingAnchor(t, absPath, anchor) {
+					t.Errorf("broken %s anchor: %s -> %s (no such heading)", kind, dirName, target)
 				}
 			}
-
-			crossRefs := reCrossSkill.FindAllString(string(content), -1)
-			for _, ref := range crossRefs {
-				relPath := ref[1 : len(ref)-1]
-				absPath := filepath.Join(dir, relPath)
-				if _, err := os.Stat(absPath); os.IsNotExist(err) {
-					t.Errorf("broken cross-skill reference: %s -> %s", dirName, relPath)
-				}
+			for _, ref := range reFileRef.FindAllString(string(content), -1) {
+				check("reference", ref)
+			}
+			for _, ref := range reCrossSkill.FindAllString(string(content), -1) {
+				check("cross-skill reference", ref)
 			}
 		})
 
@@ -2068,6 +2094,25 @@ func TestCrossRefs(t *testing.T) {
 			}
 		})
 	}
+}
+
+// hasHeadingAnchor reports whether the Markdown file has a heading whose
+// GitHub-style slug equals anchor: lowercase, punctuation dropped, spaces to
+// hyphens — the same rule the CI link check applies.
+func hasHeadingAnchor(t *testing.T, path, anchor string) bool {
+	t.Helper()
+	nonSlug := regexp.MustCompile(`[^\w\- ]`)
+	for _, line := range readLines(t, path) {
+		if !strings.HasPrefix(line, "#") {
+			continue
+		}
+		heading := strings.TrimSpace(strings.TrimLeft(line, "#"))
+		slug := strings.ReplaceAll(nonSlug.ReplaceAllString(strings.ToLower(heading), ""), " ", "-")
+		if slug == anchor {
+			return true
+		}
+	}
+	return false
 }
 
 // ---------------------------------------------------------------------------

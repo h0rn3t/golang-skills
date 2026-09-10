@@ -59,9 +59,12 @@ No `item := item` capture line — loop variables are per-iteration since Go
 1.22, and `go fix -forvar ./...` deletes leftovers. `go fix -waitgroupgo ./...`
 rewrites `Add(1)`/`go`/`defer Done()` into `wg.Go`.
 
-**Test for leaks** with [go.uber.org/goleak](https://pkg.go.dev/go.uber.org/goleak),
-and test timing-dependent behavior with `testing/synctest` (fake clock, no real
-sleeps) — see [go-testing](../go-testing/SKILL.md).
+**Test for leaks** with [go.uber.org/goleak](https://pkg.go.dev/go.uber.org/goleak)
+in unit tests; in a running service capture `/debug/pprof/goroutineleak?debug=1`
+(Go 1.27+), which lists goroutines the runtime proved can never unblock —
+[go-troubleshooting](../go-troubleshooting/SKILL.md) owns reading it. Test
+timing-dependent behavior with `testing/synctest` (fake clock, no real sleeps) —
+see [go-testing](../go-testing/SKILL.md).
 
 > **Principle**: Never start a goroutine without knowing how it will stop.
 > **Validation**: `go test -race ./...` and `go vet ./...` (the `waitgroup`,

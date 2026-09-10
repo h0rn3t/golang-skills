@@ -5,6 +5,9 @@ description: Use when creating or splitting Go packages, organizing imports or d
 
 # Go Packages and Imports
 
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). The `tool`
+> directive requires Go 1.24+; stdlib `uuid` and `encoding/json/v2` Go 1.27+.
+
 ## Resource Routing
 
 - `references/IMPORTS.md` - Read when grouping imports, using blank imports, dot imports, or import aliases.
@@ -53,10 +56,12 @@ not have (v1, v3, v5, custom sources).
 
 ## Adding and Auditing Dependencies
 
-- **After `go mod init`**, inspect the generated `go` directive and the local
-  and CI toolchains. For a new module targeting Go 1.27, set
-  `go mod edit -go=1.27.0` if needed; do not infer the directive from the
-  installed version or bump an existing module as an incidental cleanup.
+- **After `go mod init`**, inspect the generated `go` directive against the
+  local and CI toolchains: a 1.27.x toolchain writes its own patch level
+  (`go 1.27.1`), which makes a 1.27.0 CI toolchain download 1.27.1; a 1.26.x
+  toolchain writes `go 1.25.0`. For a new module targeting Go 1.27, set
+  `go mod edit -go=1.27.0`; do not infer the directive from the installed
+  version or bump an existing module as an incidental cleanup.
   `go test ./...` includes `stdversion` in Go 1.27 and rejects standard-library
   APIs newer than the effective file version. `go fix` also gates replacements
   by supported version, so an empty preview alone does not prove a 1.27 target.
@@ -77,31 +82,24 @@ not have (v1, v3, v5, custom sources).
   can produce a large diff that changes no dependency.
   `go mod tidy && git diff --exit-code` is the clean-checkout form for CI.
 - **Scan before releasing**: `govulncheck ./...` for reachable CVEs in the
-  module tree. The gate lives in [go-linting](../go-linting/SKILL.md); finding
+  module tree, pinned through the `tool` directive above so local runs and CI
+  agree. The gate lives in [go-linting](../go-linting/SKILL.md); finding
   triage routes to [go-security](../go-security/SKILL.md).
 
 ---
 
 ## Package Organization
 
-### Avoid Util Packages
+### Layout
 
-Package names should describe what the package provides. Avoid generic names
-like `util`, `helper`, `common` — they obscure meaning and cause import
-conflicts.
-
-```go
-// Good: Meaningful package names
-db := spannertest.NewDatabaseFromFile(...)
-_, err := f.Seek(0, io.SeekStart)
-
-// Bad: Vague names obscure meaning
-db := test.NewDatabaseFromFile(...)
-_, err := f.Seek(0, common.SeekStart)
-```
-
-Generic names can be used as *part* of a name (e.g., `stringutil`) but should
-not be the entire package name.
+- `cmd/<binary>` holds each `main` package; everything it imports lives
+  elsewhere so the logic is testable.
+- `internal/` holds packages that are not API — the compiler refuses imports
+  from outside the parent tree. Use it for anything you do not want to support;
+  do not wrap the whole module in `internal/pkg` or mirror a layer tree
+  (`internal/service`, `internal/repository`) — split by responsibility.
+- A package named `util`, `helper`, or `common` is a finding:
+  [go-naming](../go-naming/SKILL.md#package-names) owns the rule.
 
 ### Package Size
 

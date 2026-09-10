@@ -1,7 +1,9 @@
 # Loops and Iterators
 
 > Sources: Go specification, For statements; Effective Go, For; COMPATIBILITY.md
+> Authority: normative
 > Minimum Go: integer range and per-iteration declared variables Go 1.22; iterator functions Go 1.23
+> Last verified: 2026-09-10
 
 ## Choose the Loop by Its Semantics
 

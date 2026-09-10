@@ -1,3 +1,4 @@
+> Sources: https://www.postgresql.org/docs/17/; https://pkg.go.dev/database/sql
 > Authority: advisory
 > Last verified: 2026-09-08 against PostgreSQL 17 documentation; version gates noted below.
 > Topic selection informed by [pg-aiguide](https://github.com/timescale/pg-aiguide/tree/acf42427fed507b7bfe98c4039fbacf0c4a69b65/skills); independently written and checked against the official sources linked below.

@@ -1,5 +1,9 @@
 # Import Organization
 
+> Sources: source/golang-wiki/CodeReviewComments.md (Imports, Import Blank, Import Dot); source/uber-go-style/style.md (Import Group Ordering)
+> Authority: advisory
+> Last verified: 2026-09-10
+
 Detailed rules and examples for organizing Go imports.
 
 ## Import Grouping

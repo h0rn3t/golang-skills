@@ -79,6 +79,10 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
   endpoint, require EOF after the first value before calling the domain;
   `DisallowUnknownFields` alone accepts trailing data. The second decode
   allows trailing whitespace while still enforcing the cap.
+- Which decoder: a **new endpoint** uses the `encoding/json/v2` form in
+  [JSON-V2.md](references/JSON-V2.md#one-bounded-request-document) — one
+  `UnmarshalRead` with `RejectUnknownMembers(true)` replaces both decodes
+  above; an endpoint with an **existing v1 wire contract** keeps this form.
 - Pass `r.Context()` downstream; it is cancelled on client disconnect.
 - For a JSON array contract, preserve the wire type on unfiltered and filtered
   paths, including nil input and no matches. When the encoder maps nil to null
@@ -140,8 +144,9 @@ For graceful shutdown, `signal.NotifyContext` owns the lifetime;
   connection pool.
 - `http.NewRequestWithContext(ctx, ...)` — the ctx-less form is unbounded;
   `noctx` in the lint gate flags it.
-- `defer resp.Body.Close()` on every response, error or not (`bodyclose`
-  flags it). Bound untrusted bodies and close them on every path. Go 1.27
+- `defer resp.Body.Close()` right after the `err != nil` return, on every
+  status (`bodyclose` flags a miss); on error `Do` returns no body to close.
+  Bound untrusted bodies and close them on every path. Go 1.27
   drains an unread HTTP/1 body on `Close` — up to 256 KiB and 50 ms — to keep
   the connection reusable, so closing is the whole obligation; a manual read to
   EOF only buys reuse for responses past those bounds.

@@ -29,11 +29,10 @@ proved it, `plausible` admits it was only read.
 - [ ] [file:line] Description of minor suggestion
 
 ## Automated Checks
-- [ ] `gofmt -d .` — clean
-- [ ] `go vet ./...` — clean
-- [ ] `golangci-lint run` — clean
-
-Report a check that could not run as `unavailable (reason)`, not as clean.
+Gate result per go-linting (PASS/FAIL/INCOMPLETE) with the checks actually run,
+e.g. `gate: INCOMPLETE — gofmt pass, build pass, vet pass, test -race pass,
+golangci-lint unavailable (not installed)`. A check that could not run is
+`unavailable (reason)`, never clean.
 
 ## Not Reviewed
 What stayed outside the review and why — tool unavailable, needs a human

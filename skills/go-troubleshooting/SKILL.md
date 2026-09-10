@@ -99,7 +99,8 @@ suspected nil values against the matching source or debugger.
   crash capture is in scope; it cannot recover an already lost trace.
 - Go 1.27 prints `runtime/pprof` goroutine labels in traceback headers —
   `goroutine 19 [chan receive] {request_id: "abc-123"}` — which attributes a
-  stack to its request or job. Missing labels prove nothing: `pprof.Do`
+  stack to its request or job, for modules whose `go` directive is 1.27 or
+  later (`GODEBUG=tracebacklabels=1` enables it for older directives). Missing labels prove nothing: `pprof.Do`
   restores the previous set in a defer, so the panicking goroutine's own labels
   are usually gone by the time its trace prints, while the other goroutines in
   a `GOTRACEBACK=all` dump still carry theirs.

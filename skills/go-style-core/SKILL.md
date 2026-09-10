@@ -33,9 +33,9 @@ requirements. These defaults operate within the precedence below.
 
 Follow the host's instruction hierarchy. Within it, explicit user requirements
 and repository instructions take precedence over these skill defaults. Read
-`AGENTS.md`, `CLAUDE.md` where present, `.golangci.yml`, `CONTRIBUTING.md`, and
-neighboring code before editing. Skills do not authorize extra work or require
-renewed approval for work the user already authorized.
+`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `.golangci.yml`, the CI
+configuration, and neighboring code before editing. Skills do not authorize
+extra work or require renewed approval for work the user already authorized.
 
 - Assertion style, error-wrapping style, logger, test layout, and the `_`
   global prefix follow the nearest existing code.

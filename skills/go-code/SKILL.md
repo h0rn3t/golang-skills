@@ -7,6 +7,8 @@ description: Use when writing, fixing, or refactoring Go code, whether or not th
 
 Route Go work to the relevant owners, then close with their verification gate.
 
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
+
 ## Resource Routing
 
 Resolve sibling skills and references relative to this installed directory
@@ -20,6 +22,8 @@ continue independent authorized work without inventing rules.
 - `../go-style-core/SKILL.md` — Read once per task for house style, fallback
   rules, and communication guidance. Read its references only for a decision
   the task requires.
+- `../go-linting/SKILL.md` — Read its Verification Gate at step 5 on every
+  task that edits Go.
 - `../go-code-refactor/references/OVER-ENGINEERING.md` — Read the detailed
   restraint ladder when deciding whether an added abstraction is justified;
   its replacement catalog when seeking a simpler existing API; its audit lane
@@ -48,17 +52,20 @@ continue independent authorized work without inventing rules.
    loaded this session is reused, not reread. Under the Claude Code plugin a
    PreToolUse hook blocks the first Go edit that precedes these loads and names
    the missing skills once; it is a reminder, not a substitute for this step.
+   The hook infers owners from decision-bearing syntax only (a `_test.go`
+   path, `%w` wrapping, goroutines, `context.With*`, SQL, `slog.`, exec and
+   templates, `defer`, type parameters, `interface {`, `make`/`append`,
+   `package main`, rate limiting, HTTP server and client calls); naming,
+   documentation, functions, performance, refactoring, linting, and
+   troubleshooting it cannot see, and its "Also load" conditions are this
+   table's. Its silence is not a passing gate result.
 4. **Implement the authorized scope.** For new functions, packages, or stub
    bodies, use [Writing New Code](#writing-new-code). For behavior-preserving
    restructuring, use the [delete-first priority](../go-code-refactor/SKILL.md#delete-before-you-restructure).
-   After understanding the code, apply the restraint ladder to each proposed
-   helper, type, layer, option, or import: (1) omit speculative work,
-   (2) reuse existing code, (3) use the standard library, (4) use language or
-   platform features, (5) use an existing dependency, (6) use one clear line
-   when sufficient, (7) otherwise write the minimum that works. Stop at the
-   first sufficient rung; clarity and correctness outrank brevity. Judge the
-   final code and call sites, not just declaration count. Preserve
-   required behavior, validation, security controls, and meaningful tests.
+   Climb the restraint ladder in [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder)
+   for each proposed helper, type, layer, option, or import; stop at the first
+   sufficient rung. Preserve required behavior, validation, security controls,
+   and meaningful tests.
    Resolve routine choices without stopping; ask only for missing information
    that changes correctness, scope, or authorization.
 5. **Verify and report.** Follow the closing gate below and `go-style-core`'s
@@ -107,44 +114,17 @@ the task calls for one. A stub's `panic("not implemented")` is missing behavior,
 not a refactor contract: replace it and satisfy the acceptance tests. Use
 baseline/after equivalence only for existing behavior the task must preserve.
 
-Choose the representation by what must survive the call and who may mutate it.
-Use local values for a one-shot computation; retain fields only for required
-state or dependencies. When several outputs need the same derived data,
-compute it once and render from it. Keep both raw and derived state only when
-the contract or measured workload needs both. Route ownership, empty-result,
-error-chain, and resource-lifetime decisions to their owners before coding.
-
-Write the required operation directly. Extract a helper when it centralizes a
-shared rule or isolates a distinct algorithm or resource lifetime. For other
-cases, compare the inline operation with the helper and all its call sites;
-choose the clearer whole, including parameters and shared state. Keep short,
-single-use forwarding, validation, and field mapping local. A useful helper
-need not reduce line count. Skill examples illustrate behavior; their
-`validate`, `toDomain`, or `writeError` methods are not a required list of
-helpers to create.
-
-Retain interfaces and layers required by callers. Add an interface for an
-identified consumer's substitution boundary, including a needed test double;
-the number of production implementations alone does not decide. A new package
-does not itself need a service/factory/options scaffold.
-
 Check that an existing API's defaults satisfy the contract before wrapping or
-replacing it. Prefer a small adapter for a semantic mismatch. Derive checks at
-the public boundary from the task's requirements: success and failure paths,
-including relevant empty/invalid inputs, dependency failures, ordering, and
-ownership. When rules overlap, test an input that distinguishes which rule
-takes precedence. Passing existing tests establishes only the cases they
-exercise; compilation alone does not verify behavior.
+replacing it; prefer a small adapter for a semantic mismatch. Route the rest:
 
-Before closing, inspect the new code for unused public surface, redundant
-stored values, forwarding wrappers, and duplicated business rules. Simplify
-where it improves the complete operation; preserve ownership, failure behavior,
-and useful boundaries. No function-count limit or separate written audit is
-required.
+- Helper or inline: [go-code-refactor](../go-code-refactor/SKILL.md#delete-before-you-restructure) owns the helper rule.
+- An interface for a consumer's substitution boundary: [go-interfaces](../go-interfaces/SKILL.md).
+- Deriving the checks from the task's requirements: [go-testing](../go-testing/SKILL.md).
+- Self-audit of the new code before closing: the audit lane in [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#tags); no separate written audit is required.
 
 ## Close With The Gate
 
-Use [go-linting](../go-linting/SKILL.md) to select checks for the requested
+Use [go-linting](../go-linting/SKILL.md#verification-gate) to select checks for the requested
 scope. Repository gates take precedence over defaults; do not union them.
 Inspect the final diff and complete authorized work. Reuse passing results
 for unchanged code; rerun affected checks after edits and honor host checkpoints.
@@ -158,10 +138,11 @@ Use bundled checks when they add evidence beyond that gate:
 - Exported API documentation: `../go-documentation/scripts/check-docs.sh`.
 - Before submitting: [go-code-review](../go-code-review/SKILL.md).
 
-Run routine checks inline. Claude Code's `go-verify` agent and PostToolUse hook
-are optional: count only results actually observed for the current diff and
-scope. Otherwise run the selected checks directly. Report skipped or unavailable
-checks accurately; never infer success from an unobserved hook.
+Run routine checks inline. Claude Code's `go-verify` agent is optional. The
+PostToolUse hook reports only gofmt and vet findings for the edited package and
+is silent on success: its silence is not a passing result. Count only results
+observed for the current diff and scope; report each check as `pass`, `fail`,
+`unavailable (reason)`, or `skipped (reason)` per go-linting.
 
 ## Related Skills
 

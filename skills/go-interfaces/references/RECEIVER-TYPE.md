@@ -1,6 +1,8 @@
 # Receiver Type: Pointer vs Value
 
-> **Advisory**: Go Wiki CodeReviewComments
+> Sources: source/golang-wiki/CodeReviewComments.md (Receiver Type)
+> Authority: advisory
+> Last verified: 2026-09-10
 
 Choosing whether to use a value or pointer receiver on methods can be difficult.
 **If in doubt, use a pointer**, but there are times when a value receiver makes

@@ -15,31 +15,35 @@ read it through the host's skill loader when available. The fallback is below.
 - "Check it builds" means build only; "run the tests" means the applicable test
   target; "run the gate" means the repository's full required gate. An explicit
   package or diff limits scope unless a required repository check is broader.
-- Read `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, and CI where present. Run
-  from the target module or workspace. Reuse observed results for unchanged code
-  when allowed by the request; do not rerun them solely for another report.
+- Read the convention files `go-style-core` "House Style Wins" names —
+  `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `.golangci.yml`, CI — where
+  present. Run from the target module or workspace. Reuse observed results for
+  unchanged code when allowed by the request; do not rerun them solely for
+  another report.
 - Use available tools; missing tools are unavailable checks. Do not install
   dependencies, alter configuration, or invent diagnostics to complete a report.
 
 ## Run order
 
 For a full gate with no repository definition, use the following defaults at
-the selected package scope. A failed build blocks dependent checks; still run
-independent checks such as formatting and report which steps were blocked.
+the selected package scope, in the order `go-linting`'s Verification Gate
+lists them. A failed build blocks dependent checks; still run independent
+checks such as formatting and report which steps were blocked.
 
-1. `go build ./...`
-2. `gofmt -l .` — any listed file is a failure.
+1. `gofmt -l .` — any listed file is a failure.
+2. `go build ./...` — a failure blocks vet, test, fix, and lint; report them
+   as blocked, not as passed.
 3. `go vet ./...`
-4. `go fix -diff <packages>` — use explicit existing packages in the requested
+4. `go test -race ./...` — inspect the repository's test target and preserve
+   its setup. `make test` is a substitute for a race check only if its actual
+   recipe enables `-race`; otherwise use a race-enabled equivalent when required.
+5. `go fix -diff <packages>` — use explicit existing packages in the requested
    diff, including staged and untracked files. For a whole-repository gate use
    `./...`. With no relevant packages, skip. Report pending changes and distinguish
    pre-existing findings; the preview must not authorize unrelated rewrites.
-5. `golangci-lint run ./...` — if the repository has no `.golangci.y*ml`, say
+6. `golangci-lint run ./...` — if the repository has no `.golangci.y*ml`, say
    so and run with defaults; if the binary is missing, report the step as
    unavailable.
-6. `go test -race ./...` — inspect the repository's test target and preserve
-   its setup. `make test` is a substitute for a race check only if its actual
-   recipe enables `-race`; otherwise use a race-enabled equivalent when required.
 7. `govulncheck ./...` — before release, when dependency files changed in the
    requested diff (including staged changes), or when asked.
 

@@ -1,5 +1,9 @@
 # Goroutine Lifecycle Patterns
 
+> Sources: source/uber-go-style/style.md (Goroutine Lifetimes, No goroutine leaks); source/golang-wiki/CodeReviewComments.md (Goroutine Lifetimes)
+> Authority: advisory
+> Last verified: 2026-09-10
+
 Detailed patterns for managing goroutine lifetimes — ensuring every goroutine
 has a clear start/stop mechanism and preventing resource leaks.
 
@@ -127,9 +131,13 @@ func ProcessItems(items []Item) ([]Result, error) {
     return results, nil
 }
 
-// Caller can add concurrency if needed:
-go func() {
-    results, err := ProcessItems(items)
-    // handle results
-}()
+// Caller adds concurrency when it needs it:
+func processInBackground(items []Item) <-chan []Result {
+    out := make(chan []Result, 1) // buffered: the goroutine can never block on exit
+    go func() {
+        results, _ := ProcessItems(items) // a real caller handles the error
+        out <- results
+    }()
+    return out
+}
 ```

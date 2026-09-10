@@ -10,6 +10,9 @@ More important than any "blessed" linter set: **lint consistently across a
 codebase**. This skill owns the repository's verification gate — the commands
 that decide whether Go work is finished.
 
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Analyzer and
+> linter names are checked against go1.27.1 and golangci-lint 2.13.2.
+
 ## Resource Routing
 
 - `scripts/setup-lint.sh` - Run when generating a `.golangci.yml`, validating the first lint pass, or producing JSON metadata.
@@ -26,15 +29,15 @@ gofmt -l .            # inspect output: exit 0 alone does not mean clean
 go build ./...
 go vet ./...          # includes stdversion, printf, lostcancel, waitgroup
 go test -race ./...
-go fix -diff ./...    # preview only; scope and findings rules below
+go fix -diff ./...    # preview only; whole-repository form — a scoped gate passes the packages in the diff (rules below)
 golangci-lint run ./...
 govulncheck ./...     # dependency CVEs; run before release, not every edit
 ```
 
 Gate rules:
 
-- Read `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, and CI where present. Use
-  their gate at its required scope; do not automatically union it with this one.
+- Read the convention files [go-style-core](../go-style-core/SKILL.md#house-style-wins)
+  names. Use their gate at its required scope; do not automatically union it with this one.
   A specific request such as "check it builds" selects that check, not the full
   gate. Report the selected scope; build-only success is not full-gate success.
 - Run from the target module or workspace, not the installed skill directory.
@@ -65,9 +68,9 @@ Gate rules:
 
 ## Modernization: `go fix`
 
-Go 1.27 ships the modernizers as `go fix` analyzers. `go fix -diff ./...`
-previews; `go fix ./...` applies. Use the package scope established above and
-inspect the preview before applying changes.
+Since Go 1.26 the modernizers are `go fix` analyzers; the 1.27 set is below.
+`go fix -diff <packages>` previews; `go fix <packages>` applies. Use the package
+scope established above and inspect the preview before applying changes.
 
 `go tool fix help` lists the current set. The ones that change guidance:
 
@@ -99,10 +102,11 @@ modernizers can leave unused imports/variables or discard comments inside a
 rewritten loop. Use the existing gate once on the final code, not a duplicate
 verification cycle.
 
-The toolchain's registered set differs from gopls and independently versioned
-`modernize` suites. Optional `appendclipped` and `slicesdelete` rewrites can
-change nilness or zero the old slice tail; do not classify them as unconditional
-behavior-preserving swaps. Check the installed tool's help before naming flags.
+The toolchain's registered set differs from gopls's independently versioned
+`modernize` suite, which also carries `appendclipped` and `slicesdelete` — not
+`go fix` analyzers, and off by default there because they change nilness or
+zero the old slice tail; never classify them as behavior-preserving swaps.
+Check the installed tool's help before naming flags.
 
 ---
 
@@ -115,26 +119,13 @@ behavior-preserving swaps. Check the installed tool's help before naming flags.
 
 ---
 
-## Minimum Recommended Linters
+## Baseline Linters
 
-| Linter | Purpose |
-|--------|---------|
-| [errcheck](https://github.com/kisielk/errcheck) | Ensure errors are handled |
-| [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports) | Format code and manage imports |
-| [revive](https://github.com/mgechev/revive) | Common style mistakes (modern replacement for the deprecated golint) |
-| [govet](https://pkg.go.dev/cmd/vet) | Analyze code for common mistakes |
-| [staticcheck](https://staticcheck.dev) | Various static analysis checks |
-
-## Additional Recommended Linters
-
-| Linter | Purpose | When to enable |
-|--------|---------|----------------|
-| [gosec](https://github.com/securego/gosec) | Security vulnerability detection | Always for services handling user input |
-| [ineffassign](https://github.com/gordonklaus/ineffassign) | Detect ineffectual assignments | Always — catches dead code |
-| [misspell](https://github.com/client9/misspell) | Correct common misspellings | Always |
-| [gocyclo](https://github.com/fzipp/gocyclo) | Cyclomatic complexity threshold | When functions exceed ~15 complexity |
-| [exhaustive](https://github.com/nishanths/exhaustive) | Ensure switch covers all enum values | When using iota enums |
-| [bodyclose](https://github.com/timakin/bodyclose) | Detect unclosed HTTP response bodies | Always for HTTP client code |
+`assets/golangci.yml` enables `errcheck`, `govet`, `revive`, and `staticcheck`
+as the minimum, adds `bodyclose`, `gocyclo`, `gosec`, `ineffassign`, and
+`misspell` for production code, and turns on the skill-enforcing set below; the
+comment beside each entry names the rule it enforces. `goimports` runs as a
+formatter under `formatters`, not as a linter.
 
 ## Linters That Enforce the Skills
 
@@ -155,16 +146,16 @@ teach instead of leaving it to review attention:
 | `nolintlint` | Suppressions name the linter and explain why | Nolint directives below |
 | `usestdlibvars` | Named HTTP method/status constants | [go-http](../go-http/SKILL.md) |
 | `gosec` | String-built SQL, `sh -c`, `template.HTML` on input, weak hashes, `InsecureSkipVerify`, `math/rand` for secrets | [go-security](../go-security/SKILL.md) |
+| `modernize` | The `go fix` rewrites as lint findings, so a stale idiom fails the gate even when nobody ran `go fix -diff`; `appendclipped`/`slicesdelete` stay off | [go-style-core](../go-style-core/SKILL.md#write-current-go) |
 
 Opt-in, not in the baseline: `contextcheck` (context lost mid-chain; noisy on
-deliberate breaks), `testifylint` (only in repositories that use testify),
-`modernize` (overlaps `go fix`; check the pinned version's analyzer set, useful
-when the gate runs only in golangci-lint).
+deliberate breaks) and `testifylint` (only in repositories that use testify).
 
-`govulncheck` is not a golangci-lint linter — install and run it separately:
-`go install golang.org/x/vuln/cmd/govulncheck@latest` locally, and a pinned
-`@vX.Y.Z` in CI like every other tool. It reports only vulnerabilities on
-reachable call paths, so its findings are actionable.
+`govulncheck` is not a golangci-lint linter. Track it as a tool dependency so
+local runs and CI share one pin — `go get -tool golang.org/x/vuln/cmd/govulncheck@vX.Y.Z`,
+then `go tool govulncheck ./...` ([go-packages](../go-packages/SKILL.md#adding-and-auditing-dependencies)
+owns the directive). It reports only vulnerabilities on reachable call paths,
+so its findings are actionable.
 
 ---
 
@@ -192,9 +183,8 @@ golangci-lint run ./pkg/...    # specific paths
 _ = logger.Sync()
 ```
 
-- Use `//nolint:lintername` — never bare `//nolint`
-- Place the comment on the same line as the finding
-- Include a justification after `//`
+`nolintlint` in the baseline rejects a bare `//nolint` and one without a
+reason; place the comment on the finding's line.
 
 ---
 
@@ -206,8 +196,8 @@ Actions.
 
 ```bash
 #!/bin/sh
-# .git/hooks/pre-commit — lint only changed code to keep the loop fast
-golangci-lint run --new-from-rev=HEAD~1
+# .git/hooks/pre-commit — lint only the staged change (CI compares with HEAD~)
+golangci-lint run --new-from-rev=HEAD
 ```
 
 A minimal Go pipeline runs test and lint on every PR:
@@ -219,8 +209,8 @@ A minimal Go pipeline runs test and lint on every PR:
   add their supported minors.
 - **Test flags**: `go test -race -shuffle=on ./...`, plus `-count=1` for
   suites that touch real services so caching cannot hide flakes.
-- **Hygiene**: `go mod tidy && git diff --exit-code` fails a PR that leaves
-  `go.mod` dirty.
+- **Hygiene**: the tidy check [go-packages](../go-packages/SKILL.md#adding-and-auditing-dependencies)
+  owns.
 - **Vulnerability scan**: `govulncheck` keeps the trigger contract above —
   dependency changes, release, or on request — plus a scheduled run, since a
   new advisory lands against code that did not change.
@@ -232,20 +222,6 @@ A minimal Go pipeline runs test and lint on every PR:
   reports today's advisories.
 - **Permissions**: least-privilege `permissions:` on each job; only release
   jobs get `contents: write`.
-
----
-
-## Quick Reference
-
-| Task | Command |
-|------|---------|
-| Full gate | Run the selected commands above individually and inspect diagnostics as well as exit status |
-| Preview modernizations | `go fix -diff ./...` |
-| Apply modernizations | `go fix ./...` |
-| List modernizers | `go tool fix help` |
-| Validate config schema | `golangci-lint config verify --config .golangci.yml` |
-| Lint changed code only | `golangci-lint run --new-from-rev=HEAD~1` |
-| Dependency CVEs | `govulncheck ./...` |
 
 ---
 

@@ -1,5 +1,9 @@
 # Printf, Stringer, and Custom Formatting
 
+> Sources: https://pkg.go.dev/fmt; source/uber-go-style/style.md (Printf-style Functions)
+> Authority: normative for `fmt` verb semantics; naming advice advisory
+> Last verified: 2026-09-10
+
 Deep reference for Go's `fmt` printing verbs, the `Stringer` and `GoStringer`
 interfaces, custom `Format()` methods, and common pitfalls.
 

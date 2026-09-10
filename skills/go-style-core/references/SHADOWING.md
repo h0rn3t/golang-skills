@@ -1,5 +1,9 @@
 # Variable Shadowing
 
+> Sources: https://go.dev/ref/spec#Declarations_and_scope; golang.org/x/tools/go/analysis/passes/shadow
+> Authority: normative
+> Last verified: 2026-09-10
+
 > **Normative**: Be aware that `:=` in inner scopes creates a new variable that shadows the outer one.
 
 ### The Trap

@@ -1,5 +1,10 @@
 # Sync Primitives Patterns
 
+> Sources: source/uber-go-style/style.md (Zero-value Mutexes are Valid, Do not embed mutexes, Atomic); https://pkg.go.dev/sync/atomic
+> Authority: advisory
+> Minimum Go: typed atomics (`atomic.Int64`) 1.19
+> Last verified: 2026-09-10
+
 Detailed patterns for mutexes and atomic operations — covering mutex embedding
 pitfalls and type-safe atomic access.
 
@@ -113,6 +118,7 @@ func sum(values chan int) (out int) {
     for v := range values {
         out += v
     }
-    close(values) // Bug! This compiles but shouldn't happen.
+    close(values) // Bug! The consumer closes a channel it does not own; a
+    return out    // send-only or receive-only type would have rejected this.
 }
 ```

@@ -12,22 +12,21 @@ allowed-tools: Bash(bash:*)
 ## Resource Routing
 
 - `assets/review-template.md` - Use when formatting review output with Must Fix, Should Fix, and Nits sections.
-- `scripts/pre-review.sh` - Run before manual review to collect gofmt, go vet, and golangci-lint results; a missing linter is reported as skipped, `--strict` makes it an error.
-- `../go-http/references/WEB-SERVER.md` - Read when reviewing an HTTP server that combines concurrency, context, logging, error handling, and shutdown behavior.
+- `scripts/pre-review.sh` - Run before manual review to collect gofmt, go vet, and golangci-lint results; a missing linter is reported as `unavailable`, `--strict` makes it an error.
 
 ## Review Procedure
 
 1. **Settle the scope.** A diff (`git diff`, a PR, named files) is the scope.
-   No diff → ask, or default to non-test code, riskiest packages first, read in
-   risk order — Security → HTTP → Database → Concurrency → the rest. The flat
-   checklist below is for a diff, not for a whole package.
-2. **Read the project's conventions before the first finding**: `AGENTS.md`, `CLAUDE.md`,
-   `CONTRIBUTING.md`, `.golangci.yml`, the neighbors. They fix the report
-   language, error style, and test style, and they outrank every rule here —
-   [go-style-core](../go-style-core/SKILL.md) "House Style Wins".
+   No diff → non-test code, riskiest packages first. Risk order picks files —
+   Security → HTTP → Database → Concurrency → the rest; the section order below
+   applies within a file. Ask only when the module has more than one binary.
+   The flat checklist below is for a diff, not for a whole package.
+2. **Read the convention files [go-style-core](../go-style-core/SKILL.md#house-style-wins)
+   names before the first finding.** They fix the report language, error style,
+   and test style, and they outrank every rule here.
 3. From the project, run `bash <installed-skill-dir>/scripts/pre-review.sh ./...` plus
-   `go fix -diff` over the packages in scope. Never spend review attention on
-   what a tool reports.
+   `go fix -diff <packages in the diff>`. Fix or report what the tools find
+   before the checklist; never spend review attention on what a tool reports.
 4. **Subtract first**: before any style row, ask of each added block what could
    stop existing — the Less Code section below. Unneeded growth is a Should Fix.
 5. Read the scope file-by-file; for each file, check the categories below in order
@@ -42,7 +41,7 @@ allowed-tools: Bash(bash:*)
 > that did not run are `unavailable`, never presented as clean.
 >
 > **Depth**: a fast pass over the whole diff, then a deep pass over the
-> risk-ordered files — the fast pass does not need a high reasoning-effort setting.
+> risk-ordered files.
 
 ---
 
@@ -75,7 +74,7 @@ allowed-tools: Bash(bash:*)
 - [ ] **Handle errors**: No discarded errors with `_`; handle, return, or (exceptionally) panic → [go-error-handling](../go-error-handling/SKILL.md)
 - [ ] **Error strings**: Lowercase, no punctuation (unless starting with proper noun/acronym) → [go-error-handling](../go-error-handling/SKILL.md)
 - [ ] **In-band errors**: No magic values (-1, "", nil); use multiple returns with error or ok bool → [go-error-handling](../go-error-handling/SKILL.md)
-- [ ] **Indent error flow**: Handle errors first and return; keep normal path at minimal indentation → [go-error-handling](../go-error-handling/SKILL.md)
+- [ ] **Indent error flow**: Handle errors first and return; keep normal path at minimal indentation → [go-style-core](../go-style-core/SKILL.md#reduce-nesting)
 
 ---
 
@@ -145,7 +144,7 @@ allowed-tools: Bash(bash:*)
 
 - [ ] **Line length**: No rigid limit, but avoid uncomfortably long lines; break by semantics, not arbitrary length → [go-style-core](../go-style-core/SKILL.md)
 - [ ] **Naked returns**: Only in short functions; explicit returns in medium/large functions → [go-style-core](../go-style-core/SKILL.md)
-- [ ] **Pass values**: Don't use pointers just to save bytes; pass `string` not `*string` for small fixed-size types → [go-performance](../go-performance/SKILL.md)
+- [ ] **Pass values**: Don't use pointers just to save bytes; pass `string` not `*string` for small fixed-size types → [go-functions](../go-functions/SKILL.md)
 - [ ] **String concatenation**: `+` for simple; `fmt.Sprintf` for formatting; `strings.Builder` for loops → [go-performance](../go-performance/SKILL.md)
 
 ---
@@ -206,14 +205,8 @@ allowed-tools: Bash(bash:*)
 
 ## Automated Checks
 
-```bash
-bash scripts/pre-review.sh ./...   # gofmt + go vet + golangci-lint (--json for structured output)
-go fix -diff ./...                 # pending modernizations
-go test -race ./...                # required if the diff touches goroutines
-```
-
-Fix everything these report before the checklist — a human review of
-machine-detectable defects (`gofmt` included) is wasted attention.
+Gate result per [go-linting](../go-linting/SKILL.md#verification-gate)
+(`PASS` / `FAIL` / `INCOMPLETE`) with the checks actually run.
 
 ---
 

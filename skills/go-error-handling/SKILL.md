@@ -12,7 +12,7 @@ allowed-tools: Bash(bash:*)
 
 ## Resource Routing
 
-- `scripts/check-errors.sh` - Run when checking string-based error matching, bare error propagation, and log-and-return patterns.
+- `scripts/check-errors.sh` - Run when checking string-based error matching and log-and-return patterns; `--bare-return` adds the opt-in bare `return err` review.
 - `scripts/check-errors-ast.go` - Implementation helper invoked by `check-errors.sh`; patch this when changing error-flow analysis behavior.
 - `references/ERROR-FLOW.md` - Read when deciding where to handle, wrap, log, or return errors.
 - `references/ERROR-TYPES.md` - Read when choosing sentinel errors, typed errors, or opaque errors.
@@ -30,7 +30,8 @@ between propagating a cause and defining a new condition;
 ### Never Return Concrete Error Types
 
 **Never return concrete error types from exported functions** — a concrete `nil`
-pointer can become a non-nil interface:
+pointer stored in the `error` interface is non-nil ([go-defensive](../go-defensive/SKILL.md#common-pitfalls)
+owns the typed-nil mechanism):
 
 ```go
 // Bad: Concrete type can cause subtle bugs
@@ -119,30 +120,24 @@ compile-time error since `Lookup(key)` has 2 outputs.
 
 ## Error Flow
 
-Handle errors before normal code. Early returns keep the happy path unindented:
-
-```go
-// Good: Error first, normal code unindented
-if err != nil {
-    return err
-}
-// normal code
-```
+Handle errors first and return, so the success path stays unindented;
+[go-style-core](../go-style-core/SKILL.md#reduce-nesting) owns nesting,
+`if`-init scope, and `else`.
 
 **Handle errors once** — either log or return, never both:
 
 ```
 Error encountered?
 ├─ Caller can act on it? → Return (with context via %w)
-├─ Top of call chain? → Log and handle
+├─ Top of call chain (main, a request handler)? → Log the detail and handle it
+│   A handler writes a status, never the error text; that is the one place
+│   the same error is both logged and answered.
 └─ Neither? → Log at appropriate level, continue
 ```
 
 ---
 
 ## Error Types
-
-> **Advisory**: Recommended best practice.
 
 | Caller contract | Use |
 |-----------------|-----|
@@ -190,14 +185,12 @@ if pathErr, ok := errors.AsType[*fs.PathError](err); ok {
 With `if err, ok := errors.AsType[*fs.PathError](err); ok`, a following
 `else if` sees that result's typed nil on a failed match, not the original
 error. Do not reuse `err` for the extracted cause in such a chain.
-[gopls `errorsastypeshadow`](https://go.dev/gopls/analyzers#errorsastypeshadow)
+[gopls `errorsastypeshadow`](https://pkg.go.dev/golang.org/x/tools/gopls/internal/analysis/errorsastypeshadow)
 detects this mistake; test a cause matching the second branch, including wrapping.
 
 ---
 
 ## Error Wrapping
-
-> **Advisory**: Recommended best practice.
 
 - **Use `%v`**: For display or annotation that deliberately omits the error chain
 - **Use `%w`**: When the underlying cause is part of the caller-facing contract
@@ -215,8 +208,8 @@ annotation adds nothing, return `err` directly.
 
 ## Related Skills
 
-- **Error naming**: See [go-naming](../go-naming/SKILL.md) when naming sentinel errors (`ErrFoo`) or custom error types
-- **Testing errors**: See [go-testing](../go-testing/SKILL.md) when testing error semantics with `errors.Is`/`errors.As` or writing error-checking helpers
+- **Error naming**: [go-naming](../go-naming/SKILL.md#error-names) owns `ErrX` sentinels and `XError` types
+- **Testing errors**: See [go-testing](../go-testing/SKILL.md) when testing error semantics with `errors.Is`/`errors.AsType` or writing error-checking helpers
 - **Panic handling**: See [go-defensive](../go-defensive/SKILL.md) when deciding between panic and error returns, or writing recover guards
 - **Guard clauses**: See [go-style-core](../go-style-core/SKILL.md) — it owns nesting depth, early returns, `if`-init, and statement mechanics
 - **Logging decisions**: See [go-logging](../go-logging/SKILL.md) when choosing log levels, configuring structured logging, or deciding what context to include in log messages

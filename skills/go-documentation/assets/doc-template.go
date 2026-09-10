@@ -55,7 +55,9 @@ func (w *Widget) Close() error {
 	return nil
 }
 
-// Deprecated: Use [NewWidget] with functional options instead.
+// NewWidgetLegacy creates a Widget with the given name.
+//
+// Deprecated: Use [NewWidget] instead.
 func NewWidgetLegacy(name string) *Widget {
 	return NewWidget(name)
 }

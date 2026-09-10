@@ -1,7 +1,10 @@
 # Go Testing: Integration and Advanced Patterns
 
+> Sources: source/google-go-styleguide/best-practices.md (Test Structure, Test Doubles); https://pkg.go.dev/testing#hdr-Main
+> Authority: advisory
+> Last verified: 2026-09-10
+
 Detailed reference for TestMain, acceptance testing, and real transport testing.
-Sources: Google Go Style Guide (best-practices).
 
 ---
 

@@ -1,5 +1,9 @@
 # Package Size, Program Structure, and CLIs
 
+> Sources: source/google-go-styleguide/best-practices.md (Package size); source/uber-go-style/style.md (Avoid init(), Exit in Main); https://pkg.go.dev/flag
+> Authority: advisory
+> Last verified: 2026-09-10
+
 Detailed guidance on package splitting, avoiding init(), the run() pattern, and
 CLI structure.
 
@@ -178,16 +182,17 @@ func run() error {
 
 ### Flag Naming
 
-Use lowercase, hyphen-separated flag names:
+Follow the repository's convention. Without one, the pack default is
+`snake_case`, matching Google's flag conventions and `go-packages/SKILL.md`:
 
 ```go
-// Good
-flag.String("output-dir", ".", "directory for output files")
-flag.Bool("dry-run", false, "print actions without executing")
+// Good: the pack default, used consistently
+flag.String("output_dir", ".", "directory for output files")
+flag.Bool("dry_run", false, "print actions without executing")
 
-// Bad
+// Bad: two conventions in one binary
 flag.String("outputDir", ".", "")    // camelCase
-flag.String("output_dir", ".", "")   // underscores
+flag.String("output-dir", ".", "")   // hyphens beside snake_case flags
 ```
 
 ### Subcommands

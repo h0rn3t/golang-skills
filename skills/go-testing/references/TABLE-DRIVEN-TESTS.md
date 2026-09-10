@@ -1,7 +1,11 @@
 # Table-Driven Tests, Subtests, and Parallel Tests
 
+> Sources: source/google-go-styleguide/decisions.md (Table-driven tests); source/uber-go-style/style.md (Test Tables)
+> Authority: advisory
+> Minimum Go: per-iteration loop variables 1.22
+> Last verified: 2026-09-10
+
 Detailed reference for structuring table-driven tests and subtests in Go.
-Sources: Google Go Style Guide, Uber Go Style Guide.
 
 ---
 

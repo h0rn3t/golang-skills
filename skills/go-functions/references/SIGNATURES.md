@@ -1,5 +1,9 @@
 # Function Signatures
 
+> Sources: source/uber-go-style/style.md (Avoid Naked Parameters, Function Grouping and Ordering); source/google-go-styleguide/decisions.md (Function formatting)
+> Authority: advisory
+> Last verified: 2026-09-10
+
 Detailed rules for formatting Go function signatures, avoiding naked parameters,
 and keeping call sites readable.
 

@@ -1,5 +1,9 @@
 # Package Comments and Examples Reference
 
+> Sources: https://go.dev/doc/comment; source/google-go-styleguide/decisions.md (Package comments); https://pkg.go.dev/testing#hdr-Examples
+> Authority: normative for example naming and package-comment rules
+> Last verified: 2026-09-10
+
 ## Package Comments
 
 > **Normative**: Every package must have exactly one package comment.
@@ -38,7 +42,7 @@ seed_generator command`, `Seed_generator ...`
 // complex number arithmetic, including polar form conversion,
 // matrix operations, and numerical integration.
 //
-// Basic usage
+// # Basic usage
 //
 // Create a complex number and perform operations:
 //
@@ -46,7 +50,7 @@ seed_generator command`, `Seed_generator ...`
 //   magnitude := z.Abs()    // 5.0
 //   conjugate := z.Conj()   // (3, -4)
 //
-// Matrix operations
+// # Matrix operations
 //
 // The package supports complex-valued matrices:
 //

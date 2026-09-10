@@ -16,18 +16,18 @@ DESCRIPTION
     reports any findings. Use before manual code review to catch
     mechanical issues early.
 
-    A missing golangci-lint is reported as skipped; gofmt and go vet still
-    run. Use --strict where the linter is guaranteed (CI) to make its
-    absence an error.
+    A missing golangci-lint is reported as unavailable (the run is then
+    INCOMPLETE, not clean); gofmt and go vet still run. Use --strict where
+    the linter is guaranteed (CI) to make its absence an error.
 
-    Exits 0 if all checks pass, 1 if issues found, 2 on error.
+    Exits 0 if no check failed, 1 if issues found, 2 on error.
 
 OPTIONS
     -h, --help       Show this help message
     -v, --version    Show version
     --json           Output results as JSON
     --strict         Fail if golangci-lint is not installed
-    --force          Accepted and ignored (skipping is now the default)
+    --force          Accepted and ignored (a missing linter is reported as unavailable by default)
     --limit N        Max items reported per section (0 = unlimited, default: 0)
 
 ARGUMENTS
@@ -63,7 +63,7 @@ while [[ $# -gt 0 ]]; do
         -v|--version) echo "$SCRIPT_NAME v$VERSION"; exit 0 ;;
         --json)       JSON_OUTPUT=true; shift ;;
         --strict)     STRICT=true; shift ;;
-        --force)      shift ;;  # kept for compatibility: skipping is the default
+        --force)      shift ;;  # kept for compatibility: unavailable is the default
         --limit)
             if [[ $# -lt 2 ]]; then
                 echo "error: --limit requires a number" >&2
@@ -112,7 +112,7 @@ if ! GOVET_OUTPUT=$(go vet "$TARGET" 2>&1); then
     GOVET_STATUS="fail"
 fi
 
-LINT_STATUS="skip"
+LINT_STATUS="unavailable"
 LINT_OUTPUT=""
 if command -v golangci-lint &>/dev/null; then
     LINT_STATUS="pass"
@@ -232,8 +232,8 @@ else
 
     echo ""
     echo "=== golangci-lint ==="
-    if [[ "$LINT_STATUS" == "skip" ]]; then
-        echo "Skipped (not installed)"
+    if [[ "$LINT_STATUS" == "unavailable" ]]; then
+        echo "Unavailable (not installed)"
     elif [[ "$LINT_STATUS" == "fail" ]]; then
         if [[ $LIMIT -gt 0 ]]; then
             LINT_ARR=()
@@ -256,6 +256,8 @@ else
     echo ""
     if [[ $FAILED -eq 1 ]]; then
         echo "Pre-review checks FAILED — fix issues before manual review."
+    elif [[ "$LINT_STATUS" == "unavailable" ]]; then
+        echo "Pre-review checks INCOMPLETE — golangci-lint unavailable; gofmt and go vet passed."
     else
         echo "All pre-review checks passed."
     fi

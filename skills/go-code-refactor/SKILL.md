@@ -17,48 +17,32 @@ for that promise; compilation alone does not establish equivalent behavior.
 Resolve resources from this installed skill directory; run scripts from the
 target project using the resolved absolute script path.
 
-- `references/BEHAVIOR-TRAPS.md` - Read before touching concurrency, `defer`, error handling, slices, interfaces, or struct layout.
+- `references/BEHAVIOR-TRAPS.md` - Read its Pre-commit checklist before every refactor; read a section when a transform moves a `defer`, changes nil versus empty, alters goroutine or channel shape, or touches struct layout.
 - `references/PLAYBOOK.md` - Read for the concrete transformations, ordered by payoff, with before/after Go.
 - `references/POLICY-TABLES.md` - Read when repeated selection accesses fields of one shared policy record; includes a complete before/after example.
 - `references/CATALOG.md` - Read when the move crosses a function, type, or package boundary: the smell that triggers each transform, the tool that performs it, and its risk tier.
-- `references/SAFETY-NET.md` - Read before the first edit to size the net: coverage tiers for the blast radius, characterization tests, and seams for untested code.
+- `references/SAFETY-NET.md` - Read when the blast radius has thin or no tests: coverage tiers, characterization tests, and seams for untested code.
 - `references/MECHANICAL.md` - Read when the same edit recurs across many sites: `gofmt -r`, `eg`, `gopatch`, and `go/analysis` fixers instead of hand-editing each one.
 - `references/STRUCTURAL.md` - Read before moving a type between packages, breaking an import cycle, or changing an exported API: type-alias gradual repair and the deprecation sequence.
-- `references/MODERNIZATION.md` - Read before adopting a newer API; sorts Go 1.21–1.27 features into safe, conditional, and report-only.
-- `references/OVER-ENGINEERING.md` - Read before adding any line (it owns the restraint ladder, the reach-for table, and the ship-then-question write rules), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
+- `references/MODERNIZATION.md` - Read when a hunk adopts a newer API or `go fix -diff` proposes one; sorts Go 1.21–1.27 features into safe, conditional, and report-only.
+- `references/OVER-ENGINEERING.md` - Read when a step adds a helper, type, layer, option, or import (it owns the restraint ladder, the reach-for table, and the ship-then-question write rules), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
 - `references/GOPLS.md` - Read before renaming, extracting, or inlining anything with more than one caller: semantic references and safe rename via gopls instead of grep.
 - `scripts/verify-refactor.sh` - Run to capture baseline and final check results, and to count production LOC before and after; use focused checks between edits.
 - `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no upgrade path.
 - `assets/refactor-report.md` - Use as the final report structure.
 
 Every command below runs the scripts through `REFACTOR_SKILL_DIR`. Set it once,
-before the first one, to this installed skill's absolute directory, and keep the
-working directory in the target project. Confirm it resolved: unset, the path
-collapses to `/scripts/verify-refactor.sh` and every later call fails silently
-against a baseline that was never recorded.
+before the first one, to the base directory the host printed for this skill
+(`${CLAUDE_PLUGIN_ROOT}/skills/go-code-refactor` under the Claude Code plugin,
+`~/.agents/skills/go-code-refactor` under Codex), and keep the working directory
+in the target project. Unset, the path collapses to `/scripts/verify-refactor.sh`
+and every call exits 127 (`No such file or directory`) — with no baseline
+recorded, the gate below cannot pass.
 
 ```bash
-export REFACTOR_SKILL_DIR="$HOME/.claude/skills/go-code-refactor"  # plugin installs differ
-bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" --version    # must print a version
+export REFACTOR_SKILL_DIR="<base directory the host printed for this skill>"
+bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" --version    # must print a version; 127 means the path is wrong
 ```
-
-## Resolve Baseline and Scope
-
-Use existing authorization and continue work that does not depend on an answer.
-1. **The baseline is red** — record the failing command and isolate pre-existing
-   or environmental failures. Continue inspection and independently verifiable
-   changes; do not claim behavior preservation without adequate evidence.
-2. **The package has zero tests** — add a small characterization test when
-   needed for the authorized refactor; [SAFETY-NET.md](references/SAFETY-NET.md)
-   sizes it. Missing tests alone do not require another approval. Honor an
-   explicit prohibition on new tests and report the limitation.
-3. **The target is generated** — trace its generator and source inputs. Update
-   those and regenerate when within scope; ask only if the real source or intended
-   target cannot be determined. Do not hand-edit generated output.
-4. **Two readings change the contract or scope** — ask a focused question only
-   if the request and repository do not resolve it; continue independent work.
-
----
 
 ## When Not to Refactor
 
@@ -84,6 +68,10 @@ Two other cases change the sequence, not cancel the work:
   user requested and propose the larger refactor separately.
 
 None of these is a licence to skip authorized work that has a concrete purpose.
+Deliver the refactor asked for at the scope intended: "while I'm here" fixes and
+a modernization that quietly becomes a migration dilute the guarantee — adopt
+what makes the existing code read better, propose the rest. A structural
+problem a readability pass cannot solve gets one sentence in the report.
 
 ---
 
@@ -99,12 +87,11 @@ radius pushes every transform up a tier.
 | **Medium** | Extract function or method, inline across packages, adding or removing one parameter, introducing generics, a bulk rewrite ([MECHANICAL.md](references/MECHANICAL.md)) | Tests that provably reach the touched lines |
 | **High** | Signature change across many callers, cross-package moves, package split or merge, breaking an import cycle, any exported API change | Full net, and it is a findings-list item unless the user asked for it |
 
-The gopls inliner is designed to preserve Go language behavior or refuse the
-change. Rename is compilation-aware, but rename may introduce dynamic errors
-through reflection, templates, serialization conventions, or indirect
-interface assertions. Extract is best-effort and may drop comments. A gopls
-refusal is a real semantic hazard — investigate it, never route around it by
-hand-editing.
+gopls inline preserves behavior or refuses. Rename is compilation-aware, but
+rename may introduce dynamic errors through reflection, templates,
+serialization conventions, or indirect interface assertions; extract may drop
+comments. A refusal is a semantic hazard — investigate it, never hand-edit
+around it ([GOPLS.md](references/GOPLS.md#gotchas)).
 
 ---
 
@@ -112,18 +99,13 @@ hand-editing.
 
 > **Normative**: Anything an outside observer could notice must not move.
 
-- Exported signatures and names, struct tags, field order where it affects
-  serialization, `unsafe`, or binary layout
-- Error values and their **text**, `%w` chains, sentinels, exit codes, HTTP codes
-- The sequence and count of side effects: I/O, logs, queries, lock acquisition
-  order, channel sends, `defer` firing order
-- Concurrency shape: goroutine counts, channel buffers, timeouts, ctx propagation
-- Numeric types, overflow points, float associativity
-- `nil` slice/map vs empty — `encoding/json` renders these differently, so
-  "normalizing" one into the other is a wire-format change
-
+Exported names and signatures; struct tags and serialization order; error
+text, `%w` chains, sentinels, exit and HTTP codes; the order and count of side
+effects (I/O, logs, queries, locks, sends, `defer`); concurrency shape; numeric
+types and overflow points; nil versus empty collections on the wire.
+[BEHAVIOR-TRAPS.md](references/BEHAVIOR-TRAPS.md) has the mechanism behind each.
 Internal names, function boundaries, control-flow shape, and comments are fair
-game. That is where the readability gain lives.
+game — that is where the readability gain lives.
 
 ---
 
@@ -165,12 +147,11 @@ with the selected values). Within that shared operation, aim to represent each
 policy fact, selection, and condition ladder once. Replacing literals with
 constants or changing `if` to `switch` alone does not remove repeated logic.
 
-Equal literals and matching switch keys do not establish a shared policy.
-For example, a retry limit of 3 and a grace period of 3 days remain independent
-facts. Keep independently changing policies separate; combine related values
-when they belong to one record and the final code becomes easier to follow.
-Stop when another fold would add more coupling or indirection than it removes;
-explain a material remaining duplication briefly in the report.
+Equal literals and matching switch keys do not establish a shared policy: a
+retry limit of 3 and a grace period of 3 days stay independent facts. Combine
+values only when they belong to one record and the final code reads better;
+stop when another fold adds more coupling than it removes, and name a material
+remaining duplication in the report.
 
 Pick the shape by the final code, call sites included: an exported accessor
 that already performs the selection, before a new unexported helper; a
@@ -186,8 +167,10 @@ literal. Error texts and the point where an unknown key fails do not move.
 
 ## Concision Gate
 
-Keep a transformation only when the final code is at least as clear, behavior
-is preserved, and neither production LOC count increases:
+Keep a transformation only when the final code is at least as clear and
+behavior is preserved. Measure both production LOC counts; growth in either
+needs the reason [Delete Before You Restructure](#delete-before-you-restructure)
+requires:
 
 - **Physical LOC:** every line in the scoped non-test `*.go` files, including
   blank lines and comments; include new files and account for deleted files.
@@ -202,11 +185,12 @@ bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-baseline ./internal/ga
 bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-diff ./internal/gateway
 ```
 
-`loc-diff` exits 0 when neither count grew and 1 when one did; that status is
-the verdict. Do not estimate the numbers, do not substitute a nonblank-line
-count, and do not report a pass the counter did not print. If it cannot run,
-report that instead of claiming the gate passed. The `baseline`, `after` and
-`diff` modes compare check records and say nothing about size.
+`loc-diff` exits 0 when neither count grew and 1 when one did. Exit 1 is a
+signal, not a verdict: name the declaration, layer, or dependency that grew and
+why; unjustified growth is a finding. Do not estimate the numbers, do not
+substitute a nonblank-line count, and do not report counts the counter did not
+print. If it cannot run, report that. The `baseline`, `after` and `diff` modes
+compare check records and say nothing about size.
 
 Keep documentation that explains a decision or contract. Removing comments
 or blank lines cannot compensate for added code; do not compress statements
@@ -223,9 +207,9 @@ counts, their deltas, and the checks supporting behavior preservation.
 ### 1. Orient
 
 Before rewriting, read [go-style-core](../go-style-core/SKILL.md) for the shared
-style and control-flow rules, including snippet-only refactors. Inspect enough
-of the package to follow its conventions: `.golangci.yml`, `CONTRIBUTING.md`,
-and neighboring code take precedence over the guide's defaults.
+style and control-flow rules, including snippet-only refactors, and the
+convention files its House Style Wins names; they take precedence over the
+guide's defaults.
 
 Flag two file classes before editing: **generated** files (exclude silently
 when incidental, ask when they are the target) and **build-tagged** files for
@@ -238,11 +222,27 @@ carries its own behavior changes.
 
 ```bash
 bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" baseline ./...
+bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-baseline ./...
 ```
 
-If characterization tests are needed,
-run them against unchanged production code, then capture a new baseline with
-those tests included. Retain the earlier results for known failures.
+If characterization tests are needed, run them against unchanged production
+code, then capture a new baseline with those tests included. Retain the earlier
+results for known failures. Use existing authorization and continue work that
+does not depend on an answer:
+
+- **If the baseline is red** — record the failing command and isolate
+  pre-existing or environmental failures. Continue inspection and independently
+  verifiable changes; do not claim behavior preservation without evidence.
+- **If the package has zero tests** — add a small characterization test when
+  the authorized refactor needs it; [SAFETY-NET.md](references/SAFETY-NET.md)
+  sizes it. Missing tests alone do not require another approval. Honor an
+  explicit prohibition on new tests and report the limitation.
+- **If the target is generated** — trace its generator and source inputs;
+  update those and regenerate when within scope. Do not hand-edit generated
+  output; ask only if the real source cannot be determined.
+- **If two readings change the contract or scope** — ask a focused question
+  only if the request and repository do not resolve it; continue independent
+  work meanwhile.
 
 ### 2. Audit before rewriting
 
@@ -300,6 +300,7 @@ migration, never one atomic commit (`references/STRUCTURAL.md`).
 ```bash
 bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" after ./...
 bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" diff
+bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-diff ./...
 ```
 
 The diff compares recorded check results, not program behavior. An empty diff
@@ -335,30 +336,14 @@ in the code, not only in the report. `Kept:` / `Ceiling:` / `Fix:` are fixed
 prefixes, so the markers stay greppable:
 
 ```go
-// Kept: defer stays inside the loop. Hoisting it into a helper would close
-// files one iteration earlier, which is observable.
+// Kept: defer stays inside the loop; hoisting it closes files one iteration earlier.
 // Ceiling: descriptors accumulate for the worker's lifetime.
 // Fix: close explicitly per iteration, in its own commit.
-defer f.Close()
 ```
 
 A marker naming no ceiling and no upgrade path rots into "later means never".
 `bash "$REFACTOR_SKILL_DIR/scripts/check-debt.sh" ./...` lists every marker and
 exits 1 on those.
-
----
-
-## Scope
-
-Deliver the refactor asked for, at the scope intended. Refactoring invites
-drift — adding logging, metrics, error handling for cases that never existed,
-"while I'm here" fixes. Each dilutes the guarantee. Modernization has its own
-version: a new stdlib package appears and the diff quietly becomes a migration.
-Adopt what makes the existing code read better; propose the rest.
-
-If the code has a structural problem a readability pass cannot solve — the
-wrong abstraction, a data model that forces the mess — say so in one sentence,
-finish the refactor as asked, and let the user decide about the bigger change.
 
 ---
 

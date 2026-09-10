@@ -6,6 +6,9 @@ allowed-tools: Bash(bash:*)
 
 # Go Performance Patterns
 
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `b.Loop()`
+> requires Go 1.24+; `encoding/json/v2` Go 1.27+.
+
 ## Resource Routing
 
 - `scripts/bench-compare.sh` - Run when comparing benchmark results, saving baselines, or producing JSON benchmark metadata.
@@ -48,7 +51,7 @@ for b.Loop() { // Go 1.24+
 
 ## Prefer Specifying Container Capacity
 
-Specify container capacity where possible to allocate memory up front. This minimizes subsequent allocations from copying and resizing as elements are added.
+Preallocate when the final size is known at the call site (`len(files)`, a fixed loop bound); otherwise measure before guessing a capacity — an oversized estimate retains memory the workload never uses.
 
 ### Map Capacity Hints
 
@@ -143,20 +146,6 @@ Check the standard library first — `encoding/json/v2` (Go 1.27+) and the
 iterator variants (`strings.SplitSeq` Go 1.24+, `maps.Keys` Go 1.23+) remove
 allocations without a new dependency. See
 [go-packages](../go-packages/SKILL.md) for the dependency ladder.
-
----
-
-## Quick Reference
-
-| Pattern | Bad | Good | Improvement |
-|---------|-----|------|-------------|
-| Int to string | `fmt.Sprint(n)` | `strconv.Itoa(n)` | Direct conversion; measure the gain |
-| Repeated `[]byte` | `[]byte("str")` inside the loop | Convert once outside | Depends on compiler and writer; measure |
-| Map initialization | `make(map[K]V)` | `make(map[K]V, size)` | Fewer allocs |
-| Slice initialization | `make([]T, 0)` for a known size | `make([]T, 0, cap)` | Avoids growth up to capacity |
-| Small fixed-size args | `*string`, `*io.Reader` | `string`, `io.Reader` | No indirection |
-| Simple string join | `s1 + " " + s2` | (already good) | Use `+` for few strings |
-| Loop string build | Repeated `+=` | `strings.Builder` | O(n) vs O(n²) |
 
 ---
 

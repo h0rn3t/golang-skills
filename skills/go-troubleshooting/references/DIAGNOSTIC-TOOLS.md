@@ -46,7 +46,7 @@ The [Go GC guide](https://go.dev/doc/gc-guide#Memory_limit) defines which memory
 the soft limit covers. Changing the limit does not establish why memory grows.
 
 `GODEBUG` accepts a comma-separated list. The Go-version-compat settings
-(`GODEBUG=panicnil=1`, `tlsrsakex=1`, ...) are documented under `go doc
+(`GODEBUG=panicnil=1`, `httpmuxgo121=1`, ...) are documented under `go doc
 runtime` → "godebug"; a stale one in a Dockerfile is a finding for
 [go-security](../../go-security/SKILL.md).
 

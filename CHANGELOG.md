@@ -4,6 +4,164 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-09-10
+
+### Fixed
+
+- `go-security` said the default TLS curve list carries standalone `MLKEM1024`
+  and told reviewers to delete any explicit `CurvePreferences`. `MLKEM1024` is
+  opt-in in Go 1.27 (`defaultCurveEnabled` returns false for it), so the advice
+  deleted deliberate post-quantum hardening; the finding is now a list that
+  omits the hybrids. The same reference claimed an environment `GODEBUG` pin
+  of a removed TLS setting "breaks the build" — it makes the binary refuse to
+  start; only a `go.mod` or `//go:debug` pin fails the build. ML-DSA signature
+  schemes are advertised by default; the certificate chain is the opt-in.
+- The SSRF example `safeTarget` in `go-security/references/INJECTION.md` did
+  not compile (`ctx` undefined); it now takes a `context.Context` and is
+  compile-tested with blocked and public literal addresses.
+- `encoding/json/v2` ignores unknown tag options without error: a copied
+  `inline` or `unknown` tag nests or drops data silently. `go-defensive`
+  Struct Field Tags now says so and asks for a byte-level test.
+- `go-generics` and `COMPATIBILITY.md` implied the `go` directive gates
+  language features. It does not: generic methods, function-type inference,
+  `new(expr)`, and self-referential constraints compile on a 1.27 toolchain
+  with `go 1.26` in `go.mod` and fail only on a real older toolchain. Both now
+  say to verify on the CI toolchain; `go-generics` gains a self-referential
+  constraints section (Go 1.26+).
+- `go-packages` said flags default to `snake_case` while its own reference
+  called `output_dir` bad and required hyphens; the reference now matches the
+  skill. `go mod init` guidance names both toolchain behaviors (1.27.x writes
+  its patch level, 1.26.x writes `go 1.25.0`) and the CI consequence.
+- Error naming was routed in a circle between `go-error-handling` and
+  `go-naming` with the rule stated nowhere; `go-naming` now owns `ErrX`
+  sentinels and `XError` types.
+- `go-http` told clients to `defer resp.Body.Close()` "on every response, error
+  or not", which dereferences nil on error; the close now follows the error
+  check. Handler Shape names the trigger for v1 versus v2 request decoding.
+- `go-code-review` and `pre-review.sh` reported a missing golangci-lint as
+  `skipped`, the word the gate reserves for a deliberate omission; both now say
+  `unavailable`, and the pre-review summary reads `INCOMPLETE` in that case.
+  The review's Automated Checks listed its own partial gate with `-race`
+  conditional on goroutines; it now reports the go-linting gate result.
+- The go-code-refactor Concision Gate made any production-LOC growth a hard
+  failure while three other passages accepted growth with a reason. `loc-diff`
+  exit 1 is now a signal that the report must justify; `loc-baseline` and
+  `loc-diff` are in Workflow steps 1 and 5, where the gate expected them.
+- `go-code` carried its own paraphrase of the seven-rung restraint ladder that
+  1.5.0 had removed, plus a 42-line essay of rules owned by other skills; both
+  are routes now. Every task now lists `go-linting` in Resource Routing.
+- Non-compiling examples fixed: the `slogtest` file in LOGGING-PATTERNS.md, the
+  "Bug! This compiles" channel example that did not compile, a
+  declaration-plus-statement block in GOROUTINE-PATTERNS.md, the WEB-SERVER
+  example's missing `User` and `NewDBStore`, the table-test asset's package
+  mismatch, and `SafeCounter` in go-data-structures.
+- `go-documentation/references/FORMATTING.md` taught pre-Go 1.19 Godoc syntax
+  (headings without `#`, lists as verbatim blocks, no `[Name]` links); it now
+  teaches the syntax `gofmt` rewrites comments into.
+- `BEHAVIOR-TRAPS.md` linked a heading anchor that did not exist; CI and
+  `TestCrossRefs` now check anchors, not just paths.
+- `bench-compare.sh --json` reported `"exit_code":0` for a package without
+  benchmarks while the process exited 1; the JSON now carries `status` and the
+  script's own exit code (v1.2.0).
+- `go-linting` presented `appendclipped`/`slicesdelete` as `go fix` flags; they
+  belong to gopls's modernize suite. The modernizers are `go fix` analyzers
+  since 1.26, not 1.27; the pre-commit snippet lints only the staged change
+  (`--new-from-rev=HEAD`); `govulncheck` is pinned through the `tool` directive.
+
+### Added
+
+- `abrun` records the modernizations `go fix -diff` still proposes for the
+  fixture package: `fix_hunks_before` on the fixture as shipped, `fix_hunks`
+  after the last turn, with hunks in `*_test.go` skipped so the count follows
+  the same production-only rule as `lines`. It is the one reading of "reaches
+  for what the toolchain already ships" that costs nothing and needs no rubric
+  — the analyzers decide. `go fix -diff` exits non-zero exactly when the diff
+  is not empty, so an empty diff from a package that does not type-check is
+  recorded as unmeasured (`fix_hunks_unmeasured`) rather than as a clean zero,
+  and the summary averages the pair only over the valid runs it could read at
+  both ends.
+- First A/B control on Haiku, closing the "check on Haiku, Sonnet and Opus"
+  gap in the skill-authoring guidance:
+  [`docs/evidence/2026-09-10-go-refactor-control-haiku-4-5.md`](docs/evidence/2026-09-10-go-refactor-control-haiku-4-5.md).
+  n=1 per fixture and arm supports no structural claim, and the finding is
+  categorical instead: `go-code-refactor` reached 1 of 4 baseline sessions
+  against 19/20 on Opus 5 and 20/20 on codex, with the arm loading correctly
+  in every one. On this tier a wording comparison measures the router, and the
+  1.6.0 routing gate does not fire in a session that never loaded `go-code`.
+  Its same-conditions pair on Sonnet 5 at medium effort —
+  [`docs/evidence/2026-09-10-go-refactor-control-sonnet-5-medium.md`](docs/evidence/2026-09-10-go-refactor-control-sonnet-5-medium.md),
+  same seed, tree, digest and day — reached 4/4 and settles that the Haiku
+  number belongs to the tier and not to the arm. 8/8 valid there, correctness
+  tied at 4/4, gate 4/4 against 2/4, −15.8 lines against −6.2 with `report`
+  rewritten to its original size while the control grew 14; one repetition, so
+  a direction to spend n=5 on rather than an effect. The same run at
+  `-effort high` —
+  [`docs/evidence/2026-09-10-go-refactor-control-sonnet-5-high.md`](docs/evidence/2026-09-10-go-refactor-control-sonnet-5-high.md)
+  — closes that gap to −1.8: the unaided control gains 3.3 lines of concision
+  and the skilled arm loses 4.6, and on `report` both arms grow by 12 lines
+  where medium's skilled arm held the original size. Routing goes the other
+  way, 4/4 with eleven skill loads against five, which is firing rate and
+  measured outcome separating again. Effort is a condition a control has to
+  hold fixed and name.
+
+### Changed
+
+- One verification gate, one order, one vocabulary. `go-linting` owns the
+  command order (gofmt, build, vet, test -race, fix -diff, lint, govulncheck)
+  and the states `pass` / `fail` / `unavailable (reason)` / `skipped (reason)`;
+  `go-verify`, `go-code`, `go-code-review`, and `go-code-refactor` follow it
+  instead of restating it. The convention-file list (`AGENTS.md`, `CLAUDE.md`,
+  `CONTRIBUTING.md`, `.golangci.yml`, CI, neighboring code) lives once in
+  `go-style-core` House Style Wins.
+- Rules returned to their owners: typed nil to `go-defensive`; nesting and
+  `if`-init scope and log levels out of `go-error-handling`'s references;
+  `util`/`common` package names to `go-naming`; embedding in public structs and
+  generic-method interface satisfaction to `go-interfaces` (new ownership row);
+  the handler exception to handle-once stated once in `go-error-handling` and
+  routed from `go-logging`, `go-http`, and `go-context`; pprof capture out of
+  BENCHMARKS.md into `go-troubleshooting`; `govulncheck` added to the gate row.
+- Eleven Quick Reference tables that restated their skill's headings are gone
+  (about 130 lines); the two facts that lived only there — the `t.Parallel()`
+  default and the `Enabled()` guard — moved into sections. `go-security` keeps
+  its table for the gosec IDs, with the false G401/G501 claim for
+  `sha256.Sum256(password)` corrected.
+- Two-default rules now name the trigger: constructor return type (interface
+  only when pre-existing and consumer- or stdlib-owned), receiver type (the
+  RECEIVER-TYPE list), preallocation (known `len` at the call site), request
+  decoding (new endpoint → v2), logger placement (context for handler chains,
+  parameter for libraries).
+- `go-resilience` gains its first code: a compile-tested `retry` with capped
+  jitter, a `Retry-After` floor, and cancellation-aware waiting.
+- `go-functions` routes `ctx` placement to `go-context` and adds the
+  `iter.Seq[T]` versus `[]T` return decision; `go-packages` gains `cmd/` and
+  `internal/` layout guidance; `go-concurrency` and the symptom catalog name
+  the GA `goroutineleak` profile.
+- Every reference now starts with the provenance header (`Sources`,
+  `Authority`, `Last verified`); 43 lacked it. `TestLongReferenceTOCs` enforces
+  it, and `TestStructure` derives the `> Compatibility:` requirement from any
+  inline `Go 1.NN` claim instead of a hardcoded list, which added the note to
+  `go-code`, `go-linting`, `go-packages`, `go-performance`, `go-documentation`,
+  and `go-functions`.
+- Compile tests now cover every skill that ships Go: `skill_examples_test.go`
+  adds 19 example tests (SSRF, TLS, retry, slogtest, the web server, goroutine
+  patterns, struct tags, `os.Root`, self-referential constraints, interface
+  assertions, test helpers, both assets, the `run` pattern, the rows loop, byte
+  reuse). Eleven skills previously had none.
+- `check-errors.sh` (v1.2.0) no longer flags a bare `return err` by default —
+  the skill allows it when annotation adds nothing; `--bare-return` opts in.
+- `hooks/go-vet-on-edit.sh` parses the payload as JSON, reports `go fix -diff`
+  for the edited package (report only, never applied), and has a behavioral
+  test, `TestVetHook`. `hooks/go-code-routing.sh` hints fire on
+  decision-bearing syntax only (a `%w` wrap, `context.With*`, `go func`), not
+  on every `fmt.Errorf` or `http.` token, and cover six more owners; the
+  routing table in `go-code` stays authoritative.
+- The bundled `golangci.yml` enables `modernize`; `setup-lint.sh` verifies the
+  generated config before the first run. CI runs the eval suite with
+  `-race -shuffle=on` and checks Markdown anchors.
+- `docs/SKILL_AUTHORING_TEMPLATE.md` requires the provenance header on every
+  reference and asks for short, paired examples that the `exampleBlock` tests
+  compile.
+
 ## [1.6.1] - 2026-09-10
 
 ### Fixed

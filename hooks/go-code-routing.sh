@@ -12,6 +12,16 @@
 #                                     most once per session, so a retry always
 #                                     passes: the gate reminds, it cannot deadlock.
 #
+# The owner hints below are heuristics: regular expressions over the edited
+# text that recognize the decision-bearing forms of fourteen owners (error
+# wrapping, goroutines, context creation, SQL, slog, exec/templates, defer,
+# type parameters, interfaces, collections, main, retries, HTTP, tests).
+# Routine syntax — a plain fmt.Errorf("%v"), r.Context(), an http.StatusOK in a
+# comment — must not fire. The routing table in skills/go-code/SKILL.md
+# ("Route Before The First Edit") is authoritative: it covers owners no regex
+# can see (naming, documentation, functions, performance, refactor, linting,
+# troubleshooting) and its "Also load" conditions; this gate only reminds.
+#
 # Sessions that never loaded go-code are never touched. State lives under
 # CLAUDE_PLUGIN_DATA when the host provides it, else under TMPDIR.
 set -u
@@ -37,17 +47,30 @@ for e in ti.get("edits") or []:
 hints = []
 if path.endswith("_test.go"):
     hints.append("go-testing")
+# Heuristics, one decision-bearing pattern per owner. go-code/SKILL.md owns
+# the routing decision; keep each regex narrow enough that ordinary syntax
+# (fmt.Errorf with %v, r.Context(), http.StatusOK, "<-" inside a string)
+# does not name an owner.
 for owner, pat in [
-    ("go-http", r"\bnet/http\b|\bhttp\."),
-    ("go-error-handling", r"fmt\.Errorf\(|\berrors\."),
-    ("go-concurrency", r"\bgo func\b|\bchan\b|\bsync\.|<-"),
-    ("go-context", r"\bcontext\."),
-    ("go-database", r"database/sql|\bsql\.|\bpgx\b"),
+    ("go-http", r"\bnet/http\b|\bhttp\.(Handle|HandleFunc|Server\b|Client\b|NewServeMux|NewRequest|ResponseWriter|Error|ListenAndServe|Redirect|StatusCode)"),
+    ("go-error-handling", r"fmt\.Errorf\([^)]*%w|\berrors\.(Is|As|AsType|Join|New)\("),
+    ("go-concurrency", r"\bgo\s+func\b|\bgo\s+[A-Za-z_]\w*\(|\bmake\(chan\b|\bchan\s|\bsync\.(Mutex|RWMutex|WaitGroup|Once|Map)\b"),
+    ("go-context", r"\bcontext\.(Background|TODO|With[A-Za-z]+|Context)\b"),
+    ("go-database", r"database/sql|\bsql\.(Open|DB|Tx|Rows|Null)\b|\bpgx(pool)?\."),
     ("go-logging", r"\bslog\."),
-    ("go-security", r"os/exec|html/template|\bcrypto/"),
+    ("go-security", r"os/exec|html/template|text/template|\bcrypto/|\bexec\.Command|\bhttp\.(SetCookie|Cookie)\b|\bfilepath\.Join\("),
+    ("go-defensive", r"\bdefer\s|\bunsafe\."),
+    ("go-generics", r"\[[A-Z][A-Za-z0-9]*\s+(any|comparable|~|[A-Za-z]+\.[A-Za-z]+)\b"),
+    ("go-interfaces", r"\binterface\s*\{"),
+    ("go-data-structures", r"\bmake\(\[\]|\bmake\(map\b|\bappend\("),
+    ("go-packages", r"^package main\b|\bfunc main\("),
+    ("go-resilience", r"x/time/rate|\bbackoff\b|\bRetry-After\b"),
 ]:
-    if re.search(pat, text):
+    if re.search(pat, text, re.M):
         hints.append(owner)
+# Mirror the go-code HTTP row: handlers always load go-error-handling too.
+if "go-http" in hints and "go-error-handling" not in hints:
+    hints.append("go-error-handling")
 for v in (d.get("hook_event_name") or "", d.get("session_id") or "",
           d.get("tool_name") or "", skill, path, " ".join(hints)):
     print(v.replace("\n", " "))
@@ -97,7 +120,8 @@ PreToolUse)
     cat >&2 <<EOF
 go-code routing gate: this session loaded go-code but not: ${missing% }
 Load them before editing Go files, then retry this edit. In Claude Code that is
-one Skill call per name. This reminder names each skill once per session.
+one Skill call per name. This reminder names each skill once per session; the
+routing table in go-code/SKILL.md decides, these hints only remind.
 EOF
     exit 2
     ;;

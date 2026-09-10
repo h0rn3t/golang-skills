@@ -1,6 +1,8 @@
 # Global State Patterns
 
-> **Source**: Google Style Guide, Effective Go
+> Sources: source/google-go-styleguide/best-practices.md (Global state); source/effective-go/effective_go.html (Initialization)
+> Authority: advisory
+> Last verified: 2026-09-10
 
 Global state makes programs harder to test, reason about, and maintain.
 Dependency injection is the preferred alternative, but some global state

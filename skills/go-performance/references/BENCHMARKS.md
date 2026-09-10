@@ -1,5 +1,10 @@
 # Benchmark Methodology
 
+> Sources: https://pkg.go.dev/testing#hdr-Benchmarks; https://pkg.go.dev/golang.org/x/perf/cmd/benchstat
+> Authority: advisory; `testing.B` semantics normative
+> Minimum Go: `b.Loop` 1.24
+> Last verified: 2026-09-10
+
 ## Contents
 
 - [Writing Benchmarks](#writing-benchmarks)
@@ -7,7 +12,7 @@
 - [Interpreting Results](#interpreting-results)
 - [Using benchstat for Comparison](#using-benchstat-for-comparison)
 - [Benchmark Examples from Performance Patterns](#benchmark-examples-from-performance-patterns)
-- [Profiling with pprof](#profiling-with-pprof)
+- [Profiles from Benchmarks](#profiles-from-benchmarks)
 - [Common Mistakes](#common-mistakes)
 
 ## Writing Benchmarks
@@ -37,9 +42,10 @@ func BenchmarkFmtSprint(b *testing.B) {
 Key rules:
 - Use `b.Loop()`. You will still meet `for i := 0; i < b.N; i++` in existing
   benchmarks — read it, but do not write it in new code
-- Assign results to a variable (or `_`) to prevent the compiler from
-  optimizing away the call
-- Use `b.ResetTimer()` after expensive setup that shouldn't be measured
+- Inside `for b.Loop()` results stay live without a sink; keep `_ = x` only
+  in `b.N` loops and `RunParallel` (see Compiler Elision below)
+- `b.Loop()` resets the timer on its first call, so setup before the loop is
+  excluded automatically; `b.ResetTimer()` is for `b.N` loops
 - Use `b.ReportAllocs()` or the `-benchmem` flag for allocation tracking
 
 ### Sub-benchmarks
@@ -49,7 +55,6 @@ func BenchmarkConvert(b *testing.B) {
     for _, size := range []int{10, 100, 1000} {
         b.Run(fmt.Sprintf("size=%d", size), func(b *testing.B) {
             data := make([]byte, size)
-            b.ResetTimer()
             for b.Loop() {
                 _ = string(data)
             }
@@ -198,61 +203,21 @@ not a universal speedup factor.
 
 ---
 
-## Profiling with pprof
+## Profiles from Benchmarks
 
-Use `pprof` to identify bottlenecks before optimizing. Benchmarks measure
-improvement; pprof finds where to improve.
-
-### CPU Profiling
+A benchmark says how much; a profile says where. Capture both from the same
+run, then read the profile with `go tool pprof`:
 
 ```bash
-# Generate a CPU profile from benchmarks
-go test -bench=BenchmarkHotPath -cpuprofile=cpu.prof ./...
-
-# Analyze with pprof
-go tool pprof cpu.prof
+go test -bench=BenchmarkHotPath -cpuprofile=cpu.prof -memprofile=mem.prof ./...
+go tool pprof -top cpu.prof            # or: -alloc_space mem.prof
 ```
 
-Common pprof commands:
-
-```
-(pprof) top10          # Top 10 functions by CPU time
-(pprof) list funcName  # Annotated source for a function
-(pprof) web            # Interactive graph in browser
-```
-
-### Memory Profiling
-
-```bash
-# Generate a memory profile
-go test -bench=BenchmarkHotPath -memprofile=mem.prof ./...
-
-# Analyze allocations
-go tool pprof -alloc_space mem.prof
-```
-
-### HTTP Profiling for Running Services
-
-```go
-import _ "net/http/pprof"
-
-func main() {
-    go func() {
-        log.Println(http.ListenAndServe("localhost:6060", nil))
-    }()
-    // ... application code ...
-}
-```
-
-Access profiles at `http://localhost:6060/debug/pprof/`.
-
-### Profiling Workflow
-
-1. **Benchmark** the suspected hot path
-2. **Profile** with pprof to confirm where time is spent
-3. **Optimize** using patterns from this skill
-4. **Re-benchmark** to verify improvement with benchstat
-5. **Re-profile** to check for new bottlenecks
+Profiling a running service, `pprof` endpoints, execution traces, and reading
+the output belong to
+[go-troubleshooting](../../go-troubleshooting/references/DIAGNOSTIC-TOOLS.md).
+Re-benchmark after each change and compare with `benchstat`; then re-profile
+for the next bottleneck.
 
 ---
 

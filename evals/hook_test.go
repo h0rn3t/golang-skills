@@ -188,4 +188,158 @@ func TestRoutingGate(t *testing.T) {
 			t.Fatalf("another session's Go edit: exit %d, stderr %q; want silent 0", code, msg)
 		}
 	})
+
+	// The hints are heuristics for decision-bearing forms. Routine syntax that
+	// go-code's router says does not trigger a load — fmt.Errorf with %v, an
+	// http constant in a comment — must leave the gate silent.
+	t.Run("routine syntax names no owner", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		for _, skill := range []string{"go-code", "go-style-core"} {
+			hookEvent(t, script, state, routingPayload("PostToolUse", "s6", "Skill", map[string]any{"skill": skill}))
+		}
+		routine := "package store\n\n// Save maps a miss to http.StatusOK.\nfunc (s *Store) Save() error {\n\treturn fmt.Errorf(\"x: %v\", err)\n}\n"
+		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "s6", "Write",
+			map[string]any{"file_path": "/repo/store/save.go", "content": routine}))
+		if code != 0 || msg != "" {
+			t.Fatalf("fmt.Errorf(%%v) and http.StatusOK in a comment: exit %d, stderr %q; want silent 0", code, msg)
+		}
+	})
+
+	t.Run("decision-bearing forms name their owner", func(t *testing.T) {
+		t.Parallel()
+		cases := []struct {
+			name, session, path, content, owner string
+		}{
+			{"type parameter list", "s7", "/repo/x/map_test.go",
+				"package x\n\nfunc Map[T any](xs []T) []T { return xs }\n", "go-generics"},
+			{"pgxpool", "s8", "/repo/x/db.go",
+				"package x\n\nfunc open(dsn string) (*pgxpool.Pool, error) {\n\treturn pgxpool.New(ctx, dsn)\n}\n", "go-database"},
+			{"defer", "s9", "/repo/x/read.go",
+				"package x\n\nfunc read(f *os.File) {\n\tdefer f.Close()\n}\n", "go-defensive"},
+		}
+		for _, tc := range cases {
+			tc := tc
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+				state := t.TempDir()
+				hookEvent(t, script, state, routingPayload("PostToolUse", tc.session, "Skill", map[string]any{"skill": "go-code"}))
+				code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", tc.session, "Write",
+					map[string]any{"file_path": tc.path, "content": tc.content}))
+				if code != 2 || !strings.Contains(msg, tc.owner) {
+					t.Fatalf("%s edit: exit %d, stderr %q; want 2 naming %s", tc.name, code, msg, tc.owner)
+				}
+			})
+		}
+	})
+}
+
+// TestVetHook drives the PostToolUse vet hook against throwaway modules:
+// gofmt, go vet, and go fix -diff findings reach stderr with exit 2; a clean
+// file and a non-Go path stay silent with exit 0.
+func TestVetHook(t *testing.T) {
+	t.Parallel()
+	script := filepath.Join(repoRoot(t), "hooks", "go-vet-on-edit.sh")
+
+	// module writes a one-file module in a fresh temp dir and returns the
+	// absolute path of main.go, the file the payload names.
+	module := func(t *testing.T, src string) string {
+		t.Helper()
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module scratch\n\ngo 1.27\n"), 0o644); err != nil {
+			t.Fatalf("write go.mod: %v", err)
+		}
+		path := filepath.Join(dir, "main.go")
+		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+			t.Fatalf("write main.go: %v", err)
+		}
+		return path
+	}
+	edited := func(path string) map[string]any {
+		return routingPayload("PostToolUse", "v1", "Write", map[string]any{"file_path": path})
+	}
+	clean := "package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"hi\")\n}\n"
+
+	t.Run("unformatted file", func(t *testing.T) {
+		t.Parallel()
+		path := module(t, "package main\n\nfunc main() {\n  x := 1\n_ = x\n}\n")
+		code, msg := hookEvent(t, script, t.TempDir(), edited(path))
+		if code != 2 || !strings.Contains(msg, "gofmt:") {
+			t.Fatalf("unformatted file: exit %d, stderr %q; want 2 naming gofmt:", code, msg)
+		}
+	})
+
+	t.Run("clean file", func(t *testing.T) {
+		t.Parallel()
+		path := module(t, clean)
+		if code, msg := hookEvent(t, script, t.TempDir(), edited(path)); code != 0 || msg != "" {
+			t.Fatalf("clean file: exit %d, stderr %q; want silent 0", code, msg)
+		}
+	})
+
+	t.Run("non-Go path", func(t *testing.T) {
+		t.Parallel()
+		path := filepath.Join(t.TempDir(), "README.md")
+		if err := os.WriteFile(path, []byte("  not gofmt material\n"), 0o644); err != nil {
+			t.Fatalf("write README.md: %v", err)
+		}
+		if code, msg := hookEvent(t, script, t.TempDir(), edited(path)); code != 0 || msg != "" {
+			t.Fatalf("Markdown edit: exit %d, stderr %q; want silent 0", code, msg)
+		}
+		missing := filepath.Join(t.TempDir(), "gone.go")
+		if code, msg := hookEvent(t, script, t.TempDir(), edited(missing)); code != 0 || msg != "" {
+			t.Fatalf("deleted .go file: exit %d, stderr %q; want silent 0", code, msg)
+		}
+	})
+
+	// go fix -diff on go1.27 rewrites a counted loop to range-over-int; the
+	// file is gofmt-clean and vets clean, so the diff is the only finding.
+	t.Run("modernizable loop", func(t *testing.T) {
+		t.Parallel()
+		path := module(t, "package main\n\nimport \"fmt\"\n\nfunc main() {\n\tn := 3\n\tfor i := 0; i < n; i++ {\n\t\tfmt.Println(i)\n\t}\n}\n")
+		code, msg := hookEvent(t, script, t.TempDir(), edited(path))
+		if code != 2 || !strings.Contains(msg, "go fix -diff") || !strings.Contains(msg, "range n") {
+			t.Fatalf("pre-1.22 loop: exit %d, stderr %q; want 2 with a go fix -diff section rewriting to range n", code, msg)
+		}
+		for _, unwanted := range []string{"gofmt:", "go vet"} {
+			if strings.Contains(msg, unwanted) {
+				t.Errorf("clean-but-modernizable file must not report %s:\n%s", unwanted, msg)
+			}
+		}
+	})
+
+	t.Run("vet failure", func(t *testing.T) {
+		t.Parallel()
+		path := module(t, "package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Printf(\"%d\\n\", \"s\")\n}\n")
+		code, msg := hookEvent(t, script, t.TempDir(), edited(path))
+		if code != 2 || !strings.Contains(msg, "go vet") {
+			t.Fatalf("printf misuse: exit %d, stderr %q; want 2 naming go vet", code, msg)
+		}
+	})
+
+	// A compile error is reported once, by go vet; go fix would restate it.
+	t.Run("compile error reported once", func(t *testing.T) {
+		t.Parallel()
+		path := module(t, "package main\n\nfunc main() {\n\tx := undefined\n}\n")
+		code, msg := hookEvent(t, script, t.TempDir(), edited(path))
+		if code != 2 || !strings.Contains(msg, "go vet") {
+			t.Fatalf("compile error: exit %d, stderr %q; want 2 naming go vet", code, msg)
+		}
+		if strings.Contains(msg, "go fix -diff") {
+			t.Errorf("go fix must not restate a compile error go vet already reported:\n%s", msg)
+		}
+	})
+
+	// The payload is JSON: a "file_path" string inside the written content
+	// must not redirect the hook away from tool_input.file_path.
+	t.Run("parses the payload as JSON", func(t *testing.T) {
+		t.Parallel()
+		path := module(t, "package main\n\nfunc main() {\n  x := 1\n_ = x\n}\n")
+		payload := edited(path)
+		payload["tool_input"].(map[string]any)["content"] = "// {\"file_path\": \"/decoy/other.go\"}\n"
+		code, msg := hookEvent(t, script, t.TempDir(), payload)
+		if code != 2 || !strings.Contains(msg, "gofmt: "+path) {
+			t.Fatalf("payload with a decoy path in content: exit %d, stderr %q; want 2 naming %s", code, msg, path)
+		}
+	})
 }

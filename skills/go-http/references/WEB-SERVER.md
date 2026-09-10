@@ -1,5 +1,10 @@
 # Web Server: Skills Applied Together
 
+> Sources: https://pkg.go.dev/net/http; the owner skills each section names
+> Authority: project policy (a composition example, not a rule source)
+> Minimum Go: `ServeMux` patterns 1.22; `CrossOriginProtection` 1.25
+> Last verified: 2026-09-10
+
 This example shows how Go skills integrate in a real HTTP server. Each section
 references the relevant skill for detailed guidance.
 
@@ -26,6 +31,22 @@ import (
 // package, not the implementation package.
 type Store interface {
     GetUser(ctx context.Context, id string) (*User, error)
+}
+
+// User is the API's user record.
+type User struct {
+    ID   string `json:"id"`
+    Name string `json:"name"`
+}
+
+// dbStore is the production Store; the body is elided here.
+type dbStore struct{ dsn string }
+
+// NewDBStore returns the Store backed by the database at dsn (go-database).
+func NewDBStore(dsn string) Store { return &dbStore{dsn: dsn} }
+
+func (s *dbStore) GetUser(ctx context.Context, id string) (*User, error) {
+    return nil, ErrNotFound // real query: go-database
 }
 
 // --- Types and constructors (go-naming, go-style-core) ---
@@ -62,8 +83,9 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
             http.Error(w, "user not found", http.StatusNotFound)
             return  // go-style-core: early return
         }
-        // HTTP handlers are an exception to "log OR return": log detail server-side, return sanitized error to client.
-        slog.Error("GetUser failed", "id", id, "err", err)
+        // The handler exception to handle-once (go-error-handling): log the
+        // detail server-side, answer with a status, never the error text.
+        slog.ErrorContext(ctx, "GetUser failed", "id", id, "err", err)
         http.Error(w, "internal error", http.StatusInternalServerError)
         return
     }
@@ -94,7 +116,7 @@ func run() error {
 
     httpSrv := &http.Server{
         Addr: ":8080",
-        // go-defensive: origin check for state-changing requests (Go 1.25+)
+        // go-http: origin check for state-changing requests (Go 1.25+)
         Handler:           http.NewCrossOriginProtection().Handler(srv.router),
         ReadHeaderTimeout: 5 * time.Second,  // go-defensive: use time.Duration
         ReadTimeout:       10 * time.Second,

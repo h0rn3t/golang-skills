@@ -1,7 +1,11 @@
 # Extensible Validation APIs
 
+> Sources: source/google-go-styleguide/best-practices.md (Validation APIs)
+> Authority: advisory
+> Last verified: 2026-09-10
+
 Detailed reference for designing reusable test validation functions that callers
-can use for acceptance testing. Sources: Google Go Style Guide (best-practices).
+can use for acceptance testing.
 
 ---
 

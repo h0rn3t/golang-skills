@@ -1,6 +1,9 @@
 # Type Constraints in Go Generics
 
-> **Sources**: Google Go Style Guide, Go language specification
+> Sources: https://go.dev/ref/spec#Type_constraints; https://pkg.go.dev/cmp; source/google-go-styleguide/guide.md
+> Authority: normative for constraint semantics
+> Minimum Go: `cmp.Ordered` 1.21
+> Last verified: 2026-09-10
 
 Constraints define what operations a type parameter supports. Choose the
 narrowest constraint that satisfies your function's needs — no more.
@@ -17,8 +20,9 @@ narrowest constraint that satisfies your function's needs — no more.
 | `comparable` | Supports `==` and `!=`; required for map keys |
 | `cmp.Ordered` | Supports `<`, `<=`, `>=`, `>` (Go 1.21+, replaces `constraints.Ordered`) |
 
-Prefer `cmp.Ordered` (from `cmp` package) over the deprecated
-`golang.org/x/exp/constraints.Ordered` for new code.
+Prefer `cmp.Ordered` over `golang.org/x/exp/constraints.Ordered` for new
+code; the `x/exp` type carries no `Deprecated` marker but its documentation
+calls it redundant since Go 1.21.
 
 ---
 

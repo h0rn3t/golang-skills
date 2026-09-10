@@ -3,7 +3,7 @@
 > Sources: source/google-go-styleguide/best-practices.md; source/uber-go-style/style.md; [Go comparison rules](https://go.dev/ref/spec#Comparison_operators); [Go compatibility](https://go.dev/doc/go1compat)
 > Authority: project policy
 > Minimum Go: any supported Go version
-> Last revised: 2026-09-08 (project policy)
+> Last verified: 2026-09-10
 
 Both functional options and config structs solve the same problem — optional
 configuration for constructors — but they have different trade-offs. Choose

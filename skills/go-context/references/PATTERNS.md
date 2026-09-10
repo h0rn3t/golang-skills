@@ -1,5 +1,9 @@
 # Context Patterns
 
+> Sources: https://pkg.go.dev/context; source/golang-wiki/CodeReviewComments.md (Contexts)
+> Authority: advisory; `context` API semantics follow the package documentation
+> Last verified: 2026-09-10
+
 Common patterns for deriving, checking, and propagating `context.Context`.
 
 ## Contents
@@ -188,8 +192,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
             // The incoming request itself was cancelled; no response is needed.
             return
         }
-        // Handlers are the exception to "log OR return": log the detail
-        // server-side, return a sanitized status to the client.
+        // The handler exception to handle-once (go-error-handling owns it):
+        // log the detail server-side, answer with a status.
         slog.ErrorContext(ctx, "slow operation failed", "err", err)
         http.Error(w, "internal error", http.StatusInternalServerError)
         return

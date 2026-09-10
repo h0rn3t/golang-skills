@@ -1,6 +1,8 @@
 # Embedding Patterns in Go
 
-> **Sources**: Effective Go, Uber Style Guide
+> Sources: source/effective-go/effective_go.html (Embedding); source/uber-go-style/style.md (Avoid Embedding Types in Public Structs)
+> Authority: advisory
+> Last verified: 2026-09-10
 
 Go uses embedding for composition instead of inheritance. Embedding promotes
 the inner type's methods to the outer type, satisfying interfaces automatically.

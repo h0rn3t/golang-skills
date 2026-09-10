@@ -1,5 +1,9 @@
 # Style Principles Reference
 
+> Sources: source/google-go-styleguide/guide.md (Style principles)
+> Authority: advisory
+> Last verified: 2026-09-10
+
 ## 1. Clarity
 
 The code's purpose and rationale must be clear to the reader.

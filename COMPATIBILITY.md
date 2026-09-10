@@ -25,7 +25,11 @@ go tool vet help                                      # available vet analyzers
 
 `go vet` runs the `stdversion` analyzer, which reports uses of standard-library
 symbols newer than the `go` directive in `go.mod`. That is the enforcement
-mechanism — set `go 1.27` in `go.mod` and let vet catch the rest.
+mechanism for **library** claims — set `go 1.27` in `go.mod` and let vet catch
+the rest. It does not cover **language** features: generic methods and
+function-type inference (1.27), `new(expr)` and self-referential constraints
+(1.26) compile on a 1.27 toolchain whatever the directive says and fail only on
+a real older toolchain. Verify those on the CI toolchain.
 
 ## Language features by version
 

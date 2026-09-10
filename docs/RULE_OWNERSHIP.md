@@ -7,12 +7,13 @@ owner with a short pointer instead of repeating a full explanation.
 |---|---|---|---|
 | Interface placement and shape | `go-interfaces` | `go-code-review`, `go-style-core`, `go-defensive` | Go CodeReviewComments `Interfaces`; Effective Go interface names |
 | Compile-time interface assertions | `go-interfaces` | `go-defensive`, `go-style-core` | Uber `Verify Interface Compliance`; Effective Go blank identifier |
+| Embedding in public structs; generic methods and interface satisfaction | `go-interfaces` | `go-defensive`, `go-generics` | Uber `Avoid Embedding Types in Public Structs`; Effective Go embedding; Go 1.27 generic methods |
 | Context parameter placement and values | `go-context` | `go-concurrency`, `go-code-review`, `go-logging`, `go-testing` | Go CodeReviewComments `Contexts`; Google documentation conventions |
 | Goroutine lifetime and synchronization | `go-concurrency` | `go-context`, `go-code-review`, `go-testing` | Go CodeReviewComments `Goroutine Lifetimes`; Uber goroutine guidance |
 | Error matching, wrapping, and ownership | `go-error-handling` | `go-code-review`, `go-logging`, `go-defensive` | Uber `Errors`; Go CodeReviewComments `Handle Errors` |
 | Log levels and structured logging | `go-logging` | `go-error-handling`, `go-code-review`, `go-context` | Google logging best practices; `log/slog` docs |
 | Documentation comments and examples | `go-documentation` | all skills that add exported APIs | Google doc comments; Go CodeReviewComments `Doc Comments` |
-| Naming, initialisms, receivers, packages | `go-naming` | `go-packages`, `go-interfaces`, `go-functions` | Effective Go naming; Go CodeReviewComments naming sections; Google naming decisions |
+| Naming, initialisms, receivers, packages, sentinel and error-type names (`ErrX`, `XError`) | `go-naming` | `go-packages`, `go-interfaces`, `go-functions`, `go-error-handling` | Effective Go naming; Go CodeReviewComments naming sections; Google naming decisions; `errname` |
 | Pointers to interfaces | `go-functions` | `go-interfaces`, `go-code-review` | Uber `Pointers to Interfaces`; Go CodeReviewComments `Pass Values` |
 | Declarations, literals, initialization | `go-style-core` | `go-data-structures`, `go-code-review` | Google declarations decisions; Uber initialization guidance |
 | Statement scope, shadowing, loop/range mechanics, switch exits, and blank identifiers | `go-style-core` | `go-code`, `go-data-structures`, `go-naming` | Go specification; Effective Go control statements |
@@ -25,7 +26,7 @@ owner with a short pointer instead of repeating a full explanation.
 | Table tests, helpers, integration tests | `go-testing` | `go-code-review`, `go-documentation` | Google testing best practices; Uber test tables |
 | Package structure, imports, main/run pattern | `go-packages` | `go-code-review`, `go-naming` | Go CodeReviewComments package names/imports; Uber exit-in-main guidance |
 | Dependency selection and the stdlib-first ladder | `go-packages` | `go-logging`, `go-error-handling`, `go-performance` | `COMPATIBILITY.md`; Go 1.27 standard library |
-| Verification gate (`gofmt`/`vet`/`test -race`/`go fix`/lint) | `go-linting` | `go-code-review`, `go-style-core`, `go-testing`, `go-concurrency`, `go-error-handling`, `go-code-refactor` | `go tool vet help`; `go tool fix help`; golangci-lint v2 |
+| Verification gate (`gofmt`/`vet`/`test -race`/`go fix`/lint/`govulncheck`) | `go-linting` | `go-code-review`, `go-style-core`, `go-testing`, `go-concurrency`, `go-error-handling`, `go-code-refactor` | `go tool vet help`; `go tool fix help`; golangci-lint v2 |
 | Behavior-preserving refactor workflow and modernization tiers | `go-code-refactor` | `go-style-core`, `go-code-review` | Google readability hierarchy; `go tool fix help`; verified `api/go1.2*.txt` deltas |
 | Restraint ladder, reach-for table, ship-then-question write rules, over-engineering audit, cut tags, and the `Kept:` shortcut ledger | `go-code-refactor` | `go-code`, `go-code-review`, `go-style-core` | Go CodeReviewComments `Interfaces`; Uber `Avoid Embedding Types`; stdlib replacements in `COMPATIBILITY.md` |
 | Delete first: line count as the instrument, readability as the goal; delete, then shorten, then restructure | `go-code-refactor` | `go-code`, `go-code-review` | ponytail (DietrichGebert); Google `Least mechanism`, with `Concision` third in its hierarchy — readability stays the goal |
@@ -49,7 +50,7 @@ owner with a short pointer instead of repeating a full explanation.
 | Boundary safety pitfalls: typed nil, `append` aliasing, narrowing conversions, float compare, nil channel, division by zero | `go-defensive` | `go-code`, `go-code-review`, `go-troubleshooting` | Go specification; `gosec` G115; Effective Go |
 | Production observability checklist (metrics shape, trace correlation, done criteria) | `go-logging` | `go-performance`, `go-troubleshooting` | `log/slog` docs; Prometheus histogram guidance |
 | Benchmark discipline (file layout, serial runs, benchstat evidence, perf commits) | `go-performance` | `go-code-review` | Go testing benchmark docs; `benchstat` |
-| Tool directives and dependency audit (`go get -tool`, tidy check, vuln scan trigger) | `go-packages` | `go-linting` | `go help get`; `go help tool` |
+| Tool directives and dependency audit (`go get -tool`, tidy check) | `go-packages` | `go-linting` | `go help get`; `go help tool` |
 | CI pipeline shape (version matrix, test flags, pinned actions, least-privilege permissions) | `go-linting` | `go-testing` | GitHub Actions docs; `go help testflag` |
 
 ## Maintenance Rules
@@ -89,9 +90,10 @@ Deliberate divergence, with the residual risk stated rather than argued away:
   exposure. Accepted for now against the cost of re-pinning on every bump.
 - **No `permissions:` block in `validate-skills.yml`**, so the repository
   default applies. `go-release-watch.yml` sets one at workflow level.
-- **Tests run `go test -count=1 ./...` without `-race -shuffle=on`**, although
-  `eval_test.go` has 45 `t.Parallel()` subtests that write files and exec
-  scripts. This is a gap in the pack's own gate, not a scope mismatch.
+- ~~Tests ran `go test -count=1 ./...` without `-race -shuffle=on`~~ — closed
+  on 2026-09-10; the workflow now runs `go test -count=1 -race -shuffle=on ./...`
+  because `eval_test.go` has dozens of `t.Parallel()` subtests that write
+  files and exec scripts.
 
 `evals/evals.json` quality eval 45 grades a model on flagging exactly this
 shape in a *service* pipeline. That eval is correct as written; it does not

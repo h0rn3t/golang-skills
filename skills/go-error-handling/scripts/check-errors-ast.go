@@ -41,7 +41,9 @@ OPTIONS
     -h, --help       Show this help message
     -v, --version    Show version
     --json           Output results as JSON
-    --no-bare-return Skip the bare 'return err' check (high false-positive rate)
+    --bare-return    Also flag bare 'return err' for review (off by default: the
+                     skill allows a bare return when annotation adds nothing)
+    --no-bare-return Accepted for compatibility; the check is already off
     --limit N        Show at most N results (default: all)
 `, version)
 }
@@ -192,7 +194,7 @@ func analyzeFile(path string, checkBareReturn bool) ([]finding, error) {
 						File:    path,
 						Line:    line,
 						Rule:    "bare-return-err",
-						Message: "returning err without wrapping context; consider fmt.Errorf('...: %w', err)",
+						Message: "bare return err: confirm the caller does not need context this frame could add (fmt.Errorf(\"...: %w\", err))",
 					})
 				}
 			}
@@ -357,7 +359,7 @@ func walkGoFiles(root string) ([]string, error) {
 }
 
 func parseArgs(args []string) (options, error) {
-	opts := options{target: ".", checkBareReturn: true}
+	opts := options{target: ".", checkBareReturn: false}
 	var positionals []string
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -368,6 +370,8 @@ func parseArgs(args []string) (options, error) {
 			opts.version = true
 		case arg == "--json":
 			opts.jsonOutput = true
+		case arg == "--bare-return":
+			opts.checkBareReturn = true
 		case arg == "--no-bare-return":
 			opts.checkBareReturn = false
 		case arg == "--limit":

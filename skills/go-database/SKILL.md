@@ -134,8 +134,8 @@ return nil
 > formatted into SQL with `fmt.Sprintf` or `+` is an injection, full stop.
 
 Identifiers that vary — a sort column, a table suffix — come from an allow-list
-switch in Go, never from input. `gosec` (G201/G202) in the lint gate flags
-string-built queries.
+switch in Go, never from input. `gosec` in the lint gate flags string-built
+queries; [go-security](../go-security/SKILL.md) owns the threat model.
 
 ---
 
@@ -178,20 +178,6 @@ integration harness in
 > `noctx`, and `gosec` from the [go-linting](../go-linting/SKILL.md) baseline,
 > then `go test -race ./...` with the integration tag. Report a skipped
 > integration run as skipped.
-
----
-
-## Quick Reference
-
-| Do | Don't |
-|----|-------|
-| `QueryContext(ctx, ...)` | `Query(...)` |
-| `defer rows.Close()` + `rows.Err()` after the loop | Trust an empty loop |
-| Lookup: `errors.Is(err, sql.ErrNoRows)` → `ErrNotFound` | Leak `sql.ErrNoRows` to handlers |
-| `defer tx.Rollback()`, check `Commit` | Rollback only on the error path |
-| `WHERE id = ANY($1)` | A query per element |
-| `$1` placeholders | `fmt.Sprintf` into SQL |
-| Pool limits set in `run()` | Default unlimited pool |
 
 ---
 

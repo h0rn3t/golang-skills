@@ -3,6 +3,7 @@
 > Sources: source/google-go-styleguide/decisions.md; source/uber-go-style/style.md; COMPATIBILITY.md
 > Authority: project policy for preferred forms; language semantics follow Go
 > Target Go: 1.27
+> Last verified: 2026-09-10
 
 ## Preserve the Value Contract
 

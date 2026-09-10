@@ -15,7 +15,7 @@ description: Use when hardening Go API boundaries or checking slice/map copies, 
 - `references/GLOBAL-STATE.md` - Read when introducing or removing package globals.
 - `references/MUST-FUNCTIONS.md` - Read when deciding whether a panic-on-error helper is acceptable.
 - `references/PANIC-RECOVER.md` - Read when evaluating panic, recover, or crash containment.
-- `references/TIME-ENUMS-TAGS.md` - Read when handling time types, struct tags, or embedding in public structs.
+- `references/TIME-ENUMS-TAGS.md` - Read when handling time types or struct tags.
 - `../go-http/references/JSON-V2.md` - Read when JSON v2 changes nil collections, tags, accepted input, or compatibility at an API boundary (Go 1.27+).
 
 ## Defensive Checklist Priority
@@ -37,29 +37,12 @@ Reviewing an API boundary?
 
 ---
 
-## Quick Reference
-
-| Pattern | Rule | Details |
-|---------|------|---------|
-| Boundary copies | `slices.Clone` / `maps.Clone` on receive and return | [BOUNDARY-COPYING.md](references/BOUNDARY-COPYING.md) |
-| Untrusted paths | `os.Root`, never `filepath.Join` + `os.Open` | Below |
-| Defer cleanup | `defer f.Close()` right after `os.Open` | Below |
-| Interface check | Compile-time satisfaction assertion | See go-interfaces |
-| Time types | `time.Time` / `time.Duration`, never raw int | [TIME-ENUMS-TAGS.md](references/TIME-ENUMS-TAGS.md) |
-| Enum start | Zero value must mean "unset" | See go-style-core |
-| Crypto rand | `crypto/rand` for keys, never `math/rand` | Below |
-| Must functions | Only at init; panic on failure | [MUST-FUNCTIONS.md](references/MUST-FUNCTIONS.md) |
-| Panic/recover | Never expose panics across packages | [PANIC-RECOVER.md](references/PANIC-RECOVER.md) |
-| Mutable globals | Replace with dependency injection | Below |
-
----
-
 ## Common Pitfalls
 
 | Pitfall | Rule |
 |---|---|
-| Typed nil in an interface | Return explicit `nil`; a `*T(nil)` in an `error` slot is non-nil (see [go-error-handling](../go-error-handling/SKILL.md)) |
-| Bare `x.(T)` assertion | Use comma-ok; reflection code prefers `reflect.TypeAssert[T]` (Go 1.25+, see [go-interfaces](../go-interfaces/SKILL.md)) |
+| Typed nil in an interface | A `*T(nil)` stored in an interface — an `error` result, a field of interface type — is non-nil: `err != nil` is true and a call through it dereferences nil. Return a literal `nil`, and declare the result as `error`, not `*MyErr` ([go-error-handling](../go-error-handling/SKILL.md#core-rules) owns the API rule) |
+| Bare `x.(T)` assertion | Comma-ok unless a mismatch is a programming error that should panic ([go-interfaces](../go-interfaces/SKILL.md#type-assertions-comma-ok-idiom)); reflection code prefers `reflect.TypeAssert[T]` (Go 1.25+) |
 | `append` aliasing | Both slices share the backing array while capacity allows. `s[:len(s):len(s)]` only caps capacity so the next `append` reallocates — existing elements still alias; `slices.Clone(s)` is the copy (see [go-data-structures](../go-data-structures/SKILL.md)) |
 | `int64` to `int32` without a bounds check | Values wrap silently; compare against `math.MaxInt32`/`math.MinInt32` first |
 | Float `==` | Use an epsilon comparison; exact money math needs integer units or `math/big` |
@@ -125,6 +108,9 @@ type User struct {
 Field tags are a **serialization contract** — renaming a struct field without
 updating the tag silently breaks wire compatibility. Treat tags as part of
 the public API for any type that crosses a serialization boundary.
+`encoding/json/v2` does not validate tag options: a copied `inline` or
+`unknown` tag compiles and silently nests or drops data (`embed` is the
+released spelling). Assert the encoded bytes in a test.
 
 ## Start Enums at One
 
@@ -132,11 +118,12 @@ An enum's zero value must not pass for a valid member — an unset field then
 reads as a real state at the boundary. [go-style-core](../go-style-core/SKILL.md)
 owns the `iota` form and the exception where zero is the sensible default.
 
-## Time, Struct Tags, and Embedding
+## Time and Embedding
 
-Use `time.Time` and `time.Duration` for instants and spans, tag every
-marshaled field, and avoid embedding types in public structs. See
-[TIME-ENUMS-TAGS.md](references/TIME-ENUMS-TAGS.md).
+Use `time.Time` and `time.Duration` for instants and spans, never raw
+integers ([TIME-ENUMS-TAGS.md](references/TIME-ENUMS-TAGS.md)). Embedding a
+type in a public struct exports its whole method set —
+[go-interfaces](../go-interfaces/SKILL.md#embedding) owns that rule.
 
 ## Avoid Mutable Globals
 
@@ -155,8 +142,9 @@ func newSigner() *signer {
 
 ## Crypto Rand
 
-Do not use `math/rand` or `math/rand/v2` to generate keys — this is a
-**security concern**. Time-seeded generators have predictable output.
+Do not use `math/rand` or `math/rand/v2` to generate keys — both packages
+document their output as predictable regardless of seeding and unsuitable for
+security-sensitive work.
 
 ```go
 import "crypto/rand"
@@ -188,34 +176,18 @@ f, err := root.Open(userSuppliedName) // cannot escape /srv/uploads
 
 ## Panic and Recover
 
-Use `panic` only for truly unrecoverable situations. Library functions
-should avoid panic.
-
-```go
-func safelyDo(work *Work) {
-    defer func() {
-        if err := recover(); err != nil {
-            log.Println("work failed:", err)
-        }
-    }()
-    do(work)
-}
-```
-
-**Key rules:**
-- Never expose panics across package boundaries — always convert to errors
-- Acceptable to panic in `init()` if a library truly cannot set itself up
-- Use recover to isolate panics in server goroutine handlers
+Use `panic` only for truly unrecoverable situations; library functions avoid
+it. Never expose a panic across a package boundary — convert it to an error;
+panicking in `init()` is acceptable only when a library cannot set itself up;
+recover isolates panics in server goroutines. The recover guard and its traps
+are in [PANIC-RECOVER.md](references/PANIC-RECOVER.md).
 
 ## Must Functions
 
 `Must` functions panic on error — use them **only** during program
-initialization where failure means the program cannot run.
-
-```go
-var validID = regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`)
-var tmpl = template.Must(template.ParseFiles("index.html"))
-```
+initialization (`regexp.MustCompile`, `template.Must` on package-level values)
+where failure means the program cannot run; never on request-time input.
+[MUST-FUNCTIONS.md](references/MUST-FUNCTIONS.md) has the shape and the exceptions.
 
 ---
 

@@ -1,5 +1,10 @@
 # Logging Patterns
 
+> Sources: https://pkg.go.dev/log/slog; https://go.dev/blog/slog
+> Authority: advisory
+> Minimum Go: `log/slog` 1.21; `slog.DiscardHandler` 1.24; `slog.NewMultiHandler` 1.26
+> Last verified: 2026-09-10
+
 Detailed patterns for slog setup, handler configuration, testing, HTTP
 middleware, and migration from the legacy `log` package.
 
@@ -24,17 +29,6 @@ logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 slog.SetDefault(logger)
 slog.Info("server started", "addr", ":8080")
 // Output: {"time":"...","level":"INFO","msg":"server started","addr":":8080"}
-```
-
-### Text Handler for Development
-
-```go
-// Human-readable output for local development
-logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-    Level: slog.LevelDebug,
-}))
-slog.SetDefault(logger)
-// Output: time=... level=DEBUG msg="cache lookup" key=user:42 hit=true
 ```
 
 ### Dynamic Level Control
@@ -92,8 +86,7 @@ logger := slog.New(slog.NewMultiHandler(
 ))
 ```
 
-It handles fan-out and each destination's enabled level; no custom wrapper is
-needed. See [go-logging](../SKILL.md#fanning-out-to-several-sinks) for the shared rule.
+Each destination keeps its own level; [go-logging](../SKILL.md#fanning-out-to-several-sinks) has the rule.
 
 ---
 
@@ -106,19 +99,28 @@ the `Run` form below Go 1.22+:
 package myhandler_test
 
 import (
+    "bytes"
+    "encoding/json"
+    "log/slog"
     "testing"
     "testing/slogtest"
 )
 
 func TestHandler(t *testing.T) {
-    // newHandler returns your custom slog.Handler and a func that
-    // parses the output into []map[string]any for verification.
-    results := func(t *testing.T) map[string]any {
-        // parse your handler's output here
+    var buf bytes.Buffer
+    newHandler := func(*testing.T) slog.Handler {
+        buf.Reset()
+        return slog.NewJSONHandler(&buf, nil) // replace with your handler
     }
-
-    h := NewMyHandler(buf, nil)
-    slogtest.Run(t, func(t *testing.T) slog.Handler { return h }, results)
+    // result parses the one record each slogtest case wrote.
+    result := func(t *testing.T) map[string]any {
+        var m map[string]any
+        if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+            t.Fatal(err)
+        }
+        return m
+    }
+    slogtest.Run(t, newHandler, result)
 }
 ```
 

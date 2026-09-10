@@ -17,8 +17,8 @@ keeps the large input alive. See [strings.Clone](https://pkg.go.dev/strings#Clon
 
 ## strconv vs fmt
 
-When converting primitives to/from strings, `strconv` is faster than `fmt`
-because `fmt` uses reflection and handles arbitrary types.
+For primitive conversions, `strconv` avoids the general formatting machinery
+of `fmt`. Benchmark the actual values and toolchain before claiming a speedup.
 
 Benchmark snippets use `b.Loop()` (Go 1.24+).
 
@@ -26,7 +26,7 @@ Benchmark snippets use `b.Loop()` (Go 1.24+).
 
 ```go
 for b.Loop() {
-    s := fmt.Sprint(rand.Int())
+    _ = fmt.Sprint(n)
 }
 ```
 
@@ -34,16 +34,12 @@ for b.Loop() {
 
 ```go
 for b.Loop() {
-    s := strconv.Itoa(rand.Int())
+    _ = strconv.Itoa(n)
 }
 ```
 
-**Benchmark comparison:**
-
-| Approach | Speed | Allocations |
-|----------|-------|-------------|
-| `fmt.Sprint` | 143 ns/op | 2 allocs/op |
-| `strconv.Itoa` | 64.2 ns/op | 1 allocs/op |
+Use the same `n` for both variants; benchmark setup is outside the loop.
+See [benchmark methodology](BENCHMARKS.md) for executable examples.
 
 Common conversions:
 
@@ -59,8 +55,8 @@ Common conversions:
 
 ## Repeated String-to-Byte Conversions
 
-Do not create byte slices from a fixed string repeatedly. Instead, perform the
-conversion once and capture the result.
+Reuse converted bytes when measurement shows a benefit. The compiler can
+already avoid conversion allocations for some concrete writers.
 
 **Bad:**
 
@@ -79,15 +75,9 @@ for b.Loop() {
 }
 ```
 
-**Benchmark comparison:**
-
-| Approach | Speed |
-|----------|-------|
-| Repeated conversion | 22.2 ns/op |
-| Single conversion | 3.25 ns/op |
-
-The good version is **~7x faster** because it avoids allocating a new byte slice
-on each iteration.
+Compare both forms with a bounded writer workload; see
+[benchmark methodology](BENCHMARKS.md#benchmark-examples-from-performance-patterns).
+Do not assume each conversion allocates or that hoisting it gives a fixed gain.
 
 ---
 

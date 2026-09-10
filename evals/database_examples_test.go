@@ -1,14 +1,13 @@
 package evals_test
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 func TestTransactionExampleFinalizes(t *testing.T) {
-	code, _, _ := strings.Cut(exampleBlock(t, "skills/go-database/references/SQL-PATTERNS.md", "## Transaction helper"), "\nfunc (r *AccountRepo)")
+	code := exampleBlock(t, "skills/go-database/references/SQL-PATTERNS.md", "## Transaction helper")
 	runExampleTest(t, `package example
-import ("context"; "database/sql"; "database/sql/driver"; "errors"; "fmt"; "testing")
+import ("context"; "database/sql"; "database/sql/driver"; "errors"; "fmt"; "io"; "testing")
+type AccountRepo struct { db *sql.DB }
+var ErrNotFound = errors.New("not found") // the sentinel from "The repository boundary"
 `+code+`
 var errCallback = errors.New("callback")
 var errDriver = errors.New("driver")
@@ -50,10 +49,27 @@ func TestFinalization(t *testing.T) {
  }
 }
 
-// The driver boundary exercises database/sql ownership without a live database.
+func TestMissingAccountRollsBack(t *testing.T) {
+ for _, missing := range []int64{0, 1, 2} {
+  conn := &testConn{missingID: missing}
+  db := sql.OpenDB(conn)
+  repo := &AccountRepo{db: db}
+  err := repo.Transfer(t.Context(), 1, 2, 100)
+  wantErr := missing != 0
+  if errors.Is(err, ErrNotFound) != wantErr {t.Errorf("Transfer(missing=%d): error=%v, want ErrNotFound=%t", missing, err, wantErr)}
+  if errors.Is(err, sql.ErrNoRows) {t.Errorf("Transfer(missing=%d): sql.ErrNoRows leaked past the repository: %v", missing, err)}
+  if wantErr && (conn.commits != 0 || conn.rollbacks != 1) {t.Errorf("missing=%d: commits=%d rollbacks=%d, want 0/1", missing, conn.commits, conn.rollbacks)}
+  if !wantErr && (conn.commits != 1 || conn.rollbacks != 0) {t.Errorf("success: commits=%d rollbacks=%d, want 1/0", conn.commits, conn.rollbacks)}
+  if got:=db.Stats().InUse;got!=0 {t.Errorf("Transfer: connections in use=%d, want 0",got)}
+  if err:=db.Close();err!=nil {t.Fatal(err)}
+ }
+}
+
+// Перевірка реакції Go-коду на EOF від драйвера; SQL виконується лише в інтеграційних тестах.
 type testConn struct {
  beginErr, commitErr, rollbackErr error
  commits, rollbacks int
+ missingID int64
 }
 func (c *testConn) Connect(context.Context) (driver.Conn, error) { return c, nil }
 func (c *testConn) Driver() driver.Driver { return c }
@@ -63,6 +79,22 @@ func (c *testConn) Close() error { return nil }
 func (c *testConn) Begin() (driver.Tx, error) {
  if c.beginErr != nil { return nil, c.beginErr }
  return c, nil
+}
+func (c *testConn) ExecContext(context.Context, string, []driver.NamedValue) (driver.Result, error) {
+ return driver.RowsAffected(1), nil
+}
+func (c *testConn) QueryContext(_ context.Context, _ string, args []driver.NamedValue) (driver.Rows, error) {
+ id := args[1].Value.(int64)
+ return &accountRows{id: id, available: id != c.missingID}, nil
+}
+type accountRows struct { id int64; available bool }
+func (*accountRows) Columns() []string {return []string{"id"}}
+func (*accountRows) Close() error {return nil}
+func (r *accountRows) Next(dest []driver.Value) error {
+ if !r.available {return io.EOF}
+ r.available=false
+ dest[0]=r.id
+ return nil
 }
 func (c *testConn) Commit() error { c.commits++; return c.commitErr }
 func (c *testConn) Rollback() error { c.rollbacks++; return c.rollbackErr }

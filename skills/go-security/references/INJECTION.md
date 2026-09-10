@@ -25,8 +25,9 @@ The fix is an API that keeps the two apart, applied once at the boundary.
 
 [go-database](../../go-database/SKILL.md) owns the query form. The security
 half: placeholders cover **values** only. Anything that is part of the SQL
-grammar — table, column, sort direction, `LIMIT` — cannot be a placeholder and
-must come from a closed set:
+grammar — table/column identifiers and sort direction — cannot be a value
+placeholder and must come from a closed set. The numeric value of `LIMIT`
+is a parameter (`LIMIT $2` in PostgreSQL); range-check it before the query:
 
 ```go
 var sortCols = map[string]string{"created": "created_at", "name": "name"}
@@ -35,8 +36,12 @@ col, ok := sortCols[r.URL.Query().Get("sort")]
 if !ok {
     col = "created_at"
 }
-q := "SELECT id, name FROM users WHERE org_id = $1 ORDER BY " + col
-rows, err := db.QueryContext(ctx, q, orgID) // col is ours; orgID is a placeholder
+limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+if err != nil || limit < 1 || limit > 100 {
+    limit = 50 // range-checked before it reaches the query
+}
+q := "SELECT id, name FROM users WHERE org_id = $1 ORDER BY " + col + " LIMIT $2"
+rows, err := db.QueryContext(ctx, q, orgID, limit) // col is ours; orgID and limit are placeholders
 ```
 
 `gosec` G201/G202 flag `fmt.Sprintf` and `+` feeding a query function. A
@@ -66,8 +71,13 @@ cmd.Env = []string{"PATH=/usr/bin"} // do not inherit secrets from os.Environ()
 Also:
 
 - Set `cmd.Dir` explicitly; inherit nothing from the request.
-- Validate file-like arguments with `os.Root` first when the program will open
-  them — the subprocess does not know about your root.
+- `os.Root` confines operations performed through that root, not a subprocess.
+  Checking a path and then passing its name to another program leaves a
+  symlink-swap race when the directory is attacker-writable. Open through the
+  root and pass the open file as `cmd.Stdin` or an inherited descriptor when
+  supported; retain it until the child exits. Programs requiring paths need
+  a trusted staging directory or appropriate OS isolation. `cmd.Dir` alone
+  does not confine filesystem access.
 - Use `CommandContext` so a hung child dies with the request.
 
 ---
@@ -177,11 +187,11 @@ Decoders are parsers running on attacker bytes; bound them.
 | Input | Bound |
 |---|---|
 | Request body | `http.MaxBytesReader(w, r.Body, limit)` before any decode |
-| JSON | `dec.DisallowUnknownFields()`; reject on `dec.More()` after the value |
+| JSON | Require one complete bounded document; use the [HTTP decoding rules](../../go-http/SKILL.md#handler-shape) or [JSON v2 example](../../go-http/references/JSON-V2.md#one-bounded-request-document) |
 | XML | never `xml.Unmarshal` on untrusted input without a size cap; entity expansion |
 | Regex on input | RE2 is linear — Go's `regexp` is safe; a third-party PCRE engine is not |
 | `strconv.Atoi` into a size | range-check before `make([]T, n)` |
-| Multipart upload | `r.ParseMultipartForm(maxMemory)` and check `FileHeader.Size` |
+| Multipart upload | Cap the body before `ParseMultipartForm`; `maxMemory` only sets the memory/disk threshold. Check file sizes and count; use `MultipartReader` with per-part limits when early rejection matters |
 
 `encoding/gob` and any format that instantiates types from the wire must
 never see untrusted bytes — that is deserialization RCE in other languages and

@@ -29,6 +29,8 @@ func TestRequest(t *testing.T) {
   {"invalid UTF8", "{\"name\":\"\xff\"}", 400},
   {"second object", valid + " {}", 400},
   {"junk", valid + " junk", 400},
+  {"extra closing array", valid + "]", 400},
+  {"extra closing object", valid + "}", 400},
  } {
   t.Run(tt.name, func(t *testing.T) {
    w := httptest.NewRecorder()

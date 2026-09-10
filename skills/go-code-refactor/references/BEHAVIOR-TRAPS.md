@@ -45,8 +45,11 @@ Same for maps: reading a nil map is fine, writing panics. Adding a defensive
 `make(map...)` where the original had nil turns a panic into silent success — a
 behavior change wearing a bug fix's clothes.
 
-`slices.Clone(nil)` and `maps.Clone(nil)` return nil, so swapping a
-`make`+`copy` for `Clone` preserves nil-ness. See
+`slices.Clone(nil)` and `maps.Clone(nil)` return nil, while `make` followed
+by `copy` or a map-copy loop creates a non-nil empty container for nil input.
+The swap can change JSON v1 output or make a later map write panic. Preserve
+the original allocation when non-nil output is required; check observable
+slice capacity too. See
 [go-defensive](../../go-defensive/SKILL.md).
 
 ## defer

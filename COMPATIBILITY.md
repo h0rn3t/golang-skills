@@ -92,6 +92,7 @@ scope for this repository.
 | `b.Loop()` | `for i := 0; i < b.N; i++` |
 | `t.Context()` | `context.Background()` in tests; `go fix` analyzer `testingcontext` |
 | `crypto/rand.Text()` | Manual random-string generation |
+| `cipher.NewGCMWithRandomNonce` | Manual random nonce generation/prefixing for AES-GCM in new formats |
 | `os.Root`, `os.OpenRoot` | Path-traversal-prone `filepath.Join` + `os.Open` |
 | `strings.SplitSeq`, `FieldsSeq`, `Lines` (and `bytes`) | `Split` followed by a `range` over the slice |
 | `omitzero` struct tag option | `omitempty` plus a custom `IsZero` |

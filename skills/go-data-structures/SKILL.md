@@ -56,6 +56,12 @@ Writing the loop instead is a reviewable defect, not a style choice —
 | Split a string once, iterate | `strings.SplitSeq` (no slice allocated) |
 | Split off the last segment | `strings.CutLast` / `bytes.CutLast` (Go 1.27+) |
 
+`slices.Clone`, `maps.Clone`, `slices.Collect`, and `slices.Sorted` return nil
+for empty input, where a `make`+`copy` pair returns a non-nil empty container.
+When the result reaches JSON or a later map write, that difference is
+observable — see [Declaring Empty Slices](#declaring-empty-slices) below and
+keep the allocation. Replacing a loop is not free of contract until you check it.
+
 ```go
 dir, file, ok := strings.CutLast("a/b/c.txt", "/") // "a/b", "c.txt", true
 ```
@@ -182,7 +188,7 @@ func increment(sc *SafeCounter) {
 |-------|-----------|
 | Slices | Always assign `append` result; `nil` slice preferred over `[]T{}` |
 | Sets | `map[T]struct{}` for membership-only sets |
-| Copying | `slices.Clone` / `maps.Clone`; don't copy `T` if methods are on `*T` |
+| Copying | `slices.Clone` / `maps.Clone` (nil in, nil out); don't copy `T` if methods are on `*T` |
 | Loops | Check `slices`/`maps` before writing one; `go fix -diff ./...` to confirm |
 
 ## Related Skills

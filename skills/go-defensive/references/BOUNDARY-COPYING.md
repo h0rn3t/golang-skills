@@ -10,9 +10,11 @@ boundaries so callers cannot mutate internal state, or vice versa.
 
 ## Use the stdlib clone functions
 
-`slices.Clone` and `maps.Clone` (Go 1.21+) replace every hand-written
-`make`+`copy` and `make`+`range` pair. Use them; a loop here is noise a reviewer
-has to verify.
+Prefer `slices.Clone` and `maps.Clone` (Go 1.21+) when their nil and capacity
+behavior fits the contract. An unconditional `make` creates a non-nil result
+even for nil input; keep it when callers need an empty JSON array, a writable
+map, or an observable slice capacity. A copy is not redundant merely because
+a clone function exists.
 
 ### Receiving
 
@@ -55,6 +57,17 @@ Note the nil behavior: `slices.Clone(nil)` and `maps.Clone(nil)` return `nil`,
 not an empty container. That matches the nil-slice convention but changes JSON
 output from `[]` to `null` — see
 [go-data-structures](../../go-data-structures/SKILL.md).
+
+When the method serves a JSON array contract, the copy has to stay non-nil,
+so `Clone` is the wrong tool and the explicit allocation is not noise:
+
+```go
+// Good: an empty queue still encodes as [], not null
+func (q *Queue) Items() []Item { return append(make([]Item, 0, len(q.items)), q.items...) }
+```
+
+The same holds for a map a caller is expected to write into: `maps.Clone` of a
+nil map returns nil, and the first write panics.
 
 ## Clone is shallow
 

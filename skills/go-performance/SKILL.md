@@ -19,27 +19,28 @@ memory. Don't add allocations or complexity without evidence that it helps.
 
 ## Prefer strconv over fmt
 
-When converting primitives to/from strings, `strconv` is faster than `fmt`:
+For direct primitive conversions, prefer `strconv`; measure its benefit on
+the actual inputs and toolchain:
 
 ```go
-s := strconv.Itoa(rand.Int()) // ~2x faster than fmt.Sprint()
+s := strconv.Itoa(n)
 ```
 
-| Approach | Speed | Allocations |
-|----------|-------|-------------|
-| `fmt.Sprint` | 143 ns/op | 2 allocs/op |
-| `strconv.Itoa` | 64.2 ns/op | 1 allocs/op |
+The [benchmark reference](references/BENCHMARKS.md) shows how to compare
+the calls. There is no fixed speedup or allocation count across workloads.
 
 ---
 
 ## Avoid Repeated String-to-Byte Conversions
 
-Convert a fixed string to `[]byte` once outside the loop:
+For a measured repeated-conversion cost, reuse the bytes outside the loop.
+The compiler may already eliminate the conversion allocation for a concrete
+writer, so compare the actual call site:
 
 ```go
 data := []byte("Hello world")
 for b.Loop() { // Go 1.24+
-    w.Write(data) // ~7x faster than []byte("...") each iteration
+    w.Write(data)
 }
 ```
 
@@ -69,12 +70,9 @@ data := make([]int, 0, size)
 
 Unlike maps, slice capacity is **not a hint**—the compiler allocates exactly that much memory. Subsequent `append()` operations incur zero allocations until capacity is reached.
 
-| Approach | Time (100M iterations) |
-|----------|------------------------|
-| No capacity | 2.48s |
-| With capacity | 0.21s |
-
-The capacity version is **~12x faster** due to zero reallocations during append.
+Preallocation avoids backing-array growth within the chosen capacity. Measure
+the resulting time and memory tradeoff; oversized estimates can retain more
+memory than the workload needs.
 
 ---
 
@@ -152,10 +150,10 @@ allocations without a new dependency. See
 
 | Pattern | Bad | Good | Improvement |
 |---------|-----|------|-------------|
-| Int to string | `fmt.Sprint(n)` | `strconv.Itoa(n)` | ~2x faster |
-| Repeated `[]byte` | `[]byte("str")` in loop | Convert once outside | ~7x faster |
+| Int to string | `fmt.Sprint(n)` | `strconv.Itoa(n)` | Direct conversion; measure the gain |
+| Repeated `[]byte` | `[]byte("str")` inside the loop | Convert once outside | Depends on compiler and writer; measure |
 | Map initialization | `make(map[K]V)` | `make(map[K]V, size)` | Fewer allocs |
-| Slice initialization | `make([]T, 0)` | `make([]T, 0, cap)` | ~12x faster |
+| Slice initialization | `make([]T, 0)` for a known size | `make([]T, 0, cap)` | Avoids growth up to capacity |
 | Small fixed-size args | `*string`, `*io.Reader` | `string`, `io.Reader` | No indirection |
 | Simple string join | `s1 + " " + s2` | (already good) | Use `+` for few strings |
 | Loop string build | Repeated `+=` | `strings.Builder` | O(n) vs O(n²) |

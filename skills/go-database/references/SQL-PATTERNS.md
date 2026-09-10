@@ -85,16 +85,39 @@ func (r *AccountRepo) Transfer(ctx context.Context, from, to int64, cents int64)
         if _, err := tx.ExecContext(ctx, `SELECT id FROM accounts WHERE id IN ($1, $2) ORDER BY id FOR UPDATE`, lo, hi); err != nil {
             return fmt.Errorf("lock accounts: %w", err)
         }
-        if _, err := tx.ExecContext(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, cents, from); err != nil {
+        if err := move(ctx, tx, from, -cents); err != nil {
             return fmt.Errorf("debit %d: %w", from, err)
         }
-        if _, err := tx.ExecContext(ctx, `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2`, cents, to); err != nil {
+        if err := move(ctx, tx, to, cents); err != nil {
             return fmt.Errorf("credit %d: %w", to, err)
         }
         return nil
     })
 }
+
+// move applies a signed delta to one account, reporting ErrNotFound when the
+// account does not exist.
+func move(ctx context.Context, tx *sql.Tx, id, delta int64) error {
+    const q = `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2 RETURNING id`
+    var updated int64
+    err := tx.QueryRowContext(ctx, q, delta, id).Scan(&updated)
+    if errors.Is(err, sql.ErrNoRows) {
+        return ErrNotFound
+    }
+    return err
+}
 ```
+
+`accounts.id` is a primary key. Each `UPDATE ... RETURNING` must yield one
+row: a missing source or destination makes `Scan` return `sql.ErrNoRows`,
+and `withTx` rolls back the entire transfer. Plain `ExecContext` without
+checking `RowsAffected` can silently commit only one side. `move` maps
+`sql.ErrNoRows` to the `ErrNotFound` sentinel from
+[the repository boundary](#the-repository-boundary) so no driver error reaches
+a handler, and `Transfer` wraps it with the account it came from. Validate a
+positive amount, self-transfer policy, and overdraft rules at the domain
+boundary; this example demonstrates transaction ownership, not a complete
+ledger.
 
 Isolation level goes in `sql.TxOptions{Isolation: sql.LevelSerializable}` when
 the invariant spans rows; then retry on the serialization-failure SQLSTATE

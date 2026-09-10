@@ -5,19 +5,10 @@
 > Minimum Go: gated by the `go` directive in `go.mod`, not the installed toolchain
 > Last verified: 2026-08-29 against go1.27.0
 
-Every entry below was checked against an installed toolchain. When you extend
-this file, check yours the same way — `COMPATIBILITY.md` documents how. An
-unverified modernization claim is worse than none, because it rides into a diff
-that promised not to change behavior.
-
-This file is for code that already exists: each entry says what a swap may
-change. Code written fresh has nothing to preserve — there the reach-for table
-in [OVER-ENGINEERING.md](OVER-ENGINEERING.md#reach-for-what-go-ships) is the
-checklist and the shorter form simply wins.
-
-Work the tiers in order — Tier 1, then Tier 2, then report Tier 3. Safety
-before readability before gradual improvement; a Tier 3 item never rides
-inside a Tier 1 diff.
+Check version claims against the installed toolchain using `COMPATIBILITY.md`.
+For existing code, work Tier 1, then conditional Tier 2; report Tier 3 changes
+separately. For new code, use the [stdlib table](OVER-ENGINEERING.md#reach-for-what-go-ships)
+and the required contract rather than refactor equivalence.
 
 ## Contents
 
@@ -31,25 +22,20 @@ inside a Tier 1 diff.
 
 ## Start with `go fix`
 
-Since Go 1.26, `go fix` hosts the *modernizers*: analyzers that rewrite code to
-current idioms, built on the same framework as `go vet` and designed not to
-change behavior.
+Since Go 1.26, `go fix` hosts modernizers that rewrite code to current idioms.
+Preview their output and verify the relevant behavior contracts.
 
 Use the package scope and apply conditions in
 [Scope mechanical modernization](../SKILL.md#3-scope-mechanical-modernization).
 Preview before applying; a scoped refactor does not authorize unrelated
 modernization. Keep mechanical changes distinguishable from hand edits.
 
-`go tool fix help` prints the set your toolchain actually has — trust that over
-any list, including this one. Go 1.27 added `atomictypes`, `embedlit`,
+`go tool fix help` is authoritative. Go 1.27 added `atomictypes`, `embedlit`,
 `slicesbackward`, and `unsafefuncs`, renamed `waitgroup` to `waitgroupgo`, and
-dropped `fmtappendf`. If a fixer produces something wrong, say so in the report
-instead of quietly reverting it.
+dropped `fmtappendf`. Report incorrect fixes; do not silently discard them.
 [go-linting](../../go-linting/SKILL.md) catalogues the current analyzers.
 
 ## Tier 1 — safe swaps
-
-Each removes ceremony that exists only because the language lacked the feature.
 
 ### `new(expr)` — Go 1.26
 
@@ -62,8 +48,8 @@ p := Person{Name: name, Age: &age}
 p := Person{Name: name, Age: new(yearsSince(born))}
 ```
 
-Biggest payoff in code building JSON or protobuf structs with `*int`/`*bool`
-optional fields, where the temporaries outnumber the logic. `go fix -newexpr`.
+Useful for JSON/protobuf optional fields such as `*int`/`*bool`.
+Preview with `go fix -newexpr -diff`.
 
 ### `errors.AsType[T]` — Go 1.26
 
@@ -91,10 +77,8 @@ go func() { defer wg.Done(); work(item) }()
 wg.Go(func() { work(item) })
 ```
 
-Same goroutine count, same `Add`-before-start. Worth extra attention: the old
-form is where the classic "`Add` inside the goroutine" race lives. If you find
-that bug, the swap fixes it as a side effect — which makes it Tier 3 for that
-call site. Say so rather than letting a race fix ride along unannounced.
+Preserve goroutine count and `Add`-before-start. If the old code calls `Add`
+inside the goroutine, correcting that race is a Tier 3 fix for that call site.
 `go fix -waitgroupgo`.
 
 ### `strings.CutLast` / `bytes.CutLast` — Go 1.27
@@ -152,9 +136,19 @@ keys := make([]string, 0, len(m))
 for k := range m { keys = append(keys, k) }
 sort.Strings(keys)
 
-// after
+// after — nil result permitted
 keys := slices.Sorted(maps.Keys(m))
+
+// after — original non-nil empty result is observable
+keys := slices.AppendSeq(make([]string, 0, len(m)), maps.Keys(m))
+slices.Sort(keys)
 ```
+
+`slices.Sorted(maps.Keys(m))` is the swap worth making — one line for three —
+but it returns nil for an empty map where the loop returned a non-nil empty
+slice, turning JSON `[]` into `null`. When that is observable, append into the
+allocation with `slices.AppendSeq` (Go 1.23+). Check nilness and capacity
+before replacing any collection loop or copy.
 
 Likewise `slices.Contains`, `Index`, `Reverse`, `Collect`, `Max`/`Min`,
 `Clone`. **Watch the sort**: `sort.Slice` is unstable, `slices.SortFunc` is
@@ -174,34 +168,34 @@ bug. `go fix -forvar`.
 
 ### `min`, `max`, `clear` — Go 1.21
 
-Replace hand-written helpers and `for k := range m { delete(m, k) }`. Note
-`clear` on a *slice* zeroes elements rather than truncating — it is not
-`s = s[:0]`. `go fix -minmax`.
+Replace hand-written integer helpers when their comparisons agree with the
+builtins; float helpers need a NaN and signed-zero check first, because
+`min`/`max` propagate NaN and distinguish `-0` from `+0`. Replace
+`for k := range m { delete(m, k) }` with `clear(m)` only when no key can hold
+a NaN, through an array, struct, or interface included: the loop cannot delete
+a NaN key and `clear` can, making that a Tier 3 fix. `clear` on a *slice*
+zeroes elements rather than truncating — it is not `s = s[:0]`. `go fix -minmax`.
 
 ### `cmp.Or` for fallback chains — Go 1.22
 
-```go
-name := cmp.Or(input, defaultName)
-```
-
-`cmp.Or` evaluates all arguments — not for expensive or side-effecting
-fallbacks.
-
-### `errors.Join` — Go 1.20
-
-Replaces accumulating errors into a string. It **changes the error's text**, so
-this is Tier 1 only when the aggregate error is newly constructed or its text
-is provably unobserved.
+`name := cmp.Or(input, defaultName)` replaces the if-chain, but evaluates every
+argument — not for expensive or side-effecting fallbacks.
 
 ### Test-only conveniences — Go 1.24–1.27
 
 `t.Context()`, `t.Chdir()`, `slog.DiscardHandler`, `b.Loop()`, and — Go 1.27 —
-`synctest.Sleep` and `httptest.NewTestServer`. Test code has no production
-observers, so the bar is lower; a changed test is still worth mentioning. See
+`synctest.Sleep` and `httptest.NewTestServer`. Preserve what the test observes
+— cancellation and cleanup timing, clock behavior, transport coverage:
+`httptest.NewTestServer` serves its own client over an in-memory network by
+default, with no listener for anything else to dial. See
 [go-testing](../../go-testing/SKILL.md).
 
 ## Tier 2 — safe with a condition
 
+- **`errors.Join` over a text aggregate** (Go 1.20). Verify error text, nil
+  behavior, and the exposed error tree. Even with identical text, `Join` can
+  make `errors.Is`/`errors.AsType` match causes previously hidden by the string.
+  Apply only when all observable error behavior is preserved; otherwise Tier 3.
 - **`net.JoinHostPort` over `fmt.Sprintf("%s:%d", host, port)`.** Identical for
   IPv4 and hostnames; for IPv6 the old form produced an unusable address, so if
   IPv6 can reach this code the swap is a **bug fix** — Tier 3. `go vet`'s
@@ -284,16 +278,20 @@ Attribute before rewriting. Verified against go1.27.0:
   the compiler may fuse `a*b + c` into a single FMA. `float64(a*b) + c`
   prevents fusing. Relevant wherever money or aggregates are compared exactly.
 
-Anything else you suspect is a toolchain change rather than yours: confirm it
-before saying so. `git stash` the diff and re-run the failing test on the new
-toolchain — if it still fails, it was never yours. Reporting a guess here is
-how a refactor loses the reviewer's trust.
+Attribute suspected toolchain failures by rerunning the unchanged source
+on that toolchain in an isolated checkout, preserving the user's working tree.
 
 ## Tools worth running once
+
+To check leaks, write `pprof.Lookup("goroutineleak").WriteTo(w, 1)` in the
+tested process (Go 1.27+) or use the existing `goleak` harness: writing the
+profile is what triggers detection, so `Count` alone and a passing `go test`
+prove nothing. Read the stacks; an empty profile still misses leaks that are
+blocked on a reachable channel or mutex.
 
 | Tool | What it finds |
 |---|---|
 | `go vet ./...` | `waitgroup` (misplaced `wg.Add`), `hostport` (the IPv6 address bug), `stdversion` (stdlib symbols newer than the `go` directive) |
-| `bash scripts/verify-refactor.sh leaks ./...` | Goroutine leaks — the `goroutineleak` pprof profile is GA in Go 1.27, so this turns "looks like it leaks" into a concrete list |
+| `bash scripts/verify-refactor.sh leaks ./...` | Runs tests but reports leak verification as incomplete (exit 3 if tests pass); it does not collect a profile |
 | `GODEBUG=checkfinalizers=1` | Finalizer and cleanup misuse (Go 1.25+) |
 | `golangci-lint run` | Expect the finding count to drop after the refactor; report before and after |

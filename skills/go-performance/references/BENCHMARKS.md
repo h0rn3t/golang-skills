@@ -18,15 +18,17 @@ loops, it keeps the loop body from being optimized away.
 
 ```go
 func BenchmarkStrconv(b *testing.B) {
+    n := 123456789
     for b.Loop() {
-        s := strconv.Itoa(rand.Int())
+        s := strconv.Itoa(n)
         _ = s
     }
 }
 
 func BenchmarkFmtSprint(b *testing.B) {
+    n := 123456789
     for b.Loop() {
-        s := fmt.Sprint(rand.Int())
+        s := fmt.Sprint(n)
         _ = s
     }
 }
@@ -78,6 +80,8 @@ each benchmark N times for statistical significance.
 
 ## Interpreting Results
 
+These numbers illustrate the output format; they are not Go 1.27 measurements.
+
 ```
 BenchmarkStrconv-8     18705042    64.2 ns/op    16 B/op    1 allocs/op
 BenchmarkFmtSprint-8    8249536   143.0 ns/op    16 B/op    2 allocs/op
@@ -125,7 +129,8 @@ Strconv-8     64.2ns ± 2%    61.8ns ± 1%   -3.74%  (p=0.001 n=10+10)
 
 Tips:
 - Always use `-count=10` or higher for reliable results
-- A small p-value confirms the change is real, not noise
+- A small p-value is evidence under the sampling assumptions; it does not
+  exclude drift, biased inputs, or interference from other workloads
 - If benchstat shows `~` (tilde), the difference is not statistically
   significant
 
@@ -135,17 +140,17 @@ Tips:
 
 ### strconv vs fmt
 
-| Approach | Speed | Allocations |
-|----------|-------|-------------|
-| `fmt.Sprint` | 143 ns/op | 2 allocs/op |
-| `strconv.Itoa` | 64.2 ns/op | 1 allocs/op |
+Run the two functions above against representative identical inputs. Retain
+the raw samples, toolchain, CPU, and benchmark source with any published numbers.
 
 ### Repeated Byte Conversions
 
 ```go
 func BenchmarkRepeatedConversion(b *testing.B) {
     var buf bytes.Buffer
+    buf.Grow(len("Hello world"))
     for b.Loop() {
+        buf.Reset()
         buf.Write([]byte("Hello world"))
     }
 }
@@ -153,16 +158,18 @@ func BenchmarkRepeatedConversion(b *testing.B) {
 func BenchmarkSingleConversion(b *testing.B) {
     var buf bytes.Buffer
     data := []byte("Hello world")
+    buf.Grow(len(data))
     for b.Loop() {
+        buf.Reset()
         buf.Write(data)
     }
 }
 ```
 
-| Approach | Speed |
-|----------|-------|
-| Repeated conversion | 22.2 ns/op |
-| Single conversion | 3.25 ns/op |
+Both variants reset the buffer on every iteration and preallocate the same
+capacity, so retained data does not grow with the iteration count. A concrete
+`bytes.Buffer` may let the compiler avoid the conversion allocation; equal
+results are valid. Measure the actual writer type before generalizing.
 
 ### Slice Capacity
 
@@ -186,10 +193,8 @@ func BenchmarkWithCapacity(b *testing.B) {
 }
 ```
 
-| Approach | Time (100M iterations) |
-|----------|------------------------|
-| No capacity | 2.48s |
-| With capacity | 0.21s |
+Measure both allocation count and elapsed time; capacity is a workload choice,
+not a universal speedup factor.
 
 ---
 

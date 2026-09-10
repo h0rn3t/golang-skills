@@ -19,7 +19,7 @@ DESCRIPTION
       baseline      Record the state before any edit
       after         Record the state after a refactor step
       diff          Compare recorded check results, including failures and skips
-      leaks         Run tests with the goroutine-leak profile (Go 1.26+)
+      leaks         Run tests; leak verification stays incomplete without a profile
       loc-baseline  Record the starting production LOC, before the first edit
       loc-diff      Recount and compare against that record
 
@@ -33,6 +33,9 @@ DESCRIPTION
     Exits 0 if all checks pass (or the diff is empty, or neither LOC count
     grew), 1 if a check failed, the diff is non-empty, or a count grew,
     2 on usage or environment error.
+    The leaks mode exits 3 when tests pass: this harness does not collect or
+    inspect in-process leak profiles, so it cannot certify leak freedom. Its
+    2 keeps the environment meaning (a toolchain older than Go 1.26).
 
 OPTIONS
     -h, --help       Show this help message
@@ -492,22 +495,26 @@ if [[ "$MODE" == "leaks" ]]; then
     fi
     LEAK_OUT="$(apply_limit "$(cat "$LEAK_LOG")")"
     if $JSON_OUTPUT; then
-        printf '{"mode":"leaks","go_minor":%s,"passed":%s,"output":"%s","truncated":%s}\n' \
+        printf '{"mode":"leaks","go_minor":%s,"passed":false,"tests_passed":%s,"leaks_checked":false,"reason":"No in-process leak profile was collected or inspected","output":"%s","truncated":%s}\n' \
             "$GO_MINOR" \
             "$( [[ $LEAK_RC -eq 0 ]] && echo true || echo false )" \
             "$(json_escape "$LEAK_OUT")" \
             "$($TRUNCATED && echo true || echo false)"
     else
-        echo "=== goroutine leak run (go1.$GO_MINOR) ==="
+        echo "=== tests for leak investigation (go1.$GO_MINOR) ==="
         echo "$LEAK_OUT"
         $TRUNCATED && echo "... (truncated at $LIMIT lines)"
         if [[ "$GO_MINOR" -ge 27 ]]; then
-            echo "Collect the profile in-process via runtime/pprof.Lookup(\"goroutineleak\")"
+            echo 'Collect and inspect the profile in-process via runtime/pprof.Lookup("goroutineleak").WriteTo(w, 1)'
             echo "or the /debug/pprof/goroutineleak endpoint."
         fi
+        echo "INCOMPLETE: no leak profile was collected or inspected by this harness."
+        echo "Use an instrumented test or the project's existing leak assertions."
         echo "--- full log: $LEAK_LOG ---"
     fi
-    exit "$LEAK_RC"
+    # 3, not 2: 2 is this script's usage/environment error everywhere else.
+    [[ "$LEAK_RC" -ne 0 ]] && exit "$LEAK_RC"
+    exit 3
 fi
 
 # --------------------------------------------------------- baseline / after

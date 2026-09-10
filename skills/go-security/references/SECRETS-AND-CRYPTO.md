@@ -102,7 +102,7 @@ owns the form; the choice table:
 | URL-safe secret string (session ID, reset token) | `rand.Text()` (Go 1.24+, 128 bits, base32) |
 | Raw key material | `rand.Read(buf)` — always check the error |
 | UUID | stdlib `uuid` on the dependency ladder ([go-packages](../../go-packages/SKILL.md)) |
-| Nonce for AES-GCM | `rand.Read` into a 12-byte buffer, **never reused** with the same key |
+| Nonce for AES-GCM | `cipher.NewGCMWithRandomNonce` (Go 1.24+) for new formats; explicit nonces only when the protocol requires them |
 
 A token that must expire carries its expiry server-side (a store lookup) or
 inside a signed payload (HMAC) — never trust a client-supplied expiry.
@@ -111,18 +111,24 @@ inside a signed payload (HMAC) — never trust a client-supplied expiry.
 
 ## Encryption at rest
 
-Authenticated encryption only. `AES-GCM` (`cipher.NewGCM`) or
+Authenticated encryption only. `AES-GCM` (`cipher.NewGCMWithRandomNonce`,
+Go 1.24+, for a new format) or
 `chacha20poly1305` (`x/crypto`); unauthenticated modes (`NewCBCEncrypter`,
 `NewCTR`, the deprecated `NewOFB`/`NewCFB*`) let an attacker flip bits
 undetected.
 
 ```go
-block, _ := aes.NewCipher(key) // 32 bytes → AES-256
-aead, _ := cipher.NewGCM(block)
-nonce := make([]byte, aead.NonceSize())
-rand.Read(nonce)
-ct := aead.Seal(nonce, nonce, plaintext, additionalData) // nonce prefixed for storage
+block, err := aes.NewCipher(key)
+if err != nil { return nil, err }
+aead, err := cipher.NewGCMWithRandomNonce(block)
+if err != nil { return nil, err }
+ct := aead.Seal(nil, nil, plaintext, additionalData)
 ```
+
+The random-nonce AEAD prefixes the nonce itself: `NonceSize()` is zero; pass
+nil for the nonce to both `Seal` and `Open`. Retain `cipher.NewGCM` when an
+existing protocol requires explicit nonces, and preserve its format and
+uniqueness rules. Never reuse a nonce with the same key.
 
 Derive per-purpose keys from one master with `hkdf.Key` (`crypto/hkdf`, Go
 1.24+) instead of reusing a key across purposes. GCM's 96-bit nonce limits a
@@ -163,8 +169,11 @@ srv := &http.Server{
   yours; `GODEBUG=x509sslcertoverrideplatform=0` restores the platform store.
 - mTLS: `ClientAuth: tls.RequireAndVerifyClientCert` with `ClientCAs`; identity
   comes from `r.TLS.PeerCertificates[0]`, never from a header.
-- FIPS 140-3: `GODEBUG=fips140=on` switches to the validated module; code
-  changes are rarely needed.
+- FIPS 140-3: `GODEBUG=fips140=on` enables runtime FIPS mode; it does not
+  select a validated module snapshot. Select a currently validated version
+  with build-time `GOFIPS140`, check its supported algorithms and deployment
+  requirements, and verify the binary with `go version -m`. See the
+  [Go FIPS documentation](https://go.dev/blog/fips140).
 - Post-quantum *signatures* are opt-in, unlike key exchange: `crypto/mldsa`
   (FIPS 204), the `tls.MLDSA44`/`MLDSA65`/`MLDSA87` signature schemes, and
   `x509.MLDSA` arrive in Go 1.27, but they only apply once a chain is issued
@@ -216,7 +225,7 @@ http.SetCookie(w, &http.Cookie{
 |---|---|---|
 | `math/rand` for anything secret | `crypto/rand` | always |
 | `md5`, `sha1` for integrity or passwords | `sha256`, `sha3` (Go 1.24+) / a KDF | always |
-| `cipher.NewOFB`, `NewCFB*` | AEAD (`NewGCM`) or `NewCTR` + HMAC | Go 1.24 deprecates |
+| `cipher.NewOFB`, `NewCFB*` | AEAD (`NewGCMWithRandomNonce`, or `NewGCM` for an existing nonce format) or `NewCTR` + HMAC | Go 1.24 deprecates |
 | `rsa.EncryptPKCS1v15` for new designs | `rsa.EncryptOAEP` or a KEM (`crypto/mlkem`, `crypto/ecdh`) | Go 1.26 |
 | `golang.org/x/crypto/{sha3,hkdf,pbkdf2}` | `crypto/{sha3,hkdf,pbkdf2}` | Go 1.24 |
 | `crypto/elliptic` for ECDH | `crypto/ecdh` | Go 1.20 |

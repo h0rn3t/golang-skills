@@ -31,8 +31,31 @@ All notable changes to this repository are documented here.
 - The plugin manifests described all ten scripts as taking `--json`, `--limit`,
   and `--force`. Only `--json` is universal; the manifests now match the README,
   which was already accurate.
+- **Breaking for callers of `verify-refactor.sh leaks`**: the mode no longer
+  reports success for a passing test run, because it collects no leak profile.
+  It exits 3 with `"leaks_checked": false`, keeping 0 for verified success, 1
+  for failed tests, and 2 for a usage or environment error.
+- Performance guidance states the direction of each optimization instead of
+  fixed speedup factors, which were unattributed to any toolchain or workload.
+  Clone guidance is conditional on the nil, capacity, and JSON contract rather
+  than forbidding `make`+`copy` outright.
 
 ### Fixed
+
+- Skill-review corrections preserve nil/empty collection contracts, distinguish
+  `errors.Join` error-tree changes and NaN-sensitive modernization, and make
+  the transfer example roll back when either account is absent.
+- Security guidance no longer uses `Decoder.More` as an EOF check or treats
+  path prevalidation as subprocess confinement. It distinguishes FIPS mode
+  from module selection, parameterizes numeric SQL limits, and demonstrates
+  checked AES setup with automatic GCM nonces.
+- The transfer example mapped `sql.ErrNoRows` to no sentinel, contradicting the
+  skill's own rule against leaking driver errors past a repository; it now
+  returns `ErrNotFound`, and the regression test asserts that `sql.ErrNoRows`
+  does not escape.
+- Conversion benchmarks keep buffer size bounded. Executable regressions cover
+  collection wire format, AES key errors, trailing JSON delimiters,
+  missing-row rollback, and leak verification status.
 
 - `MODERNIZATION.md` credited `waitgroupgo` to `go vet`. The vet analyzer is
   `waitgroup`; `waitgroupgo` belongs to `go fix`, and `go vet -waitgroupgo`

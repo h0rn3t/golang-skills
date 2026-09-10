@@ -116,6 +116,11 @@ return nil
   `Commit` error — it is where serialization failures surface.
 - Everything inside uses `tx`, never `db`: a `db` call inside a transaction
   takes a second connection and deadlocks the pool at its limit.
+- If a write requires an existing row, check `RowsAffected` or use
+  `RETURNING` with `Scan`. An `ExecContext` success can mean zero rows changed;
+  the transfer example in `references/SQL-PATTERNS.md` rolls back on a missing
+  account and maps the resulting `sql.ErrNoRows` to `ErrNotFound` like any
+  other lookup.
 - Keep transactions short: no network calls, no user waits, no logging that
   blocks. Lock order is part of the contract — same order everywhere.
 - A `withTx(ctx, db, func(tx *sql.Tx) error)` helper removes the boilerplate;

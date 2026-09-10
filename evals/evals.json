@@ -1110,7 +1110,7 @@
     {
       "id": 16,
       "prompt": "This Go file has a 150-line HTTP handler that decodes a request, validates it, calls the database and writes the response, plus a few `tt := tt` lines in its table tests and a hand-written loop that collects and sorts map keys. Refactor it for readability without changing behavior.",
-      "expected_output": "A baseline captured before editing, dead pre-Go-1.22 captures removed, the handler split into named steps in the original side-effect order, the key-collection loop replaced with slices.Sorted(maps.Keys(m)), an empty verify diff, and a report that leads with deletions and lists unfixed bugs separately.",
+      "expected_output": "A baseline captured before editing, dead pre-Go-1.22 captures removed, the handler split into named steps in the original side-effect order, the key-collection loop replaced with slices.Sorted(maps.Keys(m)) or, where the non-nil empty result is observable, slices.AppendSeq into the existing allocation, an empty verify diff that the report states was inspected rather than assumed, and a report that leads with deletions and lists unfixed bugs separately.",
       "target_skills": [
         "go-code-refactor",
         "go-style-core"

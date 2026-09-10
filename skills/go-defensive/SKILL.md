@@ -78,8 +78,8 @@ owns when an assertion is appropriate and the exact assertion shape.
 ## Copy Slices and Maps at Boundaries
 
 Slices and maps contain pointers to underlying data. Copy at API boundaries to
-prevent unintended modifications. Use the stdlib clones — never a hand-written
-`make`+`copy` loop:
+prevent unintended modifications. Prefer stdlib clones when their nil and
+capacity behavior fits the contract (conditions in the reference below):
 
 ```go
 d.trips = slices.Clone(trips)      // receiving

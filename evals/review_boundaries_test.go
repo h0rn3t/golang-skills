@@ -2,8 +2,10 @@ package evals_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -147,32 +149,78 @@ func TestRefactorTruncation(t *testing.T) {
 		}
 	}
 	script := filepath.Join(repoRoot(t), "skills/go-code-refactor/scripts/verify-refactor.sh")
+	run := func(t *testing.T, mode, limit string) (truncated bool, lines int) {
+		t.Helper()
+		exitCode := 1
+		if mode == "leaks" {
+			exitCode = 3
+		}
+		out := runCommandInDir(t, dir, exitCode, "bash", script, "--json", "--limit", limit, mode)
+		var got struct {
+			Truncated bool   `json:"truncated"`
+			Diff      string `json:"diff"`
+			Output    string `json:"output"`
+		}
+		if err := json.Unmarshal(out, &got); err != nil {
+			t.Fatalf("%s JSON: %v\n%s", mode, err, out)
+		}
+		text := got.Diff + got.Output
+		if text == "" {
+			t.Fatalf("%s --limit %s: порожній вивід", mode, limit)
+		}
+		return got.Truncated, len(strings.Split(text, "\n"))
+	}
 	for _, mode := range []string{"diff", "leaks"} {
-		for _, limit := range []string{"0", "1", "100"} {
-			t.Run(mode+"/"+limit, func(t *testing.T) {
-				exitCode := 1
-				if mode == "leaks" {
-					exitCode = 3
-				}
-				out := runCommandInDir(t, dir, exitCode, "bash", script, "--json", "--limit", limit, mode)
-				var got struct {
-					Truncated bool   `json:"truncated"`
-					Diff      string `json:"diff"`
-					Output    string `json:"output"`
-				}
-				if err := json.Unmarshal(out, &got); err != nil {
-					t.Fatalf("%s JSON: %v\n%s", mode, err, out)
-				}
-				if got.Truncated != (limit == "1") {
-					t.Errorf("%s --limit %s: truncated=%t, want %t", mode, limit, got.Truncated, limit == "1")
-				}
-				text := got.Diff + got.Output
-				lines := len(strings.Split(strings.TrimSpace(text), "\n"))
-				if text == "" || (limit == "1" && lines != 1) || (limit != "1" && lines <= 1) {
-					t.Errorf("%s --limit %s: неочікуваний вивід %q", mode, limit, text)
+		unlimited, full := run(t, mode, "0")
+		if unlimited {
+			t.Errorf("%s --limit 0: truncated=true, хоча ліміт вимкнено", mode)
+		}
+		if full < 3 {
+			t.Fatalf("%s: фікстура дає %d рядків, замало щоб перевірити межу", mode, full)
+		}
+		// Рівно на межі скорочення немає: інакше повний блоб повідомляється
+		// як урізаний, і виклик шукає вивід, якого не бракує.
+		for _, limit := range []int{1, full - 1, full, full + 1} {
+			t.Run(fmt.Sprintf("%s/%d", mode, limit), func(t *testing.T) {
+				gotTruncated, gotLines := run(t, mode, strconv.Itoa(limit))
+				wantTruncated, wantLines := limit < full, min(limit, full)
+				if gotTruncated != wantTruncated || gotLines != wantLines {
+					t.Errorf("%s --limit %d: truncated=%t з %d рядками; want %t з %d (повний блоб — %d)",
+						mode, limit, gotTruncated, gotLines, wantTruncated, wantLines, full)
 				}
 			})
 		}
+	}
+}
+
+// TestRefactorApplyLimitCounting перевіряє лічильник рядків самої apply_limit,
+// витягнутої з відвантажуваного скрипта. Через режими цей дефект недосяжний:
+// усі троє передають їй результат `$(...)`, який зрізає кінцевий "\n".
+func TestRefactorApplyLimitCounting(t *testing.T) {
+	script := filepath.Join(repoRoot(t), "skills/go-code-refactor/scripts/verify-refactor.sh")
+	const harness = `set -uo pipefail
+eval "$(awk '/^apply_limit\(\) \{/,/^\}/' "$1")"
+LIMIT="$2"
+text=$(printf '%b' "$3"; printf x)
+apply_limit "${text%x}"
+printf '%s' "$TRUNCATED"`
+	for _, tt := range []struct {
+		text, limit string
+		truncated   bool
+	}{
+		{`a\nb`, "2", false},
+		{`a\nb`, "1", true},
+		{`a\nb\n`, "2", false}, // кінцевий "\n" не є зайвим рядком
+		{`a\nb\n`, "1", true},
+		{`a\n`, "1", false},
+		{`a\nb\nc\n`, "2", true},
+	} {
+		t.Run(fmt.Sprintf("%s/limit=%s", tt.text, tt.limit), func(t *testing.T) {
+			out := runCommandInDir(t, t.TempDir(), 0, "bash", "-c", harness, "harness", script, tt.limit, tt.text)
+			if got := string(out) == "true"; got != tt.truncated {
+				t.Errorf("apply_limit(%q, LIMIT=%s) truncated=%s, want %t", tt.text, tt.limit, out, tt.truncated)
+			}
+		})
 	}
 }
 
@@ -185,13 +233,15 @@ func refactorToolFixture(t *testing.T, lintScript string) string {
 		t.Fatal(err)
 	}
 	for name, content := range map[string]string{
-		"go.mod":            "module example\n\ngo 1.27\n",
 		"bin/go":            "#!/bin/sh\ncase \"$1\" in\nversion) echo 'go version go1.27.1 test/test';;\ntest) printf '=== RUN   TestExample\\n--- PASS: TestExample (0.00s)\\nPASS\\n';;\nesac\n",
 		"bin/golangci-lint": "#!/bin/sh\n" + lintScript + "\n",
 	} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o755); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example\n\ngo 1.27\n"), 0o600); err != nil {
+		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	return dir

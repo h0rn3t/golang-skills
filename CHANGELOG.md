@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-10
+
 ### Added
 
 - Local-redirect guidance in `go-security` with a check that also rejects
@@ -18,9 +20,12 @@ All notable changes to this repository are documented here.
   repository gate. `docs/SCRIPT_JSON_CONTRACTS.md` records the shape, and its
   `leaks` example now matches what the mode has emitted since 1.3.2.
 - `TestLocalRedirectExample`, `TestContextHandlerFailureBoundaries`,
-  `TestRefactorLintStatus`, and `TestRefactorTruncation`, which reproduce every
-  defect corrected here against the shipped Markdown and script rather than
-  against a copy of them.
+  `TestRefactorLintStatus`, `TestRefactorTruncation`, and
+  `TestRefactorApplyLimitCounting`, which reproduce every defect corrected here
+  against the shipped Markdown and script rather than against a copy of them.
+  The truncation test now pins the exact boundary — `--limit` equal to the line
+  count does not truncate — and the counting test drives `apply_limit` directly,
+  because no mode passes it text ending in a newline.
 
 ### Changed
 
@@ -35,6 +40,9 @@ All notable changes to this repository are documented here.
   writes nothing, from a downstream `context.Canceled` while the request is
   still alive, which is a 500. Treating the two alike turned an unwritten
   response into an implicit 200.
+- `go-code-refactor` defines `REFACTOR_SKILL_DIR` in its resource list, before
+  the first command that uses it, and shows a `--version` call that proves the
+  path resolved.
 
 ### Fixed
 
@@ -47,6 +55,14 @@ All notable changes to this repository are documented here.
   result that `--limit` had actually shortened: `apply_limit` set the flag
   inside a command substitution, so the subshell's value never reached the
   caller.
+- The concision gate's first command used `$REFACTOR_SKILL_DIR` 42 lines before
+  the only sentence that told you to set it. Unset, the path collapsed to
+  `/scripts/verify-refactor.sh` and the baseline was never recorded, which is
+  the failure the gate exists to prevent.
+- `apply_limit` counted one line too many for text ending in a newline, so a
+  complete blob could be reported as truncated. No mode reaches it today —
+  all three strip the trailing newline through command substitution — but the
+  count is now correct for any caller.
 
 ## [1.3.2] - 2026-09-10
 

@@ -81,8 +81,11 @@ apply_limit() {
     if [[ "$LIMIT" -le 0 || -z "$LIMITED_TEXT" ]]; then
         return
     fi
+    # grep -c, not `printf '%s\n' | wc -l`: that form appends a newline the text
+    # may already end with, counting one line too many and reporting a complete
+    # blob as truncated.
     local total
-    total=$(printf '%s\n' "$LIMITED_TEXT" | wc -l | tr -d ' ')
+    total=$(printf '%s' "$LIMITED_TEXT" | grep -c '' | tr -d ' ')
     if [[ "$total" -le "$LIMIT" ]]; then
         return
     fi

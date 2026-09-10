@@ -31,6 +31,17 @@ target project using the resolved absolute script path.
 - `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no upgrade path.
 - `assets/refactor-report.md` - Use as the final report structure.
 
+Every command below runs the scripts through `REFACTOR_SKILL_DIR`. Set it once,
+before the first one, to this installed skill's absolute directory, and keep the
+working directory in the target project. Confirm it resolved: unset, the path
+collapses to `/scripts/verify-refactor.sh` and every later call fails silently
+against a baseline that was never recorded.
+
+```bash
+export REFACTOR_SKILL_DIR="$HOME/.claude/skills/go-code-refactor"  # plugin installs differ
+bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" --version    # must print a version
+```
+
 ## Resolve Baseline and Scope
 
 Use existing authorization and continue work that does not depend on an answer.
@@ -229,8 +240,7 @@ carries its own behavior changes.
 bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" baseline ./...
 ```
 
-Set `REFACTOR_SKILL_DIR` to this installed skill's absolute directory; keep the
-working directory in the target project. If characterization tests are needed,
+If characterization tests are needed,
 run them against unchanged production code, then capture a new baseline with
 those tests included. Retain the earlier results for known failures.
 

@@ -56,11 +56,13 @@ Writing the loop instead is a reviewable defect, not a style choice —
 | Split a string once, iterate | `strings.SplitSeq` (no slice allocated) |
 | Split off the last segment | `strings.CutLast` / `bytes.CutLast` (Go 1.27+) |
 
-`slices.Clone`, `maps.Clone`, `slices.Collect`, and `slices.Sorted` return nil
-for empty input, where a `make`+`copy` pair returns a non-nil empty container.
-When the result reaches JSON or a later map write, that difference is
-observable — see [Declaring Empty Slices](#declaring-empty-slices) below and
-keep the allocation. Replacing a loop is not free of contract until you check it.
+`slices.Clone` and `maps.Clone` preserve nilness: nil input yields nil, while
+an initialized empty container stays non-nil. `slices.Collect` and
+`slices.Sorted` return nil for an empty iterator. An unconditional `make` plus
+copy produces a non-nil container even for nil input. Preserve that allocation
+when JSON, a later map write, or observable capacity requires it — see
+[Declaring Empty Slices](#declaring-empty-slices). Check the contract before
+replacing a loop.
 
 ```go
 dir, file, ok := strings.CutLast("a/b/c.txt", "/") // "a/b", "c.txt", true
@@ -131,8 +133,11 @@ t := []string{}
 
 Both have `len` and `cap` of zero, but the nil slice is the preferred style.
 
-**Exception for JSON**: A nil slice encodes to `null`, while `[]string{}`
-encodes to `[]`. Use non-nil when you need a JSON array.
+**JSON depends on the encoder**: `encoding/json` v1 encodes a nil slice as
+`null` and `[]string{}` as `[]`. JSON v2 defaults encode nil non-byte slices
+as `[]`; `FormatNilSliceAsNull(true)` restores null. Require non-nil only when
+the selected encoder/options or another caller contract needs it. See
+[JSON v2 defaults](../go-http/references/JSON-V2.md#defaults-that-can-change-the-contract).
 
 When designing interfaces, avoid distinguishing between nil and non-nil
 zero-length slices.

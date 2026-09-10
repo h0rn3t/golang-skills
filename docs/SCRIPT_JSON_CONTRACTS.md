@@ -79,20 +79,31 @@ No-Go-file targets are successful empty scans and include a status marker:
 `baseline` and `after`:
 
 ```json
-{"mode":"after","target":"./...","toolchain":"go1.27.0","go_directive":"1.27","gofmt":"pass","summary_path":".refactor-verify/after.summary","fix_pending_lines":"0","lint_findings":"0","passed":true}
+{"mode":"after","target":"./...","toolchain":"go1.27.1","go_directive":"1.27","gofmt":"pass","summary_path":".refactor-verify/after.summary","fix_pending_lines":"0","lint_findings":"0","lint_status":"pass","lint_exit_code":0,"lint_log_path":".refactor-verify/after.lint.raw","passed":true}
 ```
 
 `diff` (exit 1 when `identical` is false) and `leaks`:
 
 ```json
 {"mode":"diff","identical":true,"diff":"","truncated":false}
-{"mode":"leaks","go_minor":27,"passed":true,"output":"ok\tscratch\t0.2s","truncated":false}
+{"mode":"leaks","go_minor":27,"passed":false,"tests_passed":true,"leaks_checked":false,"reason":"No in-process leak profile was collected or inspected","output":"ok\tscratch\t0.2s","truncated":false}
 ```
 
-`fix_pending_lines` and `lint_findings` are `"n/a"` when the tool is absent;
-they are informational and deliberately excluded from the `baseline`/`after`
-summary that `diff` compares, because a refactor is expected to reduce them
-rather than hold them equal.
+`leaks` exits 3 when tests pass but no leak profile was checked, 1 when tests
+fail, and 2 for usage/environment errors. `truncated` reports whether `--limit`
+actually shortened the `diff` or `output` field.
+
+`fix_pending_lines` is `"n/a"` when its check cannot run. Lint metadata:
+
+- `lint_status`: `pass` after exit 0, `fail` after exit 1 with parsed findings,
+  otherwise `unavailable`; failures without usable diagnostics are not clean.
+- `lint_exit_code`: actual exit code, or `null` if the executable is absent.
+- `lint_findings`: count of parsed text diagnostics, or `"n/a"` when unavailable.
+- `lint_log_path`: captured output for inspection, or empty if lint did not run.
+
+Lint and modernization remain informational and excluded from the summaries
+that `diff` compares. In `baseline`/`after`, `passed` covers the core checks,
+not lint; callers must inspect `lint_status` and honor their repository gate.
 
 ## Migration Note
 

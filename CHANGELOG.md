@@ -4,6 +4,50 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Local-redirect guidance in `go-security` with a check that also rejects
+  backslashes, spaces, and ASCII control characters. A `//`-prefix test alone
+  accepts `/\host` and `/` + TAB + `/host`, which browsers resolve to an
+  external origin, so the previous advice was an open redirect.
+- `verify-refactor.sh baseline`/`after` report `lint_status`, `lint_exit_code`,
+  and `lint_log_path` (v1.2.0). A lint run that exits non-zero without parsable
+  diagnostics is `unavailable`, not clean, so an absent or misconfigured
+  `golangci-lint` can no longer read as a passing gate. `passed` still covers
+  only the core checks; callers must inspect `lint_status` and honor their own
+  repository gate. `docs/SCRIPT_JSON_CONTRACTS.md` records the shape, and its
+  `leaks` example now matches what the mode has emitted since 1.3.2.
+- `TestLocalRedirectExample`, `TestContextHandlerFailureBoundaries`,
+  `TestRefactorLintStatus`, and `TestRefactorTruncation`, which reproduce every
+  defect corrected here against the shipped Markdown and script rather than
+  against a copy of them.
+
+### Changed
+
+- Clone guidance names the actual contract: `slices.Clone` and `maps.Clone`
+  preserve nilness, including a non-nil empty input; `slices.Collect` and
+  `slices.Sorted` return nil for an empty iterator. The nil-to-`null` mapping
+  is JSON v1's — v2 defaults encode nil non-byte slices as `[]` and
+  `FormatNilSliceAsNull(true)` restores `null` — so `make`+`copy` is required
+  only when the selected encoder or a caller contract needs it
+  (`go-data-structures`, `go-defensive`, `go-http`).
+- The HTTP error table separates an incoming `r.Context()` cancellation, which
+  writes nothing, from a downstream `context.Canceled` while the request is
+  still alive, which is a 500. Treating the two alike turned an unwritten
+  response into an implicit 200.
+
+### Fixed
+
+- The cancellation example in `go-context` returned `err.Error()` to the client
+  and skipped the response whenever any operation reported `context.Canceled`,
+  including a child context's. It now checks `r.Context().Err()`, logs the
+  detail server-side, and returns a generic status; the encode error is no
+  longer discarded.
+- `verify-refactor.sh` reported `truncated: false` for a `diff` or `leaks`
+  result that `--limit` had actually shortened: `apply_limit` set the flag
+  inside a command substitution, so the subshell's value never reached the
+  caller.
+
 ## [1.3.2] - 2026-09-10
 
 ### Added

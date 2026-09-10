@@ -170,13 +170,32 @@ re-validate each hop; a public URL that 302s to `127.0.0.1` defeats the check.
 closed. What remains:
 
 - **Open redirect**: `http.Redirect(w, r, r.FormValue("next"), 302)` sends
-  users to an attacker's site from your domain. Accept only relative paths
-  (`strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//")`) or an
-  allowlist of hosts.
+  users to an attacker's site from your domain. Accept local paths using the
+  check below, or use an explicit allowlist when external destinations are needed.
 - **Host header**: absolute URLs built from `r.Host` (password-reset links)
   follow whatever the client sent. Use a configured canonical host.
 - **`X-Forwarded-For`**: append-only and client-writable. Trust the *last*
   hop only when a known proxy set it; otherwise `r.RemoteAddr` is the truth.
+
+### Local redirects
+
+Require a single leading slash and reject backslashes, spaces, and ASCII
+control characters. Browsers interpret `/\host` and `/` + TAB + `/host` as
+external destinations; checking only for a `//` prefix misses both.
+
+```go
+func localRedirect(next string) bool {
+    return strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") &&
+        !strings.ContainsFunc(next, func(r rune) bool {
+            return r == '\\' || r <= ' ' || r == '\x7f'
+        })
+}
+```
+
+Check the exact value passed to `http.Redirect`; do not decode or rebuild it
+after validation. Percent-encoded spaces may remain encoded. Test rejected
+browser-normalized destinations alongside valid local paths, queries, and
+fragments. See the [WHATWG URL parser](https://url.spec.whatwg.org/#relative-slash-state).
 
 ---
 

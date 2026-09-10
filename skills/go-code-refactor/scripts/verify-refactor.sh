@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 SCRIPT_NAME="$(basename "$0")"
 
 usage() {
@@ -70,24 +70,24 @@ json_escape() {
     printf '%s' "$s"
 }
 
-# Trim a blob to at most LIMIT lines. Echoes the (possibly trimmed) text and
-# sets TRUNCATED for the caller.
+# Trim a blob to at most LIMIT lines. The result and the truncation flag stay
+# in the current shell: a command substitution would discard TRUNCATED with the
+# subshell that set it.
+LIMITED_TEXT=""
 TRUNCATED=false
 apply_limit() {
-    local text="$1"
+    LIMITED_TEXT="$1"
     TRUNCATED=false
-    if [[ "$LIMIT" -le 0 || -z "$text" ]]; then
-        printf '%s' "$text"
+    if [[ "$LIMIT" -le 0 || -z "$LIMITED_TEXT" ]]; then
         return
     fi
     local total
-    total=$(printf '%s\n' "$text" | wc -l | tr -d ' ')
+    total=$(printf '%s\n' "$LIMITED_TEXT" | wc -l | tr -d ' ')
     if [[ "$total" -le "$LIMIT" ]]; then
-        printf '%s' "$text"
         return
     fi
     TRUNCATED=true
-    printf '%s' "$(printf '%s\n' "$text" | head -n "$LIMIT")"
+    LIMITED_TEXT="$(printf '%s\n' "$LIMITED_TEXT" | head -n "$LIMIT")"
 }
 
 JSON_OUTPUT=false
@@ -459,7 +459,8 @@ if [[ "$MODE" == "diff" ]]; then
         exit 2
     fi
     DIFF_OUT="$(diff -u "$OUT_DIR/baseline.summary" "$OUT_DIR/after.summary" 2>&1)" && DIFF_RC=0 || DIFF_RC=1
-    DISPLAY="$(apply_limit "$DIFF_OUT")"
+    apply_limit "$DIFF_OUT"
+    DISPLAY="$LIMITED_TEXT"
     if $JSON_OUTPUT; then
         printf '{"mode":"diff","identical":%s,"diff":"%s","truncated":%s}\n' \
             "$( [[ $DIFF_RC -eq 0 ]] && echo true || echo false )" \
@@ -493,7 +494,8 @@ if [[ "$MODE" == "leaks" ]]; then
         GOEXPERIMENT=goroutineleakprofile go test -count=1 -timeout "$GO_TEST_TIMEOUT" "$TARGET" \
             >"$LEAK_LOG" 2>&1 && LEAK_RC=0 || LEAK_RC=1
     fi
-    LEAK_OUT="$(apply_limit "$(cat "$LEAK_LOG")")"
+    apply_limit "$(cat "$LEAK_LOG")"
+    LEAK_OUT="$LIMITED_TEXT"
     if $JSON_OUTPUT; then
         printf '{"mode":"leaks","go_minor":%s,"passed":false,"tests_passed":%s,"leaks_checked":false,"reason":"No in-process leak profile was collected or inspected","output":"%s","truncated":%s}\n' \
             "$GO_MINOR" \
@@ -588,27 +590,44 @@ if go fix -diff "$TARGET" >"$OUT_DIR/$MODE.fix.diff" 2>/dev/null; then
 fi
 
 LINT_FINDINGS="n/a"
+LINT_STATUS="unavailable"
+LINT_EXIT_CODE=null
+LINT_LOG=""
 if command -v golangci-lint &>/dev/null; then
-    golangci-lint run "$TARGET" >"$OUT_DIR/$MODE.lint.raw" 2>&1 || true
-    cat "$OUT_DIR/$MODE.lint.raw" >>"$LOG"
-    LINT_FINDINGS="$(grep -cE '\.go:[0-9]+:[0-9]+:' "$OUT_DIR/$MODE.lint.raw" 2>/dev/null || true)"
-    LINT_FINDINGS="${LINT_FINDINGS:-0}"
+    LINT_LOG="$OUT_DIR/$MODE.lint.raw"
+    LINT_EXIT_CODE=0
+    golangci-lint run "$TARGET" >"$LINT_LOG" 2>&1 || LINT_EXIT_CODE=$?
+    cat "$LINT_LOG" >>"$LOG"
+    LINT_COUNT="$(grep -cE '\.go:[0-9]+:[0-9]+:' "$LINT_LOG" 2>/dev/null || true)"
+    if [[ "$LINT_EXIT_CODE" -eq 0 ]]; then
+        LINT_STATUS="pass"
+        LINT_FINDINGS="${LINT_COUNT:-0}"
+    elif [[ "$LINT_EXIT_CODE" -eq 1 && "${LINT_COUNT:-0}" -gt 0 ]]; then
+        LINT_STATUS="fail"
+        LINT_FINDINGS="$LINT_COUNT"
+    fi
 fi
 
 if $JSON_OUTPUT; then
-    printf '{"mode":"%s","target":"%s","toolchain":"%s","go_directive":"%s","gofmt":"%s","summary_path":"%s","fix_pending_lines":"%s","lint_findings":"%s","passed":%s}\n' \
+    printf '{"mode":"%s","target":"%s","toolchain":"%s","go_directive":"%s","gofmt":"%s","summary_path":"%s","fix_pending_lines":"%s","lint_findings":"%s","lint_status":"%s","lint_exit_code":%s,"lint_log_path":"%s","passed":%s}\n' \
         "$MODE" "$(json_escape "$TARGET")" "$(json_escape "${GO_VERSION:-unknown}")" \
         "$(json_escape "${GO_DIRECTIVE:-none}")" "$GOFMT_STATUS" \
         "$(json_escape "$SUMMARY")" "$FIX_PENDING" "$LINT_FINDINGS" \
+        "$LINT_STATUS" "$LINT_EXIT_CODE" "$(json_escape "$LINT_LOG")" \
         "$( [[ $FAILED -eq 0 ]] && echo true || echo false )"
 else
     echo "--- $MODE ($TARGET) ---"
     echo "toolchain: ${GO_VERSION:-unknown} / go.mod directive: ${GO_DIRECTIVE:-none}"
     apply_limit "$(cat "$SUMMARY")"
-    echo
+    printf '%s\n' "$LIMITED_TEXT"
     $TRUNCATED && echo "... (truncated at $LIMIT lines)"
     echo "go fix pending: $FIX_PENDING diff lines (informational)"
-    echo "lint findings: $LINT_FINDINGS (informational)"
+    echo "lint: $LINT_STATUS; findings: $LINT_FINDINGS (informational)"
+    if [[ -n "$LINT_LOG" ]]; then
+        echo "lint exit: $LINT_EXIT_CODE; log: $LINT_LOG"
+    else
+        echo "lint unavailable: golangci-lint not found in PATH"
+    fi
     echo "--- full log: $LOG ---"
     if [[ "$MODE" == "baseline" && "$FAILED" -eq 1 ]]; then
         echo

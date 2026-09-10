@@ -12,9 +12,9 @@ boundaries so callers cannot mutate internal state, or vice versa.
 
 Prefer `slices.Clone` and `maps.Clone` (Go 1.21+) when their nil and capacity
 behavior fits the contract. An unconditional `make` creates a non-nil result
-even for nil input; keep it when callers need an empty JSON array, a writable
-map, or an observable slice capacity. A copy is not redundant merely because
-a clone function exists.
+even for nil input; keep it when callers need a writable map, an observable
+slice capacity, or a JSON array with an encoder that maps nil to null. A copy
+is not redundant merely because a clone function exists.
 
 ### Receiving
 
@@ -53,16 +53,17 @@ func (s *Stats) Snapshot() map[string]int {
 }
 ```
 
-Note the nil behavior: `slices.Clone(nil)` and `maps.Clone(nil)` return `nil`,
-not an empty container. That matches the nil-slice convention but changes JSON
-output from `[]` to `null` — see
-[go-data-structures](../../go-data-structures/SKILL.md).
+`slices.Clone` and `maps.Clone` preserve nilness, including non-nil empty
+inputs. Replacing an unconditional allocation with Clone changes JSON v1
+output for nil input from `[]` to `null`. JSON v2 defaults already encode nil
+non-byte slices as `[]`; check the selected encoder and compatibility options
+in [go-data-structures](../../go-data-structures/SKILL.md#declaring-empty-slices).
 
-When the method serves a JSON array contract, the copy has to stay non-nil,
-so `Clone` is the wrong tool and the explicit allocation is not noise:
+For a JSON array contract with v1 or v2's `FormatNilSliceAsNull(true)`, keep the
+copy non-nil even when the input is nil:
 
 ```go
-// Good: an empty queue still encodes as [], not null
+// Good: still encodes as [], not null, for a nil input under JSON v1
 func (q *Queue) Items() []Item { return append(make([]Item, 0, len(q.items)), q.items...) }
 ```
 

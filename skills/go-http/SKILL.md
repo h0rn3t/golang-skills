@@ -80,9 +80,10 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
   `DisallowUnknownFields` alone accepts trailing data. The second decode
   allows trailing whitespace while still enforcing the cap.
 - Pass `r.Context()` downstream; it is cancelled on client disconnect.
-- For a JSON array contract, build the response with `make([]T, 0, n)` on
-  both unfiltered and filtered paths, including nil input and no matches.
-  Preserve the wire type independently of how the server snapshots its input.
+- For a JSON array contract, preserve the wire type on unfiltered and filtered
+  paths, including nil input and no matches. When the encoder maps nil to null
+  (v1 or v2 compatibility options), use `make([]T, 0, n)`; v2 defaults already
+  encode nil non-byte slices as arrays. See [JSON v2](references/JSON-V2.md).
 - Set headers before `WriteHeader`, and call it once. Buffer encoding when an
   encode error must change the status; otherwise log the encode error because
   headers have already been sent.
@@ -98,7 +99,8 @@ row where that failure can occur:
 | Validation, malformed input | 400 | The validation message |
 | `ErrNotFound` sentinel | 404 | Generic |
 | `ErrConflict`, version mismatch | 409 | Generic |
-| `context.Canceled` (client left) | 499-style: log at Debug, write nothing | — |
+| Incoming `r.Context().Err()` is `context.Canceled` | 499-style: log at Debug, write nothing | — |
+| Downstream `context.Canceled` while the incoming request is alive | 500 unless the endpoint specifies otherwise | Generic |
 | `context.DeadlineExceeded` from downstream | 504 | Generic |
 | Anything else | 500 | Generic — **never** `err.Error()` |
 

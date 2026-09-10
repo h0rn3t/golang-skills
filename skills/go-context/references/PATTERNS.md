@@ -184,17 +184,29 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
     result, err := slowOperation(ctx)
     if err != nil {
-        if errors.Is(err, context.Canceled) {
-            // Client disconnected — nothing to write
+        if errors.Is(ctx.Err(), context.Canceled) {
+            // The incoming request itself was cancelled; no response is needed.
             return
         }
-        http.Error(w, err.Error(), http.StatusInternalServerError)
+        // Handlers are the exception to "log OR return": log the detail
+        // server-side, return a sanitized status to the client.
+        slog.ErrorContext(ctx, "slow operation failed", "err", err)
+        http.Error(w, "internal error", http.StatusInternalServerError)
         return
     }
 
-    json.NewEncoder(w).Encode(result)
+    if err := json.NewEncoder(w).Encode(result); err != nil {
+        slog.ErrorContext(ctx, "encode response failed", "err", err)
+    }
 }
 ```
+
+An operation's `context.Canceled` may come from a child context while the
+incoming request is still alive. Check `r.Context().Err()` before omitting a
+response; otherwise an unwritten response becomes an implicit 200. Keep
+internal error details out of the response and use the
+[HTTP error mapping](../../go-http/SKILL.md#mapping-errors-to-status-codes)
+for status selection and sanitized server-side diagnostics.
 
 The `r.Context()` is cancelled when:
 - The client closes the connection

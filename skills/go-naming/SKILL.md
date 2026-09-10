@@ -163,18 +163,7 @@ Never shadow Go's predeclared identifiers (`error`, `string`, `len`, `cap`,
 
 ---
 
-## Quick Reference
-
-| Element | Rule | Example |
-|---------|------|---------|
-| Package | lowercase, no underscores | `package httputil` |
-| Exported | MixedCaps, starts uppercase | `func ParseURL()` |
-| Unexported | mixedCaps, starts lowercase | `func parseURL()` |
-| Receiver | 1-2 letter abbreviation | `func (c *Client)` |
-| Constant | MixedCaps, never ALL_CAPS | `const MaxSize = 100` |
-| Initialism | consistent case | `userID`, `XMLAPI` |
-| Variable | length ~ scope size | `i` (small), `userCount` (large) |
-| Built-in names | Never shadow predeclared identifiers | See `go-style-core` |
+## Validation
 
 > **Validation**: After renaming identifiers, run `bash scripts/check-naming.sh` to verify no naming anti-patterns remain. Then run `go build ./...` to confirm the rename didn't break anything.
 
@@ -183,5 +172,4 @@ Never shadow Go's predeclared identifiers (`error`, `string`, `len`, `cap`,
 - **Interface naming**: See [go-interfaces](../go-interfaces/SKILL.md) when naming interfaces with the `-er` suffix or choosing receiver types
 - **Package naming**: See [go-packages](../go-packages/SKILL.md) when naming packages, avoiding `util`/`common`, or resolving import collisions
 - **Error naming**: See [go-error-handling](../go-error-handling/SKILL.md) when naming sentinel errors (`ErrFoo`) or custom error types
-- **Declaration scope**: See [go-style-core](../go-style-core/SKILL.md) when variable name length depends on scope or when avoiding built-in shadowing
-- **Style principles**: See [go-style-core](../go-style-core/SKILL.md) when balancing clarity vs concision in identifier names
+- **Scope and style principles**: See [go-style-core](../go-style-core/SKILL.md) when variable name length depends on scope, when avoiding built-in shadowing, or when balancing clarity vs concision in identifier names

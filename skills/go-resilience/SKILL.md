@@ -28,9 +28,8 @@ Implement or review the protection the task needs; a routine client does not
 need every pattern below. Preserve explicit delivery, consistency, freshness,
 and security requirements. If a missing contract changes whether replay or
 fallback is safe, ask for that fact while continuing independently valid work.
-A review stays read-only; a local implementation request does not authorize
-production fault injection, quota changes, or deployment. Missing sibling skills
-or a host-specific `Skill` tool do not block use of the available guidance.
+A local implementation request does not authorize production fault injection,
+quota changes, or deployment.
 
 ## Choose the Protection
 

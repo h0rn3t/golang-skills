@@ -19,15 +19,9 @@ allowed-tools: Bash(bash:*)
 - `references/WRAPPING.md` - Read when choosing `%w` versus `%v` or crossing package boundaries.
 
 In Go, [errors are values](https://go.dev/blog/errors-are-values) — they are
-created by code and consumed by code.
-
-## Choosing an Error Strategy
-
-First distinguish propagating an existing cause from defining a new condition
-or structured payload; [Error Types](#error-types) owns that choice.
-When adding context to an existing error, use `%w` if callers should retain
-access to the cause; otherwise translate it to the API's documented error.
-Return `err` directly when no context or translation is needed.
+created by code and consumed by code. [Error Types](#error-types) chooses
+between propagating a cause and defining a new condition;
+[Error Wrapping](#error-wrapping) chooses `%w` versus `%v`.
 
 ---
 
@@ -224,5 +218,5 @@ annotation adds nothing, return `err` directly.
 - **Error naming**: See [go-naming](../go-naming/SKILL.md) when naming sentinel errors (`ErrFoo`) or custom error types
 - **Testing errors**: See [go-testing](../go-testing/SKILL.md) when testing error semantics with `errors.Is`/`errors.As` or writing error-checking helpers
 - **Panic handling**: See [go-defensive](../go-defensive/SKILL.md) when deciding between panic and error returns, or writing recover guards
-- **Guard clauses**: See [go-style-core](../go-style-core/SKILL.md) — it owns nesting depth and early returns; see [go-style-core](../go-style-core/SKILL.md) for `if`-init and statement mechanics
+- **Guard clauses**: See [go-style-core](../go-style-core/SKILL.md) — it owns nesting depth, early returns, `if`-init, and statement mechanics
 - **Logging decisions**: See [go-logging](../go-logging/SKILL.md) when choosing log levels, configuring structured logging, or deciding what context to include in log messages

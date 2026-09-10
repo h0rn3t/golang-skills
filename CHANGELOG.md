@@ -4,6 +4,20 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-10
+
+### Changed
+
+- Removed duplicated guidance inside four skills; no rule changed owner or
+  meaning. `go-error-handling` stated the `%w` versus `%v` choice three times
+  (an intro section, the Error Types table, and Error Wrapping); the intro now
+  points at the two sections that own it. `go-naming` dropped the Quick
+  Reference table, which restated every section heading above it, and merged
+  two `go-style-core` pointers into one. `go-resilience` and `go-packages` no
+  longer repeat the review-only, missing-skill, and approval rules that
+  `go-style-core` owns under House Style Wins; `go-packages` links there
+  instead.
+
 ## [1.4.0] - 2026-09-10
 
 ### Added

@@ -61,8 +61,8 @@ not have (v1, v3, v5, custom sources).
   APIs newer than the effective file version. `go fix` also gates replacements
   by supported version, so an empty preview alone does not prove a 1.27 target.
 - **Before adding a module**, check the ladder above, license compatibility,
-  and maintenance status. Follow the host and repository's approval policy;
-  do not ask again for an already authorized dependency change.
+  and maintenance status. Approval policy:
+  [go-style-core](../go-style-core/SKILL.md#house-style-wins).
 - **Pin executable tools with `go get -tool <package>@<version>`** (Go 1.24+),
   then run them via `go tool <name>`. Tool dependencies share the module graph.
   For golangci-lint, prefer a version-pinned release binary; if using `go tool`,

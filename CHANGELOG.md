@@ -4,6 +4,52 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-09-11
+
+### Added
+
+- `hooks/go-subagent-routing.sh`, a SubagentStart hook. A subagent starts
+  with an empty context, so nothing the main session loaded reaches it; when
+  the working directory holds Go, the hook adds the prompt hook's note naming
+  `go-code`, or `go-code-refactor` for a refactor, to load before the first
+  edit. It fires for every subagent, since each is a fresh context, skips the
+  plugin's own `go-verify` agent, and never blocks. Motivation: Anthropic's
+  Claude Opus 5 migration guidance records that the model delegates to
+  subagents more readily than Opus 4.8; ponytail's plugin injects its ruleset
+  into every subagent for the same reason. `TestSubagentRouting` covers the
+  note in a Go directory, twice for two subagents, and silence elsewhere and
+  for `go-verify`.
+
+### Changed
+
+- `go-code` drops its re-check choreography. "Inspect the final diff and
+  complete authorized work. Reuse passing results for unchanged code; rerun
+  affected checks after edits and honor host checkpoints" is gone from Close
+  With The Gate, with that section's repeat of the no-shell rule; the
+  reuse-and-rerun rule stays where `go-linting` states it. Anthropic's Claude
+  Opus 5 migration guidance: the model verifies its own work unprompted, and
+  instructions that tell it to verify now cause over-verification, so
+  removing them is a delete, not a rewrite. What stays is the rule the
+  2026-09-05 review made load-bearing: the report carries only observed
+  results, each `pass`, `fail`, `unavailable`, or `skipped`.
+- `go-code` no longer explains the routing gate and the vet hook to the
+  model. The step 3 paragraph on how the PreToolUse gate infers owners, what
+  it cannot see, and that a blocked edit is unapplied, and the Close With The
+  Gate sentence on the PostToolUse hook's silence, are removed, about 300
+  tokens on every load. The gate's own message now says which owners it
+  recognizes, that the routing table decides the rest, and that its silence
+  is not a result, so the text reaches the model only when the gate fires.
+- `go-code` step 5 and `go-testing`'s assertion policy: a task that does not
+  ask for a dependency adds none. `cmp.Diff` is the default for structured
+  values only in a module that already requires go-cmp; otherwise
+  `reflect.DeepEqual`, `slices.Equal`, or `maps.Equal`, and `go.mod` is left
+  alone. Motivation: in the 2026-09-11 Opus 5 prompt-routing run, `catalog`
+  r0 spent five turns reading and editing `go.mod` and writing `go.sum` to
+  add go-cmp for its contract test, following the old default, in the user's
+  module.
+- README: run the plugin at `--effort medium` on Opus 5, the condition every
+  Opus 5 cell was measured at; a `low` control is the open item.
+
 ## [1.10.0] - 2026-09-11
 
 ### Added

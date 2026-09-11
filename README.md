@@ -19,9 +19,10 @@ multi-step tasks, 68 reference files load on demand via progressive disclosure,
 consistent output. The Claude Code plugin also ships a `go-verify` subagent
 that runs the verification gate, a PostToolUse hook that runs `gofmt`,
 `go vet`, and `go fix -diff` on every edited `.go` file, a routing gate that holds the first
-Go edit until `go-code` has loaded `go-style-core` and the owner skills, and a
+Go edit until `go-code` has loaded `go-style-core` and the owner skills, a
 prompt hook that names `go-code` or `go-code-refactor` when a prompt asks for
-Go work.
+Go work, and a subagent hook that repeats that note to every subagent started
+in a Go project.
 
 ## Skills Included
 
@@ -98,6 +99,7 @@ skills only.
 | `hooks/go-vet-on-edit.sh` | PostToolUse hook: after every `Edit`/`Write` of a `.go` file it runs `gofmt -l`, `go vet`, and `go fix -diff` (report only) on that package and hands the findings back to the agent. Silent when clean; never blocks the edit |
 | `hooks/go-prompt-routing.sh` | UserPromptSubmit hook: when a prompt asks for Go work — it names Go, a `.go` file or `go.mod`, or is sent from a directory holding Go and names a function, package, handler, or test — it adds one note to the model's context naming the router to load before the first edit: `go-code-refactor` for refactor, clean-up, or simplify wording, `go-code` for anything else. Once per skill per session; silent when the session already loaded it, when the prompt already invokes a go-* skill, or when there is no work verb. Never blocks |
 | `hooks/go-code-routing.sh` | Routing gate for the `go-code` router. PostToolUse on `Skill` and `Read` records which go-* skills the session loaded; PreToolUse on `Edit`/`Write` of a `.go` file, in a session that loaded `go-code`, blocks the edit (exit 2) until `go-style-core` and the owners the edited content points at are loaded, naming them. Each skill is named once per session, so a retry always passes. Silent in sessions that never loaded `go-code` |
+| `hooks/go-subagent-routing.sh` | SubagentStart hook: a subagent starts with an empty context, so when the working directory holds Go it adds one note naming `go-code`, or `go-code-refactor` for a refactor, to load before the first edit. Fires for every subagent; skips the plugin's own `go-verify` agent; never blocks |
 
 The shared instructions support Claude and GPT-6 without a model-specific
 fork. `go-style-core` owns user-scope precedence, progress updates, report
@@ -325,6 +327,14 @@ a row read wrong. A newer subset run does not cover the full corpus. In runs
 containing variants, this compares **baseline against no skills**, not the best
 variant. Historical results and detailed numbers remain in the linked reports.
 
+**Reasoning effort on Opus 5.** Run the plugin at `--effort medium` on Opus 5:
+every Opus 5 cell above was measured there, and Anthropic's Claude Opus 5
+migration guidance names `low` and `medium` as the primary cost lever, with
+`high` the API default. A `low` control has not been run, so `medium` is the
+measured setting, not a floor. The Sonnet 5 pair above, −9.7 lines at medium
+and −1.8 at high on one tree in one day, is why a comparison holds only within
+one effort level.
+
 The [Sonnet 5 HTTP experiments](docs/evidence/2026-09-08-sonnet-http-compact.md)
 also exposed blocked reference reads in the Claude evaluation setup. The
 September 9 update fixes that setup and adopts a compact inline HTTP guide
@@ -388,7 +398,7 @@ and pinned by `TestGoVersionBaseline` in `evals/eval_test.go`.
 │       ├── scripts/      # Automation scripts and helpers
 │       └── assets/       # Output templates (5 skills)
 ├── agents/               # go-verify subagent (Claude Code plugin)
-├── hooks/                # gofmt/vet/go fix, go-code routing, and prompt routing hooks (Claude Code plugin)
+├── hooks/                # gofmt/vet/go fix, go-code routing, prompt and subagent routing hooks (Claude Code plugin)
 ├── evals/
 │   ├── evals.json        # Trigger and quality eval definitions
 │   ├── cmd/evalrun/      # Opt-in headless eval runner (claude -p)

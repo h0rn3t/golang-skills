@@ -24,8 +24,7 @@ continue independent authorized work without inventing rules.
   the task requires.
 - `../go-linting/SKILL.md` — Read its Verification Gate at step 6, on a task
   that edits Go and only when a shell tool (`Bash` in Claude Code) is in your
-  tool list. Without one nothing in it can run: leave the file unread and
-  report `checks: unavailable (no shell)` in one line.
+  tool list. Without one nothing in it can run: leave the file unread.
 - `../go-code-refactor/references/OVER-ENGINEERING.md` — Read the detailed
   restraint ladder when a [Declaration Budget](#declaration-budget) entry is
   in doubt; its replacement catalog when seeking a simpler existing API; its
@@ -55,18 +54,7 @@ continue independent authorized work without inventing rules.
    documentation, or extra style references. The step ends when every selected
    skill's content is in context; do not make the first edit before that. Add
    owners when new evidence requires them; there is no numerical cap, and
-   content already loaded this session is reused, not reread. Under the Claude
-   Code plugin a PreToolUse hook blocks the first Go edit that precedes these
-   loads and names the missing skills once. A blocked edit was not applied
-   and the file is unchanged, so load what the hook names and retry the same
-   edit; the hook is a reminder, not a substitute for this step. It infers
-   owners from decision-bearing syntax only (a `_test.go` path, `%w`
-   wrapping, goroutines, `context.With*`, SQL, `slog.`, exec and templates,
-   `defer`, type parameters, `interface {`, `package main`, rate limiting,
-   HTTP server and client calls); collections, naming, documentation,
-   functions, performance, refactoring, linting, and troubleshooting it cannot
-   see, and its "Also load" conditions are this table's. Its silence is not a
-   passing gate result.
+   content already loaded this session is reused, not reread.
 4. **Write the Contract Table, for new code only.** For a new function,
    package, or stub body, turn the documentation and the request into the
    test file the [Contract Table](#contract-table) describes, before the
@@ -79,7 +67,11 @@ continue independent authorized work without inventing rules.
    behavior-preserving restructuring, use the [delete-first priority](../go-code-refactor/SKILL.md#delete-before-you-restructure)
    and climb the restraint ladder in [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder)
    for each proposed helper, type, layer, option, or import. Preserve required
-   behavior, validation, security controls, and meaningful tests.
+   behavior, validation, security controls, and meaningful tests. A task that
+   does not ask for a dependency adds none: `go.mod` stays as it is, and a
+   test compares with the standard library
+   ([go-testing](../go-testing/SKILL.md#assertions-match-the-repository) owns
+   the assertion rule).
    Resolve routine choices without stopping; ask only for missing information
    that changes correctness, scope, or authorization.
 6. **Verify and report.** With a shell, run the Contract Table file with the
@@ -276,15 +268,9 @@ explained in it.
 
 ## Close With The Gate
 
-Without a shell tool this section does not apply: the report carries
-`checks: unavailable (no shell)` and `go-linting` stays unread.
-
-Use [go-linting](../go-linting/SKILL.md#verification-gate) to select checks for the requested
-scope. Repository gates take precedence over defaults; do not union them.
-Inspect the final diff and complete authorized work. Reuse passing results
-for unchanged code; rerun affected checks after edits and honor host checkpoints.
-
-Use bundled checks when they add evidence beyond that gate:
+Select checks with [go-linting](../go-linting/SKILL.md#verification-gate) for
+the requested scope; a repository gate replaces the defaults rather than
+joining them. Bundled scripts add evidence the gate lacks:
 
 - Refactor: `../go-code-refactor/scripts/verify-refactor.sh` for baseline/after
   evidence; `../go-code-refactor/scripts/check-debt.sh` for deliberate `Kept:`
@@ -293,11 +279,10 @@ Use bundled checks when they add evidence beyond that gate:
 - Exported API documentation: `../go-documentation/scripts/check-docs.sh`.
 - Before submitting: [go-code-review](../go-code-review/SKILL.md).
 
-Run routine checks inline. Claude Code's `go-verify` agent is optional. The
-PostToolUse hook reports only gofmt and vet findings for the edited package and
-is silent on success: its silence is not a passing result. Count only results
-observed for the current diff and scope; report each check as `pass`, `fail`,
-`unavailable (reason)`, or `skipped (reason)` per go-linting.
+Run routine checks inline; Claude Code's `go-verify` agent is for checks the
+user asks to delegate. The report carries only results observed for the
+current diff and scope, each as `pass`, `fail`, `unavailable (reason)`, or
+`skipped (reason)` per go-linting; a hook's silence is not one of them.
 
 ## Related Skills
 

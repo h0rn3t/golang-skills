@@ -9,7 +9,7 @@ allowed-tools: Bash(bash:*)
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
 > `httptest.NewTestServer` and `synctest.Sleep` require Go 1.27+;
 > `testing/synctest` Go 1.25+; `t.Context` Go 1.24+. Diff examples use
-> `github.com/google/go-cmp`.
+> `github.com/google/go-cmp`, in a module that already requires it.
 
 ## Resource Routing
 
@@ -89,8 +89,10 @@ Always print got before want: `got %v, want %v` — never reversed.
 > **Project policy**: `testify/assert` and `testify/require` are allowed,
 > including in new projects. Follow the user's choice and existing repository
 > conventions; do not replace working assertions just to change style. With
-> no chosen convention, default to standard comparisons and `cmp.Diff` for
-> structured values. Enable `testifylint` when using testify.
+> no chosen convention, default to standard comparisons; for structured values
+> use `cmp.Diff` when the module already requires `github.com/google/go-cmp`,
+> otherwise `reflect.DeepEqual`, `slices.Equal`, or `maps.Equal`. A test never
+> adds a module dependency. Enable `testifylint` when using testify.
 > [go-style-core](../go-style-core/SKILL.md) owns the house-style rule.
 
 Use `assert` for independent checks that can continue after failure; use

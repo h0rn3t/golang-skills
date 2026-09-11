@@ -546,3 +546,83 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 }
+
+// subagentEvent runs the SubagentStart hook and returns its exit code and
+// stdout, which the host adds to the subagent's context.
+func subagentEvent(t *testing.T, cwd, agentType string) (int, string) {
+	t.Helper()
+	body, err := json.Marshal(map[string]any{
+		"hook_event_name": "SubagentStart",
+		"session_id":      "sub1",
+		"cwd":             cwd,
+		"agent_id":        "a1",
+		"agent_type":      agentType,
+	})
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	cmd := exec.Command("bash", filepath.Join(repoRoot(t), "hooks", "go-subagent-routing.sh"))
+	cmd.Stdin = strings.NewReader(string(body))
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+	if stderr.Len() > 0 {
+		t.Errorf("subagent hook wrote to stderr, which a SubagentStart hook must not:\n%s", stderr.String())
+	}
+	if err == nil {
+		return 0, stdout.String()
+	}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok {
+		t.Fatalf("run subagent hook: %v", err)
+	}
+	return exitErr.ExitCode(), stdout.String()
+}
+
+// TestSubagentRouting drives the SubagentStart hook: a subagent started in a
+// Go project is told which router to load, and so is the next one, since
+// each subagent starts with an empty context; a subagent started outside Go,
+// or as the plugin's own go-verify agent, hears nothing.
+func TestSubagentRouting(t *testing.T) {
+	t.Parallel()
+	goDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(goDir, "go.mod"), []byte("module scratch\n\ngo 1.27\n"), 0o644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+
+	t.Run("Go project names the routers", func(t *testing.T) {
+		t.Parallel()
+		for i := 0; i < 2; i++ {
+			code, out := subagentEvent(t, goDir, "general-purpose")
+			if code != 0 {
+				t.Fatalf("subagent %d in a Go directory: exit %d, want 0", i, code)
+			}
+			for _, want := range []string{"go-code", "go-code-refactor", "before the first edit"} {
+				if !strings.Contains(out, want) {
+					t.Errorf("subagent %d note must mention %q:\n%s", i, want, out)
+				}
+			}
+		}
+	})
+
+	t.Run("silent outside Go", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("docs\n"), 0o644); err != nil {
+			t.Fatalf("write README.md: %v", err)
+		}
+		if code, out := subagentEvent(t, dir, "general-purpose"); code != 0 || out != "" {
+			t.Fatalf("subagent outside Go: exit %d, stdout %q; want silent 0", code, out)
+		}
+	})
+
+	t.Run("silent for go-verify", func(t *testing.T) {
+		t.Parallel()
+		for _, agent := range []string{"go-verify", "golang-skills:go-verify"} {
+			if code, out := subagentEvent(t, goDir, agent); code != 0 || out != "" {
+				t.Fatalf("%s subagent: exit %d, stdout %q; want silent 0", agent, code, out)
+			}
+		}
+	})
+}

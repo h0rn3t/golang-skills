@@ -4,7 +4,37 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-09-11
+
 ### Added
+
+- Two three-arm runs of the `go-code` workflow edits below on `catalog`,
+  `feed` and `gateway`, `reference` the committed tree at `ead8ce6` and
+  `baseline` the working tree. Sonnet 5 medium, n=5, 45 sessions:
+  [`docs/evidence/2026-09-11-go-implement-newcode-workflow-sonnet-5-medium.md`](docs/evidence/2026-09-11-go-implement-newcode-workflow-sonnet-5-medium.md).
+  Every compliance measure moved the way the edit intended: the `checks:`
+  line, the budget line and the no-shell statement 15/15 (8/15, 0/15 and
+  10/15 for the old wording), the Contract Table written 15/15 and 10 before
+  the body (8 and 6), a `HEAD` case in the model's own `gateway` test 5/5
+  after 0 of 11 at n=10, shell-less `go-linting` loads 5/15 against 9/15.
+  `catalog` 5/5 at 19 lines in every session with no added declaration
+  (−8.2 against the control, p = 0.008); `feed` level with the retune at
+  32.6 against 30.8; `gateway` 4/5 in both skilled arms against 5/5 unaided,
+  the one baseline failure a session that wrote the `HEAD` case and then
+  trusted method-less fallback patterns to catch it. Cost **7.20x** against
+  5.58x for the reference tree: the whole gap is the Contract Table written
+  every time (`go-testing` 15/15 against 8/15). Opus 5 medium, n=3, 27
+  sessions, the first measurement of the new-code section on this model:
+  [`docs/evidence/2026-09-11-go-implement-newcode-workflow-opus-5-medium.md`](docs/evidence/2026-09-11-go-implement-newcode-workflow-opus-5-medium.md).
+  9/9 correct in both skilled arms against 7/9 unaided, both control
+  failures `gateway` answering `HEAD` with 200 at 110–147 lines; every
+  `go-code` session followed the workflow in both trees, so the edits change
+  this model less — reports shorter (median 1151 against 1802 characters),
+  the last shell-less `go-linting` load gone, cost 3.52x against 3.23x. Five
+  of eighteen skilled Opus sessions loaded no skill at all, all on `feed`
+  and `catalog`. The README Opus 5 new-code cell moves to this run; the
+  Sonnet 5 cell stays on the n=5 full-corpus run and is qualified by the
+  subset.
 
 - The n=10 three-arm run on `catalog`, `feed` and `gateway` that the n=5
   report asked for, 90 sessions at Sonnet 5 medium, `reference` the pre-retune
@@ -30,6 +60,34 @@ All notable changes to this repository are documented here.
 
 ### Changed
 
+- `go-code`'s workflow has six steps and names what it asks for. Step 2
+  checks the tool list for a shell tool by name (`Bash` in Claude Code) and
+  decides the task's shape; step 3 names `go-testing` among the owners when
+  a Contract Table will be written, and says a hook-blocked edit was not
+  applied; step 4 is the Contract Table, for new code only; step 6 reports
+  in a literal four-line shape — outcome, `checks:` line, budget line, gaps —
+  with `checks: unavailable (no shell)` as the whole gate report when no
+  shell tool exists. The `go-linting` routing line and Close With The Gate
+  repeat the no-shell rule at the point of use. Measured above: Sonnet 5
+  followed the shape in 15/15 sessions where the prose form reached 8/15,
+  0/15 and 10/15; Opus 5 had followed the prose form already.
+- The Contract Table takes a class clause's case — "any other method", "any
+  other value" — from the member a library default treats unlike the rest:
+  `HEAD` under a `GET` pattern, `t`/`1` under `strconv.ParseBool`, the bare
+  path under a subtree pattern; the example table gains a `HEAD /healthz`
+  row and the `GET`-serves-`HEAD` default joins the list the contract
+  overrides. Measured above: a `HEAD` case in 5/5 Sonnet 5 and 3/3 Opus 5
+  `gateway` tests, after 0 of 11 at n=10.
+- Declaration Budget rule 2 says that a caller which inspects or matches an
+  error uses `errors.Is` on the wrapped sentinel and needs no type;
+  `catalog` declared none in 5/5 Sonnet 5 sessions after 2/10 at n=10.
+- `go-http`'s Routing bullet leads with "A `GET` pattern also serves `HEAD`",
+  names the `r.Method != http.MethodGet` form and the test that catches the
+  default; its Related Skills route a handler or server written from a
+  specification to `go-code`.
+- The routing gate's block message says the edit was not applied and the
+  file is unchanged, and asks for the same edit again; the n=10 run had four
+  sessions retry against the content of an edit that never landed.
 - The Plain Code example in `go-code` changes shape: a build manifest with an
   ordered list, the path of the largest file and a total, in place of the
   document with a sorted distinct list and a count map that shared its members

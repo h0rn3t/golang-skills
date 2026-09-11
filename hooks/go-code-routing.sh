@@ -128,9 +128,10 @@ PreToolUse)
     mkdir -p "$state" && printf '%s\n' $missing >> "$reminded"
     cat >&2 <<EOF
 go-code routing gate: this session loaded go-code but not: ${missing% }
-Load them before editing Go files, then retry this edit. In Claude Code that is
-one Skill call per name. This reminder names each skill once per session; the
-routing table in go-code/SKILL.md decides, these hints only remind.
+This edit was not applied and the file is unchanged. Load them (in Claude Code,
+one Skill call per name), then retry the same edit against the unchanged file.
+This reminder names each skill once per session; the routing table in
+go-code/SKILL.md decides, these hints only remind.
 EOF
     exit 2
     ;;

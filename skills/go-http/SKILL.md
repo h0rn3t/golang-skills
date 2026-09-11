@@ -39,11 +39,14 @@ mux.HandleFunc("HEAD /users/{id}", func(w http.ResponseWriter, r *http.Request) 
 id := r.PathValue("id")
 ```
 
-- A method pattern answers other methods on its path with 405 and an `Allow`
-  header, except `HEAD`, which a `GET` pattern serves. A contract that lists
-  the requests it answers and makes every other method a 405 needs the HEAD
-  pattern above beside each `GET` route, or an `r.Method` check in the
-  handler. A pattern without a method matches every method.
+- **A `GET` pattern also serves `HEAD`.** A method pattern answers every other
+  method on its path with 405 and an `Allow` header; `HEAD` is the one it lets
+  through, with the `GET` handler's status. A contract that lists the requests
+  it answers and makes every other method a 405 therefore needs either the
+  `HEAD` pattern above beside each `GET` route or an
+  `r.Method != http.MethodGet` check inside the handler, and a test that sends
+  `HEAD` is what catches the default. A pattern without a method matches every
+  method.
 - Conflicting patterns panic at registration; overlapping patterns are valid
   when one is more specific, which is why `HEAD /users/{id}` registers beside
   `GET /users/{id}`.
@@ -193,6 +196,8 @@ handlers run concurrently. Test handlers with `httptest.NewTestServer(t, h)`.
 
 ## Related Skills
 
+- [go-code](../go-code/SKILL.md): the workflow for a handler or server written
+  from a specification — contract table, plain code, declaration budget.
 - [go-context](../go-context/SKILL.md): derived deadlines and request lifetime.
 - [go-error-handling](../go-error-handling/SKILL.md): sentinels and wrapping.
 - [go-logging](../go-logging/SKILL.md): request IDs, log fields, redaction.

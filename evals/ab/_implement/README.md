@@ -106,6 +106,18 @@ once per arm per run through the same error-path deduplication bug. The table
 above is the Opus 5 admission record; the Sonnet 5 medium readings live in the
 linked reports.
 
+The 2026-09-11 workflow retune — a named shell check, the Contract Table as
+its own step with `go-testing` loaded first, a literal report shape, and a
+class-clause rule that names `HEAD` under a `GET` pattern — was measured on
+the three fixtures in both Claude models the same hour:
+[Sonnet 5 medium, n=5](../../../docs/evidence/2026-09-11-go-implement-newcode-workflow-sonnet-5-medium.md)
+and [Opus 5 medium, n=3](../../../docs/evidence/2026-09-11-go-implement-newcode-workflow-opus-5-medium.md).
+The model's own `gateway` test carried a `HEAD` case in 5/5 and 3/3 skilled
+sessions after 0 of 11 at n=10; `gateway` golden was 4/5 in both Sonnet
+skilled arms against 5/5 unaided, and 3/3 in both Opus skilled arms against
+1/3 unaided, the Opus control failing the `HEAD` clause at 110–147 lines.
+Sonnet's cost rose to 7.2x with the Contract Table written in every session.
+
 On `gateway` the skilled arm also wrote the *same* amount every time —
 population standard deviation 4.4 lines against the control's 30.9 — which is
 the more useful of the two properties when the question is what a change costs

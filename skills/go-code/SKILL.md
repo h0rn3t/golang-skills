@@ -22,10 +22,10 @@ continue independent authorized work without inventing rules.
 - `../go-style-core/SKILL.md` — Read once per task for house style, fallback
   rules, and communication guidance. Read its references only for a decision
   the task requires.
-- `../go-linting/SKILL.md` — Read its Verification Gate at step 5 on every
-  task that edits Go and has a shell to run checks in. Without a shell nothing
-  in it can run: report the gate as `unavailable (no shell)` in one line and
-  leave the file unread.
+- `../go-linting/SKILL.md` — Read its Verification Gate at step 6, on a task
+  that edits Go and only when a shell tool (`Bash` in Claude Code) is in your
+  tool list. Without one nothing in it can run: leave the file unread and
+  report `checks: unavailable (no shell)` in one line.
 - `../go-code-refactor/references/OVER-ENGINEERING.md` — Read the detailed
   restraint ladder when a [Declaration Budget](#declaration-budget) entry is
   in doubt; its replacement catalog when seeking a simpler existing API; its
@@ -38,31 +38,41 @@ continue independent authorized work without inventing rules.
    work. As a modifier, e.g. `/opsx:apply add-auth /go-code`, remove the modifier
    before the host parses its arguments. It is never a change name or path;
    the host retains workflow state, checkpoints, and delegation policy.
-2. **Load `go-style-core`, then read the code.** Load `go-style-core` on every
-   task. Then inspect repository instructions, `go.mod`, neighboring code,
-   tests, and callers. For a new function, package, or stub body, write the
-   [Contract Table](#contract-table) now, as the test file it describes,
-   before the first production edit: its cases select the owners below and
-   are what step 5 runs or reads.
+2. **Load `go-style-core`, read the code, and check for a shell.** Load
+   `go-style-core` on every task. Then inspect repository instructions,
+   `go.mod`, neighboring code, tests, and callers, and look at your tool
+   list: a shell tool (`Bash` in Claude Code) means step 6 runs the checks; no
+   shell tool means nothing in step 6 can run, `go-linting` stays unread, and
+   the report says so in one line. Decide the shape of the task here as
+   well: a new function, package, or stub body makes step 4 apply; a fix or a
+   restructuring of existing code skips it.
 3. **Load the owners before the first edit.** Match the task against
    [Route Before The First Edit](#route-before-the-first-edit) and load each
-   matched owner plus every `Also load` entry whose condition holds. Select by
-   the decisions and behavior being changed, not every syntax element present:
-   a routine local variable or `if` does not trigger naming, documentation, or
-   extra style references. The step ends when every selected skill's content is
-   in context; do not make the first edit before that. Add owners when new
-   evidence requires them; there is no numerical cap, and content already
-   loaded this session is reused, not reread. Under the Claude Code plugin a
-   PreToolUse hook blocks the first Go edit that precedes these loads and names
-   the missing skills once; it is a reminder, not a substitute for this step.
-   The hook infers owners from decision-bearing syntax only (a `_test.go`
-   path, `%w` wrapping, goroutines, `context.With*`, SQL, `slog.`, exec and
-   templates, `defer`, type parameters, `interface {`, `package main`, rate
-   limiting, HTTP server and client calls); collections, naming,
-   documentation, functions, performance, refactoring, linting, and
-   troubleshooting it cannot see, and its "Also load" conditions are this
-   table's. Its silence is not a passing gate result.
-4. **Implement the authorized scope.** For new functions, packages, or stub
+   matched owner plus every `Also load` entry whose condition holds. When
+   step 4 applies, `go-testing` is one of them: the Contract Table is a test
+   file. Select by the decisions and behavior being changed, not every syntax
+   element present: a routine local variable or `if` does not trigger naming,
+   documentation, or extra style references. The step ends when every selected
+   skill's content is in context; do not make the first edit before that. Add
+   owners when new evidence requires them; there is no numerical cap, and
+   content already loaded this session is reused, not reread. Under the Claude
+   Code plugin a PreToolUse hook blocks the first Go edit that precedes these
+   loads and names the missing skills once. A blocked edit was not applied
+   and the file is unchanged, so load what the hook names and retry the same
+   edit; the hook is a reminder, not a substitute for this step. It infers
+   owners from decision-bearing syntax only (a `_test.go` path, `%w`
+   wrapping, goroutines, `context.With*`, SQL, `slog.`, exec and templates,
+   `defer`, type parameters, `interface {`, `package main`, rate limiting,
+   HTTP server and client calls); collections, naming, documentation,
+   functions, performance, refactoring, linting, and troubleshooting it cannot
+   see, and its "Also load" conditions are this table's. Its silence is not a
+   passing gate result.
+4. **Write the Contract Table, for new code only.** For a new function,
+   package, or stub body, turn the documentation and the request into the
+   test file the [Contract Table](#contract-table) describes, before the
+   first production edit: a case written after the body checks only what the
+   body already does. Its cases are what step 6 runs or reads.
+5. **Implement the authorized scope.** For new functions, packages, or stub
    bodies, follow [Writing New Code](#writing-new-code): the body takes the
    [Plain Code](#plain-code) form, and every package-level declaration it
    adds is counted in the [Declaration Budget](#declaration-budget). For
@@ -72,13 +82,22 @@ continue independent authorized work without inventing rules.
    behavior, validation, security controls, and meaningful tests.
    Resolve routine choices without stopping; ask only for missing information
    that changes correctness, scope, or authorization.
-5. **Verify and report.** With a shell, run the Contract Table file with the
-   closing gate below. Without one, read each case against its code path and
-   report every check as `unavailable (no shell)` in one line. Report as
-   [go-style-core](../go-style-core/SKILL.md#how-much-to-say) says: the
-   outcome first, each check observed with its result, the one budget line,
-   and a sentence per material gap. The test file is the record of the cases;
-   the report names the file and its result, not the cases one by one.
+6. **Verify and report.** With a shell, run the Contract Table file with the
+   closing gate below. Without one, read each case against its code path.
+   Report as [go-style-core](../go-style-core/SKILL.md#how-much-to-say) says,
+   in this shape and order: the outcome, one line of checks, the one budget
+   line, and a sentence per material gap.
+
+   ```text
+   <what the change does, in one sentence>
+   checks: gofmt pass · vet pass · test pass · lint skipped (no config)
+   added package-level declarations: 1 — parseLimit: handleList, handleSearch
+   <one sentence per material gap, or nothing>
+   ```
+
+   Without a shell the checks line is `checks: unavailable (no shell)` and
+   nothing more is said about the gate. The test file is the record of the
+   cases; the report names the file and its result, not the cases one by one.
 
 ## Route Before The First Edit
 
@@ -131,7 +150,12 @@ added to the existing test file — one case per observable clause: each request
 or input class, each method and status code, ordering, error text, and the
 empty, nil, and invalid inputs. A case names the input and the result the
 clause promises; a clause that says what the code must *not* do is a case too.
-The file is the contract table, and it is written before the body because a
+A clause written as a class — "any other method", "any other value", "nothing
+else" — takes its case from the member a library default treats unlike the
+rest, because that member is where the class leaks: `HEAD` under a `GET`
+pattern, `t` and `1` under `strconv.ParseBool`, the bare path under a subtree
+pattern. The member the code plainly rejects (`POST`, `maybe`) fails on its
+own and needs no case. The file is the contract table, and it is written before the body because a
 case derived from the code only checks what the code already does.
 
 | Clause | Case | Expected |
@@ -139,10 +163,12 @@ case derived from the code only checks what the code already does.
 | "an unknown id is a 404" | `GET /items/nope` | 404 |
 | "returns the matching entries as a JSON array" | zero matches | `[]`, not `null` |
 | "any other value is an error naming the parameter" | `limit=abc` | error text contains `limit` |
+| "any method other than `GET` is a 405" | `HEAD /healthz` | 405, not the `GET` body |
 
 Where a case contradicts what a standard-library default does — a nil slice
-encoding as `null`, `strconv.ParseBool` accepting `1` and `t`, a `ServeMux`
-subtree pattern answering the bare path with a 301 — the contract wins, and
+encoding as `null`, a `GET` pattern answering `HEAD` with 200,
+`strconv.ParseBool` accepting `1` and `t`, a `ServeMux` subtree pattern
+answering the bare path with a 301 — the contract wins, and
 the default is overridden in code rather than explained in prose. With a
 shell, the file runs as part of the closing gate; without one, every case is
 read against its code path and the report says so. A failing or unrunnable
@@ -224,7 +250,9 @@ written:
 2. A caller outside the function names it: it reads a field through
    `errors.AsType`, satisfies an interface a consumer declares
    ([go-interfaces](../go-interfaces/SKILL.md) owns the shape), or owns a
-   resource whose lifetime outlives one call.
+   resource whose lifetime outlives one call. A caller that *inspects* or
+   *matches* an error reads no field: it uses `errors.Is` on the wrapped
+   sentinel, and that needs no type.
 3. It is a distinct algorithm — a parser, a scheduler — whose name at the
    call site says more than its body would, and the body left behind reads
    top to bottom without it.
@@ -247,6 +275,9 @@ whose line cannot name them is removed before the report is written, not
 explained in it.
 
 ## Close With The Gate
+
+Without a shell tool this section does not apply: the report carries
+`checks: unavailable (no shell)` and `go-linting` stays unread.
 
 Use [go-linting](../go-linting/SKILL.md#verification-gate) to select checks for the requested
 scope. Repository gates take precedence over defaults; do not union them.

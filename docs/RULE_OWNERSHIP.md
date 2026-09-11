@@ -30,6 +30,8 @@ owner with a short pointer instead of repeating a full explanation.
 | Behavior-preserving refactor workflow and modernization tiers | `go-code-refactor` | `go-style-core`, `go-code-review` | Google readability hierarchy; `go tool fix help`; verified `api/go1.2*.txt` deltas |
 | Restraint ladder, reach-for table, ship-then-question write rules, over-engineering audit, cut tags, and the `Kept:` shortcut ledger | `go-code-refactor` | `go-code`, `go-code-review`, `go-style-core` | Go CodeReviewComments `Interfaces`; Uber `Avoid Embedding Types`; stdlib replacements in `COMPATIBILITY.md` |
 | Delete first: line count as the instrument, readability as the goal; delete, then shorten, then restructure | `go-code-refactor` | `go-code`, `go-code-review` | ponytail (DietrichGebert); Google `Least mechanism`, with `Concision` third in its hierarchy — readability stays the goal |
+| New code from a specification: the plain-code form of a body (the specification's vocabulary, function-local types and documents, steps inline, errors wrapped), the contract table of observable clauses walked before closing, and the declaration budget counted per package-level declaration added beyond the specification | `go-code` | `go-code-review`, `go-testing`, `go-http` | project policy; `docs/evidence/2026-09-10-go-implement-control-sonnet-5-medium.md`, where owner rules in context went unapplied (HEAD 5/5, `null` 3/5) |
+| Internal code comments: a constraint the code cannot show, at the neighbors' density | `go-style-core` | `go-code`, `go-code-review`, `go-documentation` | Google style guide `Comments`; Go CodeReviewComments `Comment Sentences` |
 | House style: repository conventions outrank the guide | `go-style-core` | `go-code`, `go-code-refactor`, `go-testing`, `go-naming`, `go-http`, `go-database` | Google `Consistency` principle; Effective Go |
 | HTTP handler shape, `ServeMux` routing, server timeouts, shutdown, clients, error-to-status mapping | `go-http` | `go-code`, `go-code-review`, `go-database` | `net/http` docs; Go 1.22 routing enhancements; Go 1.25 `CrossOriginProtection` |
 | JSON v2 I/O, wire compatibility, defaults, and exact-byte test conditions | `go-http` | `go-packages`, `go-defensive`, `go-testing` | Go 1.27 `encoding/json/v2` docs and migration guide |
@@ -65,6 +67,15 @@ owner with a short pointer instead of repeating a full explanation.
 A rule area is written for the code its owner skill teaches about. Where this
 repository's own tooling does not follow one, record the exception here so a
 reader of the workflow finds the reason instead of an apparent oversight.
+
+### `go-code` carries a per-entity form of the restraint ladder
+
+The ladder's owner stays `OVER-ENGINEERING.md`, and `TestRestraintLadder`
+still forbids a second copy of its rung text. `go-code` restates the ladder as
+the Declaration Budget for new code because the routed file was read in 0 of
+20 skilled sessions of the 2026-09-10 implementation control, while the one
+large new-code result on record — Opus 5 on `gateway`, 2026-09-07, −34.6%
+lines — came from a `go-code` that carried the restraint rule inline.
 
 ### CI pipeline shape does not apply to this repository's workflows
 

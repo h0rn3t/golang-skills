@@ -89,6 +89,22 @@ separately.
 | `catalog` | directional | 26.0 → 20.3 (−21.8%), CI includes zero | [Opus 5, n=3](../../../docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md) |
 | `feed` | not admitted | 50.0 → 49.0; the control wrote exactly 50 lines in all three runs | [Opus 5, n=3](../../../docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md) |
 
+At Sonnet 5 medium two of `gateway`'s clauses are live traps — HEAD is a 405,
+the empty list is `[]` — and they separate skill *trees* more than arms: over
+every session of the series the 1.7.0 tree is 0/19 golden, the unaided control
+10/21, the 2026-09-10 new-code tree 15/25
+([three arms, n=5](../../../docs/evidence/2026-09-10-go-implement-newcode-final-sonnet-5-medium.md))
+and the 2026-09-11 Plain Code tree 5/6, every session of it registering the
+`HEAD` patterns
+([three arms, n=5](../../../docs/evidence/2026-09-11-go-implement-newcode-plaincode-sonnet-5-medium.md));
+the control's own rate ranges 1/5 to 4/5 between runs, so a claim against it
+needs n≥10 per arm.
+`feed`'s `kinds` member has been rendered `null` once through
+`slices.Sorted(maps.Keys(m))`, and `catalog`'s repeated-SKU clause fails about
+once per arm per run through the same error-path deduplication bug. The table
+above is the Opus 5 admission record; the Sonnet 5 medium readings live in the
+linked reports.
+
 On `gateway` the skilled arm also wrote the *same* amount every time —
 population standard deviation 4.4 lines against the control's 30.9 — which is
 the more useful of the two properties when the question is what a change costs

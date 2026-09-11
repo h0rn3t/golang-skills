@@ -193,13 +193,13 @@ To uninstall: `rm -rf ~/.claude/skills/go-*`.
 
 ### Pinning a version
 
-Every release is a git tag (`v1.7.0`). None of the installers above takes a
+Every release is a git tag (`v1.8.0`). None of the installers above takes a
 version argument — `npx skills add` and `/plugin marketplace add
 h0rn3t/golang-skills` both follow the default branch, so they always give you
 the newest release. To pin one, install from a tagged checkout:
 
 ```bash
-git clone --branch v1.7.0 --depth 1 https://github.com/h0rn3t/golang-skills.git
+git clone --branch v1.8.0 --depth 1 https://github.com/h0rn3t/golang-skills.git
 cd golang-skills
 
 # manual install from this checkout
@@ -305,14 +305,17 @@ These are practical interpretations of the tests, not guarantees for every proje
 | **GPT-5.6-Luna / Codex** | [✅ Helps: far fewer unnecessary helpers; latest test covers only `report`](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md) | [➖ No visible benefit on size or correctness; the skills tend to add helpers on `gateway`, at a spread too wide to measure at n = 5](docs/evidence/2026-09-08-go-new-code-gateway-gpt-5.6-luna-codex.md) | Not measured in USD | **Worth using for refactoring.** |
 | **Opus 5 / Claude** | [✅ Helps: less unnecessary structure, especially on `report`](docs/evidence/2026-09-07-go-refactor-control-opus5.md) | [➖ Small gain in the latest run; only two tasks tested](docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md) | New code ≈ **2.8×**; refactoring unavailable | **Worth using for refactoring.** |
 | **MiniMax M3 / OpenCode** | [✅ Helps: less code and fewer unnecessary helpers](docs/evidence/2026-09-07-go-refactor-control-minimax-m3.md) | [➖ Benefit unproven: fewer passing sessions](docs/evidence/2026-09-07-go-implement-discovery-minimax-m3.md) | Refactoring ≈ **2.5×**, new code ≈ **1.9×** | **Better refactoring, not a cost saving.** |
-| **Sonnet 5 / Claude** | [✅ Helps at medium effort: −9.7 lines per task, three of four tasks improve, two of them still after correcting for four comparisons, correctness tied at 20/20 (n = 5)](docs/evidence/2026-09-10-go-refactor-control-sonnet-5-medium-n5.md); how much room is left depends on the reasoning effort — at n = 1 the same corpus gap is [−1.8 at high](docs/evidence/2026-09-10-go-refactor-control-sonnet-5-high.md), because the unaided control improves faster than the skilled arm | [➖ Benefit not established: −1.8 lines across the three usable tasks, no task separating, correctness 13/15 against 14/15](docs/evidence/2026-09-10-go-implement-control-sonnet-5-medium.md) | Refactoring ≈ **4.4×** at medium (n = 5); ≈ 3.3× at the CLI default (n = 5) and ≈ 5.6× at high (n = 1). New code ≈ **4.5×** at medium (n = 5) | **Worth using for refactoring at medium effort, at 4.4× the price; fix the effort level before comparing two runs.** |
+| **Sonnet 5 / Claude** | [✅ Helps at medium effort: −9.7 lines per task, three of four tasks improve, two of them still after correcting for four comparisons, correctness tied at 20/20 (n = 5)](docs/evidence/2026-09-10-go-refactor-control-sonnet-5-medium-n5.md); how much room is left depends on the reasoning effort — at n = 1 the same corpus gap is [−1.8 at high](docs/evidence/2026-09-10-go-refactor-control-sonnet-5-high.md), because the unaided control improves faster than the skilled arm | [🟡 Mixed at medium effort: −8.5 lines per task against no skills, three of four tasks smaller, `feed` −15.6 (p = 0.01, still after correcting for four comparisons) but the skill's Plain Code example shares that task's shape; correctness tied at 17/20, with `gateway` 5/5 against 2/5 (`HEAD` patterns in every skilled session) and `catalog` 3/5 against 5/5 on the repeated-SKU clause (n = 5)](docs/evidence/2026-09-11-go-implement-newcode-plaincode-sonnet-5-medium.md) | Refactoring ≈ **4.4×** at medium (n = 5); ≈ 3.3× at the CLI default (n = 5) and ≈ 5.6× at high (n = 1). New code ≈ **5.6×** at medium (n = 5) | **Worth using for refactoring at medium effort, at 4.4× the price; fix the effort level before comparing two runs.** |
 
 Uses the latest available control run for each model + tool + work type by
 JSON `finished` (September 7–10, 2026, local time), with one exception: a newer
-run with fewer repetitions does not displace one with more. The Sonnet row is
-set by the September 10 medium-effort pair at n = 5 per fixture and arm, both
-corpora, on release 1.7.0; the one-repetition runs of the same day qualify it
-and do not set it. Reasoning effort belongs to a control's identity: the same
+run with fewer repetitions does not displace one with more. The Sonnet
+refactoring cell is set by the September 10 medium-effort control at n = 5 per
+fixture and arm on release 1.7.0; its new-code cell by the September 11
+three-arm run at n = 5 on the working tree after 1.7.0, whose `baseline` arm
+carries the new-code edits and the Plain Code retune the changelog describes;
+the one-repetition runs qualify these and do not set them. Reasoning effort belongs to a
+control's identity: the same
 model and plugin tree on the same day produced a −9.7 corpus difference at
 medium (n = 5) and −1.8 at high (n = 1), so a row read across effort levels is
 a row read wrong. A newer subset run does not cover the full corpus. In runs

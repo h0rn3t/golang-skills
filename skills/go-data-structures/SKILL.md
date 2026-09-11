@@ -46,11 +46,13 @@ Writing the loop instead is a reviewable defect, not a style choice —
 |---|---|
 | Search for a value | `slices.Contains`, `slices.IndexFunc` |
 | Sort | `slices.Sort`, `slices.SortFunc` (not `sort.Slice`) |
-| Copy | `slices.Clone`, `maps.Clone` |
+| Copy, where a nil input may stay nil | `slices.Clone`, `maps.Clone` |
+| Copy that must encode as `[]` or `{}` under `encoding/json` v1 | `dst := make([]T, len(s)); copy(dst, s)` or `append([]T{}, s...)`; `Clone` of nil is nil, which v1 writes as `null` |
 | Merge entries into an existing map | `maps.Copy` |
 | Delete map entries by predicate | `maps.DeleteFunc` |
 | Compare | `slices.Equal`, `maps.Equal` |
-| Collect keys/values | `slices.Collect(maps.Keys(m))` |
+| Collect keys/values, where an empty result may be nil | `slices.Collect(maps.Keys(m))`, `slices.Sorted(maps.Keys(m))` |
+| Collect keys into a slice that must encode as `[]` | `keys := slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m)); slices.Sort(keys)` — `Collect` and `Sorted` return nil for an empty iterator |
 | Insert/delete in the middle | `slices.Insert`, `slices.Delete` |
 | Iterate in reverse | `slices.Backward` |
 | Split a string once, iterate | `strings.SplitSeq` (no slice allocated) |

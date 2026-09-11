@@ -65,14 +65,18 @@ prevent unintended modifications. Prefer stdlib clones when their nil and
 capacity behavior fits the contract (conditions in the reference below):
 
 ```go
-d.trips = slices.Clone(trips)      // receiving
-return maps.Clone(s.counters)      // returning
-return u.Clone()                   // *url.URL, Go 1.27+
-return params.Clone()              // url.Values, Go 1.27+ (deep-copies values)
+d.trips = slices.Clone(trips)        // receiving; a nil argument stays nil
+d.tags = append([]string{}, tags...) // receiving, when d.tags must encode as []
+return maps.Clone(s.counters)        // returning; a nil map stays nil
+return u.Clone()                     // *url.URL, Go 1.27+
+return params.Clone()                // url.Values, Go 1.27+ (deep-copies values)
 ```
 
 `Clone` is **shallow**: `[]*T` and `map[K][]V` copies still alias their
-elements. See [BOUNDARY-COPYING.md](references/BOUNDARY-COPYING.md).
+elements. It also keeps nil, which `encoding/json` v1 writes as `null`: a
+field or result that must encode as `[]` or `{}` takes the `append([]T{}, s...)`
+form above, or a `make` filled with `copy` or `maps.Copy`. See
+[BOUNDARY-COPYING.md](references/BOUNDARY-COPYING.md).
 
 ## Defer to Clean Up
 

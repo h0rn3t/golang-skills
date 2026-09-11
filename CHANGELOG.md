@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-09-11
+
 ### Added
 
 - Full Sonnet 5 controls at `-effort medium` on release 1.7.0, both corpora,
@@ -24,6 +26,93 @@ All notable changes to this repository are documented here.
   both arms — including 5/5 skilled sessions in which `go-http` loaded, which
   has carried the `ServeMux` HEAD rule since `f12c73b`; three of those also
   rendered the empty account list as `null`. Cost is 4.38x and 4.54x.
+- A one-repetition smoke of the new-code edits below, three arms on the
+  implementation corpus at Sonnet 5 medium, 12 sessions:
+  [`docs/evidence/2026-09-10-go-implement-newcode-smoke-sonnet-5-medium.md`](docs/evidence/2026-09-10-go-implement-newcode-smoke-sonnet-5-medium.md).
+  Not a measurement; it records which instructions the model followed. The
+  Declaration Budget was reported in 4/4 sessions (`gateway` 2 functions
+  against the reference arm's 4; `feed` rationalized two package-level types
+  the reference did without). The `go-http` HEAD example was copied: the first
+  skilled `gateway` session at this effort to pass the HEAD assertions, after
+  0/10 across the two controls. The Contract Table was written before the first
+  edit in 0/4 sessions and appeared post hoc in 4/4. The `go-data-structures`
+  Copy caveat did not hold: the hook-forced load, the `make`+`copy` to
+  `slices.Clone` rewrite and the `null` list reproduced step by step in the
+  one `gateway` session. Cost 5.79x against the reference arm's 4.92x.
+- The same edits after the hook fix, the split Copy row and the test-file
+  form of the Contract Table, on `gateway` and `feed` at n=3, reference
+  against baseline:
+  [`docs/evidence/2026-09-10-go-implement-newcode-n3-sonnet-5-medium.md`](docs/evidence/2026-09-10-go-implement-newcode-n3-sonnet-5-medium.md).
+  `gateway` 0/3 against 3/3 golden (Fisher p = 0.10 two-sided; the 1.7.0 tree
+  is 0/14 on the HEAD assertions at this effort across four runs), every
+  baseline session registering `HEAD` patterns beside `GET` and none returning
+  `null`; `feed` 3/3 against 3/3 at level size. Contract tests written and
+  passing in 6/6 baseline sessions, before the first production edit on
+  `feed` 3/3 and after it on `gateway` 3/3. `go-data-structures` loads fell
+  from 6/6 to 0/6; cost rose 43% per session, the test file and the
+  `go-testing`/`go-defensive` loads its write triggers.
+- The full implementation corpus at n=5, release 1.7.0 against the working
+  tree, 40 sessions:
+  [`docs/evidence/2026-09-10-go-implement-newcode-control-sonnet-5-medium.md`](docs/evidence/2026-09-10-go-implement-newcode-control-sonnet-5-medium.md).
+  Golden 17/20 against 14/20; `gateway` 4/5 against 0/5 (Fisher p = 0.048),
+  the one baseline miss a session that loaded `go-http` alone and never
+  reached `go-code`; every session that did reach it passes the HEAD
+  assertions, 7/7 across the three runs on this tree against 0/19 for 1.7.0.
+  `catalog` and `ledger` tied; `feed` 4/5 against 5/5, the miss a `kinds`
+  member rendered `null` through `slices.Sorted(maps.Keys(m))` that the
+  session's own contract test caught and could not run. Size is level to
+  slightly larger on the three fixtures both arms pass (+2.1 to +7.8 lines,
+  no p below 0.27), and the growth is structure the Declaration Budget
+  reasoned about rather than refused: an error type where `%w` serves, and
+  package-level wire types. Contract tests written in 10/20 sessions, 8 pass,
+  2 fail. Cost per session $0.2118 against $0.2043; hook blocks per session
+  1.10 → 0.50.
+- The three-arm run that sets the README cell, an hour later on the same
+  model and effort: `no-skill`, the tree above as `reference`, and the tree
+  with three refinements as `baseline`, n=5, 60 sessions:
+  [`docs/evidence/2026-09-10-go-implement-newcode-final-sonnet-5-medium.md`](docs/evidence/2026-09-10-go-implement-newcode-final-sonnet-5-medium.md).
+  It pulls the earlier readings back: `gateway` 4/5 unaided against 3/5 and
+  2/5 for the skill trees, the `go-http` example copied in 2 of 10 sessions
+  that loaded it against 8 of 9 in the two runs before. Aggregated over every
+  Sonnet 5 medium session in the series the picture is: release 1.7.0 0/19
+  on `gateway`, the unaided control 8/16, the new-code trees 12/19 — the
+  regression 1.7.0 carries is established and gone (p = 0.00001), a benefit
+  over no skill is not (p = 0.30). Correctness 16/20 against 18/20 unaided,
+  size −3.8 and −4.2 lines on `catalog` and `feed` (p = 0.46, 0.07), level on
+  `ledger`, cost 4.73x. Of the refinements, the narrowed reason 2 moved
+  `catalog`'s error type the right way (3/5 → 1/4) and `feed`'s package-level
+  wire types the wrong way (1/5 → 3/5), with the budget lines citing the
+  reason verbatim against its own text; the hook change took the cost from
+  5.49x to 4.73x.
+- A one-repetition smoke of the Plain Code retune below, three arms on the
+  implementation corpus at Sonnet 5 medium, 12 sessions:
+  [`docs/evidence/2026-09-10-go-implement-newcode-plaincode-smoke-sonnet-5-medium.md`](docs/evidence/2026-09-10-go-implement-newcode-plaincode-smoke-sonnet-5-medium.md).
+  Not a measurement; it records which instructions the model followed. The
+  `feed` session wrote the Plain Code example's shape with the fixture's nouns
+  at 30 lines against 41 and 44 in the other arms, which reads as shape
+  transfer rather than a size result because the example and the fixture
+  share a shape. The budget line replaced the reason sentence in 3 of 4
+  reports, the contract test came before the body in 3 of 4 sessions against
+  1 of 4, and the report shape held in 2 of 4. `gateway` failed both live
+  traps — `GET` patterns only beside the `go-http` `HEAD` example, and
+  `slices.Clone` serving `null` for a nil list — while its own pre-written
+  contract test carried the `null` case it could not run; the reference
+  session passed. Cost 7.37x against 5.81x, the test written first and the
+  gate load without a shell the drivers.
+- The three-arm run that measures the Plain Code retune, n=5, 60 sessions,
+  `reference` the tree the 2026-09-10 three-arm run measured as `baseline`:
+  [`docs/evidence/2026-09-11-go-implement-newcode-plaincode-sonnet-5-medium.md`](docs/evidence/2026-09-11-go-implement-newcode-plaincode-sonnet-5-medium.md).
+  Correctness ties at 17/20 in all three arms and hides two moves: `gateway`
+  5/5 against 2/5 and 2/5, every baseline session registering the `HEAD`
+  patterns where the reference arm copied them in two of five; `catalog` 3/5
+  against 5/5 and 5/5, both failures using the result map as the set of SKUs
+  already asked for. Size is smaller than both other arms on three fixtures
+  and separates only on `feed`, −15.6 against the control (p = 0.01), where
+  four of five baseline sessions wrote the Plain Code example's shape with
+  the fixture's nouns at 30 lines. Reports carry `unavailable (no shell)` in
+  12/20 against 3/20 and stop walking the contract cases (reports with five
+  or more bullets 4 → 1), at the same length; `go-linting` still loads in
+  13/20 shell-less sessions. Cost 5.57x against 5.54x.
 
 ### Changed
 
@@ -31,8 +120,95 @@ All notable changes to this repository are documented here.
   set by the n=5 pair above rather than qualified by the one-repetition runs,
   with the effort level named in the cell and the cost column carrying 4.4x at
   medium beside 3.3x at the CLI default and 5.6x at high. The new-code cell
-  stays ➖ and now rests on a null result rather than on the slightly adverse
-  2026-09-08 reading.
+  stays ➖ and now rests on the same-day three-arm run on the working tree:
+  16/20 against 18/20 unaided, `gateway` 2/5 against 4/5, about four lines
+  fewer on `catalog` and `feed`, 4.7x the cost, and the note that the 1.7.0
+  tree's `gateway` regression is gone without a benefit over no skill being
+  established.
+- `go-code` Writing New Code gains two sections the refactor skill's results
+  suggested and the implementation controls asked for. A **Contract Table**,
+  written as a table-driven `_test.go` before the first production edit,
+  turns each observable clause of the documentation into a case and is run
+  with the closing gate where a shell exists and read against the code where
+  it does not; a **Declaration Budget** charges every declaration added beyond the
+  specification with one of three reasons and is reported as a count. Both
+  replace routes the 2026-09-10 control shows were never followed: the
+  restraint reference was read in 0 of 20 skilled sessions, the `go-http` HEAD
+  rule was in context in 5 of 5 `gateway` sessions that still called HEAD an
+  automatic 405, and `go-data-structures` was loaded in the 3 sessions that
+  rewrote `make`+`copy` into `slices.Clone` and returned `null`.
+  `docs/RULE_OWNERSHIP.md` records the new rule area and the ladder exception.
+- Caveats moved from bullets into the examples that primed the defect. The
+  `go-http` Routing example registers a `HEAD` pattern beside its `GET` pattern
+  and says in the code that the GET pattern otherwise answers HEAD with 200
+  (verified on go1.27.1: the pair registers without conflict, HEAD gets the
+  405 and `Allow: GET`). The `go-data-structures` Copy row splits in two —
+  `Clone` where a nil input may stay nil, and `make` + `copy` or
+  `append([]T{}, s...)` where the copy must encode as `[]` or `{}` under
+  `encoding/json` v1 — and the `go-defensive` boundary-copy example shows both
+  forms as code. The first version of this edit kept the caveat in the same
+  cell as `Clone`; the smoke above shows the positive half of the row applied
+  and the caveat ignored, so the non-nil copy is now a row of its own.
+- Three refinements after the n=5 control, measured in the three-arm follow-up
+  rather than shipped on the reading alone. Reason 2 of the Declaration
+  Budget covers an algorithm or a resource lifetime and says a wire document,
+  a formatted error, or a sorted view is a representation the standard library
+  already expresses; the budget names the declaration-free forms to take
+  first (a wrapped error before an error type, an anonymous or function-local
+  type before a package-level one, a closure before a single-caller helper),
+  after 3/5 `catalog` and 4/5 `feed` baseline sessions charged exactly those
+  declarations to it. The `go-data-structures` key-collection row splits the
+  way the Copy row did — `slices.Collect`/`slices.Sorted` where an empty result
+  may be nil, `slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m))` where it
+  must encode as `[]` — after one `feed` session rendered `kinds` as `null`
+  through the first form. The routing gate names `go-testing` alone for a
+  `_test.go`: a test body's `defer` was pulling `go-defensive` into contract-test
+  sessions, and `TestRoutingGate` now checks that a test body names no other
+  owner.
+- `go-code` Writing New Code is retuned against Anthropic's prompting guides
+  for Claude Sonnet 5 and Claude Opus 5 and the transcripts of the 2026-09-10
+  three-arm run. A **Plain Code** section states the form a body takes — the
+  specification's vocabulary, a type or document declared inside the one
+  function that builds it, steps inline, an error wrapped with `%w`, a comment
+  only for a constraint the code cannot show — as one positive example rather
+  than as caveats beside the budget, because both guides say the models copy
+  the shape they are shown and apply a rule literally at the scope it names.
+  The **Declaration Budget** counts package-level declarations against an
+  expected zero for a body behind an existing signature, admits one for two
+  named call sites, a caller that names it, or a distinct algorithm whose name
+  says more than its body, and drops the reason slot the transcripts show
+  being filled with the budget's own words: the `feed` sessions that kept
+  package-level wire types cited "wire-format representations (reason 2)" for
+  the types the reason was written to exclude, at 83 lines against the unaided
+  arm's 53 for the same document built inside the function. Step 5 reports
+  the outcome, the observed checks, the one budget line, and material gaps,
+  and no longer walks the contract cases (a `feed` report listed all seven
+  with check marks); the Opus 5 guide names stacked verification and re-check
+  phrasing as the source of longer work and longer reports. `go-style-core`
+  gains the owner rule for internal comments the section routes to, and the
+  authoring template records the three prompting rules — scope in the rule, a
+  reason slot is a template, verification stated once — with the guides as
+  sources.
+  Measured the next morning in the three-arm run above. After that run the
+  Resource Routing line reads `go-linting` only when a shell can run its
+  checks, step 5 reports every check as `unavailable (no shell)` in one line
+  otherwise and names the test file instead of its cases, and Plain Code
+  gains the line that fewer names never means fewer states — a value used
+  once needs no name, a fact the code tracks keeps its own variable — after
+  two `catalog` sessions used the result map as the set of SKUs already
+  asked for. The last two of those are unmeasured; the first was in the
+  measured tree in its earlier wording.
+
+### Fixed
+
+- The routing gate named `go-data-structures` for `make([]`, `make(map` and
+  `append(`, which appear in nearly every Go body — routine syntax by the
+  gate's own rule. The forced load is where the 2026-09-10 control's three
+  `null` lists started (the `make`+`copy` to `slices.Clone` rewrite follows
+  it in the traces) and the smoke reproduced the chain in its one `gateway`
+  session. The hint is gone; the `go-code` table still routes a task about
+  collections to its owner, and `TestRoutingGate` now checks that `make` and
+  `append` leave the gate silent.
 
 ## [1.7.0] - 2026-09-10
 

@@ -13,14 +13,19 @@
 #                                     passes: the gate reminds, it cannot deadlock.
 #
 # The owner hints below are heuristics: regular expressions over the edited
-# text that recognize the decision-bearing forms of fourteen owners (error
+# text that recognize the decision-bearing forms of thirteen owners (error
 # wrapping, goroutines, context creation, SQL, slog, exec/templates, defer,
-# type parameters, interfaces, collections, main, retries, HTTP, tests).
+# type parameters, interfaces, main, retries, HTTP, tests).
 # Routine syntax — a plain fmt.Errorf("%v"), r.Context(), an http.StatusOK in a
-# comment — must not fire. The routing table in skills/go-code/SKILL.md
-# ("Route Before The First Edit") is authoritative: it covers owners no regex
-# can see (naming, documentation, functions, performance, refactor, linting,
-# troubleshooting) and its "Also load" conditions; this gate only reminds.
+# comment, make([]T, n), append — must not fire. Collections have no hint on
+# purpose: make/append appear in nearly every Go body, and the 2026-09-10
+# implementation control plus its follow-up smoke show the forced
+# go-data-structures load itself starting a make+copy -> slices.Clone rewrite
+# that returned null for a nil list. The routing table in
+# skills/go-code/SKILL.md ("Route Before The First Edit") is authoritative: it
+# covers owners no regex can see (collections, naming, documentation,
+# functions, performance, refactor, linting, troubleshooting) and its
+# "Also load" conditions; this gate only reminds.
 #
 # Sessions that never loaded go-code are never touched. State lives under
 # CLAUDE_PLUGIN_DATA when the host provides it, else under TMPDIR.
@@ -45,8 +50,13 @@ text = ti.get("new_string") or ti.get("content") or ""
 for e in ti.get("edits") or []:
     text += "\n" + (e.get("new_string") or "")
 hints = []
+# A test file has one owner. Its body is test plumbing — a defer, an
+# http.Request, an errors.Is on a want — not the decisions the content hints
+# below recognize; running them over a _test.go named go-defensive for every
+# contract test in the 2026-09-10 runs.
 if path.endswith("_test.go"):
     hints.append("go-testing")
+    text = ""
 # Heuristics, one decision-bearing pattern per owner. go-code/SKILL.md owns
 # the routing decision; keep each regex narrow enough that ordinary syntax
 # (fmt.Errorf with %v, r.Context(), http.StatusOK, "<-" inside a string)
@@ -62,7 +72,6 @@ for owner, pat in [
     ("go-defensive", r"\bdefer\s|\bunsafe\."),
     ("go-generics", r"\[[A-Z][A-Za-z0-9]*\s+(any|comparable|~|[A-Za-z]+\.[A-Za-z]+)\b"),
     ("go-interfaces", r"\binterface\s*\{"),
-    ("go-data-structures", r"\bmake\(\[\]|\bmake\(map\b|\bappend\("),
     ("go-packages", r"^package main\b|\bfunc main\("),
     ("go-resilience", r"x/time/rate|\bbackoff\b|\bRetry-After\b"),
 ]:

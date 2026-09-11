@@ -25,18 +25,28 @@ Use a framework only when the repository already uses one.
 
 ```go
 mux := http.NewServeMux()
-mux.HandleFunc("GET /users/{id}", s.handleGetUser)
+mux.HandleFunc("GET /users/{id}", s.handleGetUser) // serves GET and HEAD
 mux.HandleFunc("POST /users", s.handleCreateUser)
 mux.HandleFunc("GET /{$}", s.handleIndex) // exact "/", not a subtree
+
+// Only when the contract makes HEAD a 405: without this, the GET pattern
+// above answers HEAD with 200. More specific than the GET pattern, so both register.
+mux.HandleFunc("HEAD /users/{id}", func(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Allow", "GET")
+    http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+})
 
 id := r.PathValue("id")
 ```
 
-- A pattern without a method matches every method; `GET` also matches `HEAD`.
-  If the endpoint contract requires 405 for HEAD, reject it explicitly on
-  that endpoint or register its matching HEAD pattern with a 405 handler.
+- A method pattern answers other methods on its path with 405 and an `Allow`
+  header, except `HEAD`, which a `GET` pattern serves. A contract that lists
+  the requests it answers and makes every other method a 405 needs the HEAD
+  pattern above beside each `GET` route, or an `r.Method` check in the
+  handler. A pattern without a method matches every method.
 - Conflicting patterns panic at registration; overlapping patterns are valid
-  when one is more specific.
+  when one is more specific, which is why `HEAD /users/{id}` registers beside
+  `GET /users/{id}`.
 - Trailing `/` is a subtree; `{$}` pins the exact path.
 
 ## Handler Shape

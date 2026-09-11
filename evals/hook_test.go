@@ -175,6 +175,28 @@ func TestRoutingGate(t *testing.T) {
 		}
 	})
 
+	// The body of a test file is plumbing, not a decision: a defer on a
+	// recorder, an http.NewRequest, an errors.Is on the wanted sentinel must
+	// name no owner beyond go-testing.
+	t.Run("test file body names go-testing only", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		for _, skill := range []string{"go-code", "go-style-core"} {
+			hookEvent(t, script, state, routingPayload("PostToolUse", "s11", "Skill", map[string]any{"skill": skill}))
+		}
+		body := "package api\n\nfunc TestGet(t *testing.T) {\n\tsrv := NewServer(\":0\", nil)\n\tdefer srv.Close()\n\treq := http.NewRequest(http.MethodGet, \"/x\", nil)\n\tif !errors.Is(err, ErrNotFound) {\n\t\tt.Fatal(err)\n\t}\n}\n"
+		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "s11", "Write",
+			map[string]any{"file_path": "/repo/api/contract_test.go", "content": body}))
+		if code != 2 || !strings.Contains(msg, "go-testing") {
+			t.Fatalf("_test.go write: exit %d, stderr %q; want 2 naming go-testing", code, msg)
+		}
+		for _, unwanted := range []string{"go-defensive", "go-http", "go-error-handling"} {
+			if strings.Contains(msg, unwanted) {
+				t.Errorf("test body must not name %s:\n%s", unwanted, msg)
+			}
+		}
+	})
+
 	t.Run("ignores non-Go files and other sessions", func(t *testing.T) {
 		t.Parallel()
 		state := t.TempDir()
@@ -206,12 +228,29 @@ func TestRoutingGate(t *testing.T) {
 		}
 	})
 
+	// make and append appear in nearly every Go body; a forced
+	// go-data-structures load was what started the make+copy -> slices.Clone
+	// rewrite in the 2026-09-10 sessions that returned null for a nil list.
+	t.Run("collections are routine syntax", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		for _, skill := range []string{"go-code", "go-style-core"} {
+			hookEvent(t, script, state, routingPayload("PostToolUse", "s10", "Skill", map[string]any{"skill": skill}))
+		}
+		collections := "package store\n\nfunc (s *Store) IDs() []string {\n\tids := make([]string, 0, len(s.m))\n\tseen := make(map[string]struct{})\n\tfor id := range s.m {\n\t\tids = append(ids, id)\n\t}\n\treturn ids\n}\n"
+		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "s10", "Write",
+			map[string]any{"file_path": "/repo/store/ids.go", "content": collections}))
+		if code != 0 || msg != "" {
+			t.Fatalf("make/append/make(map): exit %d, stderr %q; want silent 0", code, msg)
+		}
+	})
+
 	t.Run("decision-bearing forms name their owner", func(t *testing.T) {
 		t.Parallel()
 		cases := []struct {
 			name, session, path, content, owner string
 		}{
-			{"type parameter list", "s7", "/repo/x/map_test.go",
+			{"type parameter list", "s7", "/repo/x/map.go",
 				"package x\n\nfunc Map[T any](xs []T) []T { return xs }\n", "go-generics"},
 			{"pgxpool", "s8", "/repo/x/db.go",
 				"package x\n\nfunc open(dsn string) (*pgxpool.Pool, error) {\n\treturn pgxpool.New(ctx, dsn)\n}\n", "go-database"},

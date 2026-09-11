@@ -49,6 +49,13 @@ extra work or require renewed approval for work the user already authorized.
 Use `gofmt` for Go source. This guide imposes no rigid line-length limit;
 break by meaning and readability, while respecting repository requirements.
 
+A comment states what the code cannot show: a constraint, a default
+deliberately overridden, the clause a branch serves. Code that reads as its
+documentation reads carries none; a comment that narrates the next line or
+argues that a change is correct is removed before the diff closes. Match the
+neighboring code's comment density. Doc comments on exported API belong to
+[go-documentation](../go-documentation/SKILL.md).
+
 ## Write Current Go
 
 Respect `go.mod`, build constraints, and supported CI toolchains; an installed

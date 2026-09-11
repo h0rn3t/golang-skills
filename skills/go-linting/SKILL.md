@@ -227,7 +227,7 @@ A minimal Go pipeline runs test and lint on every PR:
 
 ## Related Skills
 
-- **Style foundations**: See [go-style-core](../go-style-core/SKILL.md) when resolving style questions that linters enforce (formatting, nesting, naming)
-- **Code review**: See [go-code-review](../go-code-review/SKILL.md) when combining linter output with a manual review checklist
-- **Error handling**: See [go-error-handling](../go-error-handling/SKILL.md) when errcheck flags unhandled errors and you need to decide how to handle them
-- **Testing**: See [go-testing](../go-testing/SKILL.md) when running linters alongside tests in CI pipelines
+- [go-style-core](../go-style-core/SKILL.md): the style questions linters enforce.
+- [go-code-review](../go-code-review/SKILL.md): linter output alongside the manual checklist.
+- [go-error-handling](../go-error-handling/SKILL.md): what to do with an `errcheck` finding.
+- [go-testing](../go-testing/SKILL.md): linters and tests in one CI pipeline.

@@ -198,7 +198,7 @@ A feature in a service is not done until an operator can see it fail:
 
 ## Related Skills
 
-- **Error handling**: See [go-error-handling](../go-error-handling/SKILL.md) when deciding whether to log or return an error, or for the handle-once pattern
-- **Context propagation**: See [go-context](../go-context/SKILL.md) when passing request-scoped values (including loggers) through context
-- **Performance**: See [go-performance](../go-performance/SKILL.md) when optimizing hot-path logging or reducing allocations in log calls
-- **Code review**: See [go-code-review](../go-code-review/SKILL.md) when reviewing logging practices in Go PRs
+- [go-error-handling](../go-error-handling/SKILL.md): log or return, the handle-once pattern.
+- [go-context](../go-context/SKILL.md): request-scoped values and loggers in context.
+- [go-performance](../go-performance/SKILL.md): hot-path logging and allocations in log calls.
+- [go-code-review](../go-code-review/SKILL.md): reviewing logging in a PR.

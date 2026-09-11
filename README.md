@@ -335,6 +335,22 @@ measured setting, not a floor. The Sonnet 5 pair above, −9.7 lines at medium
 and −1.8 at high on one tree in one day, is why a comparison holds only within
 one effort level.
 
+**Loading cost.** On the 2026-09-11 Opus 5 medium traces a routed
+implementation session loads about 23K tokens of skill text over three to four
+`Skill` turns; written to the cache once and re-read on every later call, that
+text is about 37% of the session's cost. Release 1.12.0 loads the owners in one
+message after `go-code`, drops three `go-style-core` sections the model already
+knows and the verification callouts in three skills, and compacts every Related
+Skills section. Measured on `feed`, Sonnet 5 medium, n=5, reference against
+baseline: golden 5/5 in both arms, `go-style-core` 2867 → 2335 tokens on load,
+cache writes 40.9K → 35.9K, $0.299 → $0.275 a session
+([report](docs/evidence/2026-09-11-go-implement-load-cuts-feed-n5-sonnet-5-medium.md)).
+On Opus 5 the reference `gateway` session loaded six owners one per turn where
+1.12.0 loads them in one message: 16 API calls to 10
+([smoke, n=1](docs/evidence/2026-09-11-go-implement-load-cuts-smoke-opus-5-medium.md);
+[Sonnet 5 smoke](docs/evidence/2026-09-11-go-implement-load-cuts-smoke-sonnet-5-medium.md)).
+The table above is unchanged: these runs are n=1 or have no unaided arm.
+
 The [Sonnet 5 HTTP experiments](docs/evidence/2026-09-08-sonnet-http-compact.md)
 also exposed blocked reference reads in the Claude evaluation setup. The
 September 9 update fixes that setup and adopts a compact inline HTTP guide

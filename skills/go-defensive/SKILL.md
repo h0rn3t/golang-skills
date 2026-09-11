@@ -197,9 +197,9 @@ where failure means the program cannot run; never on request-time input.
 
 ## Related Skills
 
-- **Error handling**: See [go-error-handling](../go-error-handling/SKILL.md) when choosing between returning errors and panicking, or wrapping errors at boundaries
-- **Concurrency safety**: See [go-concurrency](../go-concurrency/SKILL.md) when protecting shared state with mutexes, atomics, or channels
-- **Interface checks**: See [go-interfaces](../go-interfaces/SKILL.md) when adding compile-time interface satisfaction checks
-- **Data structure copying**: See [go-data-structures](../go-data-structures/SKILL.md) when working with slice/map internals or pointer aliasing
-- **Enum design**: See [go-style-core](../go-style-core/SKILL.md) when writing the `iota` block or choosing whether zero is a valid member
-- **Threat model**: See [go-security](../go-security/SKILL.md) when the caller-supplied value is untrusted — injection, SSRF, secrets, TLS; this skill owns the `os.Root` and `crypto/rand` forms it routes to
+- [go-error-handling](../go-error-handling/SKILL.md): return versus panic, wrapping at boundaries.
+- [go-concurrency](../go-concurrency/SKILL.md): shared state under mutexes, atomics, channels.
+- [go-interfaces](../go-interfaces/SKILL.md): compile-time interface assertions.
+- [go-data-structures](../go-data-structures/SKILL.md): slice and map internals, pointer aliasing.
+- [go-style-core](../go-style-core/SKILL.md): the `iota` block and whether zero is a valid member.
+- [go-security](../go-security/SKILL.md): untrusted values: injection, SSRF, secrets, TLS; this skill owns the `os.Root` and `crypto/rand` forms.

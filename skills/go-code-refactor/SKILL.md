@@ -349,9 +349,9 @@ exits 1 on those.
 
 ## Related Skills
 
-- **Style rules being applied**: See [go-style-core](../go-style-core/SKILL.md) when deciding nesting, naked returns, or the clarity > simplicity > concision order
-- **Renaming**: See [go-naming](../go-naming/SKILL.md) when improving identifier, receiver, or package names
-- **Error-flow rewrites**: See [go-error-handling](../go-error-handling/SKILL.md) when restructuring wrapping, sentinels, or the handle-once pattern
-- **Concurrency rewrites**: See [go-concurrency](../go-concurrency/SKILL.md) when goroutine lifetimes, channels, or locks are in the diff
-- **Splitting packages**: See [go-packages](../go-packages/SKILL.md) when the refactor crosses package boundaries
-- **Reviewing the result**: See [go-code-review](../go-code-review/SKILL.md) when checking the finished diff against the full checklist
+- [go-style-core](../go-style-core/SKILL.md): nesting and the clarity > simplicity > concision order.
+- [go-naming](../go-naming/SKILL.md): renames.
+- [go-error-handling](../go-error-handling/SKILL.md): wrapping, sentinels, handle-once rewrites.
+- [go-concurrency](../go-concurrency/SKILL.md): goroutine lifetimes, channels, locks in the diff.
+- [go-packages](../go-packages/SKILL.md): a refactor that crosses package boundaries.
+- [go-code-review](../go-code-review/SKILL.md): the finished diff against the checklist.

@@ -173,10 +173,10 @@ Never shadow Go's predeclared identifiers (`error`, `string`, `len`, `cap`,
 
 ## Validation
 
-> **Validation**: After renaming identifiers, run `bash scripts/check-naming.sh` to verify no naming anti-patterns remain. Then run `go build ./...` to confirm the rename didn't break anything.
+> **Validation**: `scripts/check-naming.sh` reports the anti-patterns above; it runs with the build and the rest of the [go-linting](../go-linting/SKILL.md) gate, once, at the end of the task.
 
 ## Related Skills
 
-- **Receiver type**: See [go-interfaces](../go-interfaces/SKILL.md) when choosing pointer versus value receivers; their names are this skill's Receiver Names
-- **Package splitting and imports**: See [go-packages](../go-packages/SKILL.md) when splitting packages or resolving import collisions; package names are this skill's Package Names
-- **Scope and style principles**: See [go-style-core](../go-style-core/SKILL.md) when variable name length depends on scope, when avoiding built-in shadowing, or when balancing clarity vs concision in identifier names
+- [go-interfaces](../go-interfaces/SKILL.md): pointer versus value receivers; their names are this skill's Receiver Names.
+- [go-packages](../go-packages/SKILL.md): splitting packages, import collisions; package names are this skill's Package Names.
+- [go-style-core](../go-style-core/SKILL.md): name length by scope, shadowing of built-ins, clarity against concision.

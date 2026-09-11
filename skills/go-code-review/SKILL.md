@@ -212,6 +212,6 @@ Gate result per [go-linting](../go-linting/SKILL.md#verification-gate)
 
 ## Related Skills
 
-- **Style foundations and lint setup**: See [go-style-core](../go-style-core/SKILL.md) for the clarity > simplicity > concision priority and how much to say; [go-linting](../go-linting/SKILL.md) when configuring golangci-lint or CI checks
-- **Acting on the findings, or reviewing for bloat**: See [go-code-refactor](../go-code-refactor/SKILL.md) when the review turns into a behavior-preserving restructure, and its [`references/OVER-ENGINEERING.md`](../go-code-refactor/references/OVER-ENGINEERING.md) when the ask is what to delete — single-implementation interfaces, hand-rolled stdlib, dependencies Go now ships
-- **HTTP and SQL**: See [go-http](../go-http/SKILL.md) and its [`references/WEB-SERVER.md`](../go-http/references/WEB-SERVER.md) when the diff is a handler, middleware, server setup, or client call; [go-database](../go-database/SKILL.md) when it is a repository, query, transaction, or migration
+- [go-style-core](../go-style-core/SKILL.md): style priority and how much to say; [go-linting](../go-linting/SKILL.md): golangci-lint and CI configuration.
+- [go-code-refactor](../go-code-refactor/SKILL.md): when the review becomes a restructure; its [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md) for what to delete.
+- [go-http](../go-http/SKILL.md) and [WEB-SERVER.md](../go-http/references/WEB-SERVER.md): handlers, middleware, servers, clients; [go-database](../go-database/SKILL.md): repositories, queries, transactions, migrations.

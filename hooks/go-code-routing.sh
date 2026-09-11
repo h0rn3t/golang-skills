@@ -129,7 +129,8 @@ PreToolUse)
     cat >&2 <<EOF
 go-code routing gate: this session loaded go-code but not: ${missing% }
 This edit was not applied and the file is unchanged. Load them (in Claude Code,
-one Skill call per name), then retry the same edit against the unchanged file.
+one Skill call per name, all in one message), then retry the same edit
+against the unchanged file.
 The gate reads the edited text and recognizes some owners only: tests, error
 wrapping, goroutines, context creation, SQL, slog, exec and templates, defer,
 type parameters, interfaces, main, retries, HTTP. The routing table in

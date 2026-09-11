@@ -208,8 +208,8 @@ annotation adds nothing, return `err` directly.
 
 ## Related Skills
 
-- **Error naming**: [go-naming](../go-naming/SKILL.md#error-names) owns `ErrX` sentinels and `XError` types
-- **Testing errors**: See [go-testing](../go-testing/SKILL.md) when testing error semantics with `errors.Is`/`errors.AsType` or writing error-checking helpers
-- **Panic handling**: See [go-defensive](../go-defensive/SKILL.md) when deciding between panic and error returns, or writing recover guards
-- **Guard clauses**: See [go-style-core](../go-style-core/SKILL.md) — it owns nesting depth, early returns, `if`-init, and statement mechanics
-- **Logging decisions**: See [go-logging](../go-logging/SKILL.md) when choosing log levels, configuring structured logging, or deciding what context to include in log messages
+- [go-naming](../go-naming/SKILL.md#error-names): `ErrX` sentinels and `XError` types.
+- [go-testing](../go-testing/SKILL.md): `errors.Is`/`errors.AsType` under test, error-checking helpers.
+- [go-defensive](../go-defensive/SKILL.md): panic versus error, recover guards.
+- [go-style-core](../go-style-core/SKILL.md): nesting depth, early returns, `if`-init.
+- [go-logging](../go-logging/SKILL.md): log levels and what a log line carries.

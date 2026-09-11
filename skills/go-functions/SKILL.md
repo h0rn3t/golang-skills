@@ -128,8 +128,8 @@ them. Implementation and tradeoffs live in the constructor reference above.
 
 ## Related Skills
 
-- **Error returns**: See [go-error-handling](../go-error-handling/SKILL.md) when designing error return patterns or wrapping errors in multi-return functions
-- **Naming conventions**: See [go-naming](../go-naming/SKILL.md) when naming functions, methods, or choosing getter/setter patterns
-- **Option interfaces**: See [go-interfaces](../go-interfaces/SKILL.md) when the abstraction itself needs design or review
-- **API documentation**: See [go-documentation](../go-documentation/SKILL.md) when documenting exported constructors, defaults, or `With*` functions
-- **Formatting principles**: See [go-style-core](../go-style-core/SKILL.md) when deciding line length, naked returns, or signature formatting
+- [go-error-handling](../go-error-handling/SKILL.md): error returns in multi-return functions.
+- [go-naming](../go-naming/SKILL.md): function, method, and getter names.
+- [go-interfaces](../go-interfaces/SKILL.md): when the option abstraction itself needs design.
+- [go-documentation](../go-documentation/SKILL.md): constructors, defaults, `With*` functions.
+- [go-style-core](../go-style-core/SKILL.md): signature formatting and line breaks.

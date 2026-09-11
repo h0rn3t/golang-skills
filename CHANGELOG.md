@@ -4,6 +4,78 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-09-11
+
+### Added
+
+- Three runs of the 1.12.0 edits against the committed 1.11.0 tree
+  (`49b4e25`) on the implementation corpus, no shell in any session:
+  - Opus 5 medium, `catalog`, `feed`, `gateway`, three arms, n=1:
+    [`docs/evidence/2026-09-11-go-implement-load-cuts-smoke-opus-5-medium.md`](docs/evidence/2026-09-11-go-implement-load-cuts-smoke-opus-5-medium.md).
+    Golden 2/3 unaided, 3/3 in both skilled arms. Every baseline session
+    loaded `go-code` first and the owners in one message, where the reference
+    `gateway` session loaded six owners one per turn: 16 API calls to 10,
+    cache reads 562K to 294K tokens, $1.07 to $0.96. Cost 3.96x the control
+    against 4.50x.
+  - Sonnet 5 medium, the same fixtures and arms, n=1:
+    [`docs/evidence/2026-09-11-go-implement-load-cuts-smoke-sonnet-5-medium.md`](docs/evidence/2026-09-11-go-implement-load-cuts-smoke-sonnet-5-medium.md).
+    Golden 3/3, 3/3, 2/3: the baseline `feed` session rendered `kinds` as
+    `null` for an account with no events, the case its own contract test
+    carried; the same miss is in the 2026-09-10 control and the 2026-09-11
+    Plain Code run at one session in five. `Skill` turns 2.3 against 3.3 a
+    session; cost 6.50x against 7.09x.
+  - Sonnet 5 medium, `feed`, reference and baseline, n=5:
+    [`docs/evidence/2026-09-11-go-implement-load-cuts-feed-n5-sonnet-5-medium.md`](docs/evidence/2026-09-11-go-implement-load-cuts-feed-n5-sonnet-5-medium.md).
+    Golden 5/5 in both arms, `null` in 0 of 10 sessions; lines 34.2 against
+    32.8 inside a 30–39 spread, no helpers or types in either arm. Measured
+    payloads: `go-style-core` 2867 to 2329–2340 tokens on load, `go-code`
+    6601–6635 to 6543–6588, `go-error-handling` 3089 to 2988–3000,
+    `go-linting` ~5160 to 5087–5119; cache writes 35.9K against 40.9K,
+    $0.275 against $0.299 a session.
+
+### Changed
+
+
+- `go-code` step 3: the `Skill` calls for the selected owners go out in one
+  message. In the 2026-09-11 Opus 5 medium traces
+  (`docs/evidence/2026-09-11-go-implement-newcode-workflow-opus-5-medium.traces.tar.gz`)
+  the model batched two owners in 12 of 61 Skill-bearing messages and loaded
+  the rest one per turn: 3.4 loading turns per routed session, each one
+  re-reading 20–40K tokens of context before the first edit. The routing
+  gate's message for a blocked edit says the same.
+- `go-testing`, `go-naming`, `go-documentation`: the `> **Validation**`
+  callouts that told the model to run the new tests now, to run the naming
+  script and then `go build`, or to run the docs script and "fix any gaps
+  before proceeding" are each one sentence routing to the `go-linting` gate,
+  once, at the end of the task. Anthropic's Claude Opus 5 guidance: the model
+  verifies its own work unprompted, and a second "check now" instruction adds
+  work and report length with no new evidence; the same delete `go-code` made
+  in 1.11.0. The scripts stay listed in each skill's Resource Routing and, for
+  `check-docs.sh`, in `go-code`'s Close With The Gate.
+- `go-style-core` drops Declarations and Scope, Loops and Switches, and Naked
+  Returns, about 600 tokens loaded on every routed session. Each rule there is
+  Go the model knows: `:=` against `var`, if-init, map order, `break` inside
+  `switch`, when a naked return reads. The decisions stay with the references
+  Resource Routing already names (`SCOPE.md`, `SHADOWING.md`, `IOTA.md`,
+  `INITIALIZATION.md`, `CONTROL-FLOW.md`, `SWITCH-PATTERNS.md`), which
+  `go-code` routes to for declaration, enum, initialization, loop, and switch
+  decisions. The prompt-audit rule applied: keep what only the author knows.
+- `go-code`: the Resource Routing preamble on how a skill counts as loaded is
+  four lines instead of seven, and the reason a contract test is written
+  before the body is stated once, in step 4, rather than again at the end of
+  Contract Table.
+- Related Skills in 22 skills are one line per pointer, link and condition:
+  17.1K to 11.0K characters across the pack, every link target kept (`go-code`
+  and `go-http` were already in this form). `go-concurrency` drops its
+  External Resources list of blog posts and talks, which no session can read.
+  On the 2026-09-11 Opus 5 traces a routed session loads about 23K tokens of
+  skill text; these three cuts remove about 3K across the pack and, measured
+  on the `feed` n=5 run above, about 750 tokens per session (the estimate from
+  character counts was 1.1K).
+- README: a Loading cost paragraph under the per-model table with the
+  measured numbers from the three runs; the table itself is unchanged, since
+  the runs are n=1 or have no unaided arm.
+
 ## [1.11.0] - 2026-09-11
 
 ### Added

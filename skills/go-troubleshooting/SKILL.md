@@ -209,12 +209,11 @@ for a one-line bug. Ticket publication requires the user's requested scope.
 
 ## Related Skills
 
-- **Containing known dependency failures**: [go-resilience](../go-resilience/SKILL.md) owns retry amplification, overload admission, breakers, and fallback after the mechanism is identified.
-
-- **SQL and transactions**: [go-database](../go-database/SKILL.md) owns query, tenant-filter, transaction, and pool corrections.
-- **HTTP boundaries**: [go-http](../go-http/SKILL.md) owns routing, request/response, client, and server corrections.
-- **Concurrency and cancellation**: [go-concurrency](../go-concurrency/SKILL.md) and [go-context](../go-context/SKILL.md) own races, leaks, lifetimes, and deadlocks once identified.
-- **Data and ownership**: [go-data-structures](../go-data-structures/SKILL.md) and [go-defensive](../go-defensive/SKILL.md) own collection, aliasing, and cleanup corrections.
-- **Performance**: [go-performance](../go-performance/SKILL.md) owns optimization and benchmarks after locating the bottleneck.
-- **Regression tests**: [go-testing](../go-testing/SKILL.md) owns deterministic coverage and test design.
-- **Exposure and verification**: [go-security](../go-security/SKILL.md) owns debug endpoint/data exposure; [go-linting](../go-linting/SKILL.md) owns the required verification gate.
+- [go-resilience](../go-resilience/SKILL.md): retry amplification, admission, breakers, fallback once the mechanism is known.
+- [go-database](../go-database/SKILL.md): query, tenant-filter, transaction, pool corrections.
+- [go-http](../go-http/SKILL.md): routing, request/response, client, server corrections.
+- [go-concurrency](../go-concurrency/SKILL.md) and [go-context](../go-context/SKILL.md): races, leaks, lifetimes, deadlocks once identified.
+- [go-data-structures](../go-data-structures/SKILL.md) and [go-defensive](../go-defensive/SKILL.md): collection, aliasing, cleanup corrections.
+- [go-performance](../go-performance/SKILL.md): optimization and benchmarks after the bottleneck is located.
+- [go-testing](../go-testing/SKILL.md): the regression test.
+- [go-security](../go-security/SKILL.md): debug endpoint and data exposure; [go-linting](../go-linting/SKILL.md): the verification gate.

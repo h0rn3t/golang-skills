@@ -11,13 +11,10 @@ Route Go work to the relevant owners, then close with their verification gate.
 
 ## Resource Routing
 
-Resolve sibling skills and references relative to this installed directory
-(Claude Code prints it as the skill's base directory); run their scripts from
-the target project. A skill counts as loaded only when its `SKILL.md` content
-is in this context: in Claude Code call the `Skill` tool with the skill name;
-in Codex or any host without a skill tool, read `../<name>/SKILL.md` next to
-this file. Missing resources: report the gap, use available guidance, and
-continue independent authorized work without inventing rules.
+Sibling skills resolve relative to this installed directory; their scripts run
+from the target project. A skill is loaded when its `SKILL.md` is in context:
+the `Skill` tool in Claude Code, a read of `../<name>/SKILL.md` on a host
+without one. Report a missing resource and continue with the guidance at hand.
 
 - `../go-style-core/SKILL.md` — Read once per task for house style, fallback
   rules, and communication guidance. Read its references only for a decision
@@ -47,14 +44,16 @@ continue independent authorized work without inventing rules.
    restructuring of existing code skips it.
 3. **Load the owners before the first edit.** Match the task against
    [Route Before The First Edit](#route-before-the-first-edit) and load each
-   matched owner plus every `Also load` entry whose condition holds. When
-   step 4 applies, `go-testing` is one of them: the Contract Table is a test
-   file. Select by the decisions and behavior being changed, not every syntax
-   element present: a routine local variable or `if` does not trigger naming,
-   documentation, or extra style references. The step ends when every selected
-   skill's content is in context; do not make the first edit before that. Add
-   owners when new evidence requires them; there is no numerical cap, and
-   content already loaded this session is reused, not reread.
+   matched owner plus every `Also load` entry whose condition holds. Issue
+   the `Skill` calls for all of them in one message; an owner loaded on a
+   turn of its own re-reads the whole context. When step 4 applies,
+   `go-testing` is one of them: the Contract Table is a test file. Select by
+   the decisions and behavior being changed, not every syntax element
+   present: a routine local variable or `if` does not trigger naming,
+   documentation, or extra style references. The step ends when every
+   selected skill's content is in context; do not make the first edit before
+   that. Add owners when new evidence requires them; there is no numerical
+   cap, and content already loaded this session is reused, not reread.
 4. **Write the Contract Table, for new code only.** For a new function,
    package, or stub body, turn the documentation and the request into the
    test file the [Contract Table](#contract-table) describes, before the
@@ -147,8 +146,7 @@ else" — takes its case from the member a library default treats unlike the
 rest, because that member is where the class leaks: `HEAD` under a `GET`
 pattern, `t` and `1` under `strconv.ParseBool`, the bare path under a subtree
 pattern. The member the code plainly rejects (`POST`, `maybe`) fails on its
-own and needs no case. The file is the contract table, and it is written before the body because a
-case derived from the code only checks what the code already does.
+own and needs no case.
 
 | Clause | Case | Expected |
 |---|---|---|

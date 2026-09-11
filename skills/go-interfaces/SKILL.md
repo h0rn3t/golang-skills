@@ -167,8 +167,8 @@ reallocated, and small immutable structs or basic types;
 
 ## Related Skills
 
-- **Interface naming**: See [go-naming](../go-naming/SKILL.md) when naming interfaces (the `-er` suffix convention) or choosing receiver names
-- **Error types**: See [go-error-handling](../go-error-handling/SKILL.md) when implementing the `error` interface, custom error types, or `errors.As` matching
-- **Generics vs interfaces**: See [go-generics](../go-generics/SKILL.md) when deciding whether generics are needed or an interface already suffices
-- **Functional options**: See [go-functions](../go-functions/SKILL.md) when using an interface-based Option pattern for flexible constructors
-- **Defensive boundaries**: See [go-defensive](../go-defensive/SKILL.md) when interface assertions are one part of a broader API-boundary hardening pass
+- [go-naming](../go-naming/SKILL.md): the `-er` suffix, receiver names.
+- [go-error-handling](../go-error-handling/SKILL.md): implementing `error`, custom error types, `errors.As` matching.
+- [go-generics](../go-generics/SKILL.md): whether generics are needed or an interface suffices.
+- [go-functions](../go-functions/SKILL.md): interface-based Option patterns for constructors.
+- [go-defensive](../go-defensive/SKILL.md): assertions as part of an API-boundary hardening pass.

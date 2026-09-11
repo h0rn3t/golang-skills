@@ -81,32 +81,6 @@ Omit `else` after a branch that exits. For two branches assigning one value,
 use default plus override when the default is safe to evaluate unconditionally;
 keep the branches when evaluation has side effects or is expensive.
 
-## Declarations and Scope
-
-- Use `:=` for local explicit values; `var` for intentional zero values,
-  top-level variables, or a type that differs from the expression.
-- Keep declarations near use. Use if-init when the value is confined to the
-  conditional; keep it outside when needed afterward or to avoid nesting.
-- Check whether `:=` reassigns in the same scope or shadows an outer variable.
-- Choose enum zero values deliberately: valid useful default or invalid/unset.
-- Preserve nil/empty and explicit-zero distinctions required by the API.
-  Prefer keyed struct literals; leave literal layout and examples to the reference.
-
-## Loops and Switches
-
-Preserve iteration order, value semantics, and exit targets when changing a
-loop. Map order is unspecified; string range yields byte offsets and runes.
-An iterator must stop when `yield` returns false. A `break` inside a switch
-exits that switch; use a label when the intended target is the enclosing loop.
-Read the relevant reference before adopting a version-sensitive loop form.
-
-## Naked Returns
-
-Use explicit return values once a function is too long to see its named
-results easily. A naked return is acceptable in a handful of clear lines;
-do not name results solely to omit them at `return`. Named-result documentation
-belongs to [go-documentation](../go-documentation/SKILL.md).
-
 ## How Much To Say
 
 This skill owns narration, report length, and delegation guidance for the pack.
@@ -126,11 +100,11 @@ model choice, and delegation limits belong to the host, not to a Go style rule.
 
 ## Related Skills
 
-- **Function APIs**: [go-functions](../go-functions/SKILL.md) for signatures, constructors, config structs, and functional options.
-- **Naming**: [go-naming](../go-naming/SKILL.md) for identifiers and receiver names.
-- **Errors**: [go-error-handling](../go-error-handling/SKILL.md) for error strategy, wrapping, and log-vs-return.
-- **Interfaces**: [go-interfaces](../go-interfaces/SKILL.md) for type assertions, type switches, and compile-time checks.
-- **Collections**: [go-data-structures](../go-data-structures/SKILL.md) for choosing and owning slices/maps; [go-performance](../go-performance/SKILL.md) for capacity hints.
-- **Documentation**: [go-documentation](../go-documentation/SKILL.md) for exported API comments and examples.
-- **Verification**: [go-linting](../go-linting/SKILL.md) for the shared gate and CI configuration.
-- **Review and refactoring**: [go-code-review](../go-code-review/SKILL.md) for a systematic review; [go-code-refactor](../go-code-refactor/SKILL.md) for behavior-preserving restructuring.
+- [go-functions](../go-functions/SKILL.md): signatures, constructors, config structs, functional options.
+- [go-naming](../go-naming/SKILL.md): identifiers and receiver names.
+- [go-error-handling](../go-error-handling/SKILL.md): error strategy, wrapping, log-vs-return.
+- [go-interfaces](../go-interfaces/SKILL.md): type assertions, type switches, compile-time checks.
+- [go-data-structures](../go-data-structures/SKILL.md): slices and maps; [go-performance](../go-performance/SKILL.md): capacity hints.
+- [go-documentation](../go-documentation/SKILL.md): exported API comments and examples.
+- [go-linting](../go-linting/SKILL.md): the shared gate and CI configuration.
+- [go-code-review](../go-code-review/SKILL.md): systematic review; [go-code-refactor](../go-code-refactor/SKILL.md): behavior-preserving restructuring.

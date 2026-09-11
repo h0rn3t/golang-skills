@@ -208,23 +208,9 @@ Read `references/BUFFER-POOLING.md` for the full pattern and when to prefer
 
 ## Related Skills
 
-- **Overload policy**: [go-resilience](../go-resilience/SKILL.md) owns bulkhead admission, queue/backpressure policy, rate scope, and recovery budgets.
-
-- **Context propagation**: See [go-context](../go-context/SKILL.md) when passing cancellation, deadlines, or request-scoped values through goroutines
-- **Error handling**: See [go-error-handling](../go-error-handling/SKILL.md) when propagating errors from goroutines or using errgroup
-- **Defensive hardening**: See [go-defensive](../go-defensive/SKILL.md) when protecting shared state at API boundaries or using defer for cleanup
-- **Interface design**: See [go-interfaces](../go-interfaces/SKILL.md) when choosing receiver types for types with sync primitives
-- **Finding the race or leak**: See [go-troubleshooting](../go-troubleshooting/SKILL.md) for goroutine dumps, race-report anatomy, and the symptom catalog when the cause is not yet known
-
-### External Resources
-
-- [Never start a goroutine without knowing how it will
-  stop](https://dave.cheney.net/2016/12/22/never-start-a-goroutine-without-knowing-how-it-will-stop)
-  — Dave Cheney
-- [Rethinking Classical Concurrency
-  Patterns](https://www.youtube.com/watch?v=5zXAHh5tJqQ) — Bryan Mills
-  (GopherCon 2018)
-- [When Go programs end](https://changelog.com/gotime/165) — Go Time podcast
-- [go.uber.org/goleak](https://pkg.go.dev/go.uber.org/goleak) — Goroutine leak
-  detector for testing
-- [sync/atomic](https://pkg.go.dev/sync/atomic) — Standard-library typed atomics
+- [go-resilience](../go-resilience/SKILL.md): bulkhead admission, backpressure, rate scope, recovery budgets.
+- [go-context](../go-context/SKILL.md): cancellation, deadlines, request-scoped values through goroutines.
+- [go-error-handling](../go-error-handling/SKILL.md): errors from goroutines, errgroup.
+- [go-defensive](../go-defensive/SKILL.md): shared state at API boundaries, defer for cleanup.
+- [go-interfaces](../go-interfaces/SKILL.md): receiver types for types holding sync primitives.
+- [go-troubleshooting](../go-troubleshooting/SKILL.md): goroutine dumps, race reports, the symptom catalog when the cause is unknown.

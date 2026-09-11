@@ -40,7 +40,7 @@ func Encode(w io.Writer, req *Request) { ...
 
 Unexported types/functions with unobvious behavior should also have doc comments.
 
-> **Validation**: After adding doc comments, run `bash scripts/check-docs.sh` to verify no exported symbols are missing documentation. Fix any gaps before proceeding.
+> **Validation**: `scripts/check-docs.sh` lists exported symbols without a doc comment; it runs with the [go-linting](../go-linting/SKILL.md) gate, once, at the end of the task.
 
 ---
 
@@ -137,7 +137,7 @@ Examples appear in Godoc attached to the documented element. `go doc -ex
 
 ## Related Skills
 
-- **Naming conventions**: See [go-naming](../go-naming/SKILL.md) when choosing names for the identifiers your doc comments describe
-- **Testing examples**: See [go-testing](../go-testing/SKILL.md) when writing runnable `Example` test functions that appear in godoc
-- **Linting enforcement**: See [go-linting](../go-linting/SKILL.md) when using revive or other linters to enforce doc comment presence
-- **Style principles**: See [go-style-core](../go-style-core/SKILL.md) when balancing documentation verbosity against clarity and concision
+- [go-naming](../go-naming/SKILL.md): the identifiers the comments describe.
+- [go-testing](../go-testing/SKILL.md): runnable `Example` functions.
+- [go-linting](../go-linting/SKILL.md): linters that enforce doc comment presence.
+- [go-style-core](../go-style-core/SKILL.md): verbosity against clarity and concision.

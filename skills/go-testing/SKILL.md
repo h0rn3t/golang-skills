@@ -148,12 +148,9 @@ or multiple branches — write separate test functions instead.
   touches globals, `t.Setenv`, `t.Chdir`, or a shared fixture. No `tt := tt`
   capture line — loop variables are per-iteration since Go 1.22.
 
-> **Validation**: Run `go test -run TestXxx -v` on the new tests, with `-race`
-> when the code under test starts a goroutine — tests that pass without it
-> prove nothing about concurrent code. The full package run belongs to the
-> [go-linting](../go-linting/SKILL.md) gate, once, at the end of the task.
-> The pipeline's own flags (`-shuffle=on`, and `-count=1` for suites that touch
-> real services) belong to that same [go-linting](../go-linting/SKILL.md) gate.
+> **Validation**: Running the tests, with `-race` and the pipeline's flags,
+> belongs to the [go-linting](../go-linting/SKILL.md) gate, once, at the end
+> of the task.
 
 ---
 
@@ -201,7 +198,7 @@ if gotErr := err != nil; gotErr != tt.wantErr {
 
 ## Related Skills
 
-- **Error testing**: See [go-error-handling](../go-error-handling/SKILL.md) when testing error semantics with `errors.Is`/`errors.AsType` or sentinel errors
-- **Interface mocking**: See [go-interfaces](../go-interfaces/SKILL.md) when creating test doubles by implementing interfaces at the consumer side
-- **Naming test functions**: See [go-naming](../go-naming/SKILL.md) when naming test functions, subtests, or test helper utilities
-- **Linter integration**: See [go-linting](../go-linting/SKILL.md) when running linters alongside tests in CI or pre-commit hooks
+- [go-error-handling](../go-error-handling/SKILL.md): `errors.Is`/`errors.AsType` and sentinels under test.
+- [go-interfaces](../go-interfaces/SKILL.md): test doubles implemented at the consumer side.
+- [go-naming](../go-naming/SKILL.md): test, subtest, and helper names.
+- [go-linting](../go-linting/SKILL.md): linters alongside tests in CI.

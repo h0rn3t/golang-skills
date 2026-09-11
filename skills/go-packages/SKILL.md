@@ -220,7 +220,7 @@ var schemaFS embed.FS
 
 ## Related Skills
 
-- **Package naming**: See [go-naming](../go-naming/SKILL.md) when choosing package names, avoiding stuttering, or naming exported symbols
-- **Error handling across packages**: See [go-error-handling](../go-error-handling/SKILL.md) when wrapping errors at package boundaries with `%w` vs `%v`
-- **Import linting**: See [go-linting](../go-linting/SKILL.md) when configuring goimports local-prefixes or enforcing import grouping
-- **Global state**: See [go-defensive](../go-defensive/SKILL.md) when replacing `init()` with explicit initialization or avoiding mutable globals
+- [go-naming](../go-naming/SKILL.md): package names, stuttering, exported symbols.
+- [go-error-handling](../go-error-handling/SKILL.md): `%w` versus `%v` at package boundaries.
+- [go-linting](../go-linting/SKILL.md): goimports local prefixes, import grouping.
+- [go-defensive](../go-defensive/SKILL.md): replacing `init()`, mutable globals.

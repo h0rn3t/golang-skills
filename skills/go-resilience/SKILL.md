@@ -169,8 +169,8 @@ for report length. A proposed policy is not evidence of outage recovery.
 
 ## Related Skills
 
-- **HTTP mechanics**: [go-http](../go-http/SKILL.md) owns clients, transport configuration, response handling, and server shutdown.
-- **Context and concurrency mechanics**: [go-context](../go-context/SKILL.md) and [go-concurrency](../go-concurrency/SKILL.md) own cancellation propagation, goroutine lifetime, and synchronization.
-- **Durable local effects**: [go-database](../go-database/SKILL.md) owns transactions, constraints, and pool/query mechanics.
-- **Failure classification and reporting**: [go-error-handling](../go-error-handling/SKILL.md) and [go-logging](../go-logging/SKILL.md) own error matching and structured logs; avoid high-cardinality or secret metric labels.
-- **Unknown cause**: [go-troubleshooting](../go-troubleshooting/SKILL.md) owns incident evidence and diagnosis before speculative retry or breaker changes.
+- [go-http](../go-http/SKILL.md): clients, transports, response handling, server shutdown.
+- [go-context](../go-context/SKILL.md) and [go-concurrency](../go-concurrency/SKILL.md): cancellation propagation, goroutine lifetime, synchronization.
+- [go-database](../go-database/SKILL.md): transactions, constraints, pool and query mechanics.
+- [go-error-handling](../go-error-handling/SKILL.md) and [go-logging](../go-logging/SKILL.md): error matching and structured logs; no high-cardinality or secret metric labels.
+- [go-troubleshooting](../go-troubleshooting/SKILL.md): incident evidence and diagnosis before speculative retry or breaker changes.

@@ -183,11 +183,10 @@ integration harness in
 
 ## Related Skills
 
-- **Duplicate delivery and retries**: [go-resilience](../go-resilience/SKILL.md) owns operation idempotency, replay budgets, and limits of atomicity across remote side effects.
-
-- **Context**: See [go-context](../go-context/SKILL.md) for timeouts on queries and what may outlive the request
-- **Errors**: See [go-error-handling](../go-error-handling/SKILL.md) for wrapping driver errors and mapping `sql.ErrNoRows` to a sentinel
-- **HTTP**: See [go-http](../go-http/SKILL.md) for the handler that calls the repository and maps its errors to status codes
-- **Testing**: See [go-testing](../go-testing/SKILL.md) for integration tests against a real database
-- **Packages**: See [go-packages](../go-packages/SKILL.md) before adding an ORM or a second driver, and for `//go:embed` migrations
-- **Performance**: See [go-performance](../go-performance/SKILL.md) for measuring a slow query before rewriting it
+- [go-resilience](../go-resilience/SKILL.md): idempotency, replay budgets, atomicity across remote side effects.
+- [go-context](../go-context/SKILL.md): query timeouts and what may outlive the request.
+- [go-error-handling](../go-error-handling/SKILL.md): wrapping driver errors, `sql.ErrNoRows` to a sentinel.
+- [go-http](../go-http/SKILL.md): the handler that calls the repository and maps its errors to status codes.
+- [go-testing](../go-testing/SKILL.md): integration tests against a real database.
+- [go-packages](../go-packages/SKILL.md): before an ORM or a second driver; `//go:embed` migrations.
+- [go-performance](../go-performance/SKILL.md): measuring a slow query before rewriting it.

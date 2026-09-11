@@ -154,9 +154,9 @@ has to exist. Prove a check unnecessary, or leave it and say why.
 
 ## Related Skills
 
-- **Boundary mechanics**: See [go-defensive](../go-defensive/SKILL.md) for the `os.Root` and `crypto/rand` forms, boundary copies, and `Must` at init
-- **Queries**: See [go-database](../go-database/SKILL.md) for placeholder queries and identifier allowlists
-- **Handlers and servers**: See [go-http](../go-http/SKILL.md) for body limits, timeouts, CSRF protection, and error-to-status mapping
-- **Redaction**: See [go-logging](../go-logging/SKILL.md) for `LogValuer` and what never goes in a log line
-- **Gate**: See [go-linting](../go-linting/SKILL.md) for `gosec` in the baseline config and `govulncheck` in the gate
-- **Root cause of an incident**: See [go-troubleshooting](../go-troubleshooting/SKILL.md) when the symptom is a crash or hang rather than a known vulnerability
+- [go-defensive](../go-defensive/SKILL.md): `os.Root`, `crypto/rand`, boundary copies, `Must` at init.
+- [go-database](../go-database/SKILL.md): placeholder queries, identifier allowlists.
+- [go-http](../go-http/SKILL.md): body limits, timeouts, CSRF protection, error-to-status mapping.
+- [go-logging](../go-logging/SKILL.md): `LogValuer` and what never reaches a log line.
+- [go-linting](../go-linting/SKILL.md): `gosec` in the baseline, `govulncheck` in the gate.
+- [go-troubleshooting](../go-troubleshooting/SKILL.md): a crash or hang rather than a known vulnerability.

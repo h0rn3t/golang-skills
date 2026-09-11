@@ -175,35 +175,37 @@ entry point, anything it calls, and the contract test alike.
   naming, comment density, and idiom ([House Style](../go-style-core/SKILL.md#house-style-wins)).
 
 The function below is the whole implementation of a documented JSON document:
-one function-local type, one anonymous document, the empty-input rule as code.
-The same document as two package-level types, a constructor for the item, and
-a `writeJSON` helper is the growth the budget below counts.
+one function-local type, one anonymous document, the empty-input rule and the
+one tracked fact as code. The same document as two package-level types, a
+constructor for the entry, and a `writeJSON` helper is the growth the budget
+below counts.
 
 ```go
-func Manifest(dir string, files []File) ([]byte, error) {
-	if dir == "" {
-		return nil, errors.New("manifest: dir is empty")
+func Manifest(build string, files []File) ([]byte, error) {
+	if build == "" {
+		return nil, errors.New("manifest: build is empty")
 	}
-	type file struct {
+	type entry struct {
 		Path string `json:"path"`
-		Kind string `json:"kind"`
 		Size int64  `json:"size"`
 	}
 	doc := struct {
-		Dir   string           `json:"dir"`
-		Files []file           `json:"files"`
-		Kinds []string         `json:"kinds"`
-		Bytes map[string]int64 `json:"bytes"`
-	}{Dir: dir, Files: []file{}, Kinds: []string{}, Bytes: map[string]int64{}} // [] and {} for an empty dir, never null
+		Build   string  `json:"build"`
+		Files   []entry `json:"files"`
+		Largest string  `json:"largest"`
+		Total   int64   `json:"total"`
+	}{Build: build, Files: []entry{}} // [] for a build with no files, never null
+	var largest int64 // the size behind doc.Largest: a tracked fact, not a value used once
 	for _, f := range files {
 		if f.Path == "" {
 			continue
 		}
-		doc.Files = append(doc.Files, file{Path: f.Path, Kind: f.Kind, Size: f.Size})
-		doc.Bytes[f.Kind] += f.Size
+		doc.Files = append(doc.Files, entry{Path: f.Path, Size: f.Size})
+		doc.Total += f.Size
+		if f.Size > largest {
+			doc.Largest, largest = f.Path, f.Size
+		}
 	}
-	doc.Kinds = slices.AppendSeq(doc.Kinds, maps.Keys(doc.Bytes)) // Sorted(Keys) is nil here, and nil encodes as null
-	slices.Sort(doc.Kinds)
 	return json.Marshal(doc)
 }
 ```

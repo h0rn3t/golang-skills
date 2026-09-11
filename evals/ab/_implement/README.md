@@ -92,13 +92,14 @@ separately.
 At Sonnet 5 medium two of `gateway`'s clauses are live traps — HEAD is a 405,
 the empty list is `[]` — and they separate skill *trees* more than arms: over
 every session of the series the 1.7.0 tree is 0/19 golden, the unaided control
-10/21, the 2026-09-10 new-code tree 15/25
+20/31, the 2026-09-10 new-code tree 20/35
 ([three arms, n=5](../../../docs/evidence/2026-09-10-go-implement-newcode-final-sonnet-5-medium.md))
-and the 2026-09-11 Plain Code tree 5/6, every session of it registering the
-`HEAD` patterns
-([three arms, n=5](../../../docs/evidence/2026-09-11-go-implement-newcode-plaincode-sonnet-5-medium.md));
-the control's own rate ranges 1/5 to 4/5 between runs, so a claim against it
-needs n≥10 per arm.
+and the 2026-09-11 Plain Code tree 9/16 — 5/5 with every session registering
+the `HEAD` patterns at n=5, then 4/10 with none at n=10
+([n=10, three tasks](../../../docs/evidence/2026-09-11-go-implement-newcode-plaincode-n10-sonnet-5-medium.md)).
+The control's own rate ranges 1/5 to 10/10 between runs, and the `go-http`
+`HEAD` example is copied in 13 of 30 skilled sessions under `go-code`; the
+unaided model passes with an `r.Method` check the skilled arms never write.
 `feed`'s `kinds` member has been rendered `null` once through
 `slices.Sorted(maps.Keys(m))`, and `catalog`'s repeated-SKU clause fails about
 once per arm per run through the same error-path deduplication bug. The table

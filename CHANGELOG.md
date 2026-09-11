@@ -4,6 +4,42 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- The n=10 three-arm run on `catalog`, `feed` and `gateway` that the n=5
+  report asked for, 90 sessions at Sonnet 5 medium, `reference` the pre-retune
+  tree and `baseline` the 1.8.0 tree with the reshaped example and the
+  fewer-names line:
+  [`docs/evidence/2026-09-11-go-implement-newcode-plaincode-n10-sonnet-5-medium.md`](docs/evidence/2026-09-11-go-implement-newcode-plaincode-n10-sonnet-5-medium.md).
+  The `gateway` 5/5 of the n=5 run does not hold: 4/10 against 5/10 for the
+  pre-retune tree and 10/10 unaided (Fisher p = 0.01), no baseline session
+  registering a `HEAD` pattern, six of ten reports saying `ServeMux` answers
+  405 on its own, the unaided control passing every session with an
+  `r.Method` check neither skilled arm writes. `feed` holds with the reshaped
+  example: 33.9 lines against 43.6 and 46.1 (p < 0.01 against each), 10/10
+  correct in every arm, nine of ten sessions in both skilled arms using a
+  function-local type and an anonymous document, so the gap is the inline
+  form, not the local type. `catalog` ties the control at 9/10 while the
+  pre-retune tree fails the repeated-SKU clause 4/10 (p = 0.30 between the
+  skilled trees); a `resolveError` type is back in 2 of 10 baseline sessions.
+  Contract tests 17 written and 13 before the body against 12 and 6;
+  `go-linting` loads 17/30 against 11/30 with no shell in any session, and the
+  baseline arm costs 20% more per session than the pre-retune tree (5.69x
+  against 4.74x the control). The README Sonnet 5 new-code cell stays on the
+  n=5 full-corpus run and is qualified by this subset.
+
+### Changed
+
+- The Plain Code example in `go-code` changes shape: a build manifest with an
+  ordered list, the path of the largest file and a total, in place of the
+  document with a sorted distinct list and a count map that shared its members
+  with the `feed` fixture, so that fixture measures the rule rather than the
+  copying of a near-solution. The example keeps the lesson — a function-local
+  type, an anonymous document, `[]` for the empty case as code — and shows the
+  fewer-names-not-fewer-states line as code, a `largest` size kept beside
+  `doc.Largest`. Measured in the n=10 run above: `feed` at 33.9 lines against
+  43.6 and 46.1 with six of ten sessions at 30 lines.
+
 ## [1.8.0] - 2026-09-11
 
 ### Added

@@ -1035,6 +1035,11 @@ func claudeSession(o options, armDir, work, prompt string) ([]byte, error) {
 	args := []string{
 		"-p", prompt,
 		"--output-format", "stream-json", "--verbose",
+		// Hook lifecycle events go into the trace as system messages, so a
+		// UserPromptSubmit note the plugin adds to the model's context is
+		// visible in the transcript; without the flag the host adds it
+		// silently and the trace cannot show whether the hook fired.
+		"--include-hook-events",
 		"--max-turns", fmt.Sprint(maxSteps),
 		"--permission-mode", "acceptEdits",
 		// The arms differ only in skill text, so the run must not pick up the

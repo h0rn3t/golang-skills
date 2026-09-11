@@ -1,6 +1,6 @@
 ---
 name: go-code
-description: Use when writing, fixing, or refactoring Go code, whether or not the task has one obvious topic — it loads the go-* skills the task needs and runs the closing gate. Use it too when /go-code modifies another workflow (e.g. /opsx:apply /go-code); as a modifier it selects Go rules, not a change name or path.
+description: Use when writing, fixing, or refactoring Go code, whether or not the task has one obvious topic — it loads the go-* skills the task needs and runs the closing gate. Also use when asked to implement a Go package, function, or handler whose declarations and documentation already exist — write the bodies, fill in a stub, replace panic("not implemented") — even if the request names only the package. Use it too when /go-code modifies another workflow (e.g. /opsx:apply /go-code); as a modifier it selects Go rules, not a change name or path.
 ---
 
 # Go Code Profile

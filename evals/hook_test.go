@@ -382,3 +382,167 @@ func TestVetHook(t *testing.T) {
 		}
 	})
 }
+
+// promptEvent runs the UserPromptSubmit hook and returns its exit code and
+// stdout, which is what the host adds to the model's context.
+func promptEvent(t *testing.T, state, session, cwd, prompt string) (int, string) {
+	t.Helper()
+	body, err := json.Marshal(map[string]any{
+		"hook_event_name": "UserPromptSubmit",
+		"session_id":      session,
+		"cwd":             cwd,
+		"prompt":          prompt,
+	})
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	cmd := exec.Command("bash", filepath.Join(repoRoot(t), "hooks", "go-prompt-routing.sh"))
+	cmd.Stdin = strings.NewReader(string(body))
+	cmd.Env = append(os.Environ(), "CLAUDE_PLUGIN_DATA="+state)
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+	if stderr.Len() > 0 {
+		t.Errorf("prompt hook wrote to stderr, which a UserPromptSubmit hook must not:\n%s", stderr.String())
+	}
+	if err == nil {
+		return 0, stdout.String()
+	}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok {
+		t.Fatalf("run prompt hook: %v", err)
+	}
+	return exitErr.ExitCode(), stdout.String()
+}
+
+// TestPromptRouting drives the UserPromptSubmit hook: the two corpus prompts
+// name their router, a prompt without Go or without a work verb stays silent,
+// the note is printed once per skill per session, and a session that already
+// loaded the skill is left alone.
+func TestPromptRouting(t *testing.T) {
+	t.Parallel()
+	const implement = "Implement the Go package in ./feed. Every exported declaration is already there with its documentation; write the bodies so the package does what the documentation says. Do not change the exported signatures. Apply the changes to the files."
+	const refactor = "Refactor the Go package in ./dispatch so it reads better. Keep observable behavior identical: the exported API, error texts, and rendered output must not change. Apply the changes to the files."
+
+	// goRepo is a directory holding a Go module two levels down, for prompts
+	// that do not name Go themselves.
+	goRepo := func(t *testing.T) string {
+		t.Helper()
+		dir := t.TempDir()
+		pkg := filepath.Join(dir, "internal", "feed")
+		if err := os.MkdirAll(pkg, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(pkg, "feed.go"), []byte("package feed\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+
+	t.Run("implement prompt names go-code", func(t *testing.T) {
+		t.Parallel()
+		code, out := promptEvent(t, t.TempDir(), "p1", t.TempDir(), implement)
+		if code != 0 || !strings.Contains(out, "`go-code`") {
+			t.Fatalf("implement prompt: exit %d, stdout %q; want 0 naming go-code", code, out)
+		}
+		if strings.Contains(out, "go-code-refactor") {
+			t.Fatalf("implement prompt must not name go-code-refactor:\n%s", out)
+		}
+	})
+
+	t.Run("refactor prompt names go-code-refactor", func(t *testing.T) {
+		t.Parallel()
+		code, out := promptEvent(t, t.TempDir(), "p2", t.TempDir(), refactor)
+		if code != 0 || !strings.Contains(out, "`go-code-refactor`") {
+			t.Fatalf("refactor prompt: exit %d, stdout %q; want 0 naming go-code-refactor", code, out)
+		}
+	})
+
+	t.Run("clean-up wording is a refactor", func(t *testing.T) {
+		t.Parallel()
+		_, out := promptEvent(t, t.TempDir(), "p3", t.TempDir(), "This Go file is messy, clean it up")
+		if !strings.Contains(out, "`go-code-refactor`") {
+			t.Fatalf("messy/clean up: stdout %q; want go-code-refactor", out)
+		}
+	})
+
+	t.Run("silent without Go", func(t *testing.T) {
+		t.Parallel()
+		code, out := promptEvent(t, t.TempDir(), "p4", t.TempDir(), "Write a Python script that parses this CSV and prints the totals")
+		if code != 0 || out != "" {
+			t.Fatalf("non-Go prompt in a non-Go directory: exit %d, stdout %q; want silent 0", code, out)
+		}
+	})
+
+	t.Run("silent without a work verb", func(t *testing.T) {
+		t.Parallel()
+		code, out := promptEvent(t, t.TempDir(), "p5", goRepo(t), "Explain what this Go function does and why it uses a mutex")
+		if code != 0 || out != "" {
+			t.Fatalf("question about Go: exit %d, stdout %q; want silent 0", code, out)
+		}
+	})
+
+	t.Run("directory with Go and a code noun fires", func(t *testing.T) {
+		t.Parallel()
+		_, out := promptEvent(t, t.TempDir(), "p6", goRepo(t), "Add a handler that returns the account balance as JSON")
+		if !strings.Contains(out, "`go-code`") {
+			t.Fatalf("handler in a Go directory: stdout %q; want go-code", out)
+		}
+	})
+
+	t.Run("directory with Go but no code noun stays silent", func(t *testing.T) {
+		t.Parallel()
+		code, out := promptEvent(t, t.TempDir(), "p7", goRepo(t), "Add a line to the README about the release schedule")
+		if code != 0 || out != "" {
+			t.Fatalf("README edit in a Go directory: exit %d, stdout %q; want silent 0", code, out)
+		}
+	})
+
+	t.Run("silent when the prompt invokes the skill", func(t *testing.T) {
+		t.Parallel()
+		for _, p := range []string{"/go-code " + implement, "$go-code-refactor " + refactor, "use the go-code skill: " + implement} {
+			if code, out := promptEvent(t, t.TempDir(), "p8", t.TempDir(), p); code != 0 || out != "" {
+				t.Fatalf("prompt %q already invokes a skill: exit %d, stdout %q; want silent 0", p, code, out)
+			}
+		}
+	})
+
+	t.Run("once per skill per session", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		if _, out := promptEvent(t, state, "p9", t.TempDir(), implement); out == "" {
+			t.Fatal("first prompt: want the note")
+		}
+		if _, out := promptEvent(t, state, "p9", t.TempDir(), implement); out != "" {
+			t.Fatalf("second prompt in the same session: stdout %q; want silent", out)
+		}
+		// A refactor later in the same session still gets its own note once.
+		if _, out := promptEvent(t, state, "p9", t.TempDir(), refactor); !strings.Contains(out, "`go-code-refactor`") {
+			t.Fatalf("refactor after implement: stdout %q; want go-code-refactor", out)
+		}
+		if _, out := promptEvent(t, state, "other", t.TempDir(), implement); out == "" {
+			t.Fatal("another session: want its own note")
+		}
+	})
+
+	t.Run("silent when the session already loaded the skill", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		hookEvent(t, filepath.Join(repoRoot(t), "hooks", "go-code-routing.sh"), state,
+			routingPayload("PostToolUse", "p10", "Skill", map[string]any{"skill": "golang-skills:go-code"}))
+		if code, out := promptEvent(t, state, "p10", t.TempDir(), implement); code != 0 || out != "" {
+			t.Fatalf("go-code already loaded: exit %d, stdout %q; want silent 0", code, out)
+		}
+	})
+
+	t.Run("ukrainian wording", func(t *testing.T) {
+		t.Parallel()
+		if _, out := promptEvent(t, t.TempDir(), "p11", t.TempDir(), "Реалізуй Go-пакет у ./catalog за документацією"); !strings.Contains(out, "`go-code`") {
+			t.Fatalf("Ukrainian implement: stdout %q; want go-code", out)
+		}
+		if _, out := promptEvent(t, t.TempDir(), "p12", t.TempDir(), "Спрости цей Go-пакет, не змінюючи поведінки"); !strings.Contains(out, "`go-code-refactor`") {
+			t.Fatalf("Ukrainian simplify: stdout %q; want go-code-refactor", out)
+		}
+	})
+}

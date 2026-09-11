@@ -827,6 +827,14 @@
       ],
       "notes": "Greenfield package with no named topic; the control for whether from-scratch phrasing reaches the router at all",
       "set": "train"
+    },
+    {
+      "query": "Implement the Go package in ./feed. Every exported declaration is already there with its documentation; write the bodies so the package does what the documentation says. Do not change the exported signatures.",
+      "should_trigger": [
+        "go-code"
+      ],
+      "notes": "Names only the package and the bodies; the router description must fire without the words new, function, or stub",
+      "set": "validation"
     }
   ],
   "quality_evals": [

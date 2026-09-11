@@ -4,6 +4,101 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-09-11
+
+### Added
+
+- The three-arm run of the routing edits on the fixtures and model that
+  recorded the gap: `catalog` and `feed`, Opus 5 medium, n=3, 18 sessions,
+  `reference` the committed tree at `f4f373f`:
+  [`docs/evidence/2026-09-11-go-implement-prompt-routing-opus-5-medium.md`](docs/evidence/2026-09-11-go-implement-prompt-routing-opus-5-medium.md).
+  The reference arm reproduced the miss — two of three `catalog` sessions
+  loaded no skill, edited the stub in prose and wrote no test — and the
+  baseline arm loaded `go-code` in 6/6 sessions as its first tool call, at
+  turn 2, straight after the hook's note; the four reference sessions that
+  did route loaded it at turn 6 or 7. Every baseline session then followed
+  the workflow (`checks:` line, budget line, contract test 6/6 against 4/6).
+  Golden 6/6 in every arm; `catalog` 19.0 lines in every baseline session
+  against 20.0 and 25.0, `feed` 34.7 against 35.0 and 49.7; cost 5.44x
+  against 4.23x, the whole gap the two sessions that skipped the workflow.
+  The hook and the description ride in one arm and are not separated.
+- A three-arm smoke of the two routing edits below on the implementation
+  corpus, Sonnet 5 medium, n=1, 12 sessions, `reference` the committed tree
+  at `f4f373f`:
+  [`docs/evidence/2026-09-11-go-implement-prompt-routing-smoke-sonnet-5-medium.md`](docs/evidence/2026-09-11-go-implement-prompt-routing-smoke-sonnet-5-medium.md).
+  The `UserPromptSubmit` hook fired in 4/4 baseline sessions and in none of
+  the other eight, shown by the `prompted` state it writes beside the routing
+  gate's `loaded` list under `~/.claude/plugins/data/`; its note is not
+  echoed in a `stream-json` trace. Every baseline session's first tool call
+  is `Skill go-code`, before any file is read, where every reference session
+  runs `Glob` first and loads `go-code` two or three turns later. Golden 4/4
+  against 3/4 against 4/4 unaided, the one failure a reference `gateway`
+  session rendering an empty list as `null`; turns 26.8 against 32.8; cost
+  7.21x against 7.71x; `go-linting` loaded with no shell in 4/4 baseline
+  sessions against 1/4. One session per cell: directions, not results. Sonnet
+  5 routed 4/4 in both skilled arms, so the Opus 5 and Haiku 4.5 gaps the
+  edits target are not measured here.
+- `gateway` on Opus 5 medium with the routing edits, three arms, n=3, 9
+  sessions, `reference` the committed tree at `f4f373f`:
+  [`docs/evidence/2026-09-11-go-implement-prompt-routing-gateway-opus-5-medium.md`](docs/evidence/2026-09-11-go-implement-prompt-routing-gateway-opus-5-medium.md).
+  Unaided 0/3, every session registering `GET` patterns only and saying the
+  mux answers `HEAD` with 405; both skilled arms 3/3 with a `HEAD` case in
+  every contract test, so Opus 5 on this fixture is 12/12 skilled against
+  1/6 unaided across the day's two runs. The reference description routed
+  3/3 here, at turn 7; the hook moved the load to the first tool call in 3/3
+  and changed nothing else — lines 81.0 against 77.3, cost 3.35x against
+  3.68x. The description's misses are on `catalog` and `feed`, not on a stub
+  that imports `net/http`.
+- The three-arm run of the routing edits on the refactor corpus, Haiku 4.5,
+  n=3, 36 sessions, `reference` the committed tree at `f4f373f`:
+  [`docs/evidence/2026-09-11-go-refactor-prompt-routing-haiku-4-5.md`](docs/evidence/2026-09-11-go-refactor-prompt-routing-haiku-4-5.md).
+  The reference arm reached `go-code-refactor` in 4/12 sessions, at turn 8 to
+  13, only on `pricing` and `store`; the baseline arm loaded it in 12/12 as
+  the first tool call after the hook's note. Routed, the skill does not yet
+  pay on this tier: golden 10/12 against 12/12 unaided, both failures
+  `report` sessions that extracted a `formatAmount` helper and changed
+  `%9d.%02d` to `%9s`, moving the aligned column — a cut the unrouted
+  reference `report` session made too; `dispatch` −5.0 against −9.7 unaided;
+  `pricing` and `store` level; three baseline sessions failed tests they
+  wrote themselves. Cost 2.56x against 1.74x. The hook is kept as the
+  mechanism that delivers the skill; what to change in the skill for this
+  tier is the open item.
+- `hooks/go-prompt-routing.sh`, a UserPromptSubmit hook. When a prompt asks
+  for Go work — it names Go, a `.go` file or `go.mod`, or is sent from a
+  directory holding Go and names a function, package, handler, or test — the
+  hook adds one note to the model's context naming the router to load before
+  the first edit: `go-code-refactor` for refactor, clean-up, or simplify
+  wording, `go-code` for anything else. Once per skill per session; silent
+  when the session already loaded the skill, when the prompt invokes a go-*
+  skill by name, or when the prompt carries no work verb. It never blocks.
+  The description of a skill reaches the model only when the host's matcher
+  fires; this hook reads the prompt itself. Motivation: Opus 5 loaded no
+  skill in 5 of 18 skilled sessions of the 2026-09-11 workflow run, all on
+  `feed` and `catalog`, whose prompt says only "Implement the Go package in
+  ./<dir>"; Haiku 4.5 reached `go-code-refactor` in 1 of 4 refactor sessions
+  on 2026-09-10. Measured the same day in the four runs above: the hook fires
+  in every skilled session, routes 6/6 against 4/6 on Opus 5 `catalog`/`feed`
+  and 12/12 against 4/12 on Haiku 4.5, and moves the router load to the first
+  tool call on every model.
+- A validation trigger eval for `go-code` in the shape of that prompt: only
+  the package and "write the bodies", no `new`, `function`, or `stub`.
+
+### Changed
+
+- `abrun` passes `--include-hook-events` to the Claude CLI, so hook
+  lifecycle events — including the text a `UserPromptSubmit` hook adds to the
+  model's context — appear in the trace as `system` messages with the
+  `hook_started` and `hook_response` subtypes. Without the flag the host adds
+  the note silently and a trace cannot show whether the hook fired; the smoke
+  above had to read the hook's state directory instead.
+- `go-code`'s description also names implementing a Go package, function, or
+  handler whose declarations and documentation already exist — write the
+  bodies, fill in a stub, replace `panic("not implemented")` — even when the
+  request names only the package. The old text said "writing, fixing, or
+  refactoring Go code", which the Opus 5 sessions above did not match to
+  "Implement the Go package". Measured only together with the hook, in the
+  same arm; a run without the hook is the open item.
+
 ## [1.9.0] - 2026-09-11
 
 ### Added

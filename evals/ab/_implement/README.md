@@ -37,6 +37,14 @@ skill, and checkable by a test that never reaches the model.
 | `ledger` | go-defensive | Keeping the caller's slice means the documented snapshot is not immutable, because the caller still owns the backing array | Mutates the input slice after `New`, then asserts the rendered report did not move |
 | `catalog` | go-error-handling | Putting the SKU in the message with `%v` serves the operator and silently cuts the caller off from the reason | Asserts `errors.Is` reaches the sentinel and the transport failure, and that the message still names the SKU |
 | `gateway` | go-http | A zero timeout is no timeout, so an edge server built as `&http.Server{Addr: addr, Handler: h}` holds stalled and idle connections until it runs out | Asserts `ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout` and `IdleTimeout` are all non-zero |
+| `pool` | go-concurrency | A goroutine per job opens every partner connection at once, and returning the first error as it arrives leaves the other workers running after `Run` has said the run is over | Under `synctest`, asserts the peak in-flight count never exceeds `workers`, that every started job has finished when `Run` returns, that the running jobs were cancelled rather than waited out, and that the queue stops after the first failure |
+| `fetch` | go-resilience | `GetOrder` and `PlaceOrder` share every line but the method, so one retrying helper serves both, and the partner ships one order per `POST` it received whether or not it answered | Through a fake `RoundTripper` on `synctest`'s clock: a `POST` answered 5xx, 429, or by a transport failure was sent exactly once; a `GET` is resent with growing pauses inside `Attempts`, honors `Retry-After`, stops on a 404 and on a cancelled context |
+
+`pool` and `fetch` are the first fixtures built for the multi-file, many-
+decision shape the single-function fixtures lack: `fetch` is two files and two
+methods that tempt one shared helper, `pool` is a lifetime problem with four
+observable clauses. Both were checked in both directions the day they were
+added (2026-09-12); neither has a published run yet, so neither is admitted.
 
 Every fixture pins one entry point and leaves the internals free. Two also
 carry bait, which is a separate thing from the trap: `ledger` renders two
@@ -64,6 +72,8 @@ runs that pass, the score is how little code it took to get there:
 | `Δbranch` | Decision points: `if`, `for`, `range`, and each case that names a value. Separates leaning on what the standard library already decides from re-deciding it by hand. |
 | `Δexp` | Exported declarations. Every one the specification needs is already in the stub, so growth is public API the task never asked for. |
 | `Δtypes`, `Δiface`, `Δfuncs`, `Δpattern` | The scaffold. On a fixture that pins every declaration they have nowhere to move; on one that pins a single entry point they are the whole question. |
+| `Δclos` | Function literals bound to a name inside a function (`writeJSON := func(...)`). On 2026-09-11 every skilled Opus 5 `gateway` session wrote its helpers this way to report a declaration count of zero, and no unaided session did; `Δfuncs` alone cannot see a helper that moved rather than disappeared, so the two are read together. A literal passed straight to a call is not counted. |
+| lint findings | What the bundled `skills/go-linting/assets/golangci.yml` reports for the production files, before and after, printed under each run and averaged per arm. The `claude` arms have no shell, so the skills' own gate never runs inside a session; this is that gate run by the harness. Every skilled Opus 5 `gateway` session of 2026-09-11 left `w.Write(body)` unchecked, which is one `errcheck` finding here. A tree that does not type-check reads as unmeasured, never as clean. |
 
 `Δbranch` is not a score on its own and must be read against `Δtypes` and
 `Δiface`. An interface with one implementation per format does not remove the
@@ -88,6 +98,15 @@ separately.
 | `ledger` | directional | 47.0 → 38.0 (−19.1%), CI includes zero | [claude, n=3](../../../docs/evidence/2026-09-07-go-implement-gateway-ledger-claude.md) |
 | `catalog` | directional | 26.0 → 20.3 (−21.8%), CI includes zero | [Opus 5, n=3](../../../docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md) |
 | `feed` | not admitted | 50.0 → 49.0; the control wrote exactly 50 lines in all three runs | [Opus 5, n=3](../../../docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md) |
+| `pool` | first run only | 65 → 50 (n=1); golden 3/3, the unaided session lint-dirty | [Opus 5 medium smoke, n=1](../../../docs/evidence/2026-09-12-go-implement-budget-closure-smoke-opus-5-medium.md) |
+| `fetch` | first run only | 224 → 124 (n=1); golden 0/1 unaided, 1/1 reference, 0/1 baseline on a backoff clause reworded after the run | [Opus 5 medium smoke, n=1](../../../docs/evidence/2026-09-12-go-implement-budget-closure-smoke-opus-5-medium.md) |
+
+The 2026-09-12 `gateway` pair, reference against baseline at n=5 on Opus 5
+medium, is the first run read through `Δclos`: the 1.12.0 tree hid its two
+helpers in closures in 5/5 sessions and the working tree wrote them as
+package functions in 5/5, at +7.0 lines (p = 0.048) and golden 5/5 in both
+([report](../../../docs/evidence/2026-09-12-go-implement-budget-closure-gateway-n5-opus-5-medium.md)).
+A line delta on this fixture is now read next to the closure count.
 
 At Sonnet 5 medium two of `gateway`'s clauses are live traps — HEAD is a 405,
 the empty list is `[]` — and they separate skill *trees* more than arms: over

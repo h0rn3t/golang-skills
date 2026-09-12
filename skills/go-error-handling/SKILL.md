@@ -15,106 +15,15 @@ allowed-tools: Bash(bash:*)
 - `scripts/check-errors.sh` - Run when checking string-based error matching and log-and-return patterns; `--bare-return` adds the opt-in bare `return err` review.
 - `scripts/check-errors-ast.go` - Implementation helper invoked by `check-errors.sh`; patch this when changing error-flow analysis behavior.
 - `references/ERROR-FLOW.md` - Read when deciding where to handle, wrap, log, or return errors.
-- `references/ERROR-TYPES.md` - Read when choosing sentinel errors, typed errors, or opaque errors.
+- `references/ERROR-TYPES.md` - Read when choosing sentinel errors, typed errors, or opaque errors, or for the API rules on error values (interface results, message form, in-band values).
 - `references/WRAPPING.md` - Read when choosing `%w` versus `%v` or crossing package boundaries.
 
 In Go, [errors are values](https://go.dev/blog/errors-are-values) — they are
 created by code and consumed by code. [Error Types](#error-types) chooses
 between propagating a cause and defining a new condition;
-[Error Wrapping](#error-wrapping) chooses `%w` versus `%v`.
-
----
-
-## Core Rules
-
-### Never Return Concrete Error Types
-
-**Never return concrete error types from exported functions** — a concrete `nil`
-pointer stored in the `error` interface is non-nil ([go-defensive](../go-defensive/SKILL.md#common-pitfalls)
-owns the typed-nil mechanism):
-
-```go
-// Bad: Concrete type can cause subtle bugs
-func Bad() *os.PathError { /*...*/ }
-
-// Good: Always return the error interface
-func Good() error { /*...*/ }
-```
-
-### Error Strings
-
-Error strings should **not** be capitalized and should **not** end with
-punctuation. Exception: exported names, proper nouns, or acronyms.
-
-```go
-// Bad
-err := fmt.Errorf("Something bad happened.")
-
-// Good
-err := fmt.Errorf("something bad happened")
-```
-
-For displayed messages (logs, test failures, API responses), capitalization is
-appropriate.
-
-### Return Values on Error
-
-When a function returns an error, callers must treat all non-error return values
-as unspecified unless explicitly documented.
-
-**Tip**: Functions taking a `context.Context` should usually return an `error`
-so callers can determine if the context was cancelled.
-
----
-
-## Handling Errors
-
-When encountering an error, make a **deliberate choice** — do not discard
-with `_`:
-
-1. **Handle immediately** — address the error and continue
-2. **Return to caller** — optionally wrapped with context
-3. **In exceptional cases** — `log.Fatal` or `panic`
-
-To intentionally ignore: add a comment explaining why.
-
-```go
-n, _ := b.Write(p) // never returns a non-nil error
-```
-
-For related concurrent operations, use
-[`errgroup`](https://pkg.go.dev/golang.org/x/sync/errgroup):
-
-```go
-g, ctx := errgroup.WithContext(ctx)
-g.Go(func() error { return task1(ctx) })
-g.Go(func() error { return task2(ctx) })
-if err := g.Wait(); err != nil { return err }
-```
-
-For independent failures that must all be reported — validating several
-fields, closing several resources — aggregate with `errors.Join`.
-`errors.Is` and `errors.AsType` see through the joined error:
-
-```go
-return errors.Join(closeErr, flushErr)
-```
-
-### Avoid In-Band Errors
-
-Don't return `-1`, `nil`, or empty string to signal errors. Use multiple
-returns:
-
-```go
-// Bad: In-band error value
-func Lookup(key string) int  // returns -1 for missing
-
-// Good: Explicit error or ok value
-func Lookup(key string) (string, bool)
-```
-
-This prevents callers from writing `Parse(Lookup(key))` — it causes a
-compile-time error since `Lookup(key)` has 2 outputs.
+[Error Wrapping](#error-wrapping) chooses `%w` versus `%v`. The reader knows
+the language: this skill carries the decisions that go wrong in review, and
+`references/` the rest.
 
 ---
 
@@ -135,6 +44,20 @@ Error encountered?
 └─ Neither? → Log at appropriate level, continue
 ```
 
+An error discarded on purpose says why on the same line
+(`n, _ := b.Write(p) // never returns a non-nil error`); a bare `_` is a
+finding. Independent failures that must all be reported — validating several
+fields, closing several resources — aggregate with `errors.Join`, which
+`errors.Is` and `errors.AsType` see through:
+
+```go
+return errors.Join(closeErr, flushErr)
+```
+
+Related concurrent work returns through
+[`errgroup.WithContext`](https://pkg.go.dev/golang.org/x/sync/errgroup): the
+first failure cancels the rest and is what `Wait` returns.
+
 ---
 
 ## Error Types
@@ -149,7 +72,10 @@ Error encountered?
 Dynamic wording alone does not justify a new type. `%w` already preserves
 existing sentinels and typed causes for `errors.Is` and `errors.AsType`.
 Add a custom type when callers need new programmatic data or behavior beyond
-the existing cause and a contextual message.
+the existing cause and a contextual message. Whatever the type, the result is
+declared as `error`: a concrete `*PathError` result turns a nil pointer into a
+non-nil interface
+([go-defensive](../go-defensive/SKILL.md#common-pitfalls) owns the mechanism).
 
 ### Matching a typed error
 
@@ -196,7 +122,10 @@ detects this mistake; test a cause matching the second branch, including wrappin
 - **Use `%w`**: When the underlying cause is part of the caller-facing contract
 
 **Key rules**: Place `%w` at the end. Add context callers don't have. If
-annotation adds nothing, return `err` directly.
+annotation adds nothing, return `err` directly. One error often serves two
+audiences — the operator reading a log line and the caller matching with
+`errors.Is` — and `fmt.Errorf("resolve %q: %w", sku, err)` serves both where
+`%v` serves only the first.
 
 > **Validation**: Run `bash scripts/check-errors.sh` to detect common
 > anti-patterns. The [go-linting](../go-linting/SKILL.md) gate covers the

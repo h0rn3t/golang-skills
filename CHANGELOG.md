@@ -4,6 +4,107 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-09-12
+
+### Added
+
+- Two runs of the 2026-09-12 edits against the committed 1.12.0 tree
+  (`2fab3d6`) on the implementation corpus, Opus 5 medium, no shell in any
+  session:
+  - Five fixtures, three arms, n=1:
+    [`docs/evidence/2026-09-12-go-implement-budget-closure-smoke-opus-5-medium.md`](docs/evidence/2026-09-12-go-implement-budget-closure-smoke-opus-5-medium.md).
+    Golden 3/5 unaided, 4/5 reference, 4/5 baseline. The reference `gateway`
+    session hid two helpers in closures and answered `POST /accounts` with a
+    307; the baseline session wrote them as package functions, counted both,
+    and passed. `fetch` is live: the unaided session wrote 224 lines, ten
+    helpers, four lint findings and lost the status from its error text. The
+    baseline `pool` session's own test called `synctest.Sleep` from every job
+    goroutine and panicked; the production code passed.
+  - `gateway`, reference against baseline, n=5:
+    [`docs/evidence/2026-09-12-go-implement-budget-closure-gateway-n5-opus-5-medium.md`](docs/evidence/2026-09-12-go-implement-budget-closure-gateway-n5-opus-5-medium.md).
+    Closures 9 against 0 across five sessions; every baseline session counted
+    `2` and named both call sites. Lines 77.2 to 84.2 (+7.0, permutation
+    p = 0.048), the doc comments and signatures of the two functions; golden
+    5/5 in both arms; `w.Write` unchecked in 3/5 against 2/5; $0.96 against
+    $0.97 a session.
+- The same three fixtures, three arms, n=1 on Sonnet 5 medium as the
+  cross-model check:
+  [`docs/evidence/2026-09-12-go-implement-budget-closure-smoke-sonnet-5-medium.md`](docs/evidence/2026-09-12-go-implement-budget-closure-smoke-sonnet-5-medium.md).
+  Golden 2/3 unaided (`gateway`, `HEAD` 200), 3/3 in both skilled arms; no
+  session read a `references/` file. The one `gateway` session wrote its
+  `methodNotAllowed` as a closure under the new rule where the 1.12.0 tree
+  wrote a package function: one session, the rule is measured on Opus 5.
+- An effort sweep on Opus 5, no skills against the working tree, `catalog`,
+  `feed`, `gateway`, n=5 at `low` and at `high`:
+  [`docs/evidence/2026-09-12-go-implement-effort-sweep-opus-5.md`](docs/evidence/2026-09-12-go-implement-effort-sweep-opus-5.md).
+  Unaided `gateway` answers `HEAD` with 200 in 4/5 sessions at both efforts
+  and 5/5 pass with the skills (Fisher p = 0.05 each). At `high` the skilled
+  arm is smaller on every fixture, `catalog` −4.2 (p = 0.008) and `feed`
+  −6.4 (p = 0.016); at `low` the unaided model is already compact and the
+  lines are level (−1.2, +2.8). Cost 5.7x at `low`, 3.9x at `high`.
+- `evals/cmd/abrun` scores two readings the 2026-09-11 Opus 5 traces showed it
+  was blind to. `Δclos` counts function literals bound to a name inside a
+  function body: every skilled `gateway` session wrote `writeJSON` and
+  `methodNotAllowed` as closures inside `NewServer` so the report could say
+  `added package-level declarations: 0`, and `Δfuncs` recorded a helper that
+  had moved as one that had disappeared. A lint-findings line runs the bundled
+  `skills/go-linting/assets/golangci.yml` over the production files before and
+  after each session, deterministically and without a model call, the way
+  `go fix -diff` already is: the `claude` arms have no shell, so the skills'
+  own gate never runs inside a session, and the unchecked `w.Write(body)` in
+  every skilled `gateway` session was invisible. A tree that does not
+  type-check is unmeasured, never clean.
+- Two implementation fixtures with the multi-file, many-decision shape the
+  corpus lacked, each with one owner and a golden test that fails on the stub
+  and passes on a reference implementation: `pool` (go-concurrency: a bounded
+  worker pool whose golden test, under `synctest`, catches an unbounded fan-out
+  and a `Run` that returns while its workers are still running) and `fetch`
+  (go-resilience: a two-file partner client whose golden test, through a fake
+  `RoundTripper` on `synctest`'s clock, catches a `POST` replayed after a 5xx
+  and a `GET` retried without a growing pause or `Retry-After`). Neither has a
+  published run yet.
+- `skills/go-code/references/NEW-CODE-EXAMPLES.md`: the worked Contract Table,
+  the `Manifest` Plain Code body, and a budgeted-helper report line, moved out
+  of `SKILL.md`.
+
+### Changed
+
+- `go-code` Declaration Budget: a function literal bound to a name that
+  captures nothing from its enclosing function counts under the same three
+  rules as a package-level declaration, and when it earns its place it is
+  written as a small unexported function, not a closure. In the 2026-09-11
+  Opus 5 medium traces 6 of 6 skilled `gateway` sessions hid their helpers
+  this way and 0 of 3 unaided sessions did; the budget line was being read as
+  a score to minimize. The line is now described as a record, not a score.
+- `go-code` is 16.8K characters (about 6.4K tokens) against 18.1K, and the
+  sections a long session needs after auto-compaction — Workflow, Writing New
+  Code, Close With The Gate — now end at 12.7K characters (about 4.9K
+  tokens), inside the 5K-token slice Claude Code re-attaches. The Route
+  Before The First Edit table moved behind the gate: it is read at step 3,
+  before the first edit, and is the part a compacted session no longer needs.
+  The example table and the `Manifest` body moved to
+  `references/NEW-CODE-EXAMPLES.md`; every rule stayed.
+- `go-error-handling` drops its Core Rules (concrete error types, error string
+  case, unspecified results, in-band errors, the discard rule as a list) and
+  keeps what a reviewer sends back: the error-type table, `errors.AsType` and
+  the shadowing trap in a chain, `errors.Join`, handle-once with the handler
+  exception, and `%w` serving the operator and the caller at once. The cut
+  rules live in `references/ERROR-TYPES.md` under Error Values At An API.
+  7.5K characters to 6.2K, loaded in 7 of 9 routed Opus 5 sessions.
+- `go-naming` drops the sections restating MixedCaps, package, interface,
+  receiver, constant, initialism, and getter conventions the model applies
+  unprompted, keeps the decision flow, Error Names, and the four findings a
+  reviewer actually sends back (repetition, the Uber `_` prefix, type in the
+  name, a shadowed predeclared identifier). 6.3K characters to 4.7K; the
+  conventions stay in `references/IDENTIFIERS.md`, and `go-packages` now
+  routes there for the package-name rule.
+- `go-testing`: the table row that recommends `synctest.Sleep` says it
+  belongs in the test goroutine — it calls `synctest.Wait`, which panics with
+  `wait already in progress` when two goroutines reach it at once — and that
+  a goroutine the code under test starts sleeps with `time.Sleep`. The
+  baseline `pool` session of the 2026-09-12 smoke wrote exactly that panic
+  into its own contract test.
+
 ## [1.12.0] - 2026-09-11
 
 ### Added

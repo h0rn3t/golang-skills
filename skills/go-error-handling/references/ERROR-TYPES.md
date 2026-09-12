@@ -143,6 +143,53 @@ if pathErr, ok := errors.AsType[*PathError](err); ok {
 
 ---
 
+## Error Values At An API
+
+The rules a reviewer applies to the error side of a signature. The parent
+skill carries only the decisions; these are the conventions.
+
+- **Return `error`, never a concrete type.** A `*os.PathError` result that is
+  nil becomes a non-nil `error` in the caller
+  ([go-defensive](../../go-defensive/SKILL.md#common-pitfalls) owns the
+  typed-nil mechanism).
+
+  ```go
+  // Bad: Concrete type can cause subtle bugs
+  func Bad() *os.PathError { /*...*/ }
+
+  // Good: Always return the error interface
+  func Good() error { /*...*/ }
+  ```
+
+- **Message form.** Error strings are not capitalized and do not end with
+  punctuation, because they are usually printed after other context;
+  exported names, proper nouns, and acronyms keep their case. Displayed
+  messages (logs, test failures, API responses) may be capitalized.
+  `staticcheck` ST1005 reports the rest.
+- **Other results are unspecified on error.** When a function returns a
+  non-nil error, callers treat every other return value as meaningless
+  unless the documentation says otherwise. A function that takes a
+  `context.Context` usually returns an `error`, so the caller can tell a
+  cancellation from a result.
+- **No in-band errors.** `-1`, `nil`, or `""` as the failure signal forces
+  every caller to remember the convention; return `(T, error)` or
+  `(T, bool)`, which also makes `Parse(Lookup(key))` a compile error instead
+  of a silent misuse.
+
+  ```go
+  // Bad: In-band error value
+  func Lookup(key string) int  // returns -1 for missing
+
+  // Good: Explicit error or ok value
+  func Lookup(key string) (string, bool)
+  ```
+
+- **Discard deliberately.** An ignored error carries a comment saying why on
+  the same line (`n, _ := b.Write(p) // never returns a non-nil error`);
+  `errcheck` reports the ones that do not.
+
+---
+
 ## Quick Reference
 
 Choose the representation with [Error Types](../SKILL.md#error-types).

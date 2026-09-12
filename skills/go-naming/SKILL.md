@@ -10,19 +10,19 @@ allowed-tools: Bash(bash:*)
 
 - `scripts/check-naming.sh` - Run when checking SCREAMING_SNAKE_CASE constants, Get-prefixed getters, generic package names, or receivers named `this`/`self`.
 - `scripts/check-naming-ast.go` - Implementation helper invoked by `check-naming.sh`; patch this when changing what counts as a naming violation.
-- `references/IDENTIFIERS.md` - Read when choosing names for initialisms, exported identifiers, or package-level symbols.
+- `references/IDENTIFIERS.md` - Read for the conventions themselves — package, interface, receiver, constant, initialism, getter and type-suffix names — when a choice for an exported identifier or package-level symbol is in doubt.
 - `references/REPETITION.md` - Read when names repeat package, receiver, type, or local context.
 - `references/VARIABLES.md` - Read when choosing local variable names, receiver names, or loop identifiers.
 
 ## Core Principle
 
-Names should:
-- Not feel repetitive when used
-- Take context into consideration
-- Not repeat concepts that are already clear
-
-Naming is more art than science—Go names tend to be shorter than in other
-languages.
+A name is read where it is used, never where it is declared: it does not
+repeat the package, the receiver, or the surrounding context, and its length
+grows with the distance between declaration and use. Go names are shorter
+than in most languages. The reader knows the conventions — MixedCaps,
+lowercase packages, `-er` interfaces, short consistent receivers, no `Get`
+prefix, initialisms in one case — so this skill carries the decisions and
+`references/` the rules.
 
 ---
 
@@ -44,63 +44,6 @@ What are you naming?
 
 ---
 
-## MixedCaps (Required)
-
-> **Normative**: All Go identifiers must use MixedCaps.
-
-Underscores are allowed only in: test functions (`TestFoo_InvalidInput`),
-generated code, and OS/cgo interop.
-
----
-
-## Package Names
-
-> **Normative**: Packages must be lowercase with no underscores.
-
-Short, lowercase, singular nouns. Avoid generic names like `util`, `common`,
-`helper` — prefer specific names: `stringutil`, `httpauth`, `configloader`.
-
-```go
-// Good: user, oauth2, tabwriter
-// Bad:  user_service, UserService, count (shadows var)
-```
-
----
-
-## Interface Names
-
-> **Advisory**: One-method interfaces use "-er" suffix.
-
-Name one-method interfaces by the method plus `-er`: `Reader`, `Writer`,
-`Formatter`. Honor canonical method names (`Read`, `Write`, `Close`, `String`)
-and their signatures.
-
----
-
-## Receiver Names
-
-> **Normative**: Receivers must be short abbreviations, used consistently.
-
-One or two letters abbreviating the type, consistent across all methods:
-`func (c *Client) Connect()`, `func (c *Client) Send()`.
-Never use `this` or `self`.
-
----
-
-## Constant Names
-
-> **Normative**: Constants use MixedCaps, never ALL_CAPS or K prefix.
-
-Name constants by role, not value: `MaxRetries` not `Three`,
-`DefaultPort` not `Port8080`.
-
-```go
-const MaxPacketSize = 512
-const defaultTimeout = 30 * time.Second
-```
-
----
-
 ## Error Names
 
 > **Normative**: Sentinel errors are `ErrNotFound` when exported and
@@ -109,39 +52,24 @@ const defaultTimeout = 30 * time.Second
 
 ---
 
-## Initialisms and Acronyms
+## Where Review Sends Names Back
 
-> **Normative**: Initialisms maintain consistent case throughout.
-
-Initialisms (URL, ID, HTTP, API) must be all uppercase or all lowercase:
-`HTTPClient`, `userID`, `ParseURL()` — not `HttpClient`, `orderId`, `ParseUrl()`.
-
----
-
-## Function and Method Names
-
-> **Advisory**: No `Get` prefix for simple accessors; use verb-like names for actions.
-
-Getter for field `owner` is `Owner()`, not `GetOwner()`. Setter is
-`SetOwner()`. Use `Compute` or `Fetch` for expensive operations.
-
-When functions differ only by type, include type at the end:
-`ParseInt()`, `ParseInt64()`.
-
----
-
-## Variable Names
-
-Variable naming balances brevity with clarity. Key principles:
-
-- **Scope-based length**: Short names (`i`, `v`) for small scopes; longer,
-  descriptive names for larger scopes
-- **Single-letter conventions**: Use familiar patterns (`i` for index,
-  `r`/`w` for reader/writer)
-- **Avoid type in name**: Use `users` not `userSlice`, `name` not `nameString`
+- **Repetition against context.** `widget.New()` not `widget.NewWidget()`;
+  `p.Name()` not `p.ProjectName()`; in package `sqldb`, `Connection` not
+  `DBConnection`. A generic package name — `util`, `common`, `helper` — is a
+  finding; name the package for what it provides (`httpauth`, `stringutil`).
+  [REPETITION.md](references/REPETITION.md) has the cases.
 - **`_` prefix on unexported globals** (Uber only; Google style does not use
   it): follow the repository. Never introduce the prefix into a codebase that
-  lacks it — [go-style-core](../go-style-core/SKILL.md) owns the house-style rule
+  lacks it — [go-style-core](../go-style-core/SKILL.md#house-style-wins) owns
+  the house-style rule.
+- **Type in the name.** `users` not `userSlice`, `name` not `nameString`;
+  when functions differ only by type, the type goes at the end (`ParseInt`,
+  `ParseInt64`).
+- **A predeclared identifier as a name.** `error`, `string`, `len`, `cap`,
+  `append`, `copy`, `new`, `make` as a variable, parameter, or type name
+  compiles and hides the built-in for the rest of the scope;
+  [SHADOWING.md](../go-style-core/references/SHADOWING.md) owns detection.
 
 ```go
 for i, v := range items { ... }           // small scope
@@ -151,32 +79,12 @@ const _defaultPort = 8080                 // Uber-style prefix — only where th
 
 ---
 
-## Avoiding Repetition
-
-Go names should not feel repetitive when used. Consider the full context:
-
-- **Package + symbol**: `widget.New()` not `widget.NewWidget()`
-- **Receiver + method**: `p.Name()` not `p.ProjectName()`
-- **Context + type**: In package `sqldb`, use `Connection` not `DBConnection`
-
----
-
-## Avoid Built-In Names
-
-Never shadow Go's predeclared identifiers (`error`, `string`, `len`, `cap`,
-`append`, `copy`, `new`, `make`, etc.) as variable, parameter, or type names.
-
-**For scope mechanics and detection**: See
-[SHADOWING.md](../go-style-core/references/SHADOWING.md).
-
----
-
 ## Validation
 
 > **Validation**: `scripts/check-naming.sh` reports the anti-patterns above; it runs with the build and the rest of the [go-linting](../go-linting/SKILL.md) gate, once, at the end of the task.
 
 ## Related Skills
 
-- [go-interfaces](../go-interfaces/SKILL.md): pointer versus value receivers; their names are this skill's Receiver Names.
-- [go-packages](../go-packages/SKILL.md): splitting packages, import collisions; package names are this skill's Package Names.
+- [go-interfaces](../go-interfaces/SKILL.md): pointer versus value receivers; their names are [IDENTIFIERS.md](references/IDENTIFIERS.md#receiver-names)'s Receiver Names.
+- [go-packages](../go-packages/SKILL.md): splitting packages, import collisions; package names are [IDENTIFIERS.md](references/IDENTIFIERS.md#package-names)'s Package Names.
 - [go-style-core](../go-style-core/SKILL.md): name length by scope, shadowing of built-ins, clarity against concision.

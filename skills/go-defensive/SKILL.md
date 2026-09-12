@@ -41,7 +41,7 @@ Reviewing an API boundary?
 
 | Pitfall | Rule |
 |---|---|
-| Typed nil in an interface | A `*T(nil)` stored in an interface — an `error` result, a field of interface type — is non-nil: `err != nil` is true and a call through it dereferences nil. Return a literal `nil`, and declare the result as `error`, not `*MyErr` ([go-error-handling](../go-error-handling/SKILL.md#core-rules) owns the API rule) |
+| Typed nil in an interface | A `*T(nil)` stored in an interface — an `error` result, a field of interface type — is non-nil: `err != nil` is true and a call through it dereferences nil. Return a literal `nil`, and declare the result as `error`, not `*MyErr` ([go-error-handling](../go-error-handling/SKILL.md#error-types) owns the API rule) |
 | Bare `x.(T)` assertion | Comma-ok unless a mismatch is a programming error that should panic ([go-interfaces](../go-interfaces/SKILL.md#type-assertions-comma-ok-idiom)); reflection code prefers `reflect.TypeAssert[T]` (Go 1.25+) |
 | `append` aliasing | Both slices share the backing array while capacity allows. `s[:len(s):len(s)]` only caps capacity so the next `append` reallocates — existing elements still alias; `slices.Clone(s)` is the copy (see [go-data-structures](../go-data-structures/SKILL.md)) |
 | `int64` to `int32` without a bounds check | Values wrap silently; compare against `math.MaxInt32`/`math.MinInt32` first |

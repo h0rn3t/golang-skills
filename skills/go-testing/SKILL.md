@@ -32,7 +32,7 @@ allowed-tools: Bash(bash:*)
 | `context.Background()` in a test | `t.Context()` — cancelled at test end | 1.24 |
 | `httptest.NewServer` + `defer srv.Close()` | `httptest.NewTestServer(t, h)` — registers cleanup, in-memory transport reached through `srv.Client()` | 1.27 |
 | `time.Sleep` to let goroutines settle | `synctest.Test` + `synctest.Wait` | 1.25 |
-| Real waits for timeout paths | `synctest.Sleep` inside a bubble (fake clock) | 1.27 |
+| Real waits for timeout paths | `synctest.Sleep` inside a bubble (fake clock), from the test goroutine only: it calls `synctest.Wait`, which panics with `wait already in progress` when two goroutines reach it at once, so a goroutine the code under test starts sleeps with `time.Sleep` | 1.27 |
 | `fmt.Println` in a test | `t.Output()` — interleaves correctly under `-parallel` | 1.25 |
 | Ad-hoc temp dir for output to keep | `t.ArtifactDir()` with `go test -artifacts -outputdir=DIR` — otherwise removed after the test | 1.26 |
 

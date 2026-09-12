@@ -64,7 +64,7 @@ The final `ctx.Err()` preserves parent cancellation even when no task ran.
   must cancel promptly, use a context-aware semaphore or worker queue.
 
 For independent failures that must all be collected, see
-[go-error-handling](../../go-error-handling/SKILL.md#handling-errors).
+[go-error-handling](../../go-error-handling/SKILL.md#error-flow).
 Source: [errgroup API](https://pkg.go.dev/golang.org/x/sync/errgroup).
 
 ---

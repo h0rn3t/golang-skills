@@ -14,7 +14,7 @@ assistants Go best practices derived from:
 Skills are tuned following
 [agentskills.io best practices](https://agentskills.io/skill-creation/best-practices):
 content the agent already knows is omitted, procedural decision trees guide
-multi-step tasks, 68 reference files load on demand via progressive disclosure,
+multi-step tasks, 69 reference files load on demand via progressive disclosure,
 10 bundled scripts automate common checks, and 5 asset templates ensure
 consistent output. The Claude Code plugin also ships a `go-verify` subagent
 that runs the verification gate, a PostToolUse hook that runs `gofmt`,
@@ -250,7 +250,7 @@ which works across multiple AI coding tools. When you're writing Go code:
    (e.g., `go-naming` when you're writing a new function)
 2. **Procedural guidance**: Decision trees and step-by-step procedures for
    multi-step tasks like code review and error strategy selection
-3. **Progressive disclosure**: Core rules load immediately; 68 reference files
+3. **Progressive disclosure**: Core rules load immediately; 69 reference files
    load on demand when specific situations arise
 4. **Automation**: 10 bundled scripts handle repetitive checks so the agent
    focuses on higher-level guidance
@@ -308,7 +308,7 @@ These are practical interpretations of the tests, not guarantees for every proje
 | Model / tool | Refactoring existing code | Writing new code | Cost with skills | Practical takeaway |
 |---|---|---|---|---|
 | **GPT-5.6-Luna / Codex** | [✅ Helps: far fewer unnecessary helpers; latest test covers only `report`](docs/evidence/2026-09-08-selection-once-luna-codex.uk.md) | [➖ No visible benefit on size or correctness; the skills tend to add helpers on `gateway`, at a spread too wide to measure at n = 5](docs/evidence/2026-09-08-go-new-code-gateway-gpt-5.6-luna-codex.md) | Not measured in USD | **Worth using for refactoring.** |
-| **Opus 5 / Claude** | [✅ Helps: less unnecessary structure, especially on `report`](docs/evidence/2026-09-07-go-refactor-control-opus5.md) | [🟡 At medium effort: 9/9 correct in both skilled arms against 7/9 unaided, both unaided failures `gateway` answering `HEAD` with 200 at 110–147 lines; −6.7, −10.3 and −68.7 lines per task against no skills, none significant at n = 3 on three tasks](docs/evidence/2026-09-11-go-implement-newcode-workflow-opus-5-medium.md) | New code ≈ **3.5×** at medium (n = 3); refactoring unavailable | **Worth using for refactoring; new code correct in every skilled session, too few repetitions to claim a size effect.** |
+| **Opus 5 / Claude** | [✅ Helps: less unnecessary structure, especially on `report`](docs/evidence/2026-09-07-go-refactor-control-opus5.md) | [🟡 At medium effort: 9/9 correct in both skilled arms against 7/9 unaided, both unaided failures `gateway` answering `HEAD` with 200 at 110–147 lines; −6.7, −10.3 and −68.7 lines per task against no skills, none significant at n = 3 on three tasks](docs/evidence/2026-09-11-go-implement-newcode-workflow-opus-5-medium.md); [the 2026-09-12 Declaration Budget rule moves the two `gateway` helpers out of closures in 5/5 sessions at +7 lines, golden 5/5 in both skilled arms](docs/evidence/2026-09-12-go-implement-budget-closure-gateway-n5-opus-5-medium.md); [across efforts at n = 5 the correctness effect holds — unaided `gateway` 1/5 at low and 1/5 at high against 5/5 with skills — while the size effect appears only at high: `catalog` −4.2 (p = 0.008), `feed` −6.4 (p = 0.016), against −1.2 and +2.8 at low](docs/evidence/2026-09-12-go-implement-effort-sweep-opus-5.md) | New code ≈ **3.5×** at medium (n = 3), ≈ 5.7× at low and ≈ 3.9× at high (n = 5); refactoring unavailable | **Worth using for refactoring; new code correct in every skilled session, too few repetitions to claim a size effect.** |
 | **MiniMax M3 / OpenCode** | [✅ Helps: less code and fewer unnecessary helpers](docs/evidence/2026-09-07-go-refactor-control-minimax-m3.md) | [➖ Benefit unproven: fewer passing sessions](docs/evidence/2026-09-07-go-implement-discovery-minimax-m3.md) | Refactoring ≈ **2.5×**, new code ≈ **1.9×** | **Better refactoring, not a cost saving.** |
 | **Sonnet 5 / Claude** | [✅ Helps at medium effort: −9.7 lines per task, three of four tasks improve, two of them still after correcting for four comparisons, correctness tied at 20/20 (n = 5)](docs/evidence/2026-09-10-go-refactor-control-sonnet-5-medium-n5.md); how much room is left depends on the reasoning effort — at n = 1 the same corpus gap is [−1.8 at high](docs/evidence/2026-09-10-go-refactor-control-sonnet-5-high.md), because the unaided control improves faster than the skilled arm | [🟡 Mixed at medium effort: −8.5 lines per task against no skills, three of four tasks smaller, `feed` −15.6 (p = 0.01, still after correcting for four comparisons) but the skill's Plain Code example shares that task's shape; correctness tied at 17/20, with `gateway` 5/5 against 2/5 (`HEAD` patterns in every skilled session) and `catalog` 3/5 against 5/5 on the repeated-SKU clause (n = 5)](docs/evidence/2026-09-11-go-implement-newcode-plaincode-sonnet-5-medium.md); [at n = 10 on three tasks the `gateway` reading reversed — 4/10 against 10/10 unaided, no skilled session registering `HEAD` — while `feed` held at −12.2 with an example that no longer shares its shape and `catalog` tied at 9/10](docs/evidence/2026-09-11-go-implement-newcode-plaincode-n10-sonnet-5-medium.md); [the workflow retune on the same three tasks at n = 5 has every skilled session report the budget line and write a `HEAD` case, `catalog` 5/5 at 19 lines, `gateway` 4/5 against 5/5 unaided, at 7.2× the cost](docs/evidence/2026-09-11-go-implement-newcode-workflow-sonnet-5-medium.md) | Refactoring ≈ **4.4×** at medium (n = 5); ≈ 3.3× at the CLI default (n = 5) and ≈ 5.6× at high (n = 1). New code ≈ **5.6×** at medium (n = 5), ≈ 7.2× on the three-task workflow run | **Worth using for refactoring at medium effort, at 4.4× the price; fix the effort level before comparing two runs.** |
 
@@ -330,10 +330,15 @@ variant. Historical results and detailed numbers remain in the linked reports.
 **Reasoning effort on Opus 5.** Run the plugin at `--effort medium` on Opus 5:
 every Opus 5 cell above was measured there, and Anthropic's Claude Opus 5
 migration guidance names `low` and `medium` as the primary cost lever, with
-`high` the API default. A `low` control has not been run, so `medium` is the
-measured setting, not a floor. The Sonnet 5 pair above, −9.7 lines at medium
-and −1.8 at high on one tree in one day, is why a comparison holds only within
-one effort level.
+`high` the API default. The [2026-09-12 sweep](docs/evidence/2026-09-12-go-implement-effort-sweep-opus-5.md)
+ran the unaided control and the skilled arm at `low` and `high` on three
+new-code tasks at n = 5: the `HEAD` correctness effect is the same at every
+effort, the size effect exists only at `high`, and the cost multiplier is
+worst at `low` (5.7×) because the skill text is a fixed charge against a
+cheaper session. `medium` stays the recommended setting, measured for every
+cell and between the two on cost. The Sonnet 5 pair above, −9.7 lines at
+medium and −1.8 at high on one tree in one day, is why a comparison holds
+only within one effort level.
 
 **Loading cost.** On the 2026-09-11 Opus 5 medium traces a routed
 implementation session loads about 23K tokens of skill text over three to four

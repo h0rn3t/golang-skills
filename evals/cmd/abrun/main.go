@@ -134,13 +134,17 @@ type options struct {
 	corpus        string
 	out           string
 	referenceRoot string
-	reps          int
-	parallel      int
-	seed          int64
-	timeout       time.Duration
-	verbose       bool
-	keep          bool
-	repair        bool
+	// lintConfig is the golangci-lint configuration the fixtures are scored
+	// with. run sets it to the bundled one; it is not a flag, because a report
+	// scored against a different configuration would not be comparable.
+	lintConfig string
+	reps       int
+	parallel   int
+	seed       int64
+	timeout    time.Duration
+	verbose    bool
+	keep       bool
+	repair     bool
 }
 
 func main() {
@@ -218,7 +222,14 @@ type metrics struct {
 	Types      int `json:"types"`
 	Interfaces int `json:"interfaces"`
 	Funcs      int `json:"funcs"`
-	Pattern    int `json:"pattern_names"`
+	// Closures counts function literals bound to a name inside a function
+	// body: `writeJSON := func(...) {...}`. A helper written that way is
+	// invisible to Funcs, and a model that reads the declaration count as a
+	// score moves its helpers here rather than dropping them — every skilled
+	// Opus 5 gateway session of 2026-09-11 did — so the two columns have to be
+	// read together. A literal passed straight to a call is not counted.
+	Closures int `json:"closures"`
+	Pattern  int `json:"pattern_names"`
 	// Exported counts the package's public surface. On an implementation task
 	// every exported declaration the specification needs is already there, so
 	// growth here is scope the task never asked for.
@@ -238,6 +249,7 @@ func (m metrics) sub(o metrics) metrics {
 		Types:      m.Types - o.Types,
 		Interfaces: m.Interfaces - o.Interfaces,
 		Funcs:      m.Funcs - o.Funcs,
+		Closures:   m.Closures - o.Closures,
 		Pattern:    m.Pattern - o.Pattern,
 		Exported:   m.Exported - o.Exported,
 		Branches:   m.Branches - o.Branches,
@@ -294,6 +306,17 @@ type result struct {
 	FixHunksBefore *int   `json:"fix_hunks_before,omitempty"`
 	FixHunks       *int   `json:"fix_hunks,omitempty"`
 	FixUnmeasured  string `json:"fix_hunks_unmeasured,omitempty"`
+	// LintBefore and Lint are the findings the bundled golangci-lint
+	// configuration (skills/go-linting/assets/golangci.yml) reports for the
+	// package's production files, before the session and after the last turn.
+	// It is the check the skills' own closing gate would have run had the
+	// session had a shell; the claude arms have none, so an unchecked
+	// w.Write survives every session and no other column can see it. Both are
+	// absent when the reading could not be taken and LintUnmeasured says why;
+	// a package that does not type-check is unmeasured, never clean.
+	LintBefore     *int   `json:"lint_before,omitempty"`
+	Lint           *int   `json:"lint,omitempty"`
+	LintUnmeasured string `json:"lint_unmeasured,omitempty"`
 	// EmptyDiff is a session that ran to completion and deliberately left every
 	// file as it found it. Edited==false with an error is a different thing: a
 	// session that never got as far as writing, which is why this is its own
@@ -359,6 +382,7 @@ func run(o options) error {
 		return err
 	}
 	abDir := filepath.Join(root, "evals", "ab")
+	o.lintConfig = filepath.Join(root, "skills", "go-linting", "assets", "golangci.yml")
 	if o.corpus == corpusImplement {
 		abDir = filepath.Join(abDir, implementDir)
 	}
@@ -760,6 +784,10 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 	if fixBeforeErr == nil {
 		res.FixHunksBefore = &fixBefore
 	}
+	lintBefore, lintBeforeErr := lintFindings(o.timeout, work, taskName, o.lintConfig)
+	if lintBeforeErr == nil {
+		res.LintBefore = &lintBefore
+	}
 	beforeDigest, err := fixtureDigest(pkgDir)
 	if err != nil {
 		res.Err = fmt.Sprintf("digest fixture: %v", err)
@@ -799,7 +827,13 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		if fixErr == nil {
 			res.FixHunks = &hunks
 		}
-		res.FixUnmeasured = fixNote(fixBeforeErr, fixErr)
+		res.FixUnmeasured = unmeasuredNote(fixBeforeErr, fixErr)
+		res.Lint = nil
+		findings, lintErr := lintFindings(o.timeout, work, taskName, o.lintConfig)
+		if lintErr == nil {
+			res.Lint = &findings
+		}
+		res.LintUnmeasured = unmeasuredNote(lintBeforeErr, lintErr)
 		res.ModelTests, res.ModelTestFail = "skipped", ""
 		if after.TestFiles > 0 {
 			res.ModelTests = "pass"
@@ -1219,9 +1253,9 @@ func fixHunks(timeout time.Duration, work, pkg string) (int, error) {
 	return countFixHunks(out), nil
 }
 
-// fixNote names the reading that could not be taken, so an absent count is
-// never read as a zero one. It is empty when both readings came back.
-func fixNote(before, after error) string {
+// unmeasuredNote names the reading that could not be taken, so an absent count
+// is never read as a zero one. It is empty when both readings came back.
+func unmeasuredNote(before, after error) string {
 	var notes []string
 	if before != nil {
 		notes = append(notes, "before: "+firstLine(before.Error()))
@@ -1251,6 +1285,69 @@ func countFixHunks(diff []byte) int {
 	return hunks
 }
 
+// lintFindings counts what the bundled golangci-lint configuration reports for
+// the package's production files. It is the reading the skills' own closing
+// gate would have produced had the session been able to run it, taken by the
+// harness instead so a session without a shell is still scored on it. Like
+// fixHunks it is deterministic and costs no model call.
+//
+// golangci-lint exits 1 when it found issues and 0 when it found none, so both
+// are readings; any other exit is a failure. A package that does not
+// type-check reports typecheck issues rather than findings, and countLintIssues
+// keeps that distinguishable from a clean package.
+func lintFindings(timeout time.Duration, work, pkg, config string) (int, error) {
+	if config == "" {
+		return 0, errors.New("golangci-lint: no configuration given")
+	}
+	if _, err := exec.LookPath("golangci-lint"); err != nil {
+		return 0, errors.New("golangci-lint not found on PATH")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "golangci-lint", "run", "--config", config,
+		"--output.json.path", "stdout", "--show-stats=false", "./"+pkg+"/...")
+	cmd.Dir = work
+	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if ctx.Err() != nil {
+		return 0, fmt.Errorf("golangci-lint timed out after %s", timeout)
+	}
+	if exit, ok := errors.AsType[*exec.ExitError](err); err != nil && (!ok || exit.ExitCode() != 1) {
+		return 0, fmt.Errorf("golangci-lint: %w: %s", err, firstLine(strings.TrimSpace(stderr.String())))
+	}
+	return countLintIssues(out)
+}
+
+// countLintIssues counts the production-file issues in a golangci-lint JSON
+// report, skipping _test.go files for the same reason countFixHunks does. A
+// typecheck issue means the package did not compile, and the report is then
+// about the compiler rather than the code: it comes back as an error so the
+// run reads as unmeasured instead of as a package with one finding.
+func countLintIssues(data []byte) (int, error) {
+	var report struct {
+		Issues []struct {
+			FromLinter string
+			Text       string
+			Pos        struct{ Filename string }
+		}
+	}
+	if err := json.Unmarshal(data, &report); err != nil {
+		return 0, fmt.Errorf("golangci-lint: unreadable report: %w", err)
+	}
+	count := 0
+	for _, issue := range report.Issues {
+		if issue.FromLinter == "typecheck" {
+			return 0, fmt.Errorf("golangci-lint: %s: %s", filepath.Base(issue.Pos.Filename), firstLine(issue.Text))
+		}
+		if !strings.HasSuffix(issue.Pos.Filename, "_test.go") {
+			count++
+		}
+	}
+	return count, nil
+}
+
 func lineCount(data []byte) int {
 	if len(data) == 0 {
 		return 0
@@ -1268,6 +1365,7 @@ func countDecls(file *ast.File, m *metrics) {
 		switch d := decl.(type) {
 		case *ast.FuncDecl:
 			m.Funcs++
+			m.Closures += namedClosures(d.Body)
 			m.Pattern += patternHits(d.Name.Name)
 			// A method on an unexported type adds no reachable surface, so only
 			// plain functions count toward the public API here.
@@ -1307,6 +1405,36 @@ func countDecls(file *ast.File, m *metrics) {
 		}
 	}
 	m.Branches += branchCount(file)
+}
+
+// namedClosures counts the function literals a body binds to a name, through
+// `f := func`, `f = func`, or `var f = func`. A literal handed straight to a
+// call — `mux.HandleFunc("/x", func(w, r) {...})` — is a handler, not a helper
+// with a name, and is not counted. Nested bodies are walked, so a closure
+// declared inside a closure counts too.
+func namedClosures(body *ast.BlockStmt) int {
+	if body == nil {
+		return 0
+	}
+	count := 0
+	ast.Inspect(body, func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.AssignStmt:
+			for _, rhs := range node.Rhs {
+				if _, ok := rhs.(*ast.FuncLit); ok {
+					count++
+				}
+			}
+		case *ast.ValueSpec:
+			for _, value := range node.Values {
+				if _, ok := value.(*ast.FuncLit); ok {
+					count++
+				}
+			}
+		}
+		return true
+	})
+	return count
 }
 
 // branchCount counts the decision points in a file: if, for, range, and each
@@ -1625,8 +1753,8 @@ func firstLine(s string) string {
 
 func printResult(r result, verbose bool) {
 	status := resultStatus(r)
-	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  exp %+d  branch %+d  build=%v model_tests=%s golden=%v gate=%v skills=%v",
-		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Funcs, r.Delta.Exported, r.Delta.Branches, r.Build, r.ModelTests, r.Golden, r.LineGatePass, r.Skills)
+	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  clos %+d  exp %+d  branch %+d  build=%v model_tests=%s golden=%v gate=%v skills=%v",
+		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Funcs, r.Delta.Closures, r.Delta.Exported, r.Delta.Branches, r.Build, r.ModelTests, r.Golden, r.LineGatePass, r.Skills)
 	if r.Err != "" {
 		fmt.Printf("  error: %s", r.Err)
 	}
@@ -1648,6 +1776,13 @@ func printResult(r result, verbose bool) {
 		fmt.Printf("       go fix pending: %s hunk(s) before->after", pending)
 		if r.FixUnmeasured != "" {
 			fmt.Printf(" (%s)", r.FixUnmeasured)
+		}
+		fmt.Println()
+	}
+	if findings := lintColumn(r); findings != "" {
+		fmt.Printf("       lint findings: %s before->after", findings)
+		if r.LintUnmeasured != "" {
+			fmt.Printf(" (%s)", r.LintUnmeasured)
 		}
 		fmt.Println()
 	}
@@ -1677,11 +1812,20 @@ func resultStatus(r result) string {
 	return "ok "
 }
 
-// fixColumn renders one run's pending modernizations as before->after. A
-// reading that could not be taken prints as n/a rather than as a zero, which
-// would read as a package with nothing left to modernize.
+// fixColumn renders one run's pending modernizations as before->after, and
+// lintColumn its lint findings. A reading that could not be taken prints as
+// n/a rather than as a zero, which would read as a package with nothing left
+// to modernize or nothing left to fix.
 func fixColumn(r result) string {
-	if r.FixHunksBefore == nil && r.FixHunks == nil && r.FixUnmeasured == "" {
+	return readingColumn(r.FixHunksBefore, r.FixHunks, r.FixUnmeasured)
+}
+
+func lintColumn(r result) string {
+	return readingColumn(r.LintBefore, r.Lint, r.LintUnmeasured)
+}
+
+func readingColumn(before, after *int, note string) string {
+	if before == nil && after == nil && note == "" {
 		return ""
 	}
 	count := func(n *int) string {
@@ -1690,7 +1834,7 @@ func fixColumn(r result) string {
 		}
 		return strconv.Itoa(*n)
 	}
-	return count(r.FixHunksBefore) + "->" + count(r.FixHunks)
+	return count(before) + "->" + count(after)
 }
 
 type armSummary struct {
@@ -1704,6 +1848,7 @@ type armSummary struct {
 	Types             int
 	Interfaces        int
 	Funcs             int
+	Closures          int
 	Pattern           int
 	Exported          int
 	Branches          int
@@ -1734,6 +1879,12 @@ type armSummary struct {
 	FixAfter    int
 	FixMeasured int
 	FixClean    int
+	// LintBefore, LintAfter, LintMeasured and LintClean are the same four
+	// readings for the bundled golangci-lint configuration.
+	LintBefore   int
+	LintAfter    int
+	LintMeasured int
+	LintClean    int
 	// Cost covers every session that reported one, including the invalid runs:
 	// a failed session still spends money, so excluding it would understate
 	// what the corpus costs to replay.
@@ -1816,6 +1967,7 @@ func summarizeArm(rep report, name string) armSummary {
 		summary.Types += r.Delta.Types
 		summary.Interfaces += r.Delta.Interfaces
 		summary.Funcs += r.Delta.Funcs
+		summary.Closures += r.Delta.Closures
 		summary.Pattern += r.Delta.Pattern
 		summary.Exported += r.Delta.Exported
 		summary.Branches += r.Delta.Branches
@@ -1827,6 +1979,14 @@ func summarizeArm(rep report, name string) armSummary {
 				summary.FixClean++
 			}
 		}
+		if r.LintBefore != nil && r.Lint != nil {
+			summary.LintMeasured++
+			summary.LintBefore += *r.LintBefore
+			summary.LintAfter += *r.Lint
+			if *r.Lint == 0 {
+				summary.LintClean++
+			}
+		}
 	}
 	return summary
 }
@@ -1835,8 +1995,8 @@ func summarizeArm(rep report, name string) armSummary {
 // pass their model tests (if present) and hidden golden test.
 // Failed sessions remain visible in the counts.
 func printSummary(rep report) {
-	fmt.Printf("%-24s %5s %6s %5s %8s %7s %7s %7s %9s %6s %8s %7s %7s %6s %8s\n",
-		"arm", "runs", "errors", "valid", "Δlines", "Δtypes", "Δiface", "Δfuncs", "Δpattern", "Δexp", "Δbranch", "build", "golden", "skill", "$/run")
+	fmt.Printf("%-24s %5s %6s %5s %8s %7s %7s %7s %6s %9s %6s %8s %7s %7s %6s %8s\n",
+		"arm", "runs", "errors", "valid", "Δlines", "Δtypes", "Δiface", "Δfuncs", "Δclos", "Δpattern", "Δexp", "Δbranch", "build", "golden", "skill", "$/run")
 	for _, a := range rep.Arms {
 		summary := summarizeArm(rep, a.Name)
 		completed := summary.Runs - summary.Errors
@@ -1858,9 +2018,9 @@ func printSummary(rep report) {
 		if summary.Costed > 0 {
 			cost = summary.Cost / float64(summary.Costed)
 		}
-		fmt.Printf("%-24s %5d %6d %5d %8.1f %7.2f %7.2f %7.2f %9.2f %6.2f %8.2f %6d%% %6d%% %5d%% %8.4f\n",
+		fmt.Printf("%-24s %5d %6d %5d %8.1f %7.2f %7.2f %7.2f %6.2f %9.2f %6.2f %8.2f %6d%% %6d%% %5d%% %8.4f\n",
 			a.Name, summary.Runs, summary.Errors, summary.Valid,
-			mean(summary.Lines), mean(summary.Types), mean(summary.Interfaces), mean(summary.Funcs), mean(summary.Pattern),
+			mean(summary.Lines), mean(summary.Types), mean(summary.Interfaces), mean(summary.Funcs), mean(summary.Closures), mean(summary.Pattern),
 			mean(summary.Exported), mean(summary.Branches),
 			percent(summary.Build), percent(summary.Golden), percent(summary.SkillFired), cost)
 		// Neither of these belongs in a column: they are not a worse score, they
@@ -1880,6 +2040,11 @@ func printSummary(rep report) {
 			fixMean := func(sum int) float64 { return float64(sum) / float64(summary.FixMeasured) }
 			fmt.Printf("%-24s   go fix pending %.2f -> %.2f hunk(s)/run, nothing left to propose in %d/%d\n",
 				"", fixMean(summary.FixBefore), fixMean(summary.FixAfter), summary.FixClean, summary.FixMeasured)
+		}
+		if summary.LintMeasured > 0 {
+			lintMean := func(sum int) float64 { return float64(sum) / float64(summary.LintMeasured) }
+			fmt.Printf("%-24s   lint findings %.2f -> %.2f /run, clean in %d/%d\n",
+				"", lintMean(summary.LintBefore), lintMean(summary.LintAfter), summary.LintClean, summary.LintMeasured)
 		}
 		if summary.RepairsFired > 0 {
 			fmt.Printf("%-24s   repair turn fired %d time(s), cleared gate and golden in %d\n",

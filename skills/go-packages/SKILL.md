@@ -99,7 +99,7 @@ not have (v1, v3, v5, custom sources).
   do not wrap the whole module in `internal/pkg` or mirror a layer tree
   (`internal/service`, `internal/repository`) — split by responsibility.
 - A package named `util`, `helper`, or `common` is a finding:
-  [go-naming](../go-naming/SKILL.md#package-names) owns the rule.
+  [go-naming](../go-naming/references/IDENTIFIERS.md#package-names) owns the rule.
 
 ### Package Size
 

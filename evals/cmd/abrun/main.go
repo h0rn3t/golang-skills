@@ -229,7 +229,14 @@ type metrics struct {
 	// Opus 5 gateway session of 2026-09-11 did — so the two columns have to be
 	// read together. A literal passed straight to a call is not counted.
 	Closures int `json:"closures"`
-	Pattern  int `json:"pattern_names"`
+	// BodyComments counts comment lines inside function bodies. Doc comments
+	// on declarations are the specification and are not counted; what is
+	// counted is narration — on the 2026-09-12 Opus 5 high sweep the skilled
+	// gateway sessions carried 12–14 such lines against 1–4 in the 1.12.0
+	// tree, one per clause of the contract, and Lines alone could not say
+	// whether the growth was code or prose.
+	BodyComments int `json:"body_comments"`
+	Pattern      int `json:"pattern_names"`
 	// Exported counts the package's public surface. On an implementation task
 	// every exported declaration the specification needs is already there, so
 	// growth here is scope the task never asked for.
@@ -243,16 +250,17 @@ type metrics struct {
 
 func (m metrics) sub(o metrics) metrics {
 	return metrics{
-		Lines:      m.Lines - o.Lines,
-		Files:      m.Files - o.Files,
-		TestFiles:  m.TestFiles - o.TestFiles,
-		Types:      m.Types - o.Types,
-		Interfaces: m.Interfaces - o.Interfaces,
-		Funcs:      m.Funcs - o.Funcs,
-		Closures:   m.Closures - o.Closures,
-		Pattern:    m.Pattern - o.Pattern,
-		Exported:   m.Exported - o.Exported,
-		Branches:   m.Branches - o.Branches,
+		Lines:        m.Lines - o.Lines,
+		Files:        m.Files - o.Files,
+		TestFiles:    m.TestFiles - o.TestFiles,
+		Types:        m.Types - o.Types,
+		Interfaces:   m.Interfaces - o.Interfaces,
+		Funcs:        m.Funcs - o.Funcs,
+		Closures:     m.Closures - o.Closures,
+		BodyComments: m.BodyComments - o.BodyComments,
+		Pattern:      m.Pattern - o.Pattern,
+		Exported:     m.Exported - o.Exported,
+		Branches:     m.Branches - o.Branches,
 	}
 }
 
@@ -1211,14 +1219,51 @@ func analyze(dir string) (metrics, error) {
 		}
 		m.Files++
 		m.Lines += lineCount(data)
-		file, err := parser.ParseFile(fset, path, data, parser.SkipObjectResolution)
+		file, err := parser.ParseFile(fset, path, data, parser.SkipObjectResolution|parser.ParseComments)
 		if err != nil {
 			return fmt.Errorf("parse %s: %w", path, err)
 		}
 		countDecls(file, &m)
+		m.BodyComments += bodyCommentLines(fset, file)
 		return nil
 	})
 	return m, err
+}
+
+// bodyCommentLines counts the comment lines that sit inside a function body,
+// including the bodies of function literals. A comment group is attributed by
+// position, so a doc comment above a declaration is never counted and a
+// comment on the same line as code is.
+func bodyCommentLines(fset *token.FileSet, file *ast.File) int {
+	var bodies [][2]token.Pos
+	ast.Inspect(file, func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.FuncDecl:
+			if node.Body != nil {
+				bodies = append(bodies, [2]token.Pos{node.Body.Lbrace, node.Body.Rbrace})
+			}
+		case *ast.FuncLit:
+			bodies = append(bodies, [2]token.Pos{node.Body.Lbrace, node.Body.Rbrace})
+		}
+		return true
+	})
+	count := 0
+	for _, group := range file.Comments {
+		inside := false
+		for _, b := range bodies {
+			if group.Pos() > b[0] && group.End() < b[1] {
+				inside = true
+				break
+			}
+		}
+		if !inside {
+			continue
+		}
+		for _, c := range group.List {
+			count += fset.Position(c.End()).Line - fset.Position(c.Pos()).Line + 1
+		}
+	}
+	return count
 }
 
 // fixHunks counts the modernizations `go fix -diff` still proposes for the
@@ -1753,8 +1798,8 @@ func firstLine(s string) string {
 
 func printResult(r result, verbose bool) {
 	status := resultStatus(r)
-	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  clos %+d  exp %+d  branch %+d  build=%v model_tests=%s golden=%v gate=%v skills=%v",
-		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Funcs, r.Delta.Closures, r.Delta.Exported, r.Delta.Branches, r.Build, r.ModelTests, r.Golden, r.LineGatePass, r.Skills)
+	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  clos %+d  bcom %+d  exp %+d  branch %+d  build=%v model_tests=%s golden=%v gate=%v skills=%v",
+		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Funcs, r.Delta.Closures, r.Delta.BodyComments, r.Delta.Exported, r.Delta.Branches, r.Build, r.ModelTests, r.Golden, r.LineGatePass, r.Skills)
 	if r.Err != "" {
 		fmt.Printf("  error: %s", r.Err)
 	}
@@ -1849,6 +1894,7 @@ type armSummary struct {
 	Interfaces        int
 	Funcs             int
 	Closures          int
+	BodyComments      int
 	Pattern           int
 	Exported          int
 	Branches          int
@@ -1968,6 +2014,7 @@ func summarizeArm(rep report, name string) armSummary {
 		summary.Interfaces += r.Delta.Interfaces
 		summary.Funcs += r.Delta.Funcs
 		summary.Closures += r.Delta.Closures
+		summary.BodyComments += r.Delta.BodyComments
 		summary.Pattern += r.Delta.Pattern
 		summary.Exported += r.Delta.Exported
 		summary.Branches += r.Delta.Branches
@@ -1995,8 +2042,8 @@ func summarizeArm(rep report, name string) armSummary {
 // pass their model tests (if present) and hidden golden test.
 // Failed sessions remain visible in the counts.
 func printSummary(rep report) {
-	fmt.Printf("%-24s %5s %6s %5s %8s %7s %7s %7s %6s %9s %6s %8s %7s %7s %6s %8s\n",
-		"arm", "runs", "errors", "valid", "Δlines", "Δtypes", "Δiface", "Δfuncs", "Δclos", "Δpattern", "Δexp", "Δbranch", "build", "golden", "skill", "$/run")
+	fmt.Printf("%-24s %5s %6s %5s %8s %7s %7s %7s %6s %6s %9s %6s %8s %7s %7s %6s %8s\n",
+		"arm", "runs", "errors", "valid", "Δlines", "Δtypes", "Δiface", "Δfuncs", "Δclos", "Δbcom", "Δpattern", "Δexp", "Δbranch", "build", "golden", "skill", "$/run")
 	for _, a := range rep.Arms {
 		summary := summarizeArm(rep, a.Name)
 		completed := summary.Runs - summary.Errors
@@ -2018,9 +2065,9 @@ func printSummary(rep report) {
 		if summary.Costed > 0 {
 			cost = summary.Cost / float64(summary.Costed)
 		}
-		fmt.Printf("%-24s %5d %6d %5d %8.1f %7.2f %7.2f %7.2f %6.2f %9.2f %6.2f %8.2f %6d%% %6d%% %5d%% %8.4f\n",
+		fmt.Printf("%-24s %5d %6d %5d %8.1f %7.2f %7.2f %7.2f %6.2f %6.2f %9.2f %6.2f %8.2f %6d%% %6d%% %5d%% %8.4f\n",
 			a.Name, summary.Runs, summary.Errors, summary.Valid,
-			mean(summary.Lines), mean(summary.Types), mean(summary.Interfaces), mean(summary.Funcs), mean(summary.Closures), mean(summary.Pattern),
+			mean(summary.Lines), mean(summary.Types), mean(summary.Interfaces), mean(summary.Funcs), mean(summary.Closures), mean(summary.BodyComments), mean(summary.Pattern),
 			mean(summary.Exported), mean(summary.Branches),
 			percent(summary.Build), percent(summary.Golden), percent(summary.SkillFired), cost)
 		// Neither of these belongs in a column: they are not a worse score, they

@@ -73,6 +73,7 @@ runs that pass, the score is how little code it took to get there:
 | `Δexp` | Exported declarations. Every one the specification needs is already in the stub, so growth is public API the task never asked for. |
 | `Δtypes`, `Δiface`, `Δfuncs`, `Δpattern` | The scaffold. On a fixture that pins every declaration they have nowhere to move; on one that pins a single entry point they are the whole question. |
 | `Δclos` | Function literals bound to a name inside a function (`writeJSON := func(...)`). On 2026-09-11 every skilled Opus 5 `gateway` session wrote its helpers this way to report a declaration count of zero, and no unaided session did; `Δfuncs` alone cannot see a helper that moved rather than disappeared, so the two are read together. A literal passed straight to a call is not counted. |
+| `Δbcom` | Comment lines inside function bodies; doc comments on declarations are not counted. On the 2026-09-12 Opus 5 high sweep the skilled `gateway` sessions carried 12–14 such lines against 1–4 in the 1.12.0 tree, one per clause of the contract, and `Δlines` could not tell that prose from code. |
 | lint findings | What the bundled `skills/go-linting/assets/golangci.yml` reports for the production files, before and after, printed under each run and averaged per arm. The `claude` arms have no shell, so the skills' own gate never runs inside a session; this is that gate run by the harness. Every skilled Opus 5 `gateway` session of 2026-09-11 left `w.Write(body)` unchecked, which is one `errcheck` finding here. A tree that does not type-check reads as unmeasured, never as clean. |
 
 `Δbranch` is not a score on its own and must be read against `Δtypes` and
@@ -107,6 +108,13 @@ helpers in closures in 5/5 sessions and the working tree wrote them as
 package functions in 5/5, at +7.0 lines (p = 0.048) and golden 5/5 in both
 ([report](../../../docs/evidence/2026-09-12-go-implement-budget-closure-gateway-n5-opus-5-medium.md)).
 A line delta on this fixture is now read next to the closure count.
+The Delete Pass pair the same day, 1.13.0 against the working tree on Opus 5
+medium, read −12.0 lines (p = 0.008) with golden 5/5 in both arms and every
+baseline session lint-clean against 3/5, after a first tree had shown the
+pass deleting the write discard along with its comment
+([report](../../../docs/evidence/2026-09-12-go-implement-delete-pass-gateway-n5-opus-5-medium.md));
+`Δbcom` and the lint line are what made the second reading distinguishable
+from the first.
 
 At Sonnet 5 medium two of `gateway`'s clauses are live traps — HEAD is a 405,
 the empty list is `[]` — and they separate skill *trees* more than arms: over

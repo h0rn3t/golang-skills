@@ -23,8 +23,8 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
   that edits Go and only when a shell tool (`Bash` in Claude Code) is in your
   tool list. Without one nothing in it can run: leave the file unread.
 - `references/NEW-CODE-EXAMPLES.md` — Read when the shape of a Contract Table
-  case, a Plain Code body, or a budgeted helper is in doubt: one worked table,
-  one whole implementation, one report line. Ordinary tasks do not require it.
+  case, a Plain Code body, or a budgeted helper is in doubt. Ordinary tasks do
+  not require it.
 - `../go-code-refactor/references/OVER-ENGINEERING.md` — Read the detailed
   restraint ladder when a [Declaration Budget](#declaration-budget) entry is
   in doubt; its replacement catalog when seeking a simpler existing API; its
@@ -38,29 +38,28 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
    or path, and the host keeps workflow state, checkpoints, and delegation
    policy.
 2. **Load `go-style-core`, read the code, check for a shell.** Load
-   `go-style-core` on every task. Inspect repository instructions, `go.mod`,
+   `go-style-core` on every task; inspect repository instructions, `go.mod`,
    neighboring code, tests, and callers. A shell tool (`Bash` in Claude Code)
-   in your tool list means step 6 runs the checks; without one nothing in
-   step 6 can run, `go-linting` stays unread, and the report says so in one
-   line. A new function, package, or stub body makes step 4 apply; a fix or a
-   restructuring of existing code skips it.
+   in your tool list means step 6 runs the checks; without one `go-linting`
+   stays unread and the report says so in one line. A new function, package,
+   or stub body makes step 4 apply; a fix or a restructuring skips it.
 3. **Load the owners before the first edit.** Match the task against
    [Route Before The First Edit](#route-before-the-first-edit) and load each
    matched owner plus every `Also load` entry whose condition holds, with the
    `Skill` calls for all of them in one message: an owner loaded on a turn of
    its own re-reads the whole context. When step 4 applies, `go-testing` is
-   one of them. Select by the decisions being changed, not every syntax
-   element present: a routine local variable or `if` triggers no owner. No
-   edit before every selected skill is in context; add owners when new
-   evidence requires them, and reuse content already loaded this session.
+   one of them. Select by the decisions being changed: a routine local
+   variable or `if` triggers no owner. No edit before every selected skill is
+   in context; add owners when new evidence requires them.
 4. **Write the Contract Table, for new code only.** Turn the documentation
    and the request into the test file the [Contract Table](#contract-table)
    describes before the first production edit: a case written after the body
    checks only what the body already does. Its cases are what step 6 runs or
    reads.
 5. **Implement the authorized scope.** New code takes the
-   [Plain Code](#plain-code) form and counts every package-level declaration
-   it adds in the [Declaration Budget](#declaration-budget). Restructuring
+   [Plain Code](#plain-code) form, counts every package-level declaration
+   it adds in the [Declaration Budget](#declaration-budget), and gets the
+   [Delete Pass](#delete-pass) once its cases pass. Restructuring
    follows the [delete-first priority](../go-code-refactor/SKILL.md#delete-before-you-restructure)
    and climbs the restraint ladder in [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder)
    for each proposed helper, type, layer, option, or import. Preserve
@@ -92,8 +91,7 @@ Start at the required entry point and its callers. Implement the documented
 success and failure paths within the existing API; design a new API only when
 the task calls for one. A stub's `panic("not implemented")` is missing
 behavior, not a refactor contract: replace it and satisfy the acceptance
-tests. Baseline/after equivalence is for existing behavior the task must
-preserve.
+tests.
 
 ### Contract Table
 
@@ -101,9 +99,8 @@ Before the first production edit, turn the documentation and the request into
 a table-driven test in the package — a new `<pkg>_contract_test.go`, or cases
 added to the existing test file — one case per observable clause: each request
 or input class, each method and status code, ordering, error text, and the
-empty, nil, and invalid inputs. A case names the input and the result the
-clause promises; a clause that says what the code must *not* do is a case too.
-A clause written as a class — "any other method", "any other value", "nothing
+empty, nil, and invalid inputs; a clause that says what the code must *not*
+do is a case too. A clause written as a class — "any other method", "any other value", "nothing
 else" — takes its case from the member a library default treats unlike the
 rest, because that member is where the class leaks: `HEAD` under a `GET`
 pattern, `t` and `1` under `strconv.ParseBool`, the bare path under a subtree
@@ -136,16 +133,47 @@ entry point, anything it calls, and the contract test alike.
   used and has no name; a fact the code tracks — what was already asked for,
   what was sent, what failed — keeps its own variable even when another one
   almost holds it.
-- **A comment states a constraint the code cannot show** — a default
-  deliberately overridden, the clause a branch serves — and nothing else.
-  [go-style-core](../go-style-core/SKILL.md#formatting) owns comment style
-  and [the early return](../go-style-core/SKILL.md#reduce-nesting).
+- **A comment states a constraint the code cannot show**: one per default
+  deliberately overridden, and nothing else. A clause the contract test
+  names is not a comment; a comment longer than the code under it is prose
+  the test already carries. [go-style-core](../go-style-core/SKILL.md#formatting)
+  owns comment style and [the early return](../go-style-core/SKILL.md#reduce-nesting).
+- **A loop that sorts, collects, or defaults is a call.** `slices.SortFunc`,
+  `slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m))` for a map's keys —
+  `slices.Sorted(maps.Keys(m))` is nil for an empty map, the `null` a
+  contract forbids — `cmp.Or` for a zero-value default, `min` and `max`.
+  [Reach For What Go Ships](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships)
+  has the table.
 - **Neighbors set the register.** Where the package has code, match its
   naming, comment density, and idiom ([House Style](../go-style-core/SKILL.md#house-style-wins)).
 
 [NEW-CODE-EXAMPLES.md](references/NEW-CODE-EXAMPLES.md) carries a whole
-documented JSON document in this form: one function-local type, one anonymous
-document, the empty-input rule and the one tracked fact as code.
+documented JSON document in this form.
+
+### Delete Pass
+
+When the Contract Table passes, walk the diff once, top to bottom, and delete
+what the test already proves or the code already shows. Each item below is a
+line a reviewer sends back:
+
+- A comment that restates a case the contract test names, or narrates the
+  next line. What stays is the one comment per overridden default.
+- A name used once, and the variable it fills: the value is written where it
+  is used.
+- A blank line inside one operation. Paragraphs separate operations, not
+  steps of one.
+- A failure branch, or a `fmt.Errorf` wrap, on a call that cannot fail for a
+  value the function built itself — `json.Marshal` of its own document. The
+  error is returned as it is (`return json.Marshal(doc)`). A write whose
+  error has nowhere to go is discarded in the open, `_, _ = w.Write(body)`
+  with its reason, never bare: `errcheck` in the gate reads a bare call as a
+  finding, and the reason on that line is not a comment to delete.
+- A doc comment on an unexported helper beyond one line;
+  [go-documentation](../go-documentation/SKILL.md) owns the exported ones.
+
+The pass runs behind the test, never ahead of it: a line a case needs stays,
+and validation at a trust boundary, failure behavior, and security controls
+are not deleted for a smaller diff. Rerun or reread the cases after it.
 
 ### Declaration Budget
 
@@ -172,18 +200,17 @@ A function literal bound to a name — `writeJSON := func(w http.ResponseWriter,
 v any) {...}` — that captures nothing from the function around it is a
 package-level function written in the wrong place: it counts under the same
 three rules, and when it earns its place it is a small unexported function of
-the package, not a closure a reader scrolls past on the way to the routes. A
-closure is for capturing state — a mutex, a counter, the request being served.
-The count is a record, not a score: a helper two call sites need is one
-declaration named in the report, and hiding it inside a function changes the
-number without changing the code.
+the package with a one-line comment or none. A closure is for capturing state
+— a mutex, a counter, the request being served — and a handler registered
+once is written at its registration: it meets none of the three rules. The count is a record, not a
+score: a helper two call sites need is one declaration named in the report,
+and hiding it inside a function changes the number without changing the code.
 
 A representation is a value, not a reason: a wire document, a formatted error,
 and a sorted view take the [Plain Code](#plain-code) form. A helper that names
 the steps of one call site meets none of the three; write the steps inline.
-Skill examples show the *order* of an operation; their named helpers
-(`validate`, `writeJSON`, `writeError`) are not a list to reproduce. Judge a
-helper and its call sites together and count both.
+The named helpers in skill examples (`validate`, `writeJSON`, `writeError`)
+show the order of an operation, not a list to reproduce.
 
 The budget is the restraint ladder applied per declaration; read the ladder in
 [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder)

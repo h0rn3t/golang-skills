@@ -33,7 +33,8 @@ a failure message in the `Func(input) = got, want` form;
 
 The function below is the whole implementation of a documented JSON document:
 one function-local type, one anonymous document, the empty-input rule and the
-one tracked fact as code. The same document as two package-level types, a
+one tracked fact (`largest`, the size behind `doc.Largest`) as code. Its one
+comment marks the one overridden default; nothing else in it needs prose. The same document as two package-level types, a
 constructor for the entry, and a `writeJSON` helper is the growth the
 [Declaration Budget](../SKILL.md#declaration-budget) counts.
 
@@ -52,7 +53,7 @@ func Manifest(build string, files []File) ([]byte, error) {
 		Largest string  `json:"largest"`
 		Total   int64   `json:"total"`
 	}{Build: build, Files: []entry{}} // [] for a build with no files, never null
-	var largest int64 // the size behind doc.Largest: a tracked fact, not a value used once
+	var largest int64
 	for _, f := range files {
 		if f.Path == "" {
 			continue

@@ -4,6 +4,72 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-09-12
+
+### Added
+
+- Three runs of the Delete Pass edits against the committed 1.13.0 tree
+  (`b25ae01`), reference against baseline, no shell in any session:
+  - Opus 5 medium, `gateway`, n=5, two baseline trees:
+    [`docs/evidence/2026-09-12-go-implement-delete-pass-gateway-n5-opus-5-medium.md`](docs/evidence/2026-09-12-go-implement-delete-pass-gateway-n5-opus-5-medium.md).
+    The first tree took 83.8 to 74.4 lines (−9.3, p = 0.032) and 4/5
+    sessions dropped the write discard with the comment next to it, lint
+    0.50 to 1.60 a session. The tree with the explicit-discard sentence
+    took 87.8 to 75.8 (−12.0, p = 0.008), golden 5/5 in both arms, every
+    baseline session lint-clean against 3/5, cost level at $1.02 a session.
+  - Sonnet 5 medium, `feed` and `gateway`, n=5, the first tree:
+    [`docs/evidence/2026-09-12-go-implement-delete-pass-feed-gateway-n5-sonnet-5-medium.md`](docs/evidence/2026-09-12-go-implement-delete-pass-feed-gateway-n5-sonnet-5-medium.md).
+    `feed` 41.8 to 38.2 lines, `slices.AppendSeq` over `maps.Keys` in 3/5
+    where the 1.13.0 tree hand-rolled the loop in 3/5, golden 4/5 against
+    5/5 with the one miss written through the form the bullet names.
+    `gateway` 4/5 against 1/5 on the `HEAD` clause, read as the fixture's
+    variance; two baseline sessions turned every handler into a
+    package-level function with a budget line naming no second call site.
+- `evals/cmd/abrun` prints `Δbcom`, comment lines inside function bodies
+  (doc comments on declarations excluded). On the 2026-09-12 Opus 5 high
+  sweep the skilled `gateway` sessions carried 12–14 such lines against 1–4
+  in the 1.12.0 tree, one per clause of the contract, and `Δlines` could not
+  tell that prose from code.
+
+### Changed
+
+- `go-code` Plain Code: the comment rule is one comment per deliberately
+  overridden default and nothing else — a clause the contract test names is
+  not a comment, and a comment longer than the code under it is prose the
+  test already carries. A new bullet names the standard-library calls that
+  replace a loop (`slices.SortFunc`, `slices.AppendSeq` over `maps.Keys`,
+  `cmp.Or`, `min`/`max`) and the trap in the obvious one:
+  `slices.Sorted(maps.Keys(m))` is nil for an empty map, the `null` the
+  `feed` contract forbids and the miss Sonnet 5 makes in about one session
+  in five.
+- `go-code` gains a Delete Pass, named from step 5: once the Contract Table
+  passes, one walk over the diff deletes a comment that restates a case, a
+  name used once, a blank line inside one operation, a failure branch or
+  `fmt.Errorf` wrap on a call that cannot fail for the function's own value,
+  and a doc comment on an unexported helper beyond one line; validation,
+  failure behavior and security controls are not deleted for a smaller diff.
+  It is the delete-then-shorten move of `go-code-refactor` applied to fresh
+  code, which had no such step: the 2026-09-12 `feed` sessions that passed
+  ranged 35 to 52 lines, and the 17-line difference was four names used
+  once, a hand-rolled key loop, a wrap around `json.Marshal` of the
+  function's own document, and paragraph breaks between the steps of one
+  operation.
+- `go-code` Declaration Budget: an unexported helper carries a one-line
+  comment or none. The +7 lines the closure rule cost on `gateway` were
+  two-line doc comments and blank lines around the two helpers. A handler
+  registered once is written at its registration: two of five Sonnet 5
+  `gateway` sessions on the first delete-pass tree turned every route into a
+  package-level function or method with a budget line naming no second call
+  site.
+- `go-code` Delete Pass: a write whose error has nowhere to go is discarded
+  in the open, `_, _ = w.Write(body)` with its reason, never bare. On the
+  first delete-pass tree 4/5 Opus 5 `gateway` sessions dropped the discard
+  with the comment next to it and left `errcheck` findings, against 2/5 on
+  the 1.13.0 tree; `//nolint:errcheck` is not a way out, because `gosec`
+  G104 reports the same line.
+- `references/NEW-CODE-EXAMPLES.md`: the `Manifest` body keeps its one
+  overridden-default comment and drops the narrating one.
+
 ## [1.13.0] - 2026-09-12
 
 ### Added

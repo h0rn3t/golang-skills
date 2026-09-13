@@ -1777,6 +1777,7 @@ func TestGoVersionBaseline(t *testing.T) {
 		"skills/go-logging/SKILL.md":                        {"slog.NewMultiHandler", "slog.GroupAttrs"},
 		"skills/go-defensive/SKILL.md":                      {"os.OpenRoot", "slices.Clone"},
 		"skills/go-data-structures/SKILL.md":                {"strings.CutLast"},
+		"skills/go-style-core/references/CURRENT-GO.md":     {"time.Tick", "errors.Is(err, target)", "go doc"},
 	} {
 		body := read(rel)
 		for _, needle := range needles {

@@ -6,7 +6,8 @@ description: Use when handling Go context.Context, cancellation, deadlines, time
 # Go Context Usage
 
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
-> `context.WithoutCancel` and `context.AfterFunc` require Go 1.21+;
+> `context.WithoutCancel`, `context.AfterFunc`, `context.WithTimeoutCause` and
+> `context.WithDeadlineCause` require Go 1.21+;
 > `t.Context()` in tests, Go 1.24+.
 
 ## Resource Routing
@@ -135,6 +136,11 @@ if err := context.Cause(ctx); err != nil {
     return err
 }
 ```
+
+`context.WithTimeoutCause` and `context.WithDeadlineCause` (Go 1.21+) do the
+same for a deadline: `ctx.Err()` stays `DeadlineExceeded`, `context.Cause(ctx)`
+is the error you supplied, so a caller can tell this timeout from an upstream
+one.
 
 `context.AfterFunc(ctx, f)` runs `f` once `ctx` is done — the replacement for
 a goroutine that only waits on `ctx.Done()` to close or unblock something.

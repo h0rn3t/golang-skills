@@ -29,7 +29,7 @@ allowed-tools: Bash(bash:*)
 
 | Instead of | Use | Since |
 |---|---|---|
-| `context.Background()` in a test | `t.Context()` — cancelled at test end | 1.24 |
+| `context.Background()` in a test | `t.Context()` — cancelled when the test returns, before `t.Cleanup` runs; cleanup that needs a live context makes its own | 1.24 |
 | `httptest.NewServer` + `defer srv.Close()` | `httptest.NewTestServer(t, h)` — registers cleanup, in-memory transport reached through `srv.Client()` | 1.27 |
 | `time.Sleep` to let goroutines settle | `synctest.Test` + `synctest.Wait` | 1.25 |
 | Real waits for timeout paths | `synctest.Sleep` inside a bubble (fake clock), from the test goroutine only: it calls `synctest.Wait`, which panics with `wait already in progress` when two goroutines reach it at once, so a goroutine the code under test starts sleeps with `time.Sleep` | 1.27 |

@@ -18,7 +18,8 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
 
 - `../go-style-core/SKILL.md` — Read once per task for house style, fallback
   rules, and communication guidance. Read its references only for a decision
-  the task requires.
+  the task requires, except its `references/CURRENT-GO.md`: the idiom card is
+  read whole before the first edit of a task that writes Go.
 - `../go-linting/SKILL.md` — Read its Verification Gate at step 6, on a task
   that edits Go and only when a shell tool (`Bash` in Claude Code) is in your
   tool list. Without one nothing in it can run: leave the file unread. The

@@ -147,7 +147,8 @@ therefore the aliasing.
 
 Loop variables are per-iteration since Go 1.22. Code written for the old
 semantics contains `x := x` shadowing; deleting it is safe when the `go`
-directive is ≥1.22 and breaks below that — check `go.mod` first.
+directive is ≥1.22 and breaks below that — check `go.mod` first. A pointer to
+the element itself is `&s[i]`; `&v` points at that iteration's copy.
 
 Converting `for i := 0; i < len(s); i++` to `for i, v := range s` copies each
 element into `v`. If the body writes through `s[i]`, or the elements are large

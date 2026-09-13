@@ -144,7 +144,7 @@ allowed-tools: Bash(bash:*)
 
 ## Style
 
-- [ ] **Current Go**: Changed lines use the form available at the `go` directive; an older idiom kept because the neighbor uses it is Should Fix, and `go fix -diff` on the diff's packages reports nothing in changed lines → [go-style-core](../go-style-core/SKILL.md#write-current-go)
+- [ ] **Current Go**: Changed lines use the form available at the `go` directive; an older idiom kept because the neighbor uses it is Should Fix, and `go fix -diff` on the diff's packages reports nothing in changed lines; the forms are one line each in [CURRENT-GO.md](../go-style-core/references/CURRENT-GO.md) → [go-style-core](../go-style-core/SKILL.md#write-current-go)
 - [ ] **Line length**: No rigid limit, but avoid uncomfortably long lines; break by semantics, not arbitrary length → [go-style-core](../go-style-core/SKILL.md)
 - [ ] **Naked returns**: Only in short functions; explicit returns in medium/large functions → [go-style-core](../go-style-core/SKILL.md)
 - [ ] **Pass values**: Don't use pointers just to save bytes; pass `string` not `*string` for small fixed-size types → [go-functions](../go-functions/SKILL.md)

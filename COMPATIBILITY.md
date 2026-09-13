@@ -26,10 +26,27 @@ go tool vet help                                      # available vet analyzers
 `go vet` runs the `stdversion` analyzer, which reports uses of standard-library
 symbols newer than the `go` directive in `go.mod`. That is the enforcement
 mechanism for **library** claims — set `go 1.27` in `go.mod` and let vet catch
-the rest. It does not cover **language** features: generic methods and
-function-type inference (1.27), `new(expr)` and self-referential constraints
-(1.26) compile on a 1.27 toolchain whatever the directive says and fail only on
-a real older toolchain. Verify those on the CI toolchain.
+the rest. The compiler gates most **language** features by the directive as
+well: `for i := range n` in a `go 1.21` module, `new(expr)` below 1.26, and a
+promoted field in a keyed literal or a generic method below 1.27 all fail with
+`requires go1.NN or later (-lang was set to go1.MM; check go.mod)` (verified
+with go1.27.1). Two are not gated: function-type inference in a conversion
+(1.27) and self-referential constraints (1.26) compile at an older directive
+on a 1.27 toolchain and fail only on a real older toolchain, so verify code
+that depends on them on the CI toolchain.
+
+## Which version governs
+
+The `go` directive of the module's `go.mod`. A `go.mod` with no `go` line is
+language version 1.16 ([go.dev/ref/mod](https://go.dev/ref/mod#go-mod-file-go)),
+and a `go.work` with none is 1.18; a workspace's directive selects the
+toolchain for the workspace and does not raise a member module's language
+version. A `toolchain` line, `GOTOOLCHAIN`, and the Go installed on the
+machine choose the compiler, not the language version: none of them makes a
+newer form legal, and bumping the directive is its own change
+(`skills/go-code-refactor/references/MODERNIZATION.md`, Tier 3). The
+write-time list of forms per version is
+`skills/go-style-core/references/CURRENT-GO.md`.
 
 ## Language features by version
 
@@ -45,6 +62,7 @@ a real older toolchain. Verify those on the CI toolchain.
 | Per-iteration loop variables | 1.22 | The `x := x` capture line is dead code; `go fix` analyzer `forvar` removes it |
 | `range` over integer and over function iterators | 1.22 / 1.23 | `for i := range n`, `for v := range seq` |
 | `min`, `max`, `clear` builtins | 1.21 | `go fix` analyzer `minmax` |
+| `any` as the spelling of `interface{}` | 1.18 | Predeclared alias; `go fix` analyzer `any` |
 
 ## Standard-library APIs by version
 
@@ -103,14 +121,23 @@ scope for this repository.
 | `slog.DiscardHandler` | Hand-written no-op handlers |
 | `t.Chdir()` | `os.Chdir` plus a restore in cleanup |
 
-### Go 1.21–1.23
+### Go 1.18–1.23
 
-`log/slog` (1.21), `cmp.Ordered` (1.21), `slices` and `maps` packages (1.21),
-`cmp.Or` (1.22), `slices.Concat` (1.22), `sql.Null[T]` (1.22), `http.ServeMux`
-method and wildcard patterns with `r.PathValue` (1.22), `http.ServeFileFS` and
-`http.FileServerFS` (1.22), `testing/slogtest` (1.22), `iter.Seq` with the
-iterator forms in `slices` (`All`, `Values`, `Collect`, `Sorted`) and `maps`
-(`All`, `Keys`, `Values`, `Collect`) (1.23) — the `strings` `*Seq` forms are 1.24.
+`any`, `strings.Cut`, `bytes.Cut`, `strings.Clone` (1.18); `fmt.Appendf` and
+the typed atomics `atomic.Bool`, `atomic.Int64`, `atomic.Pointer[T]` (1.19);
+`strings.CutPrefix`/`CutSuffix`, `bytes.Clone`, `errors.Join`,
+`context.WithCancelCause`/`Cause` (1.20); `log/slog`, `cmp.Ordered`,
+`cmp.Compare`, the `slices` and `maps` packages including `slices.Index`,
+`Max`/`Min`, `Reverse`, `Compact`, `Clip` and `maps.DeleteFunc`,
+`sync.OnceFunc`/`OnceValue`/`OnceValues`, `context.AfterFunc`,
+`WithoutCancel`, `WithTimeoutCause`/`WithDeadlineCause` (1.21); `cmp.Or`,
+`slices.Concat`, `sql.Null[T]`, `reflect.TypeFor`, `http.ServeMux` method and
+wildcard patterns with `r.PathValue`, `http.ServeFileFS` and
+`http.FileServerFS`, `testing/slogtest` (1.22); `iter.Seq` with the iterator
+forms in `slices` (`All`, `Values`, `Collect`, `Sorted`, `AppendSeq`) and
+`maps` (`All`, `Keys`, `Values`, `Collect`), and a `time.Tick` ticker the
+garbage collector reclaims once unreferenced (1.23) — the `strings` `*Seq`
+forms are 1.24.
 
 ### Deprecated APIs and replacements
 

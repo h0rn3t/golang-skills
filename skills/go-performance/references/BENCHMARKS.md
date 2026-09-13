@@ -46,6 +46,9 @@ Key rules:
   in `b.N` loops and `RunParallel` (see Compiler Elision below)
 - `b.Loop()` resets the timer on its first call, so setup before the loop is
   excluded automatically; `b.ResetTimer()` is for `b.N` loops
+- `b.N` is the iteration count only after `b.Loop()` has returned false, so a
+  benchmark that sizes a fixture by `b.N` is restructured — a constant size, or
+  a fixture built per iteration — not translated line by line
 - Use `b.ReportAllocs()` or the `-benchmem` flag for allocation tracking
 
 ### Sub-benchmarks

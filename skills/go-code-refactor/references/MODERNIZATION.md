@@ -1,6 +1,6 @@
 # Modernization Catalog
 
-> Sources: `$GOROOT/api/go1.2*.txt`; `go tool fix help`; Go spec; package docs; JetBrains go-modern-guidelines `FEATURES.md` (the Go 1.24–1.27 list cross-checked 2026-09-13: every item is covered here, in `COMPATIBILITY.md`, or by its owner skill)
+> Sources: `$GOROOT/api/go1.2*.txt`; `go tool fix help`; Go spec; package docs; JetBrains go-modern-guidelines `guidelines.json` at `155dc7c` (all 54 items cross-checked 2026-09-13; the write-time card is `go-style-core/references/CURRENT-GO.md`)
 > Authority: normative for tier placement; project policy for what may ride in a refactor
 > Minimum Go: gated by the `go` directive in `go.mod`, not the installed toolchain
 > Last verified: 2026-09-13
@@ -50,7 +50,7 @@ p := Person{Name: name, Age: &age}
 p := Person{Name: name, Age: new(yearsSince(born))}
 ```
 
-Useful for JSON/protobuf optional fields such as `*int`/`*bool`.
+Useful for JSON/protobuf optional fields such as `*int`/`*bool`; `new(30)` is `*int`, so a `*time.Duration` field takes `new(30 * time.Second)`.
 Preview with `go fix -newexpr -diff`.
 
 ### `errors.AsType[T]` — Go 1.26
@@ -166,7 +166,7 @@ the three-clause loop re-evaluates it each iteration. `go fix -rangeint`.
 
 Per-iteration loop variables make the copy redundant. Safe once the `go`
 directive says 1.22+; a mechanical delete under an older directive is a real
-bug. `go fix -forvar`.
+bug. A pointer to the element itself is `&s[i]`, not `&v`. `go fix -forvar`.
 
 ### `min`, `max`, `clear` — Go 1.21
 
@@ -181,7 +181,7 @@ zeroes elements rather than truncating — it is not `s = s[:0]`. `go fix -minma
 ### `cmp.Or` for fallback chains — Go 1.22
 
 `name := cmp.Or(input, defaultName)` replaces the if-chain, but evaluates every
-argument — not for expensive or side-effecting fallbacks.
+argument — not for expensive or side-effecting fallbacks, and not where `0` or `false` is a legitimate value the chain must keep.
 
 ### Test-only conveniences — Go 1.24–1.27
 

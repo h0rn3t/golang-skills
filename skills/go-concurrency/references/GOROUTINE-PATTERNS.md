@@ -2,7 +2,8 @@
 
 > Sources: source/uber-go-style/style.md (Goroutine Lifetimes, No goroutine leaks); source/golang-wiki/CodeReviewComments.md (Goroutine Lifetimes)
 > Authority: advisory
-> Last verified: 2026-09-10
+> Minimum Go: `time.Tick` without `Stop` in a process-lifetime loop 1.23
+> Last verified: 2026-09-13
 
 Detailed patterns for managing goroutine lifetimes — ensuring every goroutine
 has a clear start/stop mechanism and preventing resource leaks.
@@ -46,6 +47,12 @@ go func() {
 close(stop)  // signal the goroutine to stop
 <-done       // and wait for it to exit
 ```
+
+`ticker.Stop()` matters here because the goroutine can end while the program
+runs on. A loop that runs for the life of the process needs neither the
+variable nor the `Stop`: `for range time.Tick(d)` (Go 1.23) — since 1.23 an
+unreferenced ticker is collected, so the old warning against `time.Tick` no
+longer holds; keep `time.NewTicker` where `Stop` or `Reset` is called.
 
 Sending on a closed channel panics — always use `close()` to signal, never send:
 

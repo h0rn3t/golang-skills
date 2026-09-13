@@ -9,6 +9,23 @@ documented stubs and the hidden golden test is the specification, and
 defects and the review is scored against a hidden key by the source line each
 defect sits on.
 
+## The idiom card on `roster`, Haiku 4.5 at n=5 (2026-09-13)
+
+[Report](../../docs/evidence/2026-09-13-go-implement-roster-current-go-card-n5-haiku-4-5.md):
+Haiku 4.5, `no-skill`, `reference` (1.16.0) and `baseline` (the working tree
+with `go-style-core/references/CURRENT-GO.md`, the write-time idiom card),
+five repetitions on `roster`, 15 sessions, 14/15 valid. The fixture
+discriminates here where it could not on Sonnet 5 medium: the unaided arm
+copied `sort.Strings` from the pre-1.21 neighbor in 5/5 sessions (one without
+the import, so it did not build), the normative rule alone left it in 2/5,
+the card in 0/5 — `slices.Sort` 5/5, `slices.ContainsFunc` 4/5,
+`slices.Compact` 2/5 — with golden 5/5 in both skilled arms and +27% cost
+over the reference. The card reached two sessions that loaded only `go-code`,
+through its routing line. One card session modernized `legacy.go`, the file
+the fixture declares off limits; behavior held, so only the `go fix` column
+reading zero shows it. `map[string]bool` as a set moved nowhere (5/5, 5/5,
+3/5).
+
 ## Architecture reference and the current-Go rule, three arms at n=1 (2026-09-13)
 
 [Report](../../docs/evidence/2026-09-13-go-arch-current-go-three-arm-n1-sonnet-5-medium.md):

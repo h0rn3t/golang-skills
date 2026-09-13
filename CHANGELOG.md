@@ -4,6 +4,71 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-09-13
+
+### Added
+
+- `go-style-core/references/CURRENT-GO.md`: the write-time idiom card. One
+  line per idiom — the form an older habit produces, the form the module's
+  `go` directive allows with its version, and the trap on the same line —
+  grouped by area and opened by the four forms that appear in nearly every
+  file (`for i := range n`, `slices.Contains`, `errors.Is` over `==`, `any`).
+  It closes with `go doc` as the source for an API not written before (the
+  `maps.Keys` iterator where `x/exp/maps` returned a slice, the `int`
+  comparator of `slices.SortFunc`, `strings.Lines` keeping the newline) and
+  with which version governs: the module's `go.mod`, language 1.16 when the
+  line is missing; `go.work`, a `toolchain` line and the installed Go raise
+  nothing. Built from the 54 items of JetBrains go-modern-guidelines
+  `guidelines.json` at `155dc7c`, checked one by one against the tree: ten
+  had no mention anywhere (`time.Tick` after 1.23, `slices.Index`,
+  `Max`/`Min`, `Reverse`, `Clip`, `WithTimeoutCause`/`WithDeadlineCause`,
+  `bytes.Clone`, `bytes.Cut`, `fmt.Appendf`, `time.Until`), seven only in a
+  reference (`clear`, `slices.Compact`, `sync.OnceFunc`/`OnceValue`,
+  `strings.Clone`, `strings.Cut`, `time.Since`), and the two the upstream
+  ranks Critical — `errors.Is` over `==` and `any` — were stated in no
+  owner's SKILL.md. `go-style-core` routes to it before the first edit and
+  says so in Write Current Go, `go-code` names it in its `go-style-core`
+  routing line, the review checklist's Current Go row links it, and
+  `TestGoVersionBaseline` pins its `time.Tick` and `errors.Is` rows.
+  Measured on Haiku 4.5, the model Sonnet 5 medium's 0/6 had pointed at,
+  three arms at n=5 on `roster`, 15 sessions, $1.27:
+  [`docs/evidence/2026-09-13-go-implement-roster-current-go-card-n5-haiku-4-5.md`](docs/evidence/2026-09-13-go-implement-roster-current-go-card-n5-haiku-4-5.md).
+  Unaided, 5/5 sessions copied `sort.Strings` from the pre-1.21 neighbor and
+  one did not build (`undefined: sort`); with the 1.16.0 text 2/5; with the
+  card 0/5, `slices.Sort` 5/5, `slices.ContainsFunc` 4/5, golden 5/5 in both
+  skilled arms, $0.126 against $0.099 a session. Two sessions that loaded only
+  `go-code` read the card through its routing line. One card session
+  modernized `legacy.go`, the neighbor the fixture declares off limits —
+  correct rewrites, behavior held, visible only as `go fix` pending 3 → 0 —
+  so "untouched neighbors are not rewritten" did not hold in 1/5 sessions on
+  this model. `map[string]bool` as a set moved nowhere. The evals suite ran
+  with `/usr/local/go/bin` on PATH: everything passes except
+  `TestScriptFunctional/SetupLintDryRun`, which needs a `golangci-lint`
+  binary this machine lacks.
+
+### Changed
+
+- The owners carry what the card names and the caveats JetBrains added to
+  its guideline summaries between `91a30b3` and `155dc7c`: `go-data-structures`
+  gains `slices.Index`, `Max`/`Min`, `Concat`, `Compact`, `Clip`, `clear`, the
+  `strings.Cut` family and a note on the two signatures an older habit gets
+  wrong (`maps.Keys` returns `iter.Seq`; `slices.SortFunc` compares with an
+  `int`); `SYNC-PRIMITIVES.md` gains a Run Once section
+  (`sync.OnceFunc`/`OnceValue`/`OnceValues`) and the typed-atomic migration
+  caveat (a swapped field changes the struct's layout; `atomic.Value` panics on
+  nil); `GOROUTINE-PATTERNS.md` says `for range time.Tick(d)` is fine since
+  1.23 in a process-lifetime loop; `go-context` gains
+  `WithTimeoutCause`/`WithDeadlineCause`; `go-error-handling` states
+  `errors.Is(err, target)` over `err == target`; `go-testing` says
+  `t.Context()` is cancelled before `t.Cleanup` runs; `BENCHMARKS.md` says a
+  `b.N`-sized fixture is restructured, not translated to `b.Loop()`;
+  `STRING-OPTIMIZATION.md` gains `fmt.Appendf`; `MODERNIZATION.md` notes
+  `new(30)` is `*int`, `cmp.Or` is wrong where `0` or `false` is a real
+  value, and `&s[i]` is the pointer to the element itself (also in
+  `BEHAVIOR-TRAPS.md`); its Sources line and `THIRD_PARTY_NOTICES.md` now
+  name `155dc7c`. `COMPATIBILITY.md` gains "Which version governs" and a
+  1.18–1.23 API list in place of 1.21–1.23. Reference count 73 → 74.
+
 ## [1.16.0] - 2026-09-13
 
 ### Added

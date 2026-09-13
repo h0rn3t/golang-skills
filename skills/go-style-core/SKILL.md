@@ -13,6 +13,7 @@ the task requires. An ordinary function edit does not require every reference.
 
 ## Resource Routing
 
+- `references/CURRENT-GO.md` - Read whole before the first edit of a task that writes or changes Go: one line per idiom — the older form, the form the module's `go` directive allows, and the trap — then `go doc` for an API not written before, and which version governs.
 - `references/PRINCIPLES.md` - Read when resolving a tradeoff between clarity, simplicity, concision, maintainability, and consistency.
 - `references/FORMATTING.md` - Read for line breaks, whitespace, comments, and semicolon mechanics.
 - `references/SCOPE.md` - Read for `var` vs `:=`, grouping declarations, if-init, and reassignment across scopes.
@@ -78,14 +79,20 @@ for i := 0; i < len(items); i++ {
 }
 ```
 
+[CURRENT-GO.md](references/CURRENT-GO.md) lists the forms, one line per idiom
+with its trap; read it whole before the first edit, since its older rows apply
+at every directive. An API not written before is looked up with `go doc`
+first, never written from memory.
+
 Write the older form only when one of three things is true, and name which in
 the report: the current form does not compile at the `go` directive (`go vet`'s
 `stdversion` reports library symbols; `COMPATIBILITY.md` lists the language
 features); it changes observable behavior (the tiers in
 [MODERNIZATION.md](../go-code-refactor/references/MODERNIZATION.md) say which
-swaps do); or it does not fit the code at hand. An installed newer toolchain
-does not authorize a version bump; respect build constraints and the CI
-toolchains.
+swaps do); or it does not fit the code at hand. The directive is the `go`
+line of the module's `go.mod` — language 1.16 when the line is missing — and
+neither a `toolchain` line nor an installed newer Go raises it or authorizes
+a version bump; respect build constraints and the CI toolchains.
 
 The rule covers idioms — language features and standard-library APIs — not
 dependencies: the logger, assertion library, router, or ORM the package already

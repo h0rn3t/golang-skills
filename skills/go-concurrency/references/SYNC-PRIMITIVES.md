@@ -2,8 +2,8 @@
 
 > Sources: source/uber-go-style/style.md (Zero-value Mutexes are Valid, Do not embed mutexes, Atomic); https://pkg.go.dev/sync/atomic
 > Authority: advisory
-> Minimum Go: typed atomics (`atomic.Int64`) 1.19
-> Last verified: 2026-09-10
+> Minimum Go: typed atomics (`atomic.Int64`) 1.19; `sync.OnceFunc`/`OnceValue`/`OnceValues` 1.21
+> Last verified: 2026-09-13
 
 Detailed patterns for mutexes and atomic operations — covering mutex embedding
 pitfalls and type-safe atomic access.
@@ -94,6 +94,40 @@ The standard-library `atomic.Bool`, `atomic.Int64`, etc. types add type safety
 by hiding the underlying type. They need no external dependency on Go 1.27.
 Preserve an existing `go.uber.org/atomic` convention or use it for a required
 operation the standard library does not provide.
+
+Prefer them in new code. In an existing struct, swapping a raw `int64` or
+`unsafe.Pointer` field for `atomic.Int64` or `atomic.Pointer[T]` changes the
+struct's size and layout, and `atomic.Value` differs from `atomic.Pointer[T]`
+(`Value` panics on a nil store and on a change of dynamic type): migrate a
+type as one change, not call by call.
+
+---
+
+## Run Once
+
+`sync.OnceFunc`, `sync.OnceValue`, and `sync.OnceValues` (Go 1.21+) replace a
+`sync.Once` paired with a result field and a getter: the returned function
+runs the wrapped one at most once and hands every caller the same result.
+
+```go
+// Bad: three declarations for one lazy value
+var (
+    cfgOnce sync.Once
+    cfg     *Config
+)
+
+func config() *Config {
+    cfgOnce.Do(func() { cfg = load() })
+    return cfg
+}
+
+// Good: one declaration; every call returns the same *Config
+var config = sync.OnceValue(load)
+```
+
+If the wrapped function panics, every later call panics with the same value,
+so one-time work that can fail returns its error — `sync.OnceValues` carries
+`(T, error)`.
 
 ---
 

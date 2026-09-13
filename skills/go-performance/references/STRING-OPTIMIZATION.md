@@ -109,7 +109,8 @@ str := src.String() + " [" + qos.String() + ":" + strconv.Itoa(mtu) + "]-> " + d
 ```
 
 When writing to an `io.Writer`, use `fmt.Fprintf` directly instead of building a
-temporary string with `fmt.Sprintf`.
+temporary string with `fmt.Sprintf`. When appending to a `[]byte` already in
+hand, `buf = fmt.Appendf(buf, ...)` (Go 1.19+) skips the string as well.
 
 ### Use `strings.Builder` for Piecemeal Construction
 
@@ -147,5 +148,6 @@ usage := "" +
 | `fmt.Sprintf` | Formatted output | Slower, but clearer |
 | `strings.Builder` | Loop/piecemeal construction | Amortized O(n) |
 | `strings.Join` | Joining a slice | O(n) |
+| `fmt.Appendf` | Formatted text appended to an existing `[]byte` (Go 1.19+) | No intermediate string |
 | `strings.Clone` | Detach a retained substring when profiling justifies the copy | Copies the retained bytes |
 | Backtick literal | Constant multi-line text | Zero cost |

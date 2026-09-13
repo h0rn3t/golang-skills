@@ -6,8 +6,9 @@ description: Use when creating or manipulating Go slices, maps, arrays, or sets,
 # Go Data Structures
 
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `slices`/`maps`
-> and `slices.Clone`/`maps.Clone` require Go 1.21+; `strings.SplitSeq`
-> Go 1.24+; `strings.CutLast`/`bytes.CutLast` Go 1.27+.
+> and `slices.Clone`/`maps.Clone` require Go 1.21+; `slices.Concat` Go 1.22+;
+> `strings.Cut` Go 1.18+, `strings.CutPrefix`/`CutSuffix` Go 1.20+,
+> `strings.SplitSeq` Go 1.24+, `strings.CutLast`/`bytes.CutLast` Go 1.27+.
 
 ## Resource Routing
 
@@ -44,17 +45,23 @@ Writing the loop instead is a reviewable defect, not a style choice —
 
 | Loop you were about to write | Use |
 |---|---|
-| Search for a value | `slices.Contains`, `slices.IndexFunc` |
+| Search for a value, or its position | `slices.Contains`, `slices.ContainsFunc`, `slices.Index`, `slices.IndexFunc` |
 | Sort | `slices.Sort`, `slices.SortFunc` (not `sort.Slice`) |
 | Copy, where a nil input may stay nil | `slices.Clone`, `maps.Clone` |
 | Copy that must encode as `[]` or `{}` under `encoding/json` v1 | `dst := make([]T, len(s)); copy(dst, s)` or `append([]T{}, s...)`; `Clone` of nil is nil, which v1 writes as `null` |
 | Merge entries into an existing map | `maps.Copy` |
 | Delete map entries by predicate | `maps.DeleteFunc` |
 | Compare | `slices.Equal`, `maps.Equal` |
+| Largest or smallest element | `slices.Max`, `slices.Min` |
+| Concatenate | `slices.Concat` (Go 1.22+) |
+| Remove adjacent duplicates | `slices.Compact` after `slices.Sort` |
+| Empty a map, zero a slice | `clear(m)`; `clear(s)` keeps the length |
+| Drop spare capacity before keeping a subslice | `slices.Clip` |
 | Collect keys/values, where an empty result may be nil | `slices.Collect(maps.Keys(m))`, `slices.Sorted(maps.Keys(m))` |
 | Collect keys into a slice that must encode as `[]` | `keys := slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m)); slices.Sort(keys)` — `Collect` and `Sorted` return nil for an empty iterator |
 | Insert/delete in the middle | `slices.Insert`, `slices.Delete` |
 | Iterate in reverse | `slices.Backward` |
+| Split a string once at a separator | `strings.Cut`, `strings.CutPrefix`, `strings.CutSuffix` (Go 1.20+) |
 | Split a string once, iterate | `strings.SplitSeq` (no slice allocated) |
 | Split off the last segment | `strings.CutLast` / `bytes.CutLast` (Go 1.27+) |
 
@@ -65,6 +72,12 @@ copy produces a non-nil container even for nil input. Preserve that allocation
 when JSON, a later map write, or observable capacity requires it — see
 [Declaring Empty Slices](#declaring-empty-slices). Check the contract before
 replacing a loop.
+
+Two signatures an older habit gets wrong: `maps.Keys` and `maps.Values`
+return iterators (`iter.Seq`), not the slices the retired
+`golang.org/x/exp/maps` returned — range over them or `slices.Collect`; the
+`slices.SortFunc` comparator returns an `int` through `cmp.Compare`, not the
+`bool` of `sort.Slice`, and `slices.SortStableFunc` is the stable one.
 
 ```go
 dir, file, ok := strings.CutLast("a/b/c.txt", "/") // "a/b", "c.txt", true

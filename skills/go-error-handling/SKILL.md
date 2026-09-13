@@ -94,7 +94,10 @@ if errors.As(err, &pathErr) { /* ... */ }
 ```
 
 `go fix -errorsastype ./...` rewrites the old form. Keep `errors.Is` for
-sentinel comparison — `AsType` replaces `As`, not `Is`.
+sentinel comparison — `AsType` replaces `As`, not `Is`. A sentinel is matched
+with `errors.Is(err, target)`, never `err == target`: `==` sees only the
+outermost value and misses every `%w` wrap, and `errorlint` in the gate
+reports the comparison.
 
 ### Matching multiple typed errors
 

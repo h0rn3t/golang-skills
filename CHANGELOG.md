@@ -4,6 +4,138 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-09-13
+
+### Added
+
+- `hooks/go-vet-on-edit.sh` runs the package's own tests (`go test -short
+  -count=1`, once the package type-checks and has test files) and
+  `golangci-lint` (the repository's configuration when one is found, the
+  bundled `skills/go-linting/assets/golangci.yml` otherwise; findings in the
+  edited file are listed, the rest of the package is one count) after every
+  edit of a `.go` file, and prints the failures back. The hook is the host's
+  process, so it runs in a session whose tool set has no shell — the
+  condition of every `claude` arm in the evidence, where no session had ever
+  run the gate on its own work. `GOLANG_SKILLS_EDIT_TESTS=off` and
+  `GOLANG_SKILLS_EDIT_LINT=off` switch the two steps off; the hook timeout is
+  150 s. Measured against the committed 1.14.0 tree (`d1b7124`) together
+  with the three skill sentences below, no shell in any session:
+  - Sonnet 5 medium, `feed` and `gateway`, n=5:
+    [`docs/evidence/2026-09-12-go-implement-edit-hook-feed-gateway-n5-sonnet-5-medium.md`](docs/evidence/2026-09-12-go-implement-edit-hook-feed-gateway-n5-sonnet-5-medium.md).
+    Golden 7/10 to 9/10 — the `feed` `null` miss and the nil-`accounts`
+    miss, both one-in-five base rates, did not appear in baseline; every
+    baseline session lint-clean against 3/5 on `feed`; lines level (p > 0.9);
+    $0.363 to $0.382 a session. The one baseline failure is the `HEAD` clause
+    in a session whose own contract test had no `HEAD` case: the hook runs the
+    tests the model wrote and cannot write them.
+  - Opus 5 medium, `gateway`, n=5:
+    [`docs/evidence/2026-09-12-go-implement-edit-hook-gateway-n5-opus-5-medium.md`](docs/evidence/2026-09-12-go-implement-edit-hook-gateway-n5-opus-5-medium.md).
+    Golden 5/5 and lint-clean 5/5 in both arms — the morning's tree left the
+    hook nothing to catch — at +8% cost (6.8 edits a session against 5.0);
+    body comments 4.4 to 6.2 (p = 0.048), of which +1.2 is the discard reason
+    the `go-http` bullet's example carries, written on both writes in 5/5
+    sessions against 2/5.
+  - Opus 5 medium, `feed` and `gateway`, three arms at n=1 — `1.14.0`, the
+    same tree with only the new hook, and the working tree — as two runs
+    sharing the working-tree arm:
+    [`docs/evidence/2026-09-13-go-implement-hook-vs-text-feed-gateway-n1-opus-5-medium.md`](docs/evidence/2026-09-13-go-implement-hook-vs-text-feed-gateway-n1-opus-5-medium.md).
+    8/8 golden and lint-clean in every arm; $1.03, $0.94 and $0.86 a
+    session, so the +8% did not repeat; body comments 3.5, 4.0 and 2.75.
+    The nil-built empty case is visible: both old-text `feed` tests carry an
+    `[]Event{}` case beside the nil one, neither working-tree test does.
+    The hook and the sentences cannot be told apart on this model, where
+    there is nothing to fix; the attribution run belongs on Sonnet 5.
+- `evals/ab/_review`: three fixtures built for a saturated model — `books`
+  (a ledger over `database/sql`, 14 defects), `partner` (an HTTP client with
+  retries, a token bucket and a breaker, 17) and `vault` (a tenant file store
+  over HTTP, 13) — whose defects need evidence from two places (a `SELECT`
+  against its `Scan`, `schema.sql` against a `string` target, `RawURLEncoding`
+  against `URLEncoding`, a pointer-receiver `String` against a logged value),
+  a simulated sequence of calls (a refill that truncates to seconds, a
+  half-open breaker nothing closes, a `bytes.Reader` at EOF, a pooled buffer
+  returned after `Put`), an enumeration one field short, standard-library
+  semantics that read as correct, or a passing test that contradicts the
+  contract. Their baits are forms the skills prescribe: `omitzero`,
+  `time.After` in a select, `math/rand/v2` jitter, `context.WithoutCancel`,
+  `limit + 1`. Every fixture is gofmt-, vet- and `go fix`-clean with passing
+  tests; 43 of the 44 defects are on lines no bundled linter reports.
+- `abrun -rescore <report.json> [-out <report.json>]` scores the review
+  results of a saved report again against the current keys, without a
+  session, and marks the report `rescored`; keys are amended after a run
+  from what the reviews cited, and the report's numbers were about a key
+  that no longer existed.
+- The first run of the three fixtures, Opus 5 medium, `no-skill` against
+  `baseline`, n=2:
+  [`docs/evidence/2026-09-12-go-review-corpus-hard-opus-5-medium.md`](docs/evidence/2026-09-12-go-review-corpus-hard-opus-5-medium.md).
+  The brief does not hold: unaided recall 0.97 over 44 defects and must
+  recall 1.00 in both arms, at 26 citations a session. The one class that
+  held is the test that passes for the wrong reason (`partner/test-any-error`
+  0/4). Nine key entries came from what the reviews cited. On Opus 5 the
+  corpus measures precision and filing — baits 0.38, unkeyed 0.27 unaided
+  against 0.35 with the skill, must defects filed under Must Fix 0.84 against
+  0.78 — at $0.34 against $0.56 a session.
+- `evals/ab/_review`: a review corpus. `go run ./cmd/abrun -corpus review`
+  hands the model a working package with seeded defects — `orders` (HTTP over
+  `database/sql`, 12 defects), `worker` (a bounded pool, 13), `invoice` (a
+  text renderer, 7) — with no `Edit` or `Write` tool, and scores the final
+  message against `_golden/<fixture>/key.json`: each defect is a substring
+  resolved to a source line before the run, a citation within two lines
+  counts, and one or two bait lines of correct code per fixture count against
+  the review. The report prints recall, must-severity recall and how many of
+  those were filed under Must Fix, recall on the lines no bundled linter
+  reports, baits hit, unkeyed citations, and a per-defect table by arm.
+  Every fixture is gofmt-, vet- and `go fix`-clean and its tests pass, so the
+  tools a reviewer runs first hand over nothing; `TestReviewKeysResolve`
+  checks on every push that the key still lands and no two windows overlap.
+  Until now `go-code-review` had never been measured on a Claude model.
+- The review corpus's first runs, `no-skill` against `baseline`, no shell,
+  no editing tool:
+  [`docs/evidence/2026-09-12-go-review-corpus-smoke.md`](docs/evidence/2026-09-12-go-review-corpus-smoke.md).
+  Sonnet 5 medium, n=2: recall over 29 seeded defects 0.74 to 0.90, must
+  recall 0.80 to 0.93, found must defects filed under Must Fix 0.75 to 0.93;
+  the `rows` lifecycle, the one-implementation interface, the middle-man type
+  and `context.Background` in a test went from 0/2 to 2/2; baits flagged 0.50
+  to 0.60; $0.061 to $0.143 a session. Opus 5 medium, n=1: 29/29 unaided,
+  28/29 with the skill — the corpus has no room on Opus 5 until a fixture
+  carries defects it misses. Every skilled review carried `verified` and
+  `plausible` markers; no unaided one did. Three defects both arms cited and
+  the key lacked were added after the runs (`worker/workers-unvalidated`,
+  `orders/float-money`, `orders/id-with-commit-error`; 32 defects now), and
+  the scorer counts only the first citation on a line as a finding — a later
+  one is a supporting reference that counts toward the defect it lands on and
+  is never unkeyed.
+- `evals/cmd/abrun` and the hook pass `--allow-parallel-runners` to
+  golangci-lint: the hook's linter inside a session and the harness's
+  reading outside it shared the global lock, and 2 of 20 `lint before`
+  readings on the Sonnet 5 run came back `n/a`.
+
+### Changed
+
+- `go-http` carries the open-discard bullet that lived only in `go-code`'s
+  Delete Pass: `_, _ = w.Write(body)` with its reason, never bare, with
+  `errcheck` and `gosec` G104 named. On the 1.14.0 tree every Sonnet 5
+  `gateway` session had two `errcheck` findings; on this tree none has.
+- `go-code` Contract Table: the empty case is built from nil — a nil slice, a
+  nil map, a request with no body — not from an empty literal, because
+  `[]T{}` already has the shape the case is meant to prove and
+  `slices.Clone` of nil is nil. Both 2026-09-12 Sonnet 5 runs had a
+  `gateway` session serve `null` for `GET /accounts` on nil input.
+- `go-code` Plain Code: the standard-library bullet gives only the safe form
+  for a map's keys and points at `go-data-structures` for the collectors
+  whose empty result is nil, instead of naming `slices.Sorted(maps.Keys(m))`
+  as the trap: one Sonnet 5 `feed` session in five on the 1.14.0 tree wrote
+  the named form and rendered `null`.
+- `go-code` step 6: without a shell the checks line carries what the edit
+  hook reported, check by check, and `unavailable (no shell)` for a check no
+  hook ran; a hook's silence is not a result. Several Sonnet 5 sessions on
+  the measured tree had already written `test pass (verified via editor
+  hooks)` where the text said `unavailable`. Added after the runs above.
+  First observed in the 2026-09-13 Opus 5 three-arm run: 4/4 working-tree
+  sessions wrote the per-check form, 3 with the `(hook)` marker, and one
+  wrote `test pass` and named the hook's silence after the last edit as its
+  evidence — which was in fact a clean run, so the sentence is read two
+  ways and needs the clean-run case spelled out.
+
 ## [1.14.0] - 2026-09-12
 
 ### Added

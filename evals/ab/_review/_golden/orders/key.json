@@ -1,0 +1,119 @@
+{
+  "defects": [
+    {
+      "id": "bare-listen",
+      "owner": "go-http",
+      "severity": "must",
+      "file": "server.go",
+      "match": "return http.ListenAndServe(addr, s.mux)",
+      "tool": "gosec G114",
+      "note": "no ReadHeaderTimeout or other server timeouts on a public listener"
+    },
+    {
+      "id": "background-ctx",
+      "owner": "go-context",
+      "severity": "should",
+      "file": "server.go",
+      "match": "s.store.Get(context.Background(), id)",
+      "note": "the request context is dropped; r.Context() carries the client's cancellation"
+    },
+    {
+      "id": "sentinel-eq",
+      "owner": "go-error-handling",
+      "severity": "must",
+      "file": "server.go",
+      "match": "if err == ErrNotFound {",
+      "tool": "errorlint",
+      "note": "Get wraps ErrNotFound with %w, so == never matches and every miss is a 500"
+    },
+    {
+      "id": "500-leaks-error",
+      "owner": "go-http",
+      "severity": "must",
+      "file": "server.go",
+      "match": "http.Error(w, err.Error(), http.StatusInternalServerError)",
+      "note": "the 500 body carries the database error text"
+    },
+    {
+      "id": "credential-logged",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "server.go",
+      "match": "\"authorization\", r.Header.Get(\"Authorization\")",
+      "note": "the bearer token is written to the log"
+    },
+    {
+      "id": "unbounded-body",
+      "owner": "go-http",
+      "severity": "should",
+      "file": "server.go",
+      "match": "json.NewDecoder(r.Body).Decode(&in)",
+      "note": "no http.MaxBytesReader before decoding a client body"
+    },
+    {
+      "id": "request-ctx-outlives",
+      "owner": "go-context",
+      "severity": "must",
+      "file": "server.go",
+      "match": "go s.store.Audit(r.Context(), id)",
+      "note": "r.Context() is cancelled when the handler returns, so the audit write is cancelled almost every time; its error is also dropped",
+      "tool": "errcheck (the dropped error only)"
+    },
+    {
+      "id": "sql-injection",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "store.go",
+      "match": "fmt.Sprintf(\" WHERE customer = '%s'\", customer)",
+      "tool": "gosec G202, G701",
+      "note": "the customer parameter is spliced into SQL; it needs a placeholder"
+    },
+    {
+      "id": "rows-lifecycle",
+      "owner": "go-database",
+      "severity": "must",
+      "file": "store.go",
+      "match": "for rows.Next() {",
+      "span": 8,
+      "note": "rows is never closed and rows.Err() is not checked after the loop, so a truncated result set is returned as complete"
+    },
+    {
+      "id": "db-inside-tx",
+      "owner": "go-database",
+      "severity": "must",
+      "file": "store.go",
+      "match": "s.db.ExecContext(ctx, `INSERT INTO order_events",
+      "note": "the event insert runs on s.db, outside the transaction, so a rollback leaves an orphan event"
+    },
+    {
+      "id": "float-money",
+      "owner": "go-defensive",
+      "severity": "should",
+      "file": "store.go",
+      "match": "Total    float64 `json:\"total\"`",
+      "note": "a monetary amount in float64; cents in an integer, or a decimal type"
+    },
+    {
+      "id": "id-with-commit-error",
+      "owner": "go-error-handling",
+      "severity": "should",
+      "file": "store.go",
+      "match": "return id, tx.Commit()",
+      "note": "a failed commit returns the new id beside the error, and the id was never stored; return 0 with the error"
+    }
+  ],
+  "baits": [
+    {
+      "id": "open-discard",
+      "file": "server.go",
+      "match": "_, _ = w.Write(body)",
+      "note": "the discard is deliberate and carries its reason"
+    },
+    {
+      "id": "deferred-rollback",
+      "file": "store.go",
+      "match": "defer func() { _ = tx.Rollback() }()",
+      "note": "the idiomatic rollback guard"
+    }
+  ]
+}

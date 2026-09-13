@@ -104,6 +104,16 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 - Set headers before `WriteHeader`, and call it once. Buffer encoding when an
   encode error must change the status; otherwise log the encode error because
   headers have already been sent.
+- A write whose error has nowhere to go is discarded in the open with its
+  reason on the line, never bare:
+
+  ```go
+  _, _ = w.Write(body) // headers are sent; a failed write is the client's disconnect
+  ```
+
+  `errcheck` reads a bare `w.Write`, `io.WriteString(w, …)`, or
+  `json.NewEncoder(w).Encode(v)` as a finding, and `//nolint:errcheck` is not
+  a way out: `gosec` G104 reports the same line.
 
 ### Mapping errors to status codes
 

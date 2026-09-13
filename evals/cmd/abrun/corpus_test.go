@@ -66,6 +66,35 @@ func TestCorpusPrompt(t *testing.T) {
 	if got := corpusPrompt(corpusImplement); got != implementPrompt {
 		t.Errorf("corpusPrompt(%q) = %q, want the implement prompt", corpusImplement, got)
 	}
+	if got := corpusPrompt(corpusReview); got != reviewPrompt {
+		t.Errorf("corpusPrompt(%q) = %q, want the review prompt", corpusReview, got)
+	}
+}
+
+// TestReviewCorpusIsSeparate pins the same property for the review corpus:
+// its fixtures are invisible to the other two runs and share no name with
+// them, because every corpus keys its golden directory by fixture name.
+func TestReviewCorpusIsSeparate(t *testing.T) {
+	refactorRoot, implementRoot := corpusRoots()
+	reviewRoot := filepath.Join(refactorRoot, reviewDir)
+	reviewTasks, err := findTasks(reviewRoot, "")
+	if err != nil {
+		t.Fatalf("findTasks(review corpus) error = %v", err)
+	}
+	for _, root := range []string{refactorRoot, implementRoot} {
+		tasks, err := findTasks(root, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if slices.Contains(tasks, reviewDir) {
+			t.Errorf("findTasks(%q) offers %s as a fixture", root, reviewDir)
+		}
+		for _, task := range reviewTasks {
+			if slices.Contains(tasks, task) {
+				t.Errorf("fixture %q appears in the review corpus and under %q", task, root)
+			}
+		}
+	}
 }
 
 func TestValidateOptionsRejectsUnknownCorpus(t *testing.T) {

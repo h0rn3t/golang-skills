@@ -381,6 +381,112 @@ func TestVetHook(t *testing.T) {
 			t.Fatalf("payload with a decoy path in content: exit %d, stderr %q; want 2 naming %s", code, msg, path)
 		}
 	})
+
+	// The tests and the linter run only for a package that type-checks, so a
+	// session without a shell still sees what the gate would have said.
+	withTest := func(t *testing.T, src, test string) string {
+		t.Helper()
+		path := module(t, src)
+		if err := os.WriteFile(filepath.Join(filepath.Dir(path), "main_test.go"), []byte(test), 0o644); err != nil {
+			t.Fatalf("write main_test.go: %v", err)
+		}
+		return path
+	}
+	failing := "package main\n\nimport \"testing\"\n\nfunc TestMain2(t *testing.T) {\n\tt.Errorf(\"main() = 1, want 2\")\n}\n"
+
+	t.Run("failing package test", func(t *testing.T) {
+		t.Parallel()
+		path := withTest(t, clean, failing)
+		code, msg := hookEvent(t, script, t.TempDir(), edited(path))
+		if code != 2 || !strings.Contains(msg, "go test") || !strings.Contains(msg, "main() = 1, want 2") {
+			t.Fatalf("failing test: exit %d, stderr %q; want 2 with the go test failure", code, msg)
+		}
+	})
+
+	t.Run("package tests can be switched off", func(t *testing.T) {
+		t.Parallel()
+		path := withTest(t, clean, failing)
+		code, msg := hookEventEnv(t, script, t.TempDir(), edited(path), "GOLANG_SKILLS_EDIT_TESTS=off", "GOLANG_SKILLS_EDIT_LINT=off")
+		if code != 0 || msg != "" {
+			t.Fatalf("tests off: exit %d, stderr %q; want silent 0", code, msg)
+		}
+	})
+
+	t.Run("passing package test stays silent", func(t *testing.T) {
+		t.Parallel()
+		path := withTest(t, clean, "package main\n\nimport \"testing\"\n\nfunc TestMain2(t *testing.T) {}\n")
+		if code, msg := hookEventEnv(t, script, t.TempDir(), edited(path), "GOLANG_SKILLS_EDIT_LINT=off"); code != 0 || msg != "" {
+			t.Fatalf("passing test: exit %d, stderr %q; want silent 0", code, msg)
+		}
+	})
+
+	bareWrite := "package main\n\nimport \"net/http\"\n\nfunc handle(w http.ResponseWriter, r *http.Request) {\n\tw.Write([]byte(\"ok\"))\n}\n\nfunc main() { http.HandleFunc(\"/\", handle) }\n"
+	needLint := func(t *testing.T) {
+		t.Helper()
+		if _, err := exec.LookPath("golangci-lint"); err != nil {
+			t.Skip("golangci-lint not installed")
+		}
+	}
+
+	t.Run("lint finding in the edited file", func(t *testing.T) {
+		t.Parallel()
+		needLint(t)
+		path := module(t, bareWrite)
+		code, msg := hookEvent(t, script, t.TempDir(), edited(path))
+		if code != 2 || !strings.Contains(msg, "golangci-lint") || !strings.Contains(msg, "errcheck") || !strings.Contains(msg, path+":6:") {
+			t.Fatalf("bare w.Write: exit %d, stderr %q; want 2 with an errcheck finding at %s:6", code, msg, path)
+		}
+	})
+
+	t.Run("lint findings elsewhere in the package are one count", func(t *testing.T) {
+		t.Parallel()
+		needLint(t)
+		path := module(t, "package main\n\nfunc main() {}\n")
+		other := strings.Replace(bareWrite, "func main() { http.HandleFunc(\"/\", handle) }\n", "func init() { http.HandleFunc(\"/\", handle) }\n", 1)
+		if err := os.WriteFile(filepath.Join(filepath.Dir(path), "other.go"), []byte(other), 0o644); err != nil {
+			t.Fatalf("write other.go: %v", err)
+		}
+		code, msg := hookEvent(t, script, t.TempDir(), edited(path))
+		if code != 2 || !strings.Contains(msg, "1 finding(s) in other files") || strings.Contains(msg, "errcheck") {
+			t.Fatalf("finding in other.go: exit %d, stderr %q; want 2 with a count and no finding text", code, msg)
+		}
+	})
+
+	t.Run("repository lint configuration wins", func(t *testing.T) {
+		t.Parallel()
+		needLint(t)
+		path := module(t, bareWrite)
+		cfg := "version: \"2\"\nlinters:\n  default: none\n  enable:\n    - govet\n"
+		if err := os.WriteFile(filepath.Join(filepath.Dir(path), ".golangci.yml"), []byte(cfg), 0o644); err != nil {
+			t.Fatalf("write .golangci.yml: %v", err)
+		}
+		if code, msg := hookEvent(t, script, t.TempDir(), edited(path)); code != 0 || msg != "" {
+			t.Fatalf("repository config without errcheck: exit %d, stderr %q; want silent 0", code, msg)
+		}
+	})
+}
+
+// hookEventEnv is hookEvent with extra environment variables for the hook.
+func hookEventEnv(t *testing.T, script, state string, payload map[string]any, env ...string) (int, string) {
+	t.Helper()
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	cmd := exec.Command("bash", script)
+	cmd.Stdin = strings.NewReader(string(body))
+	cmd.Env = append(append(os.Environ(), "CLAUDE_PLUGIN_DATA="+state), env...)
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+	if err == nil {
+		return 0, stderr.String()
+	}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok {
+		t.Fatalf("run %s: %v", script, err)
+	}
+	return exitErr.ExitCode(), stderr.String()
 }
 
 // promptEvent runs the UserPromptSubmit hook and returns its exit code and

@@ -1,0 +1,127 @@
+{
+  "defects": [
+    {
+      "id": "ctx-in-struct",
+      "owner": "go-context",
+      "severity": "should",
+      "file": "pool.go",
+      "match": "ctx     context.Context",
+      "note": "a context stored in a struct outlives the call it belonged to; Run should take one"
+    },
+    {
+      "id": "unbuffered-errs",
+      "owner": "go-concurrency",
+      "severity": "must",
+      "file": "pool.go",
+      "match": "errs := make(chan error)",
+      "note": "with more jobs than Workers, Run blocks on sem while every worker blocks on the unbuffered send and nobody receives: a deadlock for any real batch"
+    },
+    {
+      "id": "blocked-senders",
+      "owner": "go-concurrency",
+      "severity": "must",
+      "file": "pool.go",
+      "match": "case <-p.ctx.Done():",
+      "span": 2,
+      "note": "returning while started jobs are still running leaves each of them blocked forever on the unbuffered errs send; drain them or give errs capacity len(jobs)"
+    },
+    {
+      "id": "unlocked-append",
+      "owner": "go-concurrency",
+      "severity": "must",
+      "file": "pool.go",
+      "match": "p.failed = append(p.failed, err)",
+      "note": "Run writes p.failed without p.mu while Failed and Snapshot read it under the lock; a concurrent Failed during Run is a data race"
+    },
+    {
+      "id": "aliased-return",
+      "owner": "go-defensive",
+      "severity": "should",
+      "file": "pool.go",
+      "match": "return p.failed",
+      "nth": 3,
+      "note": "Failed hands out the internal slice; a caller's append or sort races with the pool. Snapshot exists for that"
+    },
+    {
+      "id": "copy-into-empty",
+      "owner": "go-data-structures",
+      "severity": "must",
+      "file": "pool.go",
+      "match": "copy(out, p.failed)",
+      "span": 1,
+      "note": "out has length 0, so copy copies nothing and Snapshot always returns an empty slice"
+    },
+    {
+      "id": "lock-across-call",
+      "owner": "go-concurrency",
+      "severity": "should",
+      "file": "pool.go",
+      "match": "return fn(ctx)",
+      "note": "fn runs with p.mu held, so every Once job in the pool is serialized and a job that calls back into the pool deadlocks"
+    },
+    {
+      "id": "sleep-ignores-ctx",
+      "owner": "go-context",
+      "severity": "should",
+      "file": "pool.go",
+      "match": "time.Sleep(time.Duration(i) * 100 * time.Millisecond)",
+      "note": "the pause cannot be cancelled; a select on ctx.Done() and a timer can, and the backoff has no jitter"
+    },
+    {
+      "id": "wrap-with-v",
+      "owner": "go-error-handling",
+      "severity": "must",
+      "file": "pool.go",
+      "match": "fmt.Errorf(\"after %d attempts: %v\", attempts, err)",
+      "note": "%v drops the chain, so a caller's errors.Is on the last failure is false"
+    },
+    {
+      "id": "math-rand-token",
+      "owner": "go-defensive",
+      "severity": "must",
+      "file": "pool.go",
+      "match": "rand.Uint64(), rand.Uint64()",
+      "tool": "gosec G404",
+      "note": "a bearer token from math/rand is predictable; crypto/rand"
+    },
+    {
+      "id": "test-background",
+      "owner": "go-testing",
+      "severity": "nit",
+      "file": "pool_test.go",
+      "match": "p := New(context.Background(), 2)",
+      "note": "t.Context() is cancelled when the test ends"
+    },
+    {
+      "id": "test-sleep",
+      "owner": "go-testing",
+      "severity": "should",
+      "file": "pool_test.go",
+      "match": "time.Sleep(50 * time.Millisecond)",
+      "note": "a sleep-based wait after Run already returned; it proves nothing and slows the suite"
+    },
+    {
+      "id": "workers-unvalidated",
+      "owner": "go-defensive",
+      "severity": "should",
+      "file": "pool.go",
+      "match": "func New(ctx context.Context, workers int) *Pool {",
+      "span": 3,
+      "note": "workers of 0 or less is accepted, and Run then blocks forever on a semaphore with no capacity"
+    }
+  ],
+  "baits": [
+    {
+      "id": "sem-release",
+      "file": "pool.go",
+      "match": "defer func() { <-sem }()",
+      "note": "the bounded-concurrency semaphore is released correctly"
+    },
+    {
+      "id": "fatal-message",
+      "file": "pool_test.go",
+      "match": "t.Fatal(\"Retry() = nil, want an error after every attempt failed\")",
+      "note": "a got/want failure message in the recommended form"
+    }
+  ]
+}

@@ -1,0 +1,166 @@
+{
+  "defects": [
+    {
+      "id": "creds-logged-by-value",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "client.go",
+      "match": "c.log.Debug(\"submit shipment\", \"credentials\", c.creds, \"shipment_id\", s.ID)",
+      "note": "String is declared on *Credentials and c.creds is a value, so slog never sees a Stringer: the handler prints the struct's fields and the secret lands in the log at Debug. Redaction that depends on the receiver kind is not redaction; log ShopID"
+    },
+    {
+      "id": "retry-drains-reader",
+      "owner": "go-http",
+      "severity": "must",
+      "file": "client.go",
+      "match": "payload := bytes.NewReader(body)",
+      "span": 3,
+      "note": "one bytes.Reader serves every attempt; the first Do reads it to EOF, so the request the second attempt builds has Len() 0 and goes out with an empty body. Every retry the loop exists for turns into a 400 the partner is not at fault for. bytes.NewReader(body) inside the loop"
+    },
+    {
+      "id": "idempotency-key-per-attempt",
+      "owner": "go-resilience",
+      "severity": "must",
+      "file": "client.go",
+      "match": "req.Header.Set(\"Idempotency-Key\", rand.Text())",
+      "note": "try runs once per attempt and mints a fresh key each time, so the deduplication Submit's doc relies on never applies to a retry: a timeout after the partner accepted the first attempt creates a second shipment. One key per Submit, set before the loop"
+    },
+    {
+      "id": "retry-after-nanoseconds",
+      "owner": "go-defensive",
+      "severity": "should",
+      "file": "client.go",
+      "match": "func retryAfter(resp *http.Response) time.Duration {",
+      "note": "the header is in seconds and the conversion makes nanoseconds, so a Retry-After of 30 asks for a 30 ns pause; the max with backoff hides it. time.Duration(secs) * time.Second",
+      "span": 6
+    },
+    {
+      "id": "label-skips-host-check",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "client.go",
+      "match": "strings.TrimSuffix(statusURL, \"/status\")+\"/label\", nil)",
+      "note": "Label fetches a URL derived from the same receipt Status guards with partnerURL, and does not call it: a tampered receipt reaches any https host with the bearer token attached",
+      "span": 5
+    },
+    {
+      "id": "flush-error-lost",
+      "owner": "go-error-handling",
+      "severity": "must",
+      "file": "client.go",
+      "match": "if ferr := bw.Flush(); ferr != nil && err == nil {",
+      "span": 8,
+      "note": "Label's results are unnamed, so the deferred assignment lands in a local after the return value was already taken; a short write on Flush is reported as success and the doc's 'complete when Label returns nil' is false. Name the result: (err error)"
+    },
+    {
+      "id": "host-suffix-check",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "client.go",
+      "match": "func (c *Client) partnerURL(rawURL string) error {",
+      "note": "HasSuffix without a leading dot accepts evilpartner.example for partner.example, so the allowlist a tampered receipt is checked against is any host whose name ends in the partner's. Equal to c.domain, or HasSuffix of \".\"+c.domain",
+      "span": 6
+    },
+    {
+      "id": "defer-in-poll-loop",
+      "owner": "go-context",
+      "severity": "should",
+      "file": "client.go",
+      "match": "defer cancel()",
+      "note": "one cancel per tick is deferred until Wait returns, so a shipment polled every few seconds for a day holds thousands of timers and contexts; cancel at the end of the iteration"
+    },
+    {
+      "id": "receipt-alphabet-mismatch",
+      "owner": "go-defensive",
+      "severity": "must",
+      "file": "client.go",
+      "match": "raw, err := base64.URLEncoding.DecodeString(receipt)",
+      "note": "EncodeReceipt writes RawURLEncoding, without padding, and DecodeReceipt reads URLEncoding, which requires it: every receipt whose payload length is not a multiple of three fails to decode, and Status and Label are unusable for two thirds of shipments. The tests pass because their payloads happen to be multiples of three"
+    },
+    {
+      "id": "limiter-never-refills",
+      "owner": "go-resilience",
+      "severity": "must",
+      "file": "guard.go",
+      "match": "func (l *Limiter) Allow() bool {",
+      "span": 6,
+      "note": "int(elapsed.Seconds()) is 0 for anything under a second and last is then moved to now, so a bucket asked more often than once a second never refills: after the burst every call is throttled for good. Keep the fractional remainder, or refill from the unmoved last"
+    },
+    {
+      "id": "breaker-probe-herd",
+      "owner": "go-resilience",
+      "severity": "should",
+      "file": "guard.go",
+      "match": "func (b *Breaker) Allow() bool {",
+      "note": "nothing marks the probe as taken, so once the cooldown has passed every caller is a probe until one of them calls Record; a recovering partner receives the whole backlog at once. Move openedAt to now when the probe is granted",
+      "span": 7
+    },
+    {
+      "id": "test-any-error",
+      "owner": "go-testing",
+      "severity": "should",
+      "file": "client_test.go",
+      "match": "func TestStatusRejectsForeignHost(t *testing.T) {",
+      "note": "the test accepts any error and in fact passes for the wrong reason: the receipt's 34-byte payload does not decode under URLEncoding, so the host check is never reached. Assert the error the test is about",
+      "span": 5
+    },
+    {
+      "id": "base-without-host",
+      "owner": "go-defensive",
+      "severity": "should",
+      "file": "client.go",
+      "match": "func New(base string, creds Credentials, hc *http.Client, log *slog.Logger) (*Client, error) {",
+      "span": 4,
+      "note": "New accepts a base with no scheme or host; url.Parse of partner.example/api yields an empty Hostname, and HasSuffix(anything, \"\") is true, so the receipt guard passes every host. Refuse a base without https and a host"
+    },
+    {
+      "id": "throttle-burns-attempt",
+      "owner": "go-resilience",
+      "severity": "should",
+      "file": "client.go",
+      "match": "if !c.limiter.Allow() {",
+      "nth": 1,
+      "span": 3,
+      "note": "a refusal by the shop's own limiter consumes one of the three attempts meant for partner failures; three throttled loops fail the submission without a single request going out. Wait for a token, or keep the budget for the partner"
+    },
+    {
+      "id": "ticker-panics-on-zero",
+      "owner": "go-defensive",
+      "severity": "should",
+      "file": "client.go",
+      "match": "ticker := time.NewTicker(interval)",
+      "note": "time.NewTicker panics for an interval of zero or less; a library validates the argument and returns an error"
+    },
+    {
+      "id": "limiter-unvalidated",
+      "owner": "go-defensive",
+      "severity": "should",
+      "file": "guard.go",
+      "match": "func NewLimiter(rate, burst int) *Limiter {",
+      "span": 3,
+      "note": "rate or burst of zero or less is accepted and gives a limiter that refuses every call; last is also seeded from time.Now instead of the injectable now, which is why the test has to reach into the field"
+    },
+    {
+      "id": "error-trailing-colon",
+      "owner": "go-error-handling",
+      "severity": "nit",
+      "file": "client.go",
+      "match": "return fmt.Sprintf(\"partner answered %d: %s\", e.status, strings.TrimSpace(e.body))",
+      "note": "Status and Label build partnerError without a body, so the message ends in a dangling colon and space"
+    }
+  ],
+  "baits": [
+    {
+      "id": "math-rand-jitter",
+      "file": "client.go",
+      "match": "return wait/2 + mrand.N(wait/2+1)",
+      "note": "jitter is not a secret; math/rand/v2 is the right source, and the form the go-resilience skill itself shows. gosec G404 reports the line"
+    },
+    {
+      "id": "time-after-in-select",
+      "file": "client.go",
+      "match": "case <-time.After(d):",
+      "note": "since Go 1.23 an unreferenced timer is collected before it fires; time.After in a cancellation-aware wait leaks nothing"
+    }
+  ]
+}

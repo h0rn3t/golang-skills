@@ -77,8 +77,11 @@ const implementDir = "_implement"
 
 // corpusPrompt returns the prompt a corpus is run with unless -prompt overrides it.
 func corpusPrompt(corpus string) string {
-	if corpus == corpusImplement {
+	switch corpus {
+	case corpusImplement:
 		return implementPrompt
+	case corpusReview:
+		return reviewPrompt
 	}
 	return refactorPrompt
 }
@@ -134,6 +137,9 @@ type options struct {
 	corpus        string
 	out           string
 	referenceRoot string
+	// rescore is a saved review-corpus report to score again against the
+	// current keys instead of running anything.
+	rescore string
 	// lintConfig is the golangci-lint configuration the fixtures are scored
 	// with. run sets it to the bundled one; it is not a flag, because a report
 	// scored against a different configuration would not be comparable.
@@ -153,12 +159,13 @@ func main() {
 	flag.StringVar(&o.arms, "arms", "", "comma-separated arms to run, e.g. \"no-skill,baseline\" (default: all)")
 	flag.StringVar(&o.variants, "variants", "", "directory of variant Markdown blocks (default: evals/ab/variants)")
 	flag.StringVar(&o.prompt, "prompt", "", "prompt template; %s is the fixture directory (default: the corpus prompt)")
-	flag.StringVar(&o.corpus, "corpus", corpusRefactor, "fixture corpus to run: refactor or implement")
+	flag.StringVar(&o.corpus, "corpus", corpusRefactor, "fixture corpus to run: refactor, implement or review")
 	flag.StringVar(&o.model, "model", "", "model for the evaluated run (default: the runner's own default; required for opencode)")
 	flag.StringVar(&o.effort, "effort", "", "reasoning effort for the evaluated run, e.g. medium (claude, codex and copilot only)")
 	flag.StringVar(&o.runner, "runner", runnerClaude, "agent CLI to drive: claude, opencode, copilot or codex")
 	flag.StringVar(&o.out, "out", "", "write the JSON report to this file")
 	flag.StringVar(&o.referenceRoot, "reference-root", "", "alternate plugin root for a reference arm")
+	flag.StringVar(&o.rescore, "rescore", "", "re-score the review results of this saved JSON report against the current keys and print the summary; -out writes the re-scored report")
 	flag.IntVar(&o.reps, "n", 2, "repetitions per fixture per arm")
 	flag.IntVar(&o.parallel, "j", 2, "runs to execute concurrently")
 	flag.Int64Var(&o.seed, "seed", 1, "deterministic job-order seed")
@@ -275,6 +282,10 @@ type result struct {
 	Delta  metrics  `json:"delta"`
 	Build  bool     `json:"build"`
 	Golden bool     `json:"golden"`
+	// Review is the review corpus's score; nil on the other corpora. A review
+	// run has no golden test: it is valid when the session ended, the fixture
+	// still builds and was not edited, and there is a review to score.
+	Review *reviewScore `json:"review,omitempty"`
 	// ModelTests is pass, fail, or skipped (no test files). Older reports omit it.
 	ModelTests    string `json:"model_tests,omitempty"`
 	ModelTestFail string `json:"model_test_failure,omitempty"`
@@ -373,6 +384,9 @@ type report struct {
 	Arms     []arm     `json:"arms"`
 	Results  []result  `json:"results"`
 	Finished time.Time `json:"finished"`
+	// Rescored is set when the review scores were recomputed against amended
+	// keys after the run; the sessions and their outputs are the originals.
+	Rescored time.Time `json:"rescored,omitzero"`
 }
 
 type job struct {
@@ -382,6 +396,9 @@ type job struct {
 }
 
 func run(o options) error {
+	if o.rescore != "" {
+		return rescoreReport(o)
+	}
 	if err := validateOptions(o); err != nil {
 		return err
 	}
@@ -391,8 +408,11 @@ func run(o options) error {
 	}
 	abDir := filepath.Join(root, "evals", "ab")
 	o.lintConfig = filepath.Join(root, "skills", "go-linting", "assets", "golangci.yml")
-	if o.corpus == corpusImplement {
+	switch o.corpus {
+	case corpusImplement:
 		abDir = filepath.Join(abDir, implementDir)
+	case corpusReview:
+		abDir = filepath.Join(abDir, reviewDir)
 	}
 	if o.prompt == "" {
 		o.prompt = corpusPrompt(o.corpus)
@@ -404,7 +424,11 @@ func run(o options) error {
 	if err != nil {
 		return err
 	}
-	if err := validateFixtures(abDir, tasks); err != nil {
+	validate := validateFixtures
+	if o.corpus == corpusReview {
+		validate = validateReviewFixtures
+	}
+	if err := validate(abDir, tasks); err != nil {
 		return err
 	}
 	if _, err := exec.LookPath(o.runner); err != nil {
@@ -471,8 +495,8 @@ func run(o options) error {
 }
 
 func validateOptions(o options) error {
-	if o.corpus != corpusRefactor && o.corpus != corpusImplement {
-		return exitError{2, fmt.Sprintf("-corpus must be %s or %s", corpusRefactor, corpusImplement)}
+	if o.corpus != corpusRefactor && o.corpus != corpusImplement && o.corpus != corpusReview {
+		return exitError{2, fmt.Sprintf("-corpus must be %s, %s or %s", corpusRefactor, corpusImplement, corpusReview)}
 	}
 	switch o.runner {
 	case runnerClaude, runnerCopilot, runnerCodex:
@@ -867,6 +891,18 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 	}
 
 	golden := filepath.Join(abDir, "_golden", taskName)
+	if o.corpus == corpusReview {
+		// The review is the final message; the key is resolved against the
+		// pristine fixture in the repository, never the scratch copy.
+		key, err := loadReviewKey(filepath.Join(golden, reviewKeyFile), filepath.Join(abDir, taskName))
+		if err != nil {
+			res.Err = fmt.Sprintf("review key: %v", err)
+			return res
+		}
+		score := scoreReview(key, res.Output)
+		res.Review = &score
+		return res
+	}
 	// The repair loop closes the gap stage 2 measured: a session that is handed
 	// its own numbers back, in the harness's own counting convention, together
 	// with the independent failure, repairs what a generic re-review does not.
@@ -1073,7 +1109,7 @@ func assertionsOnly(failure string) string {
 // plugin loaded. armDir is empty for the control arm, which also loses the Skill
 // tool so it cannot reach a skill the operator installed outside the plugin.
 func claudeSession(o options, armDir, work, prompt string) ([]byte, error) {
-	tools := "Skill,Read,Glob,Grep,Edit,Write"
+	tools := sessionTools(o.corpus, armDir != "")
 	args := []string{
 		"-p", prompt,
 		"--output-format", "stream-json", "--verbose",
@@ -1088,9 +1124,7 @@ func claudeSession(o options, armDir, work, prompt string) ([]byte, error) {
 		// operator's own settings or hooks on top of the plugin under test.
 		"--restricted",
 	}
-	if armDir == "" {
-		tools = strings.TrimPrefix(tools, "Skill,")
-	} else {
+	if armDir != "" {
 		pluginDir, err := evalplugin.Copy(armDir, work)
 		if err != nil {
 			return nil, err
@@ -1349,7 +1383,11 @@ func lintFindings(timeout time.Duration, work, pkg, config string) (int, error) 
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "golangci-lint", "run", "--config", config,
+	// --allow-parallel-runners: the plugin's PostToolUse hook runs golangci-lint
+	// inside the sessions, and the default global lock made the harness's own
+	// reading fail with "parallel golangci-lint is running" in 2 of 20 sessions
+	// on 2026-09-12.
+	cmd := exec.CommandContext(ctx, "golangci-lint", "run", "--allow-parallel-runners", "--config", config,
 		"--output.json.path", "stdout", "--show-stats=false", "./"+pkg+"/...")
 	cmd.Dir = work
 	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
@@ -1797,6 +1835,10 @@ func firstLine(s string) string {
 }
 
 func printResult(r result, verbose bool) {
+	if r.Review != nil {
+		printReviewResult(r, verbose)
+		return
+	}
 	status := resultStatus(r)
 	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  clos %+d  bcom %+d  exp %+d  branch %+d  build=%v model_tests=%s golden=%v gate=%v skills=%v",
 		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Funcs, r.Delta.Closures, r.Delta.BodyComments, r.Delta.Exported, r.Delta.Branches, r.Build, r.ModelTests, r.Golden, r.LineGatePass, r.Skills)
@@ -1850,6 +1892,12 @@ func printResult(r result, verbose bool) {
 func resultStatus(r result) string {
 	if r.HarnessFailure {
 		return "HRN"
+	}
+	if r.Review != nil {
+		if r.Err != "" || !r.Build || r.Edited || r.Leaked || r.Output == "" {
+			return "ERR"
+		}
+		return "ok "
 	}
 	if r.Err != "" || !r.Build || !r.Golden || r.ModelTests == "fail" || !r.Edited || r.Leaked {
 		return "ERR"
@@ -1936,6 +1984,8 @@ type armSummary struct {
 	// what the corpus costs to replay.
 	Cost   float64
 	Costed int
+	// Review is filled on the review corpus only.
+	Review reviewSummary
 }
 
 // skillFired reports whether a run reached the skill its corpus is about. The
@@ -1945,8 +1995,11 @@ type armSummary struct {
 // question the summary can ask of every fixture at once is whether the plugin
 // was reached at all. Which skill it was stays per-run in the report.
 func skillFired(corpus string, skills []string) bool {
-	if corpus == corpusImplement {
+	switch corpus {
+	case corpusImplement:
 		return len(skills) > 0
+	case corpusReview:
+		return slices.Contains(skills, "go-code-review")
 	}
 	return slices.Contains(skills, "go-code-refactor")
 }
@@ -2009,6 +2062,9 @@ func summarizeArm(rep report, name string) armSummary {
 			continue
 		}
 		summary.Valid++
+		if r.Review != nil {
+			summary.Review.add(*r.Review)
+		}
 		summary.Lines += r.Delta.Lines
 		summary.Types += r.Delta.Types
 		summary.Interfaces += r.Delta.Interfaces
@@ -2042,6 +2098,10 @@ func summarizeArm(rep report, name string) armSummary {
 // pass their model tests (if present) and hidden golden test.
 // Failed sessions remain visible in the counts.
 func printSummary(rep report) {
+	if rep.Corpus == corpusReview {
+		printReviewSummary(rep)
+		return
+	}
 	fmt.Printf("%-24s %5s %6s %5s %8s %7s %7s %7s %6s %6s %9s %6s %8s %7s %7s %6s %8s\n",
 		"arm", "runs", "errors", "valid", "Δlines", "Δtypes", "Δiface", "Δfuncs", "Δclos", "Δbcom", "Δpattern", "Δexp", "Δbranch", "build", "golden", "skill", "$/run")
 	for _, a := range rep.Arms {

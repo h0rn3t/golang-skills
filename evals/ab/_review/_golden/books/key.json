@@ -1,0 +1,142 @@
+{
+  "defects": [
+    {
+      "id": "equal-omits-frozen",
+      "owner": "go-code-review",
+      "severity": "must",
+      "file": "books.go",
+      "match": "return a.ID == b.ID && a.Owner == b.Owner && a.Currency == b.Currency && a.Balance == b.Balance",
+      "note": "Equal compares four of the five fields; a freeze or unfreeze is a change the reconciler never sees, so a frozen account stays active downstream"
+    },
+    {
+      "id": "clone-shares-totals",
+      "owner": "go-defensive",
+      "severity": "should",
+      "file": "books.go",
+      "match": "func (s Statement) Clone() Statement {",
+      "span": 4,
+      "note": "Clone copies Entries but not Totals; the renderer's annotations land in the map the store handed out"
+    },
+    {
+      "id": "bytes-not-runes",
+      "owner": "go-code-review",
+      "severity": "should",
+      "file": "books.go",
+      "match": "if len(memo) > MaxMemo {",
+      "note": "len counts bytes and MaxMemo is documented in characters; a 71-letter Cyrillic memo is 142 bytes and is refused. utf8.RuneCountInString"
+    },
+    {
+      "id": "fee-refund-toward-zero",
+      "owner": "go-code-review",
+      "severity": "should",
+      "file": "books.go",
+      "match": "return (amount*bps + 5_000) / 10_000",
+      "note": "the +5000 half-up bias and Go's truncating division both push a negative amount toward zero: Fee(-30, 250) is 0 where the doc promises -Fee(30, 250) = -1; round the magnitude and reapply the sign"
+    },
+    {
+      "id": "split-empty-string",
+      "owner": "go-data-structures",
+      "severity": "should",
+      "file": "books.go",
+      "match": "parts := strings.Split(s, \",\")",
+      "span": 3,
+      "note": "strings.Split(\"\", \",\") is [\"\"], one empty id, so the documented empty list fails in ParseInt instead of selecting every account"
+    },
+    {
+      "id": "time-as-map-key",
+      "owner": "go-defensive",
+      "severity": "should",
+      "file": "books.go",
+      "match": "func Duplicates(existing, batch []Entry) []Entry {",
+      "span": 16,
+      "note": "the map key compares PostedAt with ==, which also compares Location and the monotonic reading; the store's rows and the importer's parsed batch carry the same instant in different locations, so no replayed entry is ever a duplicate. Key on UnixNano, or compare with Equal"
+    },
+    {
+      "id": "adddate-overflow",
+      "owner": "go-defensive",
+      "severity": "should",
+      "file": "books.go",
+      "match": "return t.AddDate(0, 1, 0)",
+      "note": "AddDate normalizes: January 31 plus one month is March 3, not the last day of February the doc promises; clamp the day to the following month's length"
+    },
+    {
+      "id": "truncate-not-local",
+      "owner": "go-defensive",
+      "severity": "should",
+      "file": "books.go",
+      "match": "return t.In(loc).Truncate(24 * time.Hour)",
+      "note": "Truncate works on the absolute time since the zero instant, which is midnight UTC; for Kyiv it returns 03:00 local. time.Date(y, m, d, 0, 0, 0, 0, loc) is the local midnight"
+    },
+    {
+      "id": "test-enshrines-refund-fee",
+      "owner": "go-testing",
+      "severity": "should",
+      "file": "books_test.go",
+      "match": "{name: \"small refund carries no fee\", amount: -30, bps: 250, want: 0},",
+      "note": "the expectation encodes the rounding defect: by Fee's own contract a -30 refund carries a fee of -1, and the case name rationalizes the wrong value"
+    },
+    {
+      "id": "null-into-string",
+      "owner": "go-database",
+      "severity": "must",
+      "file": "store.go",
+      "match": "func (s *Store) Entry(ctx context.Context, id int64) (Entry, error) {",
+      "note": "memo is nullable (schema.sql, and Transfer inserts NULLIF($3, '')), and Scan into a string fails on NULL; Entry errors for every entry without a memo. COALESCE as Entries does, or sql.NullString",
+      "span": 4
+    },
+    {
+      "id": "cursor-inclusive",
+      "owner": "go-database",
+      "severity": "should",
+      "file": "store.go",
+      "match": "WHERE account_id = $1 AND id >= $2",
+      "note": "the page starts at the cursor row itself while the doc says after it, so the last entry of each page is the first of the next; > $2, or the caller passes last id + 1"
+    },
+    {
+      "id": "scan-columns-swapped",
+      "owner": "go-database",
+      "severity": "must",
+      "file": "store.go",
+      "match": "rows.Scan(&e.ID, &e.AccountID, &e.Credit, &e.Debit, &e.Memo, &e.PostedAt)",
+      "note": "the query selects debit_cents before credit_cents and the scan takes them in the other order; both are BIGINT, so nothing fails and every statement shows debits as credits"
+    },
+    {
+      "id": "dest-absolute-update",
+      "owner": "go-database",
+      "severity": "must",
+      "file": "store.go",
+      "match": "`SELECT balance_cents FROM accounts WHERE id = $1`, to)",
+      "span": 8,
+      "note": "the destination balance is read without FOR UPDATE and written back as an absolute value computed in Go; two transfers into one account commit the same starting balance plus their own amount and one of them is lost. balance_cents + $1, as the debit side does"
+    },
+    {
+      "id": "self-transfer-mints",
+      "owner": "go-database",
+      "severity": "must",
+      "file": "store.go",
+      "match": "func (s *Store) Transfer(ctx context.Context, from, to, amount int64, memo string) (int64, error) {",
+      "span": 3,
+      "note": "from == to is not refused; the source row is debited relatively and then overwritten with the balance read before the debit plus amount, so Transfer(a, a, x) ends with balance + x: a self-transfer mints money. Refuse from == to before touching the database"
+    }
+  ],
+  "baits": [
+    {
+      "id": "omitzero-tag",
+      "file": "books.go",
+      "match": "`json:\"settled_at,omitzero\"`",
+      "note": "omitzero (Go 1.24) is the option that omits a zero time.Time; omitempty never omits a struct"
+    },
+    {
+      "id": "fetch-plus-one",
+      "file": "store.go",
+      "match": "fetch := limit + 1",
+      "note": "fetching one more row than the page size is how the has-more flag is computed"
+    },
+    {
+      "id": "deferred-rollback",
+      "file": "store.go",
+      "match": "defer func() { _ = tx.Rollback() }()",
+      "note": "the idiomatic rollback guard, a no-op after Commit"
+    }
+  ]
+}

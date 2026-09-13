@@ -21,7 +21,10 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
   the task requires.
 - `../go-linting/SKILL.md` — Read its Verification Gate at step 6, on a task
   that edits Go and only when a shell tool (`Bash` in Claude Code) is in your
-  tool list. Without one nothing in it can run: leave the file unread.
+  tool list. Without one nothing in it can run: leave the file unread. The
+  plugin's edit hook runs gofmt, vet, go fix, the package's tests, and the
+  linter after every edit of a `.go` file either way and prints what failed;
+  a hook finding is fixed before the next step, not reported around.
 - `references/NEW-CODE-EXAMPLES.md` — Read when the shape of a Contract Table
   case, a Plain Code body, or a budgeted helper is in doubt. Ordinary tasks do
   not require it.
@@ -81,9 +84,11 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
    <one sentence per material gap, or nothing>
    ```
 
-   Without a shell the checks line is `checks: unavailable (no shell)` and
-   nothing more is said about the gate. The report names the test file and
-   its result, not the cases one by one.
+   Without a shell the checks line carries what the host's edit hook
+   reported, check by check — `test pass (hook)`, `lint pass (hook)` — and
+   `unavailable (no shell)` for a check no hook ran; a hook's silence is not a
+   result. The report names the test file and its result, not the cases one
+   by one.
 
 ## Writing New Code
 
@@ -100,7 +105,9 @@ a table-driven test in the package — a new `<pkg>_contract_test.go`, or cases
 added to the existing test file — one case per observable clause: each request
 or input class, each method and status code, ordering, error text, and the
 empty, nil, and invalid inputs; a clause that says what the code must *not*
-do is a case too. A clause written as a class — "any other method", "any other value", "nothing
+do is a case too. The empty case is built from nil — a nil slice, a nil map,
+a request with no body — not from an empty literal: `[]T{}` already has the
+shape the case is meant to prove, and `slices.Clone` of nil is nil. A clause written as a class — "any other method", "any other value", "nothing
 else" — takes its case from the member a library default treats unlike the
 rest, because that member is where the class leaks: `HEAD` under a `GET`
 pattern, `t` and `1` under `strconv.ParseBool`, the bare path under a subtree
@@ -138,12 +145,13 @@ entry point, anything it calls, and the contract test alike.
   names is not a comment; a comment longer than the code under it is prose
   the test already carries. [go-style-core](../go-style-core/SKILL.md#formatting)
   owns comment style and [the early return](../go-style-core/SKILL.md#reduce-nesting).
-- **A loop that sorts, collects, or defaults is a call.** `slices.SortFunc`,
-  `slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m))` for a map's keys —
-  `slices.Sorted(maps.Keys(m))` is nil for an empty map, the `null` a
-  contract forbids — `cmp.Or` for a zero-value default, `min` and `max`.
+- **A loop that sorts, collects, or defaults is a call.** `slices.SortFunc`;
+  `keys := slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m))` then
+  `slices.Sort(keys)` for a map's keys as a slice that encodes as `[]` when
+  the map is empty; `cmp.Or` for a zero-value default; `min` and `max`.
   [Reach For What Go Ships](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships)
-  has the table.
+  has the table, and [go-data-structures](../go-data-structures/SKILL.md)
+  the collectors whose empty result is nil.
 - **Neighbors set the register.** Where the package has code, match its
   naming, comment density, and idiom ([House Style](../go-style-core/SKILL.md#house-style-wins)).
 

@@ -51,7 +51,7 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/go-vet-on-edit.sh\"",
-            "timeout": 90
+            "timeout": 150
           }
         ]
       }

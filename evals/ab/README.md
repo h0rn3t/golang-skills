@@ -2,7 +2,12 @@
 
 `go run ./cmd/abrun` runs one refactoring prompt against these fixtures under
 two or more versions of `go-code-refactor/SKILL.md` and reports what changed in
-the code the model wrote — not in the prose it produced.
+the code the model wrote — not in the prose it produced. Two more corpora
+live beside it: [`_implement`](_implement/README.md), where the model fills in
+documented stubs and the hidden golden test is the specification, and
+[`_review`](_review/README.md), where the model reviews a package with seeded
+defects and the review is scored against a hidden key by the source line each
+defect sits on.
 
 ## Sonnet 5 medium control, both corpora at n=5 (2026-09-10)
 

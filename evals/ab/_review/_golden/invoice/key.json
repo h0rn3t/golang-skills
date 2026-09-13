@@ -1,0 +1,14 @@
+{
+  "defects": [
+    {"id": "single-impl-interface", "owner": "go-interfaces", "severity": "should", "file": "invoice.go", "match": "type Renderer interface {", "span": 3, "note": "one implementation, declared next to it, no consumer; delete until a second renderer exists"},
+    {"id": "middle-man", "owner": "go-code-refactor", "severity": "should", "file": "invoice.go", "match": "type lineFormatter struct{}", "span": 5, "note": "a stateless type whose one method forwards to formatLine; Render can call formatLine"},
+    {"id": "speculative-options", "owner": "go-code-refactor", "severity": "should", "file": "invoice.go", "match": "type RenderOptions struct {", "span": 10, "note": "an options struct nothing reads and a RenderWith that ignores it; reserved-for-later is not a reason"},
+    {"id": "negative-cents", "owner": "go-code-review", "severity": "must", "file": "invoice.go", "match": "return fmt.Sprintf(\"$%d.%02d\", c/100, c%100)", "note": "a credit of -150 renders as $-1.-50; the sign has to be split off before the division"},
+    {"id": "total-duplicated", "owner": "go-code-refactor", "severity": "nit", "file": "invoice.go", "match": "total += l.Amount()", "note": "Render sums the lines by hand while Total exists for exactly that"},
+    {"id": "doc-not-name-first", "owner": "go-documentation", "severity": "nit", "file": "invoice.go", "match": "// Returns the sum of the invoice lines in cents.", "tool": "revive exported", "note": "a doc comment starts with the name it documents"},
+    {"id": "dead-validate", "owner": "go-code-refactor", "severity": "should", "file": "invoice.go", "match": "func validateInvoice(inv Invoice) error {", "span": 8, "tool": "staticcheck U1000", "note": "unexported and never called"}
+  ],
+  "baits": [
+    {"id": "clone-then-sort", "file": "invoice.go", "match": "lines := slices.Clone(inv.Lines)", "note": "the caller's slice is not reordered; the clone is the right move"}
+  ]
+}

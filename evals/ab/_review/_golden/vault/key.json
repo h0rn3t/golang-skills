@@ -1,0 +1,136 @@
+{
+  "defects": [
+    {
+      "id": "prefix-without-separator",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "store.go",
+      "match": "func (s *Store) path(tenant, name string) (string, error) {",
+      "note": "root/t10/secret has the prefix root/t1, so tenant t1 reads and writes tenant t10's files with a name of ../t10/secret (percent-encoded past the mux). Compare against dir plus the separator, or open through os.Root",
+      "span": 7
+    },
+    {
+      "id": "quota-check-then-act",
+      "owner": "go-concurrency",
+      "severity": "should",
+      "file": "store.go",
+      "match": "remaining := s.remaining(tenant)",
+      "span": 3,
+      "note": "the allowance is read under the lock, the file is written, and used is charged under a second lock hold; two concurrent uploads by one tenant both see the same remaining and both fit, so the quota is exceeded by up to one upload per concurrent request"
+    },
+    {
+      "id": "etag-map-order",
+      "owner": "go-data-structures",
+      "severity": "should",
+      "file": "store.go",
+      "match": "func (m Meta) ETag() string {",
+      "note": "map iteration order is random per range, so a file with two labels hashes to a different tag on each call and the 304 the doc promises never happens; sort the keys first. The test uses one label and cannot see it",
+      "span": 4
+    },
+    {
+      "id": "quota-never-released",
+      "owner": "go-code-review",
+      "severity": "should",
+      "file": "store.go",
+      "match": "func (s *Store) Delete(tenant, name string) error {",
+      "span": 12,
+      "note": "Delete removes the file and the index entry but never subtracts the size from used, so a tenant that stores and deletes is locked out of its quota for good"
+    },
+    {
+      "id": "write-timeout-cuts-downloads",
+      "owner": "go-http",
+      "severity": "should",
+      "file": "server.go",
+      "match": "WriteTimeout:      10 * time.Second,",
+      "note": "WriteTimeout covers the whole response, and the server exists to send files of up to 256 MiB: any download that takes longer than ten seconds is cut mid-body. Bound headers with ReadHeaderTimeout and leave the body to the client's context, or set it per handler with http.ResponseController"
+    },
+    {
+      "id": "open-redirect-double-slash",
+      "owner": "go-security",
+      "severity": "should",
+      "file": "server.go",
+      "match": "if !strings.HasPrefix(next, \"/\") {",
+      "span": 4,
+      "tool": "gosec G710",
+      "note": "//evil.example/ starts with a slash and is a protocol-relative URL, so the browser leaves the site; parse next and require an empty Scheme and Host, or a path that starts with a single slash"
+    },
+    {
+      "id": "uploader-content-type-served",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "server.go",
+      "match": "w.Header().Set(\"Content-Type\", m.ContentType)",
+      "note": "the type is whatever the uploader sent, served inline from the vault's origin with no X-Content-Type-Options and no Content-Disposition: an uploaded text/html file runs as the vault. Serve as attachment with nosniff, or from a separate origin"
+    },
+    {
+      "id": "xff-first-hop",
+      "owner": "go-security",
+      "severity": "should",
+      "file": "server.go",
+      "match": "return strings.TrimSpace(strings.Split(xff, \",\")[0])",
+      "note": "the first X-Forwarded-For entry is whatever the client wrote; the proxy appends the peer it saw last. A client that rotates the header has an unlimited upload allowance. Take the last entry, or only trust the header from the proxy's address"
+    },
+    {
+      "id": "pool-alias-after-put",
+      "owner": "go-concurrency",
+      "severity": "must",
+      "file": "server.go",
+      "match": "func encode(v any) ([]byte, error) {",
+      "note": "the deferred Put runs before the caller writes the bytes, and Bytes aliases the buffer, so another request can Get the same buffer and overwrite the body mid-flight: one tenant's listing goes out to another. Return a copy, or write the response before Put",
+      "span": 8
+    },
+    {
+      "id": "test-error-string",
+      "owner": "go-testing",
+      "severity": "nit",
+      "file": "store_test.go",
+      "match": "func TestPathRejectsEscape(t *testing.T) {",
+      "note": "the test compares the message of a sentinel the package exports; errors.Is(err, ErrBadName) survives a reworded message and a wrap",
+      "span": 4
+    },
+    {
+      "id": "partial-file-visible",
+      "owner": "go-defensive",
+      "severity": "should",
+      "file": "store.go",
+      "match": "f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)",
+      "note": "the upload is copied straight into its final name, so a concurrent Open serves a half-written file, and the stat fallback reports its partial size as the truth. Write to a temporary name in the same directory and rename"
+    },
+    {
+      "id": "labels-aliased",
+      "owner": "go-defensive",
+      "severity": "should",
+      "file": "store.go",
+      "match": "m := Meta{Name: name, Size: n, ContentType: contentType, ModTime: time.Now(), Labels: labels}",
+      "note": "the caller's labels map is stored by reference and handed back out by List and Open in every Meta; a caller that changes its map changes the index and the ETag. maps.Clone on the way in"
+    },
+    {
+      "id": "not-modified-without-etag",
+      "owner": "go-http",
+      "severity": "nit",
+      "file": "server.go",
+      "match": "w.WriteHeader(http.StatusNotModified)",
+      "note": "a 304 carries the ETag the 200 would have carried (RFC 9110 §15.4.5); set the header before the If-None-Match check"
+    }
+  ],
+  "baits": [
+    {
+      "id": "omitzero-tag",
+      "file": "store.go",
+      "match": "`json:\"expires,omitzero\"`",
+      "note": "omitzero (Go 1.24) is the option that omits a zero time.Time; omitempty never omits a struct"
+    },
+    {
+      "id": "without-cancel-audit",
+      "file": "server.go",
+      "match": "if err := s.audit(context.WithoutCancel(ctx), ev); err != nil {",
+      "note": "the audit entry must be written even when the client has gone; WithoutCancel keeps the request's values and drops its cancellation, which is what go-context prescribes"
+    },
+    {
+      "id": "open-discard",
+      "file": "server.go",
+      "match": "_, _ = w.Write(body) // headers are sent; a failed write is the client's disconnect",
+      "note": "the discard is deliberate and carries its reason; the body is JSON under an explicit application/json type. gosec G705 reports the line as XSS through taint analysis, which is the tool being wrong"
+    }
+  ]
+}

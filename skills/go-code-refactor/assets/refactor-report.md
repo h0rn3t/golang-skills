@@ -30,6 +30,16 @@ needed no design decision, and reviewers approve it at a glance.
 
 One row per named transformation. Terse — the diff shows the detail.
 
+## Architecture
+
+Only when the smell was package-scale. Use the report contract in
+`references/ARCHITECTURE-CHECKS.md`: observation with the measured edges,
+consequence, decision (keep the tree / repair a seam / propose a move), why
+not smaller, what is preserved (behavior, contracts, authorization,
+transaction boundaries), the changes with what each line of growth buys,
+verification (`check-architecture.sh` output, build scope, before/after
+findings), and exceptions or unexecuted checks.
+
 ## Modernization
 
 The `go` directive and toolchain version. What `go fix` did versus what you did

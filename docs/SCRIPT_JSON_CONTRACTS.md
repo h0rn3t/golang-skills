@@ -39,6 +39,20 @@ finding:
 {"interfaces":[{"name":"Reader","file":"path","line":1}],"missing":[{"name":"Reader","file":"path","line":1}],"count_interfaces":1,"count_missing":1,"truncated":false}
 ```
 
+`go-code-refactor/scripts/check-architecture.sh` — exit 1 on any violation,
+including `stale`, `duplicate`, and `unexplained` entries in the `known` list
+of `architecture.json`; paths are module-relative:
+
+```json
+{"module":"example.com/shop","layout":"modules","checked":["Imports"],"violations":[{"rule":"ownership","from":"internal/billing/services","to":"internal/order/repositories","message":"text"}],"total":1,"suppressed":0,"truncated":false}
+```
+
+A module with nothing under `internal/` is a successful empty check:
+
+```json
+{"module":"example.com/shop","layout":"modules","checked":["Imports"],"violations":[],"total":0,"suppressed":0,"truncated":false,"status":"no_internal_packages"}
+```
+
 No-Go-file targets are successful empty scans and include a status marker:
 
 ```json

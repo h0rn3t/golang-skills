@@ -23,7 +23,9 @@ allowed-tools: Bash(bash:*)
    The flat checklist below is for a diff, not for a whole package.
 2. **Read the convention files [go-style-core](../go-style-core/SKILL.md#house-style-wins)
    names before the first finding.** They fix the report language, error style,
-   and test style, and they outrank every rule here.
+   and test style, and they outrank every rule here — except the idiom: an
+   older form kept for consistency with the package is a finding
+   ([Write Current Go](../go-style-core/SKILL.md#write-current-go)).
 3. From the project, run `bash <installed-skill-dir>/scripts/pre-review.sh ./...` plus
    `go fix -diff <packages in the diff>`. Fix or report what the tools find
    before the checklist; never spend review attention on what a tool reports.
@@ -142,6 +144,7 @@ allowed-tools: Bash(bash:*)
 
 ## Style
 
+- [ ] **Current Go**: Changed lines use the form available at the `go` directive; an older idiom kept because the neighbor uses it is Should Fix, and `go fix -diff` on the diff's packages reports nothing in changed lines → [go-style-core](../go-style-core/SKILL.md#write-current-go)
 - [ ] **Line length**: No rigid limit, but avoid uncomfortably long lines; break by semantics, not arbitrary length → [go-style-core](../go-style-core/SKILL.md)
 - [ ] **Naked returns**: Only in short functions; explicit returns in medium/large functions → [go-style-core](../go-style-core/SKILL.md)
 - [ ] **Pass values**: Don't use pointers just to save bytes; pass `string` not `*string` for small fixed-size types → [go-functions](../go-functions/SKILL.md)

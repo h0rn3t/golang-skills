@@ -1,0 +1,6 @@
+{
+  "layout": "modules",
+  "platform": ["internal/platform/clock"],
+  "modules": {"order": "layered", "billing": "layered"},
+  "known": []
+}

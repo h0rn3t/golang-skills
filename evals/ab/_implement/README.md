@@ -38,6 +38,7 @@ skill, and checkable by a test that never reaches the model.
 | `catalog` | go-error-handling | Putting the SKU in the message with `%v` serves the operator and silently cuts the caller off from the reason | Asserts `errors.Is` reaches the sentinel and the transport failure, and that the message still names the SKU |
 | `gateway` | go-http | A zero timeout is no timeout, so an edge server built as `&http.Server{Addr: addr, Handler: h}` holds stalled and idle connections until it runs out | Asserts `ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout` and `IdleTimeout` are all non-zero |
 | `pool` | go-concurrency | A goroutine per job opens every partner connection at once, and returning the first error as it arrives leaves the other workers running after `Run` has said the run is over | Under `synctest`, asserts the peak in-flight count never exceeds `workers`, that every started job has finished when `Run` returns, that the running jobs were cancelled rather than waited out, and that the queue stops after the first failure |
+| `roster` | go-style-core | A neighbor file written before Go 1.21 sits in the package — `for i := 0; i < len(x); i++`, `m := m`, `sort.Slice`, `strings.Index` plus slicing, `interface{}` — and the new bodies copy the neighbor's idiom instead of the form the `go` directive allows | Behavior only: sorted unique active names, head counts per team, membership, and the legacy functions pinned so they cannot move. The trap is read by grepping the session's `roster.go` for the older forms; `go fix` pending hunks catch only the modernizer subset and missed `sort.Strings` on the first run |
 | `fetch` | go-resilience | `GetOrder` and `PlaceOrder` share every line but the method, so one retrying helper serves both, and the partner ships one order per `POST` it received whether or not it answered | Through a fake `RoundTripper` on `synctest`'s clock: a `POST` answered 5xx, 429, or by a transport failure was sent exactly once; a `GET` is resent with growing pauses inside `Attempts`, honors `Retry-After`, stops on a 404 and on a cancelled context |
 
 `pool` and `fetch` are the first fixtures built for the multi-file, many-
@@ -45,6 +46,16 @@ decision shape the single-function fixtures lack: `fetch` is two files and two
 methods that tempt one shared helper, `pool` is a lifetime problem with four
 observable clauses. Both were checked in both directions the day they were
 added (2026-09-12); neither has a published run yet, so neither is admitted.
+
+`roster` (2026-09-13) is the first fixture whose trap is not a golden failure:
+the golden test only pins behavior. It exists to measure `go-style-core`'s
+"Write Current Go" — whether new code beside an older neighbor takes the
+neighbor's form. The reading is a grep over the session's `roster.go` for the
+older forms (`sort.Strings`/`sort.Slice`, `for i := 0; i <`, `m := m`,
+`strings.Index(`, `interface{}`), not `go fix` pending hunks: the first run
+showed the unaided model reaching for `sort.Strings`, which no modernizer
+rewrites, so the hunk count stayed at the neighbor's three in every session.
+`abrun` has no older-form column yet; the evidence report carries the grep.
 
 Every fixture pins one entry point and leaves the internals free. Two also
 carry bait, which is a separate thing from the trap: `ledger` renders two
@@ -100,6 +111,7 @@ separately.
 | `catalog` | directional | 26.0 → 20.3 (−21.8%), CI includes zero | [Opus 5, n=3](../../../docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md) |
 | `feed` | not admitted | 50.0 → 49.0; the control wrote exactly 50 lines in all three runs | [Opus 5, n=3](../../../docs/evidence/2026-09-07-go-implement-feed-catalog-opus5.md) |
 | `pool` | first run only | 65 → 50 (n=1); golden 3/3, the unaided session lint-dirty | [Opus 5 medium smoke, n=1](../../../docs/evidence/2026-09-12-go-implement-budget-closure-smoke-opus-5-medium.md) |
+| `roster` | first run only | 22.0 → 19.7 / 18.3 (n=3); golden 9/9; the unaided arm wrote `sort.Strings` beside the `sort.Slice` neighbor in 3/3 sessions, both skilled arms in 0/6; `go fix` pending 3 → 3 in 9/9, so the reading is the grep, not the hunks | [Sonnet 5 medium, three arms, n=3](../../../docs/evidence/2026-09-13-go-arch-current-go-n5-report-store-roster-n3-sonnet-5-medium.md) |
 | `fetch` | first run only | 224 → 124 (n=1); golden 0/1 unaided, 1/1 reference, 0/1 baseline on a backoff clause reworded after the run | [Opus 5 medium smoke, n=1](../../../docs/evidence/2026-09-12-go-implement-budget-closure-smoke-opus-5-medium.md) |
 
 The 2026-09-12 `gateway` pair, reference against baseline at n=5 on Opus 5
@@ -132,6 +144,15 @@ unaided model passes with an `r.Method` check the skilled arms never write.
 once per arm per run through the same error-path deduplication bug. The table
 above is the Opus 5 admission record; the Sonnet 5 medium readings live in the
 linked reports.
+
+The 2026-09-13 three-arm smoke at n=1 against 1.15.0
+([report](../../../docs/evidence/2026-09-13-go-arch-current-go-three-arm-n1-sonnet-5-medium.md)) carried the normative "Write Current Go" rule: golden 3/3
+against 2/3 and lint-clean 3/3 against 2/2, `gateway`'s `HEAD` clause again
+the one miss; the unaided arm wrote `sort.Slice` in 2/3 sessions while
+neither skilled arm wrote an older form, so the rule had nothing to move on
+these fixtures — a fixture with an older neighbor in the file is what would
+measure it. `MODERNIZATION.md` was read in 3/3 baseline sessions through the
+rule's new link.
 
 The 2026-09-11 workflow retune — a named shell check, the Contract Table as
 its own step with `go-testing` loaded first, a literal report shape, and a

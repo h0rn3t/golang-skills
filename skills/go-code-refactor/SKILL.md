@@ -1,6 +1,6 @@
 ---
 name: go-code-refactor
-description: Use when refactoring, cleaning up, simplifying, restructuring, or modernizing existing Go code while keeping observable behavior identical — reducing nesting, splitting long functions, deleting dead code, renaming for clarity, or adopting newer Go APIs. Also use when a user hands over a Go file or package and calls it messy, hard to follow, too long, bloated, over-engineered, or outdated, even if they never say "refactor". Does not cover writing new Go code or the style rules themselves (see go-style-core and the rule owners).
+description: Use when refactoring, cleaning up, simplifying, restructuring, or modernizing existing Go code while keeping observable behavior identical — reducing nesting, splitting long functions, deleting dead code, renaming for clarity, or adopting newer Go APIs. Also use when a user hands over a Go file or package and calls it messy, hard to follow, too long, bloated, over-engineered, or outdated, even if they never say "refactor", and when an existing Go monolith needs an architecture proposal — layers, modules, package boundaries, a god package to split — before or instead of a rewrite. Does not cover writing new Go code or the style rules themselves (see go-style-core and the rule owners).
 allowed-tools: Bash(bash:*)
 ---
 
@@ -23,6 +23,12 @@ target project using the resolved absolute script path.
 - `references/CATALOG.md` - Read when the move crosses a function, type, or package boundary: the smell that triggers each transform, the tool that performs it, and its risk tier.
 - `references/SAFETY-NET.md` - Read when the blast radius has thin or no tests: coverage tiers, characterization tests, and seams for untested code.
 - `references/MECHANICAL.md` - Read when the same edit recurs across many sites: `gofmt -r`, `eg`, `gopatch`, and `go/analysis` fixers instead of hand-editing each one.
+- `references/ARCHITECTURE.md` - Read when the smell is package-scale — a global god package, global layers several domains share, drivers in services or models, handlers calling repositories, a cycle through a proxy package — or the ask names architecture, layers, modules, or a monolith: the smells and their evidence, the graph, "modules own the tree; layers live inside the module", the layer rules, cross-module contracts, the target shapes, choosing, and staging.
+- `references/ARCHITECTURE-BEHAVIOR.md` - Read before moving code a use case's atomicity, error identity, or authorization passes through: the three contracts a package move carries unchanged and the behavior checks each needs.
+- `references/ARCHITECTURE-CHECKS.md` - Read when installing or reading the checker: `architecture.json`, the rules, the graph commands, what imports cannot prove, the `depguard` duplicate, the report contract, the evaluation scenarios, and the common mistakes.
+- `references/ARCHITECTURE-EXAMPLES.md` - Read only when an example is needed to explain a choice: four community repositories that use the layer vocabulary, with their limits.
+- `scripts/check-architecture.sh` - Run from the module root to check `internal/` imports against the policy; exit 1 on a violation or a stale `known` entry, 2 when a package fails to load or `architecture.json` is missing.
+- `scripts/check-architecture.go` - The checker the wrapper builds; `scripts/check-architecture_test.go` holds its unit tests (`go test ./check-architecture.go ./check-architecture_test.go` in the scripts directory).
 - `references/STRUCTURAL.md` - Read before moving a type between packages, breaking an import cycle, or changing an exported API: type-alias gradual repair and the deprecation sequence.
 - `references/MODERNIZATION.md` - Read when a hunk adopts a newer API or `go fix -diff` proposes one; sorts Go 1.21–1.27 features into safe, conditional, and report-only.
 - `references/OVER-ENGINEERING.md` - Read when a step adds a helper, type, layer, option, or import (it owns the restraint ladder, the reach-for table, and the ship-then-question write rules), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
@@ -69,9 +75,11 @@ Two other cases change the sequence, not cancel the work:
 
 None of these is a licence to skip authorized work that has a concrete purpose.
 Deliver the refactor asked for at the scope intended: "while I'm here" fixes and
-a modernization that quietly becomes a migration dilute the guarantee — adopt
-what makes the existing code read better, propose the rest. A structural
-problem a readability pass cannot solve gets one sentence in the report.
+a modernization that quietly becomes a migration dilute the guarantee — every
+line the refactor touches takes the current form
+([Write Current Go](../go-style-core/SKILL.md#write-current-go)); the untouched
+rest is proposed, not rewritten. A structural problem a readability pass
+cannot solve gets one sentence in the report.
 
 ---
 
@@ -85,7 +93,7 @@ radius pushes every transform up a tier.
 |---|---|---|
 | **Low** | gopls inline; rename of an unexported symbol with no reflection or string-based contract; extract variable or constant; `gofmt -s`; organize imports; guard clauses | Baseline plus the focused check after it |
 | **Medium** | Extract function or method, inline across packages, adding or removing one parameter, introducing generics, a bulk rewrite ([MECHANICAL.md](references/MECHANICAL.md)) | Tests that provably reach the touched lines |
-| **High** | Signature change across many callers, cross-package moves, package split or merge, breaking an import cycle, any exported API change | Full net, and it is a findings-list item unless the user asked for it |
+| **High** | Signature change across many callers, cross-package moves, package split or merge, breaking an import cycle, a module or layer boundary move (`references/ARCHITECTURE.md`), any exported API change | Full net, and it is a findings-list item unless the user asked for it |
 
 gopls inline preserves behavior or refuses. Rename is compilation-aware, but
 rename may introduce dynamic errors through reflection, templates,
@@ -162,6 +170,28 @@ was already a literal. If the lookup needs those, the `switch` was shorter.
 Map iteration order is not source order, so an ordered literal stays a
 literal. Error texts and the point where an unknown key fails do not move.
 `references/POLICY-TABLES.md` shows the fold.
+
+---
+
+## Architecture at Package Scale
+
+> **Normative**: Modules own the tree; layers live inside a module when they
+> earn a package. `handlers/`, `services/`, `repositories/`, `models/` may be
+> the tree of one cohesive service; several independently changing domains
+> move the same names under `internal/<module>/`. Services and models import
+> no transport or database driver; cross-module code stops at a module's root
+> contract; keeping the tree and repairing one boundary is a valid result.
+
+When the smell is the import graph — a global `models` or `pkg` every owner
+imports, features that edit unrelated owners, a router or driver in services,
+handlers calling repositories — `references/ARCHITECTURE.md` owns the call:
+measure the graph, name the shape, propose the smallest repair, and stage a
+move only when a concrete consequence is established. The move is High tier
+and a proposal unless the user asked for it; the first commit encodes the rule
+in `architecture.json` and runs `scripts/check-architecture.sh`, whose `known`
+list a refactor never extends to make its own run pass. Growth is justified by
+the coupling it removes and named in the report
+(`references/ARCHITECTURE-CHECKS.md` carries the report contract).
 
 ---
 
@@ -251,6 +281,10 @@ what produces a real transformation; jumping to edits produces cosmetic churn �
 renamed variables, shuffled lines, same confusion. Record location, what is
 hard to read, and the intended transformation.
 
+When the smell is package-scale, the audit is the import graph —
+`references/ARCHITECTURE.md` has the commands and the shape names — and the
+deliverable is a target plus a staged plan, applied only as far as authorized.
+
 When the ask is a cut list rather than a rewrite — "what can we delete", a repo
 handed over as bloated — the audit *is* the deliverable: use the tags and
 ranked format in `references/OVER-ENGINEERING.md` and stop there.
@@ -266,8 +300,10 @@ When modernization helps the requested refactor, preview it for the affected
 packages, for example `go fix -diff ./internal/cache`. Use `./...` only for a
 module-wide scope. Apply `go fix` only when every proposed edit is in scope;
 for a function-only task, apply relevant hunks manually if the preview also
-changes neighboring functions. A broader verification gate does not widen the
-edit scope. If no relevant modernization helps, proceed to the hand edits.
+changes neighboring functions. A neighbor's older form is not a reason to keep
+it in the touched lines, and an untouched neighbor is not a reason to widen
+the scope. A broader verification gate does not widen the edit scope. If no
+relevant modernization helps, proceed to the hand edits.
 
 Keep mechanical edits attributable and respect `go.mod` and the risk tiers in
 `references/MODERNIZATION.md`; Tier 3 items go in the findings list.
@@ -353,5 +389,5 @@ exits 1 on those.
 - [go-naming](../go-naming/SKILL.md): renames.
 - [go-error-handling](../go-error-handling/SKILL.md): wrapping, sentinels, handle-once rewrites.
 - [go-concurrency](../go-concurrency/SKILL.md): goroutine lifetimes, channels, locks in the diff.
-- [go-packages](../go-packages/SKILL.md): a refactor that crosses package boundaries.
+- [go-packages](../go-packages/SKILL.md): a refactor that crosses package boundaries; where a new package goes once `references/ARCHITECTURE.md` has named the target.
 - [go-code-review](../go-code-review/SKILL.md): the finished diff against the checklist.

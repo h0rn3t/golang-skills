@@ -29,7 +29,9 @@ Stop at the first rung that works:
 
 Judge suitability by required semantics, supported versions, and maintenance,
 not line count alone. Existing project conventions take precedence; this ladder
-does not require replacing a working dependency in neighboring code.
+does not require replacing a working dependency in neighboring code. A
+dependency is a convention; a standard-library idiom is not
+([Write Current Go](../go-style-core/SKILL.md#write-current-go)).
 
 Commonly added modules the standard library now covers:
 
@@ -96,8 +98,15 @@ not have (v1, v3, v5, custom sources).
   elsewhere so the logic is testable.
 - `internal/` holds packages that are not API — the compiler refuses imports
   from outside the parent tree. Use it for anything you do not want to support;
-  do not wrap the whole module in `internal/pkg` or mirror a layer tree
-  (`internal/service`, `internal/repository`) — split by responsibility.
+  do not wrap the whole module in `internal/pkg`. A layer tree
+  (`internal/handlers`, `internal/services`, `internal/repositories`,
+  `internal/models`) fits one cohesive service; once several domains change
+  independently, the same layer names move under `internal/<module>/`.
+- Restructuring an existing module — a god package, a global layer tree
+  several domains share, a monolith heading for modules — is
+  [go-code-refactor's ARCHITECTURE.md](../go-code-refactor/references/ARCHITECTURE.md):
+  the import-graph audit, the target shapes, the staged move, and the
+  boundary test. This skill decides where a *new* package goes.
 - A package named `util`, `helper`, or `common` is a finding:
   [go-naming](../go-naming/references/IDENTIFIERS.md#package-names) owns the rule.
 

@@ -4,6 +4,120 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-09-13
+
+### Added
+
+- `go-code-refactor` proposes a target architecture for an existing monolith.
+  Four references, a checker and a fixture. `ARCHITECTURE.md` — the user's
+  text of 2026-09-13 — carries the package-scale smells with the evidence
+  each needs, the stance "modules own the tree; layers live inside a module
+  when they earn a package" (a global `handlers/services/repositories/models`
+  tree stays valid for one cohesive service; several independently changing
+  domains move the same names under `internal/<module>/`), the allowed-import
+  table per layer, cross-module contracts (named types must agree; an
+  adapter in `app` maps them), the five target shapes as alternatives rather
+  than a progression, a choosing table whose first row is "keep the tree",
+  the staged move, and the enforcement table. `ARCHITECTURE-BEHAVIOR.md`
+  carries the three contracts a move must not change — atomicity (a single
+  `CreateWithAudit` on one transaction beats a universal unit of work),
+  error identity (`%w` leaks a driver to `errors.Is`), and use-case
+  authorization in the service, not the handler. `ARCHITECTURE-CHECKS.md`
+  documents `scripts/check-architecture.sh`: `architecture.json` (layout
+  `layers` or `modules`, approved platform packages, module modes, driver
+  prefixes, a `known` list whose entries need a rule, exact edge, reason and
+  owner), the rules `ownership`, `layer`, `composition`, `platform`,
+  `contract`, `driver`, `unclassified` plus `stale`/`duplicate`/`unexplained`
+  for the list itself, what imports cannot prove, the graph commands, a
+  schema-2 `depguard` duplicate of the driver rule (verified with
+  golangci-lint 2.13.2), the report contract, the evaluation scenarios and
+  the common mistakes. `ARCHITECTURE-EXAMPLES.md` keeps the four community
+  repositories (READMEs checked). The checker is standard-library Go over
+  `go list -json` with an exact module-path prefix, so a module path
+  containing `/internal/` classifies correctly; `check-architecture_test.go`
+  covers every scenario in the evaluation table. `testdata/architecture` is
+  a compilable two-module fixture (`example.com/shop`): consumer-side `Store`
+  in `order/services`, an `app` adapter between `order.Summary` and
+  billing's own `OrderSummary`, `CreateWithAudit` on one `*sql.Tx` with a
+  `database/sql/driver` double proving begin–exec–exec–rollback,
+  `sql.ErrNoRows` mapped to `order.ErrNotFound`, and the actor check in the
+  service. `TestArchitectureFixtureAndChecker` compiles it, runs the checker
+  clean, and checks one forbidden edge of each rule on copies, a suppressing
+  `known` entry, a stale one, and the exit-2 paths. `SKILL.md` gains
+  the routing line, an "Architecture at Package Scale" section, the graph
+  audit in the audit step and the boundary move in the High tier; the report
+  template gains an Architecture section; the description names the
+  architecture ask. `go-packages` routes restructuring of an existing module
+  there and `docs/RULE_OWNERSHIP.md` records the owner.
+  `hooks/go-prompt-routing.sh` treats monolith and modularize wording
+  (English, Ukrainian, Russian) as refactor wording, with a hook test; two
+  trigger evals cover the architecture ask. `TestRefactorExampleBoundaryTest`
+  runs the reference's boundary test against a seven-package fixture: it
+  passes with its one allowlisted edge and fails naming
+  `billing/report imports orders/postgres`. `MODERNIZATION.md` records the
+  JetBrains go-modern-guidelines feature list as a cross-check source: its
+  Go 1.24–1.27 items are all already covered by the pack. Measured together
+  with the current-Go rule below against the committed 1.15.0 tree
+  (`e77d572`), Sonnet 5 medium, three arms at n=1 on both corpora, 21
+  sessions, $4.05:
+  [`docs/evidence/2026-09-13-go-arch-current-go-three-arm-n1-sonnet-5-medium.md`](docs/evidence/2026-09-13-go-arch-current-go-three-arm-n1-sonnet-5-medium.md).
+  Refactor corpus −11.5 against −14.2 lines, golden 4/4 and lint-clean 3/4 in
+  both skilled arms, +3% cost; the gap is one `store` session that kept two
+  nil-map guards the reference session deleted. `ARCHITECTURE.md` was read in
+  4/4 baseline sessions on single-package fixtures — Sonnet 5 medium reads
+  every reference Resource Routing names, whatever its "Read when" clause
+  says — so the file costs its ~7.3K tokens on every refactor session.
+  Repeated at n=5 on `report` and `store` after the rewrite and the split
+  into three files ([`docs/evidence/2026-09-13-go-arch-current-go-n5-report-store-roster-n3-sonnet-5-medium.md`](docs/evidence/2026-09-13-go-arch-current-go-n5-report-store-roster-n3-sonnet-5-medium.md)):
+  baseline −3.0 lines against reference (p = 0.50; `report` −5.0, p = 0.21;
+  `store` −1.0, p = 0.80), golden 10/10 and lint-clean 10/10 in both arms,
+  $0.18 against $0.22 a session — the morning's gap was one repetition of
+  noise. All three architecture files were read in 10/10 baseline sessions.
+  Both runs measured the second revision of the reference; the text now in
+  the tree (the third, with the checker) landed after them and is unmeasured.
+- `evals/ab/_implement/roster`: a fixture for "Write Current Go" — `legacy.go`
+  in pre-1.21 forms (`for i := 0; i < len(x); i++`, `m := m`, `sort.Slice`,
+  `strings.Index` plus slicing, `interface{}`) beside three documented stubs,
+  with a golden test that pins behavior including the legacy functions.
+  First run, Sonnet 5 medium, three arms at n=3, in the report above: golden
+  9/9, `legacy.go` untouched in 9/9, the unaided arm sorted with
+  `sort.Strings` in 3/3 sessions and both skilled arms in 0/6 — so the fixture
+  separates the pack from no skill on the idiom and does not separate the
+  rule from 1.15.0. The README's `go fix` reading was wrong for it
+  (`sort.Strings` is not a modernizer target, 3 → 3 hunks in 9/9) and now
+  names the grep that reads it.
+
+### Changed
+
+- Current Go outranks the neighbor. `go-style-core` "Write Current Go" is now
+  normative: every line written or edited uses the language form and
+  standard-library API available at the module's `go` directive, even when the
+  rest of the file keeps the older form; consistency with an older neighbor is
+  no longer a reason to write it. Three exits, each named in the report: the
+  current form does not compile at the directive (`stdversion`,
+  `COMPATIBILITY.md`), changes observable behavior (`MODERNIZATION.md` tiers),
+  or does not fit the code. The rule covers idioms, not dependencies — the
+  logger, assertion library, router, or ORM in use stay house style — and does
+  not widen scope: untouched neighbors are reported, not rewritten. Routed
+  from `go-code` (the register rule no longer includes idiom),
+  `go-code-refactor` (touched lines take the current form, the rest is
+  proposed), `MODERNIZATION.md`, `PRINCIPLES.md` §5, `go-packages` (a
+  dependency is a convention, an idiom is not) and the review checklist;
+  `docs/RULE_OWNERSHIP.md` records the carve-out. Decision of 2026-09-13,
+  adopting the stance of JetBrains go-modern-guidelines' `use-modern-go`
+  skill. Measured in the run above on the implementation corpus: golden 3/3
+  against 2/3 and lint-clean 3/3 against 2/2 (the reference miss is
+  `gateway`'s daily-flipping `HEAD` clause), lines +48.3 against +32.0 over
+  two valid reference sessions, all of it the `gateway` session that wrote a
+  contract test file and five handlers. The rule had nothing to move: the
+  unaided arm wrote `sort.Slice` in 2/3 sessions, both skilled arms wrote no
+  older form and used `slices.` in `feed` and `gateway`, so its effect is
+  unmeasured rather than absent. `MODERNIZATION.md` (~5.7K tokens) was read
+  in 3/3 baseline sessions and 0/3 reference sessions through the new link.
+  On the `roster` fixture built for it (same report) the rule's marginal
+  effect is zero on Sonnet 5 medium: the 1.15.0 arm already wrote
+  `slices.Sort` beside a `sort.Slice` neighbor in 3/3 sessions.
+
 ## [1.15.0] - 2026-09-13
 
 ### Added

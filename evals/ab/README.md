@@ -9,6 +9,22 @@ documented stubs and the hidden golden test is the specification, and
 defects and the review is scored against a hidden key by the source line each
 defect sits on.
 
+## Architecture reference and the current-Go rule, three arms at n=1 (2026-09-13)
+
+[Report](../../docs/evidence/2026-09-13-go-arch-current-go-three-arm-n1-sonnet-5-medium.md):
+Sonnet 5 medium, `no-skill`, `reference` (1.15.0) and `baseline` (the working
+tree with `go-code-refactor/references/ARCHITECTURE.md` and the normative
+"Write Current Go"), one repetition per fixture and arm, 12/12 valid. Golden
+4/4 and lint-clean 3/4 in both skilled arms, −14.2 against −11.5 lines, the
+gap one `store` session that kept two nil-map guards the reference session
+deleted; cost +3%. Every skilled session read all ten references, so
+`ARCHITECTURE.md` (~7.3K tokens) was read 4/4 on single-package fixtures. A
+smoke, not an effect. Repeated the same afternoon at n=5 on `report` and
+`store` after the reference was rewritten and split into three files
+([report](../../docs/evidence/2026-09-13-go-arch-current-go-n5-report-store-roster-n3-sonnet-5-medium.md)): baseline −3.0 lines against reference (p = 0.50),
+golden and lint-clean 10/10 in both arms, −17% cost, all three files read in
+10/10 baseline sessions — the morning's gap was noise.
+
 ## Sonnet 5 medium control, both corpora at n=5 (2026-09-10)
 
 Refactor [report](../../docs/evidence/2026-09-10-go-refactor-control-sonnet-5-medium-n5.md),

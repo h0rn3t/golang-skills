@@ -77,8 +77,8 @@ if not names_go(prompt):
 
 refactor = re.compile(
     r"\b(?:refactor\w*|clean(?:\s|-)?up|simplif\w*|restructur\w*|moderni[sz]\w*|tidy(?:\s|-)?up|reads? better|"
-    r"messy|bloated|over-?engineer\w*|dead code|too long|hard to follow|"
-    r"рефактор\w*|спрост\w*|упрост\w*|почист\w*|переструктур\w*|модерніз\w*|модерниз\w*)\b",
+    r"messy|bloated|over-?engineer\w*|dead code|too long|hard to follow|monolith\w*|modulari[sz]\w*|"
+    r"рефактор\w*|спрост\w*|упрост\w*|почист\w*|переструктур\w*|модерніз\w*|модерниз\w*|монол[иі]т\w*|модуляриз\w*)\b",
     re.I)
 # Work verbs only: a noun such as "function" or "handler" appears in questions
 # too, and a question gets no note.

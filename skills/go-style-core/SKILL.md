@@ -39,8 +39,10 @@ extra work or require renewed approval for work the user already authorized.
 
 - Assertion style, error-wrapping style, logger, test layout, and the `_`
   global prefix follow the nearest existing code.
-- Introduce a convention the guide prefers only in new code with no neighbor
-  to match, or as a whole-package migration the user asked for.
+- Introduce a *convention* the guide prefers only in new code with no neighbor
+  to match, or as a whole-package migration the user asked for. An older Go
+  idiom in the neighbor is not a convention:
+  [Write Current Go](#write-current-go) outranks it.
 - A bug is not house style. Fix it within the authorized scope; report unrelated
   findings separately. A review-only request remains read-only.
 
@@ -58,14 +60,44 @@ neighboring code's comment density. Doc comments on exported API belong to
 
 ## Write Current Go
 
-Respect `go.mod`, build constraints, and supported CI toolchains; an installed
-newer Go version does not authorize a version bump. A scoped `go fix -diff`
-previews modernization. [go-linting](../go-linting/SKILL.md) owns the analyzers
-and verification gate; [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships)
-lists standard-library replacements beyond the automated modernizers.
+> **Normative**: The module's `go` directive, not the neighboring code, sets
+> the idiom. Every line you write or edit uses the current language form and
+> standard-library API available at that version, even when the rest of the
+> file keeps the older form. Consistency with an older neighbor is not a
+> reason to write the older form.
 
-Keep modernization within the task. If consistency would require unrelated
-rewrites, preserve the local idiom and report the opportunity separately.
+```go
+// At go 1.27, the line you write:
+return slices.ContainsFunc(items, func(it Item) bool { return it.ID == id })
+
+// The neighbor two functions up stays as it is — not rewritten, not copied:
+for i := 0; i < len(items); i++ {
+    if items[i].ID == id {
+        return true
+    }
+}
+```
+
+Write the older form only when one of three things is true, and name which in
+the report: the current form does not compile at the `go` directive (`go vet`'s
+`stdversion` reports library symbols; `COMPATIBILITY.md` lists the language
+features); it changes observable behavior (the tiers in
+[MODERNIZATION.md](../go-code-refactor/references/MODERNIZATION.md) say which
+swaps do); or it does not fit the code at hand. An installed newer toolchain
+does not authorize a version bump; respect build constraints and the CI
+toolchains.
+
+The rule covers idioms — language features and standard-library APIs — not
+dependencies: the logger, assertion library, router, or ORM the package already
+uses stays ([House Style Wins](#house-style-wins);
+[go-packages](../go-packages/SKILL.md) owns replacing one). Scope stays too:
+untouched neighbors are not rewritten for consistency, and the report names
+the older forms left in place as an opportunity. A scoped `go fix -diff`
+previews what the mechanical modernizers would change, and the plugin's edit
+hook prints it after each edit where installed.
+[go-linting](../go-linting/SKILL.md) owns the analyzers and verification gate;
+[OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships)
+lists the standard-library replacements beyond the automated modernizers.
 
 ## Reduce Nesting
 

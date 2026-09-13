@@ -153,7 +153,10 @@ entry point, anything it calls, and the contract test alike.
   has the table, and [go-data-structures](../go-data-structures/SKILL.md)
   the collectors whose empty result is nil.
 - **Neighbors set the register.** Where the package has code, match its
-  naming, comment density, and idiom ([House Style](../go-style-core/SKILL.md#house-style-wins)).
+  naming and comment density ([House Style](../go-style-core/SKILL.md#house-style-wins)).
+  Not its Go version: the current form at the module's `go` directive is
+  written even beside an older neighbor
+  ([Write Current Go](../go-style-core/SKILL.md#write-current-go)).
 
 [NEW-CODE-EXAMPLES.md](references/NEW-CODE-EXAMPLES.md) carries a whole
 documented JSON document in this form.

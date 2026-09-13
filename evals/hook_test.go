@@ -573,6 +573,14 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
+	t.Run("monolith wording is a refactor", func(t *testing.T) {
+		t.Parallel()
+		_, out := promptEvent(t, t.TempDir(), "p13", t.TempDir(), "Our Go monolith has one models package that every other package imports — propose how to modularize it")
+		if !strings.Contains(out, "`go-code-refactor`") {
+			t.Fatalf("monolith/modularize: stdout %q; want go-code-refactor", out)
+		}
+	})
+
 	t.Run("silent without Go", func(t *testing.T) {
 		t.Parallel()
 		code, out := promptEvent(t, t.TempDir(), "p4", t.TempDir(), "Write a Python script that parses this CSV and prints the totals")

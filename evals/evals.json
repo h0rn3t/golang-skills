@@ -835,6 +835,23 @@
       ],
       "notes": "Names only the package and the bodies; the router description must fire without the words new, function, or stub",
       "set": "validation"
+    },
+    {
+      "query": "Our Go monolith has one internal/models package that every other package imports — how do we restructure it into modules with clear layers?",
+      "should_trigger": [
+        "go-code-refactor",
+        "go-packages"
+      ],
+      "notes": "Architecture of an existing monolith: the refactor skill owns the target shapes and the staged move, go-packages the package rules",
+      "set": "train"
+    },
+    {
+      "query": "Propose a target architecture for this 60k-line Go service: handlers call SQL directly and every feature spans handlers/, services/ and repositories/",
+      "should_trigger": [
+        "go-code-refactor"
+      ],
+      "notes": "Layer leaks and a package-by-layer tree without the word refactor",
+      "set": "validation"
     }
   ],
   "quality_evals": [

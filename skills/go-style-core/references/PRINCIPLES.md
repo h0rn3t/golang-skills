@@ -92,3 +92,7 @@ Code should look and behave like similar code in the codebase.
 - Package-level consistency is most important
 - When ties occur, break in favor of consistency
 - Never override documented style principles for consistency
+- Consistency keeps conventions, not Go versions: an idiom the module's `go`
+  directive has superseded is written in its current form beside the older
+  neighbor ([Write Current Go](../SKILL.md#write-current-go); project policy,
+  2026-09-13)

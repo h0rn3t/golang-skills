@@ -1,9 +1,9 @@
 # Modernization Catalog
 
-> Sources: `$GOROOT/api/go1.2*.txt`; `go tool fix help`; Go spec; package docs
+> Sources: `$GOROOT/api/go1.2*.txt`; `go tool fix help`; Go spec; package docs; JetBrains go-modern-guidelines `FEATURES.md` (the Go 1.24–1.27 list cross-checked 2026-09-13: every item is covered here, in `COMPATIBILITY.md`, or by its owner skill)
 > Authority: normative for tier placement; project policy for what may ride in a refactor
 > Minimum Go: gated by the `go` directive in `go.mod`, not the installed toolchain
-> Last verified: 2026-08-29 against go1.27.0
+> Last verified: 2026-09-13
 
 Check version claims against the installed toolchain using `COMPATIBILITY.md`.
 For existing code, work Tier 1, then conditional Tier 2; report Tier 3 changes
@@ -28,7 +28,10 @@ Preview their output and verify the relevant behavior contracts.
 Use the package scope and apply conditions in
 [Scope mechanical modernization](../SKILL.md#3-scope-mechanical-modernization).
 Preview before applying; a scoped refactor does not authorize unrelated
-modernization. Keep mechanical changes distinguishable from hand edits.
+modernization. Within scope, an older form in the neighboring code is not a
+reason to keep it: the module's `go` directive sets the idiom
+([Write Current Go](../../go-style-core/SKILL.md#write-current-go)). Keep
+mechanical changes distinguishable from hand edits.
 
 `go tool fix help` is authoritative; [go-linting](../../go-linting/SKILL.md#modernization-go-fix)
 catalogues the current analyzers and each release's renames and removals.

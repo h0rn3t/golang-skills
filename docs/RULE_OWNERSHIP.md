@@ -55,6 +55,7 @@ owner with a short pointer instead of repeating a full explanation.
 | Benchmark discipline (file layout, serial runs, benchstat evidence, perf commits) | `go-performance` | `go-code-review` | Go testing benchmark docs; `benchstat` |
 | Tool directives and dependency audit (`go get -tool`, tidy check) | `go-packages` | `go-linting` | `go help get`; `go help tool` |
 | CI pipeline shape (version matrix, test flags, pinned actions, least-privilege permissions) | `go-linting` | `go-testing` | GitHub Actions docs; `go help testflag` |
+| Owner selection before the first edit: the routing table, the load before the first edit, the prompt note that names the owners, and the gate that holds the first `.go` edit until the router has loaded `go-style-core` and the owners | `go-code` | `go-code-refactor`, `go-code-review` | Project policy; `hooks/go-code-routing.sh`; refactor routing runs 2026-09-10 and 2026-09-13 |
 
 ## Maintenance Rules
 

@@ -9,6 +9,32 @@ documented stubs and the hidden golden test is the specification, and
 defects and the review is scored against a hidden key by the source line each
 defect sits on.
 
+## The load step and the three-router gate, three arms at n=1 (2026-09-13)
+
+[Report](../../docs/evidence/2026-09-13-go-refactor-routing-load-n1-sonnet-5-medium.md):
+Sonnet 5 medium, `no-skill`, `reference` (1.17.0) and `baseline` (the working
+tree where `go-code-refactor` and `go-code-review` say to load `go-style-core`
+and the owners before the first edit and `go-code-routing.sh` gates the first
+`.go` edit after any of the three routers), one repetition per fixture and
+arm, 12/12 valid. `go-style-core` before the first edit 3/4 from the text and
+4/4 with the gate, against 0/4; an owner skill 4/4 against 1/4; five gate
+fires in three sessions, every retry landed. Golden 4/4 and lint-clean 3/4 in
+both skilled arms; −13.2 against −16.0 lines, the gap the `store` session
+that kept the nil-map guards again. The loads arrived one per turn, not in
+one message, and cost rose +87% ($0.348 against $0.186 a session; +62%
+without the `pricing` session that wrote a 167-line characterization test).
+A firing smoke, not a line claim. Follow-up the same night
+([report](../../docs/evidence/2026-09-13-go-refactor-routing-cost-n1-sonnet-5-medium.md)):
+with the no-shell paragraph in `go-code-refactor`, the one-message clause
+gone, and the prompt hook naming `go-style-core` and the owners the target's
+code points at, `reference` (1.17.0) against `baseline`, one repetition per
+fixture, 8/8 valid: $0.206 against $0.228 a session (the morning's baseline
+was $0.348), the refactor skill loaded once per session against six loads in
+four reference sessions, no post-edit loads, two gate blocks against five in
+the morning; golden 4/4 and lint-clean 3/4 in both arms, −11.2 against −13.2
+lines. The dollar gap is n=1 noise — the reference arm itself moved from
+$0.186 to $0.228 between the runs — the counts are the result.
+
 ## The idiom card on `roster`, Haiku 4.5 at n=5 (2026-09-13)
 
 [Report](../../docs/evidence/2026-09-13-go-implement-roster-current-go-card-n5-haiku-4-5.md):

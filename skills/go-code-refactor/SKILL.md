@@ -17,6 +17,7 @@ for that promise; compilation alone does not establish equivalent behavior.
 Resolve resources from this installed skill directory; run scripts from the
 target project using the resolved absolute script path.
 
+- `../go-style-core/SKILL.md` - Load on every refactor before the first edit (Workflow step 1); its `references/CURRENT-GO.md` gives the current form of each touched line.
 - `references/BEHAVIOR-TRAPS.md` - Read its Pre-commit checklist before every refactor; read a section when a transform moves a `defer`, changes nil versus empty, alters goroutine or channel shape, or touches struct layout.
 - `references/PLAYBOOK.md` - Read for the concrete transformations, ordered by payoff, with before/after Go.
 - `references/POLICY-TABLES.md` - Read when repeated selection accesses fields of one shared policy record; includes a complete before/after example.
@@ -37,13 +38,19 @@ target project using the resolved absolute script path.
 - `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no upgrade path.
 - `assets/refactor-report.md` - Use as the final report structure.
 
-Every command below runs the scripts through `REFACTOR_SKILL_DIR`. Set it once,
-before the first one, to the base directory the host printed for this skill
+Every command below needs a shell tool (`Bash` in Claude Code) and runs the
+scripts through `REFACTOR_SKILL_DIR`. Set it once, before the first one, to
+the base directory the host printed for this skill
 (`${CLAUDE_PLUGIN_ROOT}/skills/go-code-refactor` under the Claude Code plugin,
 `~/.agents/skills/go-code-refactor` under Codex), and keep the working directory
 in the target project. Unset, the path collapses to `/scripts/verify-refactor.sh`
 and every call exits 127 (`No such file or directory`) — with no baseline
-recorded, the gate below cannot pass.
+recorded, the gate below cannot pass. **Without a shell tool in your tool list,
+run nothing**: do not read the scripts, reload this skill, or load `go-linting`
+or `go-code-review` to find a way to verify. The plugin's edit hook runs gofmt,
+vet, `go fix -diff`, the package tests, and golangci-lint after every `.go`
+edit and prints what failed; that output is the check record, and a check no
+hook ran is reported as `unavailable (no shell)`.
 
 ```bash
 export REFACTOR_SKILL_DIR="<base directory the host printed for this skill>"
@@ -81,8 +88,6 @@ line the refactor touches takes the current form
 rest is proposed, not rewritten. A structural problem a readability pass
 cannot solve gets one sentence in the report.
 
----
-
 ## Risk Tiers
 
 The tier sets what has to be true *before* the step, and pairs with the coverage
@@ -101,8 +106,6 @@ serialization conventions, or indirect interface assertions; extract may drop
 comments. A refusal is a semantic hazard — investigate it, never hand-edit
 around it ([GOPLS.md](references/GOPLS.md#gotchas)).
 
----
-
 ## What "Identical Behavior" Means
 
 > **Normative**: Anything an outside observer could notice must not move.
@@ -114,8 +117,6 @@ types and overflow points; nil versus empty collections on the wire.
 [BEHAVIOR-TRAPS.md](references/BEHAVIOR-TRAPS.md) has the mechanism behind each.
 Internal names, function boundaries, control-flow shape, and comments are fair
 game — that is where the readability gain lives.
-
----
 
 ## Delete Before You Restructure
 
@@ -145,8 +146,6 @@ a licence. Apply the shorter form only where it reads as well; never golf.
 that prevents data loss, or security checks. A "simplification" that drops a
 bounds check is a bug, not laziness. These stay even when the diff gets uglier.
 
----
-
 ## Remove Duplication to the End
 
 When branches repeat one policy or computation and differ only in its values,
@@ -171,8 +170,6 @@ Map iteration order is not source order, so an ordered literal stays a
 literal. Error texts and the point where an unknown key fails do not move.
 `references/POLICY-TABLES.md` shows the fold.
 
----
-
 ## Architecture at Package Scale
 
 > **Normative**: Modules own the tree; layers live inside a module when they
@@ -192,8 +189,6 @@ in `architecture.json` and runs `scripts/check-architecture.sh`, whose `known`
 list a refactor never extends to make its own run pass. Growth is justified by
 the coupling it removes and named in the report
 (`references/ARCHITECTURE-CHECKS.md` carries the report contract).
-
----
 
 ## Concision Gate
 
@@ -230,16 +225,19 @@ fails, revise it or undo only your own edits. An empty diff is successful when
 no qualifying improvement exists. Report starting and final physical/code
 counts, their deltas, and the checks supporting behavior preservation.
 
----
-
 ## Workflow
 
 ### 1. Orient
 
-Before rewriting, read [go-style-core](../go-style-core/SKILL.md) for the shared
-style and control-flow rules, including snippet-only refactors, and the
-convention files its House Style Wins names; they take precedence over the
-guide's defaults.
+Load the skills before the first edit (a read of `../<name>/SKILL.md` where
+there is no `Skill` tool): [go-style-core](../go-style-core/SKILL.md) on every
+refactor — the shared style and control-flow rules, snippet-only refactors, and
+the convention files its House Style Wins names, which outrank the guide's
+defaults — then the owner of each decision the diff moves, from
+[Related Skills](#related-skills), go-code's
+[Route Before The First Edit](../go-code/SKILL.md#route-before-the-first-edit),
+or the host's routing note when it names them. No edit before every selected
+skill is in context.
 
 Flag two file classes before editing: **generated** files (exclude silently
 when incidental, ask when they are the target) and **build-tagged** files for
@@ -354,7 +352,9 @@ behavior they exercise; report what remains unverified.
 
 Watch tests that assert on error strings or JSON output — they catch the
 invisible breakages compilation misses.
-[go-linting](../go-linting/SKILL.md) owns what the individual checks mean.
+[go-linting](../go-linting/SKILL.md) owns what the individual checks mean;
+without a shell tool it stays unread, the edit hook's output after each edit
+is the check record, and nothing else is loaded to verify or to report.
 
 ### 6. Report
 
@@ -362,8 +362,6 @@ Use `assets/refactor-report.md`. Lead with what was deleted and the net line
 count — the part of the diff that needed no design decision. Keep prose short
 ([go-style-core](../go-style-core/SKILL.md#how-much-to-say) owns the length);
 report skipped checks as skipped; the table and the diff carry the information.
-
----
 
 ## Mark What You Deliberately Left Alone
 
@@ -380,8 +378,6 @@ prefixes, so the markers stay greppable:
 A marker naming no ceiling and no upgrade path rots into "later means never".
 `bash "$REFACTOR_SKILL_DIR/scripts/check-debt.sh" ./...` lists every marker and
 exits 1 on those.
-
----
 
 ## Related Skills
 

@@ -4,11 +4,76 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-09-13
+
 ### Added
 
 - Full GPT-5.6-Luna/Codex medium control runs for refactoring and new code,
   with raw JSON and an updated README verdict:
   [`docs/evidence/2026-09-13-gpt-5-6-luna-medium-controls.md`](docs/evidence/2026-09-13-gpt-5-6-luna-medium-controls.md).
+
+### Changed
+
+- `go-code-refactor` and `go-code-review` load the skills they route to.
+  Both linked `go-style-core` and the owners in prose with no load step, and
+  the routing gate fired only in a session that loaded `go-code`, which a
+  refactor prompt never reaches: the prompt hook names `go-code-refactor`
+  alone. In the refactor runs on record the skilled sessions loaded
+  `go-code-refactor` and nothing else in most cases — `go-style-core` in
+  2/20 (Sonnet 5 medium n5, 2026-09-10,
+  [`docs/evidence/2026-09-10-go-refactor-control-sonnet-5-medium-n5.md`](docs/evidence/2026-09-10-go-refactor-control-sonnet-5-medium-n5.md))
+  and 6/20 (2026-09-13 architecture n5,
+  [`docs/evidence/2026-09-13-go-refactor-architecture-report-store-n5-sonnet-5-medium.json`](docs/evidence/2026-09-13-go-refactor-architecture-report-store-n5-sonnet-5-medium.json)),
+  an owner skill in 4 of 44, and Haiku 4.5 reached no skill at all in 3/4.
+  Now `go-code-refactor` Workflow step 1 and `go-code-review` Review
+  Procedure step 2 say to load `go-style-core` and the owners of the
+  decisions the diff touches, every `Skill` call in one message, and both
+  list `../go-style-core/SKILL.md` in Resource Routing, the list Sonnet 5
+  medium reads whole. `hooks/go-code-routing.sh` gates the first `.go` edit
+  after any of the three routers and names the router it saw;
+  `TestRoutingGate` covers the two new paths, and `docs/RULE_OWNERSHIP.md`
+  records `go-code` as the owner of owner selection. Measured the same
+  evening on the refactor corpus, Sonnet 5 medium, three arms at n=1, 12
+  sessions, $2.30 ([report](docs/evidence/2026-09-13-go-refactor-routing-load-n1-sonnet-5-medium.md)):
+  `go-style-core` in context before the first edit in 3/4 baseline sessions
+  and named by the gate in the fourth, against 0/4 in the 1.17.0 arm; an
+  owner skill in 4/4 against 1/4; the gate fired five times in three
+  sessions and every retry landed. Golden 4/4 and lint-clean 3/4 in both
+  skilled arms; lines −13.2 against −16.0, the gap one `store` session that
+  kept two nil-map guards, as the morning's run had. The one-message load
+  did not take: the `Skill` calls arrived on 3 to 6 separate turns, and cost
+  rose to $0.348 from $0.186 a session (+87%; +62% without the `pricing`
+  session that wrote a 167-line characterization test). A smoke on firing,
+  not a line claim; n=5 on `store` and `pricing` is the next step.
+- The cost follow-up to that run, where the intended loads were $0.04 of
+  the +$0.16 a session and the rest was behavior around them.
+  `go-code-refactor` now says what to do without a shell tool — run nothing,
+  do not read the scripts, reload the skill, or load `go-linting` or
+  `go-code-review` to find a way to verify; the edit hook's output is the
+  check record and a check no hook ran is `unavailable (no shell)` — which is
+  where two sessions re-loaded the 9K-token skill ($0.05 each) and one
+  loaded three skills after its edit ($0.06). The "every `Skill` call in one
+  message" clause is gone from `go-code-refactor` and `go-code-review`:
+  Sonnet 5 medium loaded one per turn regardless. `go-prompt-routing.sh` now
+  names `go-style-core` and the owners the target's code points at — the
+  files the prompt names, scanned with the gate's own table through a new
+  `go-code-routing.sh --hints` mode — so a session can load everything before
+  its first edit instead of meeting the gate once per owner. The nine
+  horizontal rules in `go-code-refactor/SKILL.md` went to make room under the
+  400-line cap. `TestRoutingGate` and `TestPromptRouting` cover the mode and
+  the note. Measured the same night, two arms at n=1, 8 sessions, $1.73
+  ([report](docs/evidence/2026-09-13-go-refactor-routing-cost-n1-sonnet-5-medium.md)): $0.206 a session against $0.228 for the 1.17.0 arm
+  in the same run, down from $0.348 in the morning's run; `go-code-refactor`
+  loaded once per session against six loads in four reference sessions, no
+  skill loaded after an edit, two gate blocks — both on `report`, whose code
+  names no owner and whose session skipped the note's `go-style-core` —
+  against five in the morning and one in the reference arm; 3/4 sessions had
+  `go-style-core` and every owner in context before the first edit. Golden
+  4/4 and lint-clean 3/4 in both arms, lines −11.2 against −13.2. The note
+  is a superset of what an edit touches: `dispatch` loaded `go-interfaces`
+  (2.2K tokens) for an interface the edit never reached. The reference arm
+  itself moved from $0.186 to $0.228 between the two runs, so the dollar gap
+  is n=1 noise; the counts are the result. Loads still land one per turn.
 
 ## [1.17.0] - 2026-09-13
 

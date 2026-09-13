@@ -20,6 +20,14 @@
 # adds to the model's context; it never blocks (exit 0 always). It stays silent
 # when the session has already loaded the skill, using the same state directory
 # go-code-routing.sh writes.
+#
+# With the router it names go-style-core and, when the prompt points at Go
+# files (./dispatch, internal/x/y.go, or a bare word naming a directory of Go
+# files under cwd), the owner skills their code points at, through
+# go-code-routing.sh --hints: the same table the gate applies to each edit.
+# On 2026-09-13 the gate blocked five edits in three sessions to name owners
+# one at a time; a session that has the list before its first edit loads them
+# without a block. Test files stay out of the scan.
 set -u
 
 input="$(cat)"
@@ -95,9 +103,34 @@ else:
 print((d.get("session_id") or "default").replace("\n", " "))
 print(skill)
 print(kind)
+
+# The Go files the prompt points at, one path per line, for the owner hints.
+def go_files(p):
+    try:
+        names = sorted(os.listdir(p))
+    except OSError:
+        return []
+    return [os.path.join(p, n) for n in names if n.endswith(".go") and not n.endswith("_test.go")]
+
+files, seen = [], set()
+cwd = d.get("cwd") or ""
+if os.path.isdir(cwd):
+    for tok in re.findall(r"(?<![\w./-])(?:\.{1,2}/)?[\w.-]+(?:/[\w.-]+)*", prompt):
+        tok = tok.rstrip(".,;:!?")
+        if not tok or tok in seen or tok in (".", ".."):
+            continue
+        seen.add(tok)
+        pathlike = "/" in tok or tok.endswith(".go")
+        p = os.path.normpath(os.path.join(cwd, tok))
+        if os.path.isdir(p):
+            files.extend(go_files(p))
+        elif pathlike and os.path.isfile(p) and p.endswith(".go") and not p.endswith("_test.go"):
+            files.append(p)
+for p in files[:40]:
+    print(p)
 ')" || exit 0
 [[ -n "$parsed" ]] || exit 0
-{ read -r session; read -r skill; read -r kind; } <<< "$parsed"
+{ read -r session; read -r skill; read -r kind; mapfile -t files; } <<< "$parsed"
 [[ -n "$skill" ]] || exit 0
 
 state="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/${session:-default}"
@@ -114,7 +147,20 @@ go-code-refactor)
 *)
     what="it loads the owner skills the task needs and closes with the verification gate" ;;
 esac
+owners=""
+if (( ${#files[@]} > 0 )); then
+    owners="$(bash "$(dirname "${BASH_SOURCE[0]}")/go-code-routing.sh" --hints "${files[@]}" 2>/dev/null)" || owners=""
+fi
+line='Load `go-style-core` with it'
+if [[ -n "$owners" ]]; then
+    list=""
+    for o in $owners; do list+="\`$o\`, "; done
+    line+=", and the owners its code points at: ${list%, }"
+fi
+line+='; `go-testing` if you write or edit a test. All of them before the first edit.'
+
 printf 'golang-skills: this prompt looks like %s.\n' "$kind"
 printf 'Before the first edit, load the `%s` skill (Skill tool, name `%s`); %s.\n' "$skill" "$skill" "$what"
+printf '%s\n' "$line"
 printf 'If the task is not Go work, ignore this note.\n'
 exit 0

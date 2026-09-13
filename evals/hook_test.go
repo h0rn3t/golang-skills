@@ -89,21 +89,49 @@ func TestHookScriptsSyntax(t *testing.T) {
 	}
 }
 
-// TestRoutingGate drives the go-code routing hook through one session: no
-// gate without go-code, a block that names exactly the missing owners, a pass
-// once they are loaded, and a pass on retry even when they are not.
+// TestRoutingGate drives the routing hook through one session: no gate
+// without a router, a block that names exactly the missing owners after any
+// of the three routers, a pass once they are loaded, and a pass on retry even
+// when they are not.
 func TestRoutingGate(t *testing.T) {
 	t.Parallel()
 	script := filepath.Join(repoRoot(t), "hooks", "go-code-routing.sh")
 	handler := "package api\n\nfunc (s *Server) handle(w http.ResponseWriter, r *http.Request) {\n\tif err := s.store.Save(r.Context(), u); err != nil {\n\t\thttp.Error(w, fmt.Errorf(\"save: %w\", err).Error(), 500)\n\t}\n}\n"
 
-	t.Run("silent without go-code", func(t *testing.T) {
+	t.Run("silent without a router", func(t *testing.T) {
 		t.Parallel()
 		state := t.TempDir()
 		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "s1", "Write",
 			map[string]any{"file_path": "/repo/api/handler.go", "content": handler}))
 		if code != 0 || msg != "" {
-			t.Fatalf("edit without go-code loaded: exit %d, stderr %q; want silent 0", code, msg)
+			t.Fatalf("edit without a router loaded: exit %d, stderr %q; want silent 0", code, msg)
+		}
+	})
+
+	// A refactor prompt reaches go-code-refactor alone, and a review that turns
+	// into edits reaches go-code-review alone; in the 2026-09-10 and 2026-09-13
+	// refactor runs such sessions loaded go-style-core in 2/20 and 6/20. The
+	// gate keyed on go-code alone stayed silent for all of them.
+	t.Run("blocks after go-code-refactor or go-code-review", func(t *testing.T) {
+		t.Parallel()
+		for _, router := range []string{"go-code-refactor", "go-code-review"} {
+			state := t.TempDir()
+			edit := routingPayload("PreToolUse", router, "Write",
+				map[string]any{"file_path": "/repo/api/handler.go", "content": handler})
+			hookEvent(t, script, state, routingPayload("PostToolUse", router, "Skill",
+				map[string]any{"skill": "golang-skills:" + router}))
+			code, msg := hookEvent(t, script, state, edit)
+			if code != 2 {
+				t.Fatalf("first Go edit after %s: exit %d, stderr %q; want 2", router, code, msg)
+			}
+			for _, want := range []string{router, "go-style-core", "go-http", "go-error-handling"} {
+				if !strings.Contains(msg, want) {
+					t.Errorf("block after %s must name %s:\n%s", router, want, msg)
+				}
+			}
+			if code, msg := hookEvent(t, script, state, edit); code != 0 {
+				t.Fatalf("retry after the %s reminder: exit %d, stderr %q; want 0", router, code, msg)
+			}
 		}
 	})
 
@@ -140,6 +168,29 @@ func TestRoutingGate(t *testing.T) {
 		// The retry passes without loading anything: the gate reminds once.
 		if code, msg := hookEvent(t, script, state, edit); code != 0 {
 			t.Fatalf("retry after one reminder: exit %d, stderr %q; want 0 (no deadlock)", code, msg)
+		}
+	})
+
+	// --hints runs the same owner table over whole files for the prompt hook:
+	// a handler names go-http and go-error-handling, a test file go-testing,
+	// a missing file nothing.
+	t.Run("hints mode names owners for files", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		src := filepath.Join(dir, "handler.go")
+		if err := os.WriteFile(src, []byte(handler), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		tf := filepath.Join(dir, "handler_test.go")
+		if err := os.WriteFile(tf, []byte("package api\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		out, err := exec.Command("bash", script, "--hints", src, tf, filepath.Join(dir, "missing.go")).Output()
+		if err != nil {
+			t.Fatalf("--hints: %v", err)
+		}
+		if got, want := strings.TrimSpace(string(out)), "go-http go-error-handling go-testing"; got != want {
+			t.Fatalf("--hints = %q, want %q", got, want)
 		}
 	})
 
@@ -647,6 +698,51 @@ func TestPromptRouting(t *testing.T) {
 			routingPayload("PostToolUse", "p10", "Skill", map[string]any{"skill": "golang-skills:go-code"}))
 		if code, out := promptEvent(t, state, "p10", t.TempDir(), implement); code != 0 || out != "" {
 			t.Fatalf("go-code already loaded: exit %d, stdout %q; want silent 0", code, out)
+		}
+	})
+
+	// The owners come from the gate's own table, read off the files the prompt
+	// names, so a session can load everything before its first edit instead of
+	// meeting the gate once per owner (five blocks in three sessions on
+	// 2026-09-13). go-style-core is always named; test files stay out of the
+	// scan; routine code names no owner.
+	t.Run("names go-style-core and the owners the target's code points at", func(t *testing.T) {
+		t.Parallel()
+		cwd := t.TempDir()
+		pkg := filepath.Join(cwd, "dispatch")
+		if err := os.MkdirAll(pkg, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		src := "package dispatch\n\nfunc Run(ctx context.Context) error {\n\tctx, cancel := context.WithTimeout(ctx, time.Second)\n\tdefer cancel()\n\treturn fmt.Errorf(\"run: %w\", run(ctx))\n}\n"
+		if err := os.WriteFile(filepath.Join(pkg, "dispatch.go"), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(pkg, "dispatch_test.go"), []byte("package dispatch\n\nimport \"net/http\"\n\nvar _ = http.StatusOK\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		_, out := promptEvent(t, t.TempDir(), "p13", cwd, refactor)
+		for _, want := range []string{"`go-code-refactor`", "`go-style-core`", "`go-error-handling`", "`go-context`", "`go-defensive`", "before the first edit"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("note must name %s:\n%s", want, out)
+			}
+		}
+		if strings.Contains(out, "`go-http`") {
+			t.Errorf("a test file's imports must not name an owner:\n%s", out)
+		}
+		// A bare package name in the prompt resolves against cwd too.
+		if _, out := promptEvent(t, t.TempDir(), "p14", cwd, "Спрости Go-пакет dispatch, не змінюючи поведінки"); !strings.Contains(out, "`go-context`") {
+			t.Errorf("bare package name: stdout %q; want go-context", out)
+		}
+		plain := filepath.Join(cwd, "plain")
+		if err := os.MkdirAll(plain, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(plain, "plain.go"), []byte("package plain\n\nfunc Add(a, b int) int { return a + b }\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		_, out = promptEvent(t, t.TempDir(), "p15", cwd, "Refactor the Go package in ./plain so it reads better.")
+		if strings.Contains(out, "owners its code points at") || !strings.Contains(out, "`go-style-core`") {
+			t.Errorf("routine code must name go-style-core and no owner:\n%s", out)
 		}
 	})
 

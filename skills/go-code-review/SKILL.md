@@ -11,6 +11,7 @@ allowed-tools: Bash(bash:*)
 
 ## Resource Routing
 
+- `../go-style-core/SKILL.md` - Load on every review before the first finding (Review Procedure step 2); its convention files fix the report language.
 - `assets/review-template.md` - Use when formatting review output with Must Fix, Should Fix, and Nits sections.
 - `scripts/pre-review.sh` - Run before manual review to collect gofmt, go vet, and golangci-lint results; a missing linter is reported as `unavailable`, `--strict` makes it an error.
 
@@ -21,11 +22,16 @@ allowed-tools: Bash(bash:*)
    Security → HTTP → Database → Concurrency → the rest; the section order below
    applies within a file. Ask only when the module has more than one binary.
    The flat checklist below is for a diff, not for a whole package.
-2. **Read the convention files [go-style-core](../go-style-core/SKILL.md#house-style-wins)
-   names before the first finding.** They fix the report language, error style,
-   and test style, and they outrank every rule here — except the idiom: an
-   older form kept for consistency with the package is a finding
-   ([Write Current Go](../go-style-core/SKILL.md#write-current-go)).
+2. **Load the owners before the first finding** (a read of
+   `../<name>/SKILL.md` where there is no `Skill` tool):
+   [go-style-core](../go-style-core/SKILL.md) on every review, then, for each
+   checklist section the diff touches, the owner its rows' arrows name —
+   `go-http` for a handler, `go-database` for a query, `go-concurrency` for a
+   goroutine, `go-security` when input reaches a sink. Read the convention
+   files [House Style Wins](../go-style-core/SKILL.md#house-style-wins) names;
+   they fix the report language, error style, and test style, and outrank
+   every rule here — except the idiom: an older form kept for consistency with
+   the package is a finding ([Write Current Go](../go-style-core/SKILL.md#write-current-go)).
 3. From the project, run `bash <installed-skill-dir>/scripts/pre-review.sh ./...` plus
    `go fix -diff <packages in the diff>`. Fix or report what the tools find
    before the checklist; never spend review attention on what a tool reports.

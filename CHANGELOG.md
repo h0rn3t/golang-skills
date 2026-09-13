@@ -4,6 +4,12 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Full GPT-5.6-Luna/Codex medium control runs for refactoring and new code,
+  with raw JSON and an updated README verdict:
+  [`docs/evidence/2026-09-13-gpt-5-6-luna-medium-controls.md`](docs/evidence/2026-09-13-gpt-5-6-luna-medium-controls.md).
+
 ## [1.17.0] - 2026-09-13
 
 ### Added

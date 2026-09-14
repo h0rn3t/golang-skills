@@ -4,6 +4,16 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Both READMEs now treat the 2026-09-13 GPT-5.6-Luna medium control as the
+  source of that row's refactoring and new-code cells, and name `v1.18.0` in
+  the pin-a-version example. `README.uk.md` had kept the 2026-09-08 Luna
+  verdict and still said 61 reference files in "Як це працює" (the number
+  sat on its own line, so `TestManifestCounts` did not see it). The English
+  prose under the table still described the superseded three-arm new-code
+  run as "the cell."
+
 ## [1.18.0] - 2026-09-13
 
 ### Added

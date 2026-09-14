@@ -201,13 +201,13 @@ To uninstall: `rm -rf ~/.claude/skills/go-*`.
 
 ### Pinning a version
 
-Every release is a git tag (`v1.9.0`). None of the installers above takes a
+Every release is a git tag (`v1.18.0`). None of the installers above takes a
 version argument — `npx skills add` and `/plugin marketplace add
 h0rn3t/golang-skills` both follow the default branch, so they always give you
 the newest release. To pin one, install from a tagged checkout:
 
 ```bash
-git clone --branch v1.9.0 --depth 1 https://github.com/h0rn3t/golang-skills.git
+git clone --branch v1.18.0 --depth 1 https://github.com/h0rn3t/golang-skills.git
 cd golang-skills
 
 # manual install from this checkout
@@ -319,8 +319,10 @@ These are practical interpretations of the tests, not guarantees for every proje
 | **Haiku 4.5 / Claude** | [🟡 The router is the limit: by description alone `go-code-refactor` reached 1 of 4 sessions at n = 1 and 4 of 12 at n = 3; the prompt hook makes it the first action in 12/12, at 2.56× the unaided cost; wording effects on this tier are unmeasured](docs/evidence/2026-09-11-go-refactor-prompt-routing-haiku-4-5.md) | [✅ On `roster` (n = 5): unaided sessions copied `sort.Strings` from the pre-1.21 neighbor 5/5, one without the import so it did not build; the 1.16.0 text left it in 2/5; the idiom card 0/5, with `slices.Sort` 5/5 and `slices.ContainsFunc` 4/5, golden 5/5 in both skilled arms — one card session also modernized the neighbor it was told to leave](docs/evidence/2026-09-13-go-implement-roster-current-go-card-n5-haiku-4-5.md) | — Not tested | New code ≈ **4.7×** on `roster` (n = 5); refactoring ≈ 2.6× with the hook (n = 3) | **The idiom card moves Haiku off stale forms; use it with the prompt hook, which is what gets the router loaded at all.** |
 
 Uses the latest available control run for each model + tool + work type by
-JSON `finished` (September 7–11, 2026, local time), with one exception: a newer
-run with fewer repetitions does not displace one with more. The Sonnet
+JSON `finished` (September 7–13, 2026, local time), with one exception: a newer
+run with fewer repetitions does not displace one with more. The GPT-5.6-Luna
+refactoring and new-code cells are set by the September 13 medium-effort
+control at n = 5 per fixture and arm. The Sonnet
 refactoring cell is set by the September 10 medium-effort control at n = 5 per
 fixture and arm on release 1.7.0; its new-code cell by the September 11
 three-arm run at n = 5 on the working tree after 1.7.0, whose `baseline` arm
@@ -367,21 +369,16 @@ also exposed blocked reference reads in the Claude evaluation setup. The
 September 9 update fixes that setup and adopts a compact inline HTTP guide
 with additional correctness rules. Its combined cost effect is not yet measured.
 
-The GPT-5.6-Luna new-code cell comes from a three-arm run — no skills, the
-skill tree before the 2026-09-08 update, and the tree after it — so it separates
-what the plugin does from what the update did. The update changes neither
-correctness (20/20 hidden-test passes in all three arms) nor size (+0.70 lines
-across the corpus, p = 0.94).
-
-What the third arm exposed is a cost that survives as a direction: on `gateway`
-every skilled tree measured writes more helper functions per session than the
-unaided model — 2.40 to 3.20 against 1.40 — and buys no lines or branches with
-them. A [follow-up run on `gateway` alone](docs/evidence/2026-09-08-go-new-code-gateway-gpt-5.6-luna-codex.md)
-re-measured one byte-identical arm and got 4.40 helpers where the first run got
-1.80, so this fixture's helper count ranges 0 to 7 per session and needs about
-n = 20 per arm to resolve a two-helper difference. Take the gap as unsettled
-rather than measured, and treat any single n = 5 helper result on `gateway` —
-in either direction — as a draw from that spread.
+The GPT-5.6-Luna cells come from the 2026-09-13 medium control at n = 5
+([report](docs/evidence/2026-09-13-gpt-5-6-luna-medium-controls.md)):
+refactoring 20/20 golden in both arms, −6.8 production lines and −1.75
+functions per valid session against no skills; new code 12.0 lines and 0.78
+functions smaller among valid sessions, but golden 26/30 against 27/30, the
+gap concentrated in `fetch`. That run does not establish a new-code benefit.
+An earlier three-arm new-code run on 2026-09-08 separated the plugin from a
+wording update (20/20 hidden-test passes in all three arms, +0.70 lines,
+p = 0.94) and left a `gateway` helper-count spread of 0 to 7 per session,
+unsettled at n = 5. The September 13 control supersedes those cells.
 
 “Helps” means observed reductions in unnecessary code or helpers without
 failures in the available checks; readability was not separately assessed by

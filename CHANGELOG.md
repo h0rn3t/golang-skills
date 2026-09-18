@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.20.1] - 2026-09-18
+
 ### Added
 
 - `go-troubleshooting`: a **Stop Signals** list of symptom patches that mean

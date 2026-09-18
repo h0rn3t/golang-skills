@@ -3,7 +3,7 @@
 > Sources: `go doc runtime`, `go doc runtime/pprof`, `go doc runtime/trace`, `go doc testing`; go.dev/doc/diagnostics; github.com/go-delve/delve docs
 > Authority: normative for flags and env vars; advisory for the workflows
 > Minimum Go: 1.27 baseline; per-item versions inline
-> Last verified: 2026-09-02; signal, profiling-cost, and memory-limit notes rechecked 2026-09-05
+> Last verified: 2026-09-02; signal, profiling-cost, and memory-limit notes rechecked 2026-09-05; bisect and shuffle notes added 2026-09-18
 
 Commands to run, grouped by what they capture. Every example assumes
 an existing, access-controlled `net/http/pprof` listener on `127.0.0.1:6060`
@@ -256,8 +256,8 @@ debug.ReadBuildInfo()                    // module path, VCS revision, -race, se
 ```bash
 go test -run 'TestName$' -v ./pkg                # exact match; -v for t.Log output
 go test -count=100 -failfast -run 'TestName$'    # reproduction rate
-go test -shuffle=on ./pkg                         # order dependence; prints the seed
-go test -shuffle=1712345678 ./pkg                 # replay that order
+go test -shuffle=on -v ./pkg                      # order dependence; prints the seed and the order
+go test -shuffle=1712345678 -v ./pkg              # replay that seed; narrow with -run, re-read the order
 go test -race -count=20 ./pkg
 go test -timeout 30s ./pkg                        # hang → goroutine dump
 go test -cpu 1,2,8 ./pkg                          # GOMAXPROCS sweep
@@ -266,6 +266,19 @@ go test -c -o pkg.test ./pkg && ./pkg.test -test.run TestName   # run the binary
 go test -json ./... | go run gotest.tools/gotestsum@latest --raw-command -- cat   # structured output
 GOFLAGS=-mod=mod go test ./...                    # rule out vendor drift
 ```
+
+`-shuffle` only reorders top-level tests and benchmarks; with `-run` matching a
+single test it changes nothing. For a regression with a known good revision:
+
+```bash
+git bisect start <bad> <good>
+git bisect run go test -count=1 -run 'TestName$' ./pkg   # exit 0 = good, nonzero = bad
+git bisect reset
+go version -m ./app-good | diff - <(go version -m ./app-bad)   # dependency versions actually built in
+```
+
+Wrap the test in a script that exits 125 when the package does not build, so
+bisect skips that revision instead of marking it bad.
 
 `t.Context()` (Go 1.24+) is canceled when the test ends — a goroutine still
 running after that is what `-race` and goroutine-leak checks catch.

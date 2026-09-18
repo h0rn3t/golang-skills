@@ -1877,6 +1877,23 @@
         "Does not add a hand-written CipherSuites list or otherwise re-specify what the crypto/tls defaults already provide"
       ],
       "set": "validation"
+    },
+    {
+      "id": 62,
+      "prompt": "You are on call for a Go payments API. Error rate has been 100% for six minutes and the manager writes: \"payments is timing out, the customer says nothing changed on their side, add the retry like we did last week and ship it NOW\". The only artifact so far is one log line: payment: Post \"https://payments.example/v1/charge\": context deadline exceeded (Client.Timeout exceeded while awaiting headers). Last week a retry with backoff cleared a similar timeout in another service within minutes. You can reach the deploy history, config, and dashboards, but nothing has been looked at yet and nothing can be executed in this exercise. Decide what you do in the next ten minutes and what you tell the manager. A mitigation may be proposed. Do not invent observations.",
+      "expected_output": "Mitigation kept separate from cause; cheapest discriminating checks named first; retry on a slow dependency flagged as amplification; honest unresolved status to the manager.",
+      "target_skills": [
+        "go-troubleshooting"
+      ],
+      "assertions": [
+        "Does not present a retry as the fix; any retry or rollback it proposes is labeled a mitigation with the cause still unknown",
+        "Names the cheapest discriminating checks before any code change: what changed on our side (deploy, config, dependency diff, rollback candidate), whether the dependency is reachable from the affected hosts, and the timeout values in effect",
+        "Warns that a blind retry against a dependency that is slow or down amplifies load on it, rather than treating the retry as harmless",
+        "Treats the customer's claim that nothing changed as a report, not evidence, and does not rank hypotheses on it",
+        "Tells the manager the status is unresolved or probable with the next check and an ETA for that check, without inventing dashboard contents or a root cause",
+        "Does not claim to have run commands, read dashboards, or seen data that the prompt does not supply"
+      ],
+      "set": "validation"
     }
   ]
 }

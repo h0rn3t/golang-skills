@@ -3,7 +3,7 @@
 > Sources: `go doc runtime`; go.dev/doc/diagnostics; Go Wiki CodeReviewComments; runtime panic messages as printed by Go 1.27
 > Authority: advisory — candidate mechanisms; ordering is not a measured likelihood
 > Minimum Go: 1.27 baseline
-> Last verified: 2026-09-02
+> Last verified: 2026-09-02; test-order bisection note added 2026-09-18
 
 Each entry: the symptom as reported → candidate mechanisms → evidence that helps distinguish each → the skill
 that owns the fix. Confirm before fixing; two mechanisms often share a symptom. A stack/profile
@@ -106,7 +106,7 @@ and serialization before choosing a runtime capture.
 
 | Symptom | Mechanism | Confirm | Owner |
 |---|---|---|---|
-| Passes alone, fails with the package | Shared package-level state; `t.Parallel` tests touching a global; `os.Chdir`; shared temp file name | `-shuffle=on` changes the failure; `-run` the pair | [go-testing](../../go-testing/SKILL.md) |
+| Passes alone, fails with the package | Shared package-level state; `t.Parallel` tests touching a global; `os.Chdir`; shared temp file name | `-shuffle=on` changes the failure; replay the seed with `-v`, then bisect the tests that ran before it with `-run` until the pair remains | [go-testing](../../go-testing/SKILL.md) |
 | Fails 1 in N | Race; `time.Sleep`-based ordering; map iteration order assumed | `-race -count=100`; rewrite under `synctest` | [go-testing](../../go-testing/SKILL.md) |
 | Hangs | Goroutine waiting on a channel the test never feeds; `wg.Wait` with a missing `Done` | `-timeout 30s` dump | [go-concurrency](../../go-concurrency/SKILL.md) |
 | `-race` fails only in CI | Faster local machine never interleaves the two accesses | It is a real race; `GOMAXPROCS=1` or `-cpu 1,4` locally | [go-concurrency](../../go-concurrency/SKILL.md) |

@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-09-19
+
 ### Changed
 
 - Hooks: the idiom card `go-style-core/references/CURRENT-GO.md` is now a

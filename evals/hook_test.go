@@ -664,11 +664,78 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
-	t.Run("silent when the prompt invokes the skill", func(t *testing.T) {
+	t.Run("silent when the prompt names the skill in prose", func(t *testing.T) {
 		t.Parallel()
-		for _, p := range []string{"/go-code " + implement, "$go-code-refactor " + refactor, "use the go-code skill: " + implement} {
+		// The model invokes these itself, and a modifier deep in a host command
+		// (/opsx:apply add-auth /go-code) loads nothing on its own either.
+		for _, p := range []string{"$go-code-refactor " + refactor, "use the go-code skill: " + implement, "/opsx:apply add-auth /go-code"} {
 			if code, out := promptEvent(t, t.TempDir(), "p8", t.TempDir(), p); code != 0 || out != "" {
-				t.Fatalf("prompt %q already invokes a skill: exit %d, stdout %q; want silent 0", p, code, out)
+				t.Fatalf("prompt %q names a skill in prose: exit %d, stdout %q; want silent 0", p, code, out)
+			}
+		}
+	})
+
+	// A slash command is expanded by the host: it inserts the router SKILL.md
+	// and calls no tool, so PostToolUse never fires and go-code-routing.sh
+	// records no load — the edit gate, which needs a router in `loaded`, would
+	// stay silent for the whole session. UserPromptSubmit is the only event a
+	// slash invocation raises, so this hook records the router itself.
+	t.Run("slash command records the router and arms the gate", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		cwd := t.TempDir()
+		pkg := filepath.Join(cwd, "dispatch")
+		if err := os.MkdirAll(pkg, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		src := "package dispatch\n\nfunc Run(ctx context.Context) error {\n\tctx, cancel := context.WithTimeout(ctx, time.Second)\n\tdefer cancel()\n\treturn fmt.Errorf(\"run: %w\", run(ctx))\n}\n"
+		if err := os.WriteFile(filepath.Join(pkg, "dispatch.go"), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		code, out := promptEvent(t, state, "p16", cwd, "/golang-skills:go-code Реалізуй пакет ./dispatch")
+		if code != 0 {
+			t.Fatalf("slash invocation: exit %d; want 0", code)
+		}
+		for _, want := range []string{"`/go-code`", "`go-style-core`", "`go-context`", "`go-error-handling`", "in one message"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("slash note must name %s:\n%s", want, out)
+			}
+		}
+		if strings.Contains(out, "Skill tool, name") {
+			t.Errorf("the skill is already in context; the note must not ask for it again:\n%s", out)
+		}
+
+		// The gate now sees a router for this session and blocks the first edit.
+		gate := filepath.Join(repoRoot(t), "hooks", "go-code-routing.sh")
+		edit := routingPayload("PreToolUse", "p16", "Edit", map[string]any{
+			"file_path":  filepath.Join(pkg, "dispatch.go"),
+			"new_string": "func run(ctx context.Context) error { return ctx.Err() }",
+		})
+		blockCode, msg := hookEvent(t, gate, state, edit)
+		if blockCode != 2 || !strings.Contains(msg, "go-style-core") {
+			t.Fatalf("edit after a slash invocation: exit %d, stderr %q; want 2 naming go-style-core", blockCode, msg)
+		}
+
+		// The router is recorded, so a second slash in the same session is silent.
+		if _, out := promptEvent(t, state, "p16", cwd, "/go-code ще раз"); out != "" {
+			t.Errorf("second slash invocation in the same session: stdout %q; want silent", out)
+		}
+	})
+
+	t.Run("slash command for the other routers", func(t *testing.T) {
+		t.Parallel()
+		for _, router := range []string{"go-code-refactor", "go-code-review"} {
+			state := t.TempDir()
+			_, out := promptEvent(t, state, router, t.TempDir(), "/"+router+" ./dispatch")
+			if !strings.Contains(out, "`/"+router+"`") || !strings.Contains(out, "`go-style-core`") {
+				t.Fatalf("slash %s: stdout %q; want the note naming the command and go-style-core", router, out)
+			}
+			gate := filepath.Join(repoRoot(t), "hooks", "go-code-routing.sh")
+			code, msg := hookEvent(t, gate, state, routingPayload("PreToolUse", router, "Write",
+				map[string]any{"file_path": "/repo/api/handler.go", "content": "package api\n"}))
+			if code != 2 {
+				t.Fatalf("edit after slash %s: exit %d, stderr %q; want 2", router, code, msg)
 			}
 		}
 	})

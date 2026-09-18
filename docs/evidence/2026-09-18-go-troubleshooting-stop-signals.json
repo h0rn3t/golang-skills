@@ -1,0 +1,732 @@
+{
+  "description": "go-troubleshooting Stop Signals / regression clause edit: quality evals before vs after, Opus default and Sonnet 5. Filtered evals.json (troubleshooting quality cases only) in detached worktrees at fd10d80.",
+  "date": "2026-09-18",
+  "judge_model": "claude default (opus[1m])",
+  "patch": "diff --git a/CHANGELOG.md b/CHANGELOG.md\nindex 172cc0b..0649946 100644\n--- a/CHANGELOG.md\n+++ b/CHANGELOG.md\n@@ -4,8 +4,29 @@ All notable changes to this repository are documented here.\n \n ## [Unreleased]\n \n+### Added\n+\n+- `go-troubleshooting`: a **Stop Signals** list of symptom patches that mean\n+  the mechanism is still unknown (`recover()` around the panic, a longer\n+  `time.Sleep`, a mutex without the racing pair named, a retry or\n+  `GOMEMLIMIT` that quiets the ticket), a regression clause in the loop with\n+  `git bisect run` and a `go version -m` diff of the two binaries, a\n+  test-order bisection recipe for \"passes alone, fails with the package\", and\n+  a route to `go-code-refactor` when each fix moves the failure elsewhere.\n+  Ideas adapted from obra/superpowers `systematic-debugging` (MIT); the\n+  three-attempt approval stop and defense-in-depth were deliberately not\n+  adopted, as they conflict with the pack's smallest-attributable-change rule.\n+- Quality eval 62: an on-call pressure scenario for `go-troubleshooting`\n+  where a retry \"worked last week\"; grades whether mitigation stays separate\n+  from cause and whether the retry is flagged as load amplification.\n+\n ### Changed\n \n+- `go-troubleshooting`: the flaky-test command no longer combines `-shuffle=on`\n+  with a single-test `-run`, which reorders nothing; the focused repeat and\n+  the package-order run are two commands. The tracker/`Skill`-tool bullet\n+  in \"Scope and Starting Evidence\" is cut to one line.\n+\n - Both READMEs now treat the 2026-09-13 GPT-5.6-Luna medium control as the\n   source of that row's refactoring and new-code cells, and name `v1.18.0` in\n   the pin-a-version example. `README.uk.md` had kept the 2026-09-08 Luna\ndiff --git a/README.md b/README.md\nindex a3ba361..7fc3e0e 100644\n--- a/README.md\n+++ b/README.md\n@@ -273,7 +273,7 @@ which works across multiple AI coding tools. When you're writing Go code:\n ## Running the Evals\n \n `evals/evals.json` holds 108 trigger evals (does the right skill fire for this\n-prompt?) and 61 quality evals (does the answer satisfy each assertion?). The Go\n+prompt?) and 62 quality evals (does the answer satisfy each assertion?). The Go\n tests in `evals/` validate their schema on every push; running them against a\n model is opt-in because it costs tokens:\n \ndiff --git a/README.uk.md b/README.uk.md\nindex 804647e..7450d5f 100644\n--- a/README.uk.md\n+++ b/README.uk.md\n@@ -278,7 +278,7 @@ Go-код:\n ## Запуск eval'ів\n \n `evals/evals.json` містить 108 eval'ів на тригери (чи спрацьовує потрібний скіл\n-на запит?) і 61 eval'ів на якість (чи відповідь задовольняє кожне твердження?).\n+на запит?) і 62 eval'и на якість (чи відповідь задовольняє кожне твердження?).\n Go-тести в `evals/` перевіряють їхню схему на кожному пуші; прогін через модель\n опційний, бо коштує токенів:\n \ndiff --git a/evals/evals.json b/evals/evals.json\nindex 45d3fdb..68f8493 100644\n--- a/evals/evals.json\n+++ b/evals/evals.json\n@@ -1877,6 +1877,23 @@\n         \"Does not add a hand-written CipherSuites list or otherwise re-specify what the crypto/tls defaults already provide\"\n       ],\n       \"set\": \"validation\"\n+    },\n+    {\n+      \"id\": 62,\n+      \"prompt\": \"You are on call for a Go payments API. Error rate has been 100% for six minutes and the manager writes: \\\"payments is timing out, the customer says nothing changed on their side, add the retry like we did last week and ship it NOW\\\". The only artifact so far is one log line: payment: Post \\\"https://payments.example/v1/charge\\\": context deadline exceeded (Client.Timeout exceeded while awaiting headers). Last week a retry with backoff cleared a similar timeout in another service within minutes. You can reach the deploy history, config, and dashboards, but nothing has been looked at yet and nothing can be executed in this exercise. Decide what you do in the next ten minutes and what you tell the manager. A mitigation may be proposed. Do not invent observations.\",\n+      \"expected_output\": \"Mitigation kept separate from cause; cheapest discriminating checks named first; retry on a slow dependency flagged as amplification; honest unresolved status to the manager.\",\n+      \"target_skills\": [\n+        \"go-troubleshooting\"\n+      ],\n+      \"assertions\": [\n+        \"Does not present a retry as the fix; any retry or rollback it proposes is labeled a mitigation with the cause still unknown\",\n+        \"Names the cheapest discriminating checks before any code change: what changed on our side (deploy, config, dependency diff, rollback candidate), whether the dependency is reachable from the affected hosts, and the timeout values in effect\",\n+        \"Warns that a blind retry against a dependency that is slow or down amplifies load on it, rather than treating the retry as harmless\",\n+        \"Treats the customer's claim that nothing changed as a report, not evidence, and does not rank hypotheses on it\",\n+        \"Tells the manager the status is unresolved or probable with the next check and an ETA for that check, without inventing dashboard contents or a root cause\",\n+        \"Does not claim to have run commands, read dashboards, or seen data that the prompt does not supply\"\n+      ],\n+      \"set\": \"validation\"\n     }\n   ]\n }\ndiff --git a/skills/go-troubleshooting/SKILL.md b/skills/go-troubleshooting/SKILL.md\nindex f8afc7d..b777810 100644\n--- a/skills/go-troubleshooting/SKILL.md\n+++ b/skills/go-troubleshooting/SKILL.md\n@@ -29,9 +29,8 @@ code version, and a check that could disprove them.\n - **Investigate and fix:** continue through a minimal correction and regression\n   verification once evidence supports the mechanism. Routine implementation\n   choices do not require another approval. Keep unrelated findings out of the diff.\n-- Use the pasted ticket or available repository first. A tracker connector,\n-  Claude `Skill` tool, and sibling skills are not prerequisites. If a resource\n-  is unavailable, name the missing evidence and continue independent work.\n+- A pasted ticket or the available repository is enough to start. If a\n+  resource is unavailable, name the missing evidence and continue independent work.\n - Preserve the distinction between observed behavior, the intended contract,\n   and the reporter's interpretation. If the contract is ambiguous in a way that\n   changes the fix, ask a focused question while continuing evidence collection.\n@@ -44,6 +43,11 @@ code version, and a check that could disprove them.\n 2. **Match the environment.** Establish the running image/revision and relevant\n    effective config, flags, schema/migrations, and dependencies. The checkout\n    is not evidence of deployed code. Compare a working case with the same input.\n+   For a regression, name the last working revision or deployment and diff\n+   what changed up to the first failing one: source, `go.mod`, effective\n+   config, schema. When the diff is too wide to read, bisect it\n+   (`git bisect run go test -count=1 -run '^TestName$' ./pkg`); compare\n+   dependency versions with `go version -m` on both binaries, not on the checkout.\n 3. **Locate the first divergence.** Follow the relevant execution/data path or\n    capture the artifact below. Inspect values at boundaries before changing code.\n    If no reproduction exists, use historical evidence or propose the smallest\n@@ -56,12 +60,30 @@ code version, and a check that could disprove them.\n 5. **Reassess.** A failed hypothesis narrows the search. Repeated failed patches\n    call for revisiting assumptions and boundaries, not another speculative fix\n    or an arbitrary attempt-count approval stop. Track plausible alternatives.\n+   When each fix moves the failure to a new place, the shared state or\n+   ownership behind those places is the finding: name it and route the\n+   restructuring to [go-code-refactor](../go-code-refactor/SKILL.md) instead\n+   of patching the next site.\n 6. **Finish in scope.** Investigation ends with the evidence report below.\n    An authorized fix corrects the responsible boundary, adds regression coverage,\n    and runs the applicable repository verification through `go-linting`.\n \n-A restart, retry, cache flush, or flag change can mitigate a symptom without\n-proving its cause. Keep mitigation and causal evidence separate.\n+## Stop Signals\n+\n+Each of these is a patch on the symptom and means the mechanism is still\n+unknown. Return to step 3 before writing it:\n+\n+- `recover()` around the panicking call, or a nil check at the faulting line\n+  before the nil's origin is known.\n+- A longer `time.Sleep`, a wider `-timeout`, or a retry loop in a flaky test.\n+- A mutex or channel added without naming the two racing accesses.\n+- A retry, restart, cache flush, flag change, or `GOMEMLIMIT` that makes the\n+  ticket go quiet.\n+- A re-run with `-count=1` or a cleared cache that passes once.\n+- \"It is probably X\" followed by an edit, with no check that could disprove X.\n+\n+Any of these can be the right mitigation once the cause is recorded as\n+unknown. It is not a fix, and the report says which of the two it is.\n \n ## Symptom → First Capture\n \n@@ -100,10 +122,11 @@ suspected nil values against the matching source or debugger.\n - Go 1.27 prints `runtime/pprof` goroutine labels in traceback headers —\n   `goroutine 19 [chan receive] {request_id: \"abc-123\"}` — which attributes a\n   stack to its request or job, for modules whose `go` directive is 1.27 or\n-  later (`GODEBUG=tracebacklabels=1` enables it for older directives). Missing labels prove nothing: `pprof.Do`\n-  restores the previous set in a defer, so the panicking goroutine's own labels\n-  are usually gone by the time its trace prints, while the other goroutines in\n-  a `GOTRACEBACK=all` dump still carry theirs.\n+  later (`GODEBUG=tracebacklabels=1` enables it for older directives).\n+  Missing labels prove nothing: `pprof.Do` restores the previous set in a\n+  defer, so the panicking goroutine's own labels are usually gone by the time\n+  its trace prints, while the other goroutines in a `GOTRACEBACK=all` dump\n+  still carry theirs.\n \n ### Hangs and Goroutine Leaks\n \n@@ -150,12 +173,17 @@ lifetime. For a local hanging test,\n Start with the affected package/test and preserve the failing seed and environment:\n \n ```bash\n-go test -count=20 -shuffle=on -failfast -run '^TestName$' ./pkg\n+go test -count=20 -failfast -run '^TestName$' ./pkg   # focused repeat\n+go test -count=5 -shuffle=on -v ./pkg                  # order dependence; prints the seed\n ```\n \n+`-shuffle` reorders top-level tests, so it does nothing when `-run` matches one.\n Choose the repetition count from observed frequency and cost; add `-race` for\n-concurrent access. A clean race run only covers executed paths. Compare isolated\n-and package runs for shared state; inspect ports, time, temp files, and cleanup.\n+concurrent access. A clean race run only covers executed paths. If the test\n+fails only with the package, replay the printed seed with `-shuffle=<seed> -v`,\n+then bisect the tests that ran before it with `-run`, reading the order `-v`\n+prints each time, until the polluting pair remains. Inspect ports, time, temp\n+files, and cleanup.\n `testing/synctest` (Go 1.25+) can make supported concurrent time-based tests\n repeatable; it is not a universal replacement for real I/O or external systems.\n \ndiff --git a/skills/go-troubleshooting/references/DIAGNOSTIC-TOOLS.md b/skills/go-troubleshooting/references/DIAGNOSTIC-TOOLS.md\nindex a59b719..df6c200 100644\n--- a/skills/go-troubleshooting/references/DIAGNOSTIC-TOOLS.md\n+++ b/skills/go-troubleshooting/references/DIAGNOSTIC-TOOLS.md\n@@ -3,7 +3,7 @@\n > Sources: `go doc runtime`, `go doc runtime/pprof`, `go doc runtime/trace`, `go doc testing`; go.dev/doc/diagnostics; github.com/go-delve/delve docs\n > Authority: normative for flags and env vars; advisory for the workflows\n > Minimum Go: 1.27 baseline; per-item versions inline\n-> Last verified: 2026-09-02; signal, profiling-cost, and memory-limit notes rechecked 2026-09-05\n+> Last verified: 2026-09-02; signal, profiling-cost, and memory-limit notes rechecked 2026-09-05; bisect and shuffle notes added 2026-09-18\n \n Commands to run, grouped by what they capture. Every example assumes\n an existing, access-controlled `net/http/pprof` listener on `127.0.0.1:6060`\n@@ -256,8 +256,8 @@ debug.ReadBuildInfo()                    // module path, VCS revision, -race, se\n ```bash\n go test -run 'TestName$' -v ./pkg                # exact match; -v for t.Log output\n go test -count=100 -failfast -run 'TestName$'    # reproduction rate\n-go test -shuffle=on ./pkg                         # order dependence; prints the seed\n-go test -shuffle=1712345678 ./pkg                 # replay that order\n+go test -shuffle=on -v ./pkg                      # order dependence; prints the seed and the order\n+go test -shuffle=1712345678 -v ./pkg              # replay that seed; narrow with -run, re-read the order\n go test -race -count=20 ./pkg\n go test -timeout 30s ./pkg                        # hang → goroutine dump\n go test -cpu 1,2,8 ./pkg                          # GOMAXPROCS sweep\n@@ -267,6 +267,19 @@ go test -json ./... | go run gotest.tools/gotestsum@latest --raw-command -- cat\n GOFLAGS=-mod=mod go test ./...                    # rule out vendor drift\n ```\n \n+`-shuffle` only reorders top-level tests and benchmarks; with `-run` matching a\n+single test it changes nothing. For a regression with a known good revision:\n+\n+```bash\n+git bisect start <bad> <good>\n+git bisect run go test -count=1 -run 'TestName$' ./pkg   # exit 0 = good, nonzero = bad\n+git bisect reset\n+go version -m ./app-good | diff - <(go version -m ./app-bad)   # dependency versions actually built in\n+```\n+\n+Wrap the test in a script that exits 125 when the package does not build, so\n+bisect skips that revision instead of marking it bad.\n+\n `t.Context()` (Go 1.24+) is canceled when the test ends — a goroutine still\n running after that is what `-race` and goroutine-leak checks catch.\n [go-testing](../../go-testing/SKILL.md) owns the test shape.\ndiff --git a/skills/go-troubleshooting/references/SYMPTOM-CATALOG.md b/skills/go-troubleshooting/references/SYMPTOM-CATALOG.md\nindex 384b478..1ac4e8f 100644\n--- a/skills/go-troubleshooting/references/SYMPTOM-CATALOG.md\n+++ b/skills/go-troubleshooting/references/SYMPTOM-CATALOG.md\n@@ -3,7 +3,7 @@\n > Sources: `go doc runtime`; go.dev/doc/diagnostics; Go Wiki CodeReviewComments; runtime panic messages as printed by Go 1.27\n > Authority: advisory — candidate mechanisms; ordering is not a measured likelihood\n > Minimum Go: 1.27 baseline\n-> Last verified: 2026-09-02\n+> Last verified: 2026-09-02; test-order bisection note added 2026-09-18\n \n Each entry: the symptom as reported → candidate mechanisms → evidence that helps distinguish each → the skill\n that owns the fix. Confirm before fixing; two mechanisms often share a symptom. A stack/profile\n@@ -106,7 +106,7 @@ and serialization before choosing a runtime capture.\n \n | Symptom | Mechanism | Confirm | Owner |\n |---|---|---|---|\n-| Passes alone, fails with the package | Shared package-level state; `t.Parallel` tests touching a global; `os.Chdir`; shared temp file name | `-shuffle=on` changes the failure; `-run` the pair | [go-testing](../../go-testing/SKILL.md) |\n+| Passes alone, fails with the package | Shared package-level state; `t.Parallel` tests touching a global; `os.Chdir`; shared temp file name | `-shuffle=on` changes the failure; replay the seed with `-v`, then bisect the tests that ran before it with `-run` until the pair remains | [go-testing](../../go-testing/SKILL.md) |\n | Fails 1 in N | Race; `time.Sleep`-based ordering; map iteration order assumed | `-race -count=100`; rewrite under `synctest` | [go-testing](../../go-testing/SKILL.md) |\n | Hangs | Goroutine waiting on a channel the test never feeds; `wg.Wait` with a missing `Done` | `-timeout 30s` dump | [go-concurrency](../../go-concurrency/SKILL.md) |\n | `-race` fails only in CI | Faster local machine never interleaves the two accesses | It is a real race; `GOMAXPROCS=1` or `-cpu 1,4` locally | [go-concurrency](../../go-concurrency/SKILL.md) |\n",
+  "runs": {
+    "before": {
+      "model": "opus[1m] (claude default)",
+      "tree": "fd10d80",
+      "case_ids_note": "620-622 are three copies of case 62 with distinct ids",
+      "set": "all",
+      "trigger": null,
+      "quality": [
+        {
+          "id": 28,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Rejects the ticket cache diagnosis as unsupported and does not flush Redis",
+              "pass": true,
+              "evidence": "\"Redis is not the cause\"; \"There is no cache call on this path... Flushing is a no-op here\" — no flush performed."
+            },
+            {
+              "assertion": "Traces the verified tenant through the handler to repo.go:19, which drops the tenant predicate; ties the returned B row to request q17",
+              "pass": true,
+              "evidence": "Evidence-chain table from router.go:12 → auth.go:24 → handler.go:41 → repo.go:18-19 \"absent from the predicate\", with \"SQL trace q17 shows the id-only statement\" and selected row (7,B,\"B asset\")."
+            },
+            {
+              "assertion": "Explains why id=8 working does not validate tenant isolation and proposes a two-tenant same-id regression or equivalent discriminating check",
+              "pass": true,
+              "evidence": "\"Only one row (8,A,...) exists, so a tenant-less query is accidentally correct there\"; proposes GET /assets/8 as tenant B with opposite predictions, plus regression test keeping both id=7 rows."
+            },
+            {
+              "assertion": "Respects investigation-only scope and does not claim edits, live commands, or a regression test already ran",
+              "pass": true,
+              "evidence": "\"no check executed — no shell or service available\"; \"I have not edited any code or posted to the tracker\"; fix framed as \"when authorized\"."
+            },
+            {
+              "assertion": "Does not assume an unordered LIMIT 1 request must pick the same row on repetition; uses tenant/content invariants for the comparison",
+              "pass": true,
+              "evidence": "\"behavior is nondeterministic: with no ORDER BY, a repeat of GET /assets/7 as tenant A may return A's row\"; discriminating check uses id=8/tenant B where only one row exists, and test asserts tenant of returned asset."
+            }
+          ],
+          "output": "## Conclusion\n\n**Confirmed for request q17** (from supplied artifacts + static reading of commit abc123; no check executed — no shell or service available): the repository query drops tenant scope. `repo.go:18` accepts `tenant string` but `repo.go:19` filters on `id` alone (`WHERE id=$1 LIMIT 1`). With primary key `(tenant,id)`, `id=7` matches two rows, and `LIMIT 1` without `ORDER BY` returns an arbitrary one — here `(7,B,\"B asset\")`.\n\nRedis is not the cause. The ticket's proposed remedy would not change this response.\n\n## Evidence chain\n\nTracing tenant identity to its first divergence:\n\n| Boundary | Observed | Verdict |\n|---|---|---|\n| `router.go:12` | `GET /assets/{id}` with Auth middleware | correct |\n| `auth.go:24` | verified tenant A in context | correct |\n| `handler.go:41` | `repo.Get(ctx, Tenant(ctx), pathID)` | tenant still carried |\n| `repo.go:18-19` | tenant parameter accepted, **absent from the predicate**; SQL trace q17 shows the id-only statement | **first divergence** |\n| row selection | trace shows selected row `(7,B,\"B asset\")` | consequence |\n| `encode.go:9` | serializes the returned Asset unchanged | correct |\n\nThe last boundary holding correct tenant identity is the call at `handler.go:41`; the first boundary that discards it is the SQL predicate. Everything downstream is faithfully returning what the query selected.\n\nEnvironment is pinned: deployed image and checkout both identify abc123, so this reading applies to the running code, not just local source.\n\n## Disproved / downgraded hypotheses\n\n- **Stale Redis.** There is no cache call on this path, and the q17 SQL trace shows a live query that returned exactly the row that was served. A cache cannot have supplied a value the database produced this request. Flushing is a no-op here; it would neither fix nor mask the defect.\n- **Auth/middleware substitution.** Ruled out as the mechanism regardless of what `Tenant(ctx)` returned — the value is never referenced in the predicate, so even a correct tenant A changes nothing. (Strictly, q17's trace does not independently show the in-context tenant value; that link is unverified but non-load-bearing.)\n- **The id=8 \"working\" case is a false control.** Only one row `(8,A,\"A eight\")` exists, so a tenant-less query is accidentally correct there. It is consistent with the defect, not evidence against it.\n\nNote the behavior is **nondeterministic**: with no `ORDER BY`, a repeat of `GET /assets/7` as tenant A may return A's row. An intermittent \"it works now\" does not refute the mechanism — and a passing retry is exactly what would be misread as the flush having worked.\n\n## Next discriminating check\n\nCheapest read-only check with opposite predictions under the two hypotheses: **request `GET /assets/8` as tenant B** (a tenant with no row at id=8, and no prior request to warm any cache).\n\n- If tenant scope is missing in SQL: returns `{id:8,tenant:A,name:\"A eight\"}`.\n- If the contract holds / the cause were staleness: returns not-found.\n\nSupporting capture at the same time: the q17-equivalent SQL trace's **bound parameter list** — confirm it contains only the id, no tenant argument.\n\n## Severity note\n\nThis is cross-tenant data disclosure on a read path, not merely a wrong field. The id=7 collision makes it visible, but any colliding `(tenant,id)` pair is exposed, and the arbitrary row choice means exposure is intermittent. Worth triaging accordingly rather than as a caching bug.\n\nThe fix, when authorized, belongs at `repo.go:19` — scope the predicate to `(tenant, id)` matching the primary key — with a regression test that keeps both id=7 rows and asserts the tenant of the returned asset per caller, plus the distinct-id control. I have not edited any code or posted to the tracker."
+        },
+        {
+          "id": 29,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Identifies both deployed revision and effective flag differences before proposing a source edit",
+              "pass": true,
+              "evidence": "\"Stage is revision a10 with `ARCHIVE_SEARCH=false`; local is b20 with `ARCHIVE_SEARCH=true`. Either could produce the symptom\" — both factors named up front, before any remediation discussion."
+            },
+            {
+              "assertion": "Does not assume checkout b20 is the code running on stage a10 or conclusively attribute the stage symptom solely from b20 source",
+              "pass": true,
+              "evidence": "\"main is not a10... The checkout is not evidence of deployed code.\" and \"a10's source is unknown. The gate at `handler.go:50` may not exist there\" — status kept at \"probable — Not confirmed.\""
+            },
+            {
+              "assertion": "Proposes matching the deployed artifact to its source and/or a controlled comparison varying one difference at a time with the same request and data",
+              "pass": true,
+              "evidence": "\"Replay the same sanitized request against the same image `sha256:111` ... with only `ARCHIVE_SEARCH` flipped to `true` — same tenant, role, and fixture rows, one variable changed\" plus \"resolve digest `sha256:111` → build revision → source in CI.\""
+            },
+            {
+              "assertion": "Does not patch main, change the stage flag, or deploy without establishing the applicable behavior and requested scope",
+              "pass": true,
+              "evidence": "\"**Code:** none. No patch to main, no SQL change, no PR.\" Flag change is conditioned on intent and framed as mitigation; poses the kill-switch-vs-misconfiguration question as the owner's call."
+            }
+          ],
+          "output": "## Status: probable — config gate, not a SQL defect. Not confirmed.\n\nNo project source exists in the working directory (`/tmp/evalrun-2760968081` holds only the skills plugin), so everything below is reasoning from the ticket's artifacts plus the b20 snippets quoted in it. I ran no checks and changed nothing.\n\n**Contract:** `include_archived=true` returns active + archived. **Actual:** stage (s18) returns active only; local returns both.\n\n### Why the ticket's proposed fix isn't supported\n\nThe comparison varies two factors at once. Stage is revision a10 with `ARCHIVE_SEARCH=false`; local is b20 with `ARCHIVE_SEARCH=true`. Either could produce the symptom, and nothing supplied separates them.\n\nOn the one revision we can read, the config alone fully explains stage's output: `handler.go:50` computes `includeArchived = request.IncludeArchived && cfg.ArchiveSearch`, so with `ARCHIVE_SEARCH=false` the flag is false before the repository is reached, and `repo.go:30` then correctly returns active rows only. The SQL layer in b20 is doing what it's told.\n\nThat makes \"patch the SQL on main\" wrong on three counts:\n\n- b20's repo layer shows no defect — it honors `includeArchived` — so there is no identified SQL bug to patch.\n- main is not a10. No source or build manifest for a10 or for image `sha256:111` was supplied, so no patch to main is known to change what stage runs. The checkout is not evidence of deployed code.\n- Forcing archived rows in the repository would break the working local/b20 path and make the feature flag unbypassable — a regression added to correct code to compensate for an unverified deploy.\n\nWhat keeps this at *probable* rather than *confirmed*: a10's source is unknown. The gate at `handler.go:50` may not exist there, may read a different key, or the feature may be absent entirely. The s18 log line reports an effective value, but not that a10's request path consumes that value the way b20 does.\n\n### Next check\n\nReplay the same sanitized request against the **same image `sha256:111`** on stage with **only** `ARCHIVE_SEARCH` flipped to `true` — same tenant, role, and fixture rows, one variable changed.\n\n- Both rows return → the flag gate is the mechanism; a10 behaves as b20 does on this path; no code change is warranted, and the remaining question is purely whether stage's config is intentional.\n- Still active only → the flag is not sufficient; a10's code, its config precedence, or the stage fixture/schema differs, and the investigation needs a10's source and the build manifest for `sha256:111` before any patch is discussed.\n\nCheap read-only prerequisite, worth doing first since it costs nothing and can moot the experiment: resolve digest `sha256:111` → build revision → source in CI. If a10's `handler.go` carries the identical `&&` gate, that plus the observed effective `false` is a static explanation; the flag flip then just confirms it behaviorally.\n\n### Remediation justified now\n\n**Code:** none. No patch to main, no SQL change, no PR.\n\n**Configuration:** if archive search is *supposed* to be enabled on stage, setting `ARCHIVE_SEARCH=true` there is a legitimate ops-scope correction — but log it as mitigation, not as proof of cause. A symptom clearing after a flag change doesn't by itself establish the mechanism (it would, here, only when run as the single-variable check above).\n\n**One contract question that changes the answer:** is `ARCHIVE_SEARCH=false` on stage a misconfiguration, or is the flag a deliberate kill switch that stage is meant to have off? If the latter, stage is behaving as designed and the ticket should close as \"not a bug — stage config differs by intent.\" That distinction is the reporter's or the feature owner's call, not something the evidence settles.\n\n**Process gap worth flagging:** the ticket had a running image digest but no way to reach the source behind it. Publishing a build manifest (digest → revision) per deploy would have made this a two-minute lookup rather than an open question.\n\nSeparately, and not for action now: on b20 an explicit `include_archived=true` is silently downgraded to `false` when the feature is off, rather than surfacing that the request was not honored. That's a design question for the feature owner, not part of this defect."
+        },
+        {
+          "id": 30,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Labels the cause unresolved and the map race as an unverified hypothesis",
+              "pass": true,
+              "evidence": "\"Finding: unresolved — no evidence exists yet\" and \"'Probably a Go map race' is the reporter's interpretation, not an observation — I'm treating it as one hypothesis\""
+            },
+            {
+              "assertion": "Does not invent a repository location, race report, reproduction, or successful fix",
+              "pass": true,
+              "evidence": "\"The working directory holds only the Go skills plugin; there is no service source, no logs, no tracker access.\" No fabricated findings or fixes are asserted."
+            },
+            {
+              "assertion": "Requests a concrete affected example with expected/actual behavior, time/request identifier and deployed version or equivalent minimal correlation evidence",
+              "pass": true,
+              "evidence": "Asks for invoice ID, \"the exact request that omitted it (endpoint, parameters, tenant/actor) with its response, and a timestamp with timezone\", whether the row is in the DB, plus \"the deployed revision/image digest before and after\""
+            },
+            {
+              "assertion": "Does not default to speculative patches or indiscriminate full-suite profiling/race repetition when no relevant package or workload is known",
+              "pass": true,
+              "evidence": "No patches or blanket -race/profiling runs proposed; next steps are one concrete case, crash/restart evidence, and release identity"
+            },
+            {
+              "assertion": "Does not treat the lack of supplied crash/log evidence as an observed absence that rules down a race",
+              "pass": true,
+              "evidence": "\"That doesn't refute it — no one has told me whether crashes occurred, and an unreported crash is not evidence of no crash\""
+            }
+          ],
+          "output": "## Finding: unresolved — no evidence exists yet\n\nI have the ticket text and nothing else. The working directory holds only the Go skills plugin; there is no service source, no logs, no tracker access. So I have made no observations about the system, and I can't produce a root cause today. What I can do is analyze the report itself and name the one check that would make the next step cheap.\n\n**The report is ambiguous in ways that change which layer to look at.**\n\n\"Invoices disappear\" has at least three incompatible readings, each pointing somewhere different:\n- the row is gone or was never written (write/transaction/migration path),\n- the row exists but a response omits it (query scoping, pagination/cursor, filter, cache, search index, replica lag),\n- the row is returned but not displayed (serialization or client).\n\n\"Sometimes after a release\" is likewise unresolved between *intermittently, during the period following a release* and *every release triggers it*, and between the release's **code change** and its **restart/rollout** (lost in-memory state, cold cache, two revisions serving at once during rollout, a migration applied mid-flight). These are different investigations.\n\n**\"Probably a Go map race\" is the reporter's interpretation, not an observation** — I'm treating it as one hypothesis, not the starting point. It is worth noting that it makes a loud, checkable prediction: unsynchronized concurrent access to a Go map normally ends the process with an unrecoverable `concurrent map writes` or `concurrent map read and map write` throw. Silent, lossy behavior with no crash is not its typical signature. That doesn't refute it — no one has told me whether crashes occurred, and an unreported crash is not evidence of no crash — but it does mean the hypothesis is cheap to test, and that several non-race mechanisms explain \"silent omission\" more directly.\n\n## Smallest useful next step\n\n**One concrete case.** Specifically, for a single invoice that went missing:\n\n1. the invoice ID,\n2. the exact request that omitted it (endpoint, parameters, tenant/actor) with its response, and a timestamp with timezone,\n3. **whether that row is still in the database.**\n\nItem 3 is the discriminator I'd push for hardest if only one thing can be answered. \"Row is gone\" and \"row is present but unreturned\" split the search space in half and eliminate entirely different halves of the stack, and it costs one query.\n\nTwo things can proceed in parallel without waiting on that answer, from whoever has access:\n\n- **Crash and restart evidence** for the affected instances across the release window — process restart counts and any `concurrent map` fatal throws. This confirms or drops the reporter's map-race hypothesis on its own, independent of the case detail.\n- **The release identity**: the deployed revision/image digest before and after, and whether the rollout was mixed. Needed regardless of which mechanism turns out to be responsible.\n\nOn the deadline: a root cause today isn't achievable from the text alone, and I'd rather say that than name a mechanism I can't tie to an observation. If the three items above arrive today, a first-divergence answer today is realistic."
+        },
+        {
+          "id": 31,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Locates the first loss at report.go:61-64 where local ID alone overwrites A with B",
+              "pass": true,
+              "evidence": "\"First bad transformation: `byID[row.LocalID] = Item{...}`\" ... \"the second assignment overwrites the first\"; table marks \"Map build (61-64) | 2 rows in → 1 entry out | First loss\""
+            },
+            {
+              "assertion": "Uses the two-row post-Scan capture and different-ID control to rule against the claimed Scan loss in this example",
+              "pass": true,
+              "evidence": "\"A skipped `Scan` would leave the post-Scan capture short; it contains both rows\" and the control \"(A,7,10), (B,8,20) uses keys 7 and 8 — no collision... which is why it cannot detect this defect\""
+            },
+            {
+              "assertion": "Preserves the organization-wide two-tenant contract; does not recommend filtering the report down to one tenant",
+              "pass": true,
+              "evidence": "Treats \"WHERE tenant IN ('A','B')\" as \"Correct scope\"; fix proposed is a composite `(tenant, local_id)` key, never narrowing tenants"
+            },
+            {
+              "assertion": "Provides an investigation conclusion with a proposed compound-key regression, without editing/writing tests or claiming runtime verification",
+              "pass": true,
+              "evidence": "\"Next discriminating check (describing, not writing it): drive the mapper alone with (A,7,10), (B,7,20)... Predicted: 1 item today, 2 with a composite key\" plus \"I executed nothing.\""
+            },
+            {
+              "assertion": "Separates input assignment order, which decides overwrites, from map iteration order, which only decides output order",
+              "pass": true,
+              "evidence": "\"Which row survives is set by assignment order, not map iteration... `maps.Values` affects output *ordering* only; it cannot restore a value overwritten earlier.\""
+            }
+          ],
+          "output": "## Confirmed — map key identity is narrower than the report's identity (report.go:61-64)\n\n**First bad transformation:** `byID[row.LocalID] = Item{...}`. The contract's identity is `(tenant, local_id)`; the key is `local_id` alone. Rows `(A,7,10)` and `(B,7,20)` both hash to key `7`, so the second assignment overwrites the first and `byID` holds one entry where the contract requires two.\n\n### Boundary walk\n\n| Boundary | Observed | Verdict |\n|---|---|---|\n| Middleware | Passes A and B | Correct scope |\n| SQL | `WHERE tenant IN ('A','B')`, returns `(A,7,10)`, `(B,7,20)` | Correct, 2 rows |\n| Scan | Debug capture holds both rows | Correct, 2 rows |\n| Map build (61-64) | 2 rows in → 1 entry out | **First loss** |\n| Encode | Emits every item in `items` | Faithful to a already-truncated input |\n\nThe count drops from 2 to 1 inside those four lines, between the last boundary with correct data (post-Scan capture) and the first with bad output (response).\n\n### What this establishes\n\n- **The ticket's claim is refuted for this case.** A skipped `Scan` would leave the post-Scan capture short; it contains both rows. Whatever `database/sql` did, it delivered both rows to application code, which then discarded one.\n- **Which row survives is set by assignment order, not map iteration.** Rows arrive ordered A then B, so B's write lands last and wins — exactly the observed `(B,7,20)`. `maps.Values` affects output *ordering* only; it cannot restore a value overwritten earlier. Predicted invariant: with a collision, exactly one of the pair survives, whichever the driver yields last.\n- **The control is consistent, and is a control rather than a refutation.** `(A,7,10)`, `(B,8,20)` uses keys 7 and 8 — no collision, so both survive. It passes for a reason that does not exist in the failing case, which is why it cannot detect this defect.\n\nAll of the above is static reading of the four pasted lines plus the artifacts you supplied. I executed nothing.\n\n### What still needs execution or evidence\n\n1. **Nothing has been run.** No reproduction, no capture taken by me. The chain is supplied artifacts + source reading.\n2. **Provenance of the post-Scan capture** — that it came from the same failing request and the same deployed revision as the response. If it came from a separate run or a different build, the Scan step is merely untested rather than cleared. This is the one link that could reopen the ticket's hypothesis.\n3. **That report.go:61-64 as pasted matches the deployed revision.** A checkout is not evidence of what served the request.\n4. **Which `maps` package is in scope.** Stdlib `maps.Values` returns an `iter.Seq[Item]`; `golang.org/x/exp/maps.Values` returns `[]Item`. Doesn't change the cause — the loss is already complete at line 62 — but it changes the shape of any fix and rules in/out a second dedup downstream.\n5. **Whether deduplication is wanted at all.** If duplicate `(tenant, local_id)` pairs cannot occur, the map can go away and rows can be emitted directly; if they can occur, the key should become a composite `(tenant, local_id)` struct. That's a contract question, not an evidence gap.\n6. **Blast radius** — whether other report mappers key by `local_id` alone. Not assessable from this excerpt.\n\n**Next discriminating check** (describing, not writing it): drive the mapper alone with `(A,7,10)`, `(B,7,20)` and assert item count and content as a set, with the `(7,8)` pair as the neighboring control. Predicted: 1 item today, 2 with a composite key. Order-insensitive assertions only — map iteration order is unspecified."
+        },
+        {
+          "id": 32,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Applies the missing-query default at the GET endpoint boundary rather than changing the shared helper default or export behavior",
+              "pass": true,
+              "evidence": "Patch is at handler.go:40 — `n := cmp.Or(parseLimit(...), defaultListLimit)`; explicitly states \"`parseLimit`, the export caller, and the export tests are untouched\" and that changing parseLimit to 20 \"would fix the GET path by breaking export\"."
+            },
+            {
+              "assertion": "Includes focused coverage for missing and positive limit and preserves the export 0 behavior",
+              "pass": true,
+              "evidence": "Table test with cases \"missing limit defaults to 20\" (want 20) and \"supplied limit honored\" (?limit=5, want 5), plus \"existing export tests ... must stay green, proving parseLimit's 0 default survived\"."
+            },
+            {
+              "assertion": "Describes proving the missing-limit regression fails on original code and passes after, without stashing or discarding user changes by default",
+              "pass": true,
+              "evidence": "\"the missing-limit case fails before the patch with `limit = 0` ... and passes after with `20`\"; no stash/checkout/discard of user changes is proposed anywhere."
+            },
+            {
+              "assertion": "Names make check as the required repository check and reports execution/verification unavailable rather than claiming PASS or fixed",
+              "pass": true,
+              "evidence": "\"checks: make check unavailable (no shell, project not in this directory)\" and \"Unverified: the patch is proposed, not run. Before merging, `make check` must pass\"."
+            },
+            {
+              "assertion": "Continues the authorized proposal without asking for redundant permission",
+              "pass": true,
+              "evidence": "Delivers the patch, test, and completion status directly; no permission questions posed back to the user."
+            },
+            {
+              "assertion": "Limits the default to the absent parameter rather than silently changing explicit empty, zero, negative or invalid inputs",
+              "pass": true,
+              "evidence": "Explicitly surfaces the collapse rather than hiding it: \"parseLimit collapses 'missing' and 'unparseable' into the same 0 ... this patch maps all of them to 20\", notes a 400 path would require changing parseLimit and the export caller, and declines that larger unauthorized change."
+            }
+          ],
+          "output": "The project isn't in this working directory (only the skills plugin is), and no shell is available, so this is a patch proposal written against the evidence you described — not a verified fix.\n\n## Correction\n\nThe contract is violated at the caller, not in the shared helper. `parseLimit`'s `0`-for-empty is correct for the export caller, where `0` means \"all items\", and the export tests pin that. Changing `parseLimit` to return 20 would fix the GET path by breaking export. So the smallest correction applies the GET endpoint's own default at `handler.go:40`, where `0` (no usable limit) must become 20.\n\n```go\n // near the other package-level constants\n+// defaultListLimit is the page size GET /items uses when limit is absent.\n+const defaultListLimit = 20\n\n // handler.go:40\n-\tn := parseLimit(r.URL.Query().Get(\"limit\"))\n+\tn := cmp.Or(parseLimit(r.URL.Query().Get(\"limit\")), defaultListLimit)\n \titems, err := repo.List(ctx, n)\n```\n\nPlus `\"cmp\"` in the import block. If the package predates `cmp.Or` or neighbors use plain conditionals, the equivalent is:\n\n```go\n\tn := parseLimit(r.URL.Query().Get(\"limit\"))\n\tif n == 0 {\n\t\tn = defaultListLimit\n\t}\n```\n\n`parseLimit`, the export caller, and the export tests are untouched.\n\n**Assumption worth flagging:** `parseLimit` collapses \"missing\" and \"unparseable\" into the same `0`, so the handler cannot distinguish `?limit=` or `?limit=abc` from an absent parameter, and this patch maps all of them to 20. Your stated contract covers only \"missing → 20\" and \"positive → honored\", so that's the behavior-preserving reading. If invalid input should instead be a 400, that needs `parseLimit` to report a parse failure separately (a second return value or a sibling function), which touches the export caller — a larger change than you authorized, and I did not make it.\n\n## Regression proof\n\nNew table test in the handler package (adjust `newHandler`/`Item` to the package's actual names):\n\n```go\nfunc TestListLimit(t *testing.T) {\n\ttests := []struct {\n\t\tname  string\n\t\tquery string\n\t\twant  int\n\t}{\n\t\t{name: \"missing limit defaults to 20\", query: \"\", want: 20},\n\t\t{name: \"supplied limit honored\", query: \"?limit=5\", want: 5},\n\t}\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\trepo := &recordingRepo{}\n\t\t\treq := httptest.NewRequest(http.MethodGet, \"/items\"+tt.query, nil)\n\t\t\tnewHandler(repo).ServeHTTP(httptest.NewRecorder(), req)\n\t\t\tif repo.gotLimit != tt.want {\n\t\t\t\tt.Errorf(\"GET /items%s passed limit = %d, want %d\", tt.query, repo.gotLimit, tt.want)\n\t\t\t}\n\t\t})\n\t}\n}\n\ntype recordingRepo struct{ gotLimit int }\n\nfunc (r *recordingRepo) List(_ context.Context, n int) ([]Item, error) {\n\tr.gotLimit = n\n\treturn nil, nil\n}\n```\n\nPredicted before/after: the missing-limit case fails before the patch with `limit = 0` (the \"returns every item\" symptom, at its first divergence rather than by counting the response body) and passes after with `20`; the supplied-limit case passes both ways and is the guard that the fix doesn't override an explicit value. The existing export tests are the third leg — they must stay green, proving `parseLimit`'s `0` default survived.\n\n## Completion status\n\n```\nGET /items applies its own default of 20 when limit is absent; parseLimit's 0 default is left intact for the export caller.\nchecks: make check unavailable (no shell, project not in this directory) · gofmt/vet/test/lint unavailable (same)\nadded package-level declarations: 1 — defaultListLimit: handler.go:40 (sole call site; the test asserts the literal 20 independently, so it does not count as a second)\n```\n\nUnverified: the patch is proposed, not run. Before merging, `make check` must pass, and the handler-package test needs its constructor and repository-interface names reconciled with the real source, which I could not read here."
+        },
+        {
+          "id": 33,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Selects a quoted goroutine pprof URL on the existing admin listener as the nonterminating first capture",
+              "pass": true,
+              "evidence": "curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=2' > \"goroutines-$TS.txt\" — quoted URL on the existing endpoint, and it states the pprof endpoint \"keeps the process alive\""
+            },
+            {
+              "assertion": "Explains SIGQUIT normally prints stacks and exits a Go process, and does not select it under the no-termination constraint",
+              "pass": true,
+              "evidence": "\"`SIGQUIT` prints stacks **and terminates the Go process** by default... it is a restart, which you are not authorized to perform\"; pprof is chosen instead"
+            },
+            {
+              "assertion": "Does not call a lone long-lived chan receive frame proof of a leak or deadlock; asks for ownership/expected lifetime and comparative stacks/counts",
+              "pass": true,
+              "evidence": "\"it proves one goroutine has been blocked on a channel receive for 47 minutes. That is also precisely what a healthy idle worker looks like\"; requests debug=1 grouped counts vs configured pool size, idle baseline, and a 60 s delta comparison"
+            },
+            {
+              "assertion": "Does not claim capture execution or guarantee negligible profiling overhead",
+              "pass": true,
+              "evidence": "Explicitly \"evidence-only assessment\" with commands for the user to run; notes goroutineleak \"forces a leak-detecting GC cycle, so take it once, not on a loop\" rather than claiming negligible overhead"
+            },
+            {
+              "assertion": "Does not present blocked stacks or two Lock frames alone as conclusive evidence of absent peers, lock-order inversion, or pool exhaustion",
+              "pass": true,
+              "evidence": "Wait states are framed as what to look for (\"with a visible wait partner or lock owner\"), and counts are only interesting relative to configured pool size; ends \"Status: unresolved. Mechanism unknown\""
+            }
+          ],
+          "output": "No service source is present in this directory (`worker.go` isn't here), so this is an evidence-only assessment of the pasted stack plus the endpoint you already have.\n\n## Next capture\n\nRun on the service host **while it is actually unresponsive**, twice, about 60 s apart:\n\n```bash\nTS=$(date -u +%Y%m%dT%H%M%SZ)\ncurl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=2' > \"goroutines-$TS.txt\"\ncurl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=1' > \"goroutines-grouped-$TS.txt\"\nsleep 60\nTS2=$(date -u +%Y%m%dT%H%M%SZ)\ncurl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=2' > \"goroutines-$TS2.txt\"\n```\n\nAlso fetch the index once — `curl -fsS http://127.0.0.1:6060/debug/pprof/` — purely to see whether `goroutineleak` is listed. If it is (Go 1.27+), add one deliberate capture:\n\n```bash\ncurl -fsS --max-time 30 'http://127.0.0.1:6060/debug/pprof/goroutineleak?debug=1' > \"leaks-$TS.txt\"\n```\n\n`debug=1` there gives leaked stacks only; `debug=2` degrades to dumping everything. Reading it forces a leak-detecting GC cycle, so take it once, not on a loop. Treat all these dumps as sensitive — they can carry request labels and argument words; sanitize before pasting into the ticket.\n\n## What it can establish\n\n- **Whether the service is hung and on what.** The `debug=2` dump shows every goroutine's wait state. Unresponsiveness looks like handler goroutines piled in `semacquire`, `sync.Mutex.Lock`, `chan send`, or `IO wait` on a downstream — with a visible wait partner or lock owner. That is the actual question the ticket hasn't answered.\n- **Whether `worker.go:35` is normal.** `debug=1` groups identical stacks with counts. If that stack appears N times with N equal to a configured pool size, it is a pool at rest. A singleton, or a count far above the configured size, is the interesting case.\n- **Progress vs. stall.** Comparing the two dumps 60 s apart: an identical, static set implies a stall or deadlock; a churning set implies slow progress or backpressure, which is a different fix.\n- **With `goroutineleak`:** goroutines the runtime proved can never unblock. An empty profile narrows the search rather than closing it — a goroutine waiting on a channel a live object could still use is reachable and won't be listed.\n\n**What it cannot establish:** growth over hours (needs repeated counts across comparable workload windows), or a non-goroutine cause of unresponsiveness such as GC pressure or a CPU-bound path — that would need a bounded CPU profile or execution trace as a separate step.\n\n## Assessment of the ticket\n\n**Both halves of the claim are wrong.**\n\n\"It's just a dump\" — `SIGQUIT` prints stacks **and terminates the Go process** by default. It is not a passive read; it is a restart, which you are not authorized to perform. Worse for the investigation: the failure is intermittent, so killing the process destroys the one hung instance you have and forfeits the 60-second delta capture, the leak profile, and any heap or trace follow-up. The dump also goes to the process's stderr, which may not be retained anywhere. The pprof endpoint gives you the same stacks, keeps the process alive, and writes to a file you control. (The only way `SIGQUIT` wouldn't exit is if the program installs its own handler — in which case you get no dump either.)\n\n\"This proves a leaked goroutine\" — it proves one goroutine has been blocked on a channel receive for 47 minutes. That is also precisely what a healthy idle worker looks like, and the file is named `worker.go`. A leak requires either that the goroutine can never unblock, or that the population grows without bound; neither is shown. You have no count history, no other stacks, and no idle-baseline comparison. Two further points against the reading: goroutine IDs are assigned monotonically, so ID 77 indicates a goroutine created early in process life — consistent with a boot-time pool, not with per-request accumulation, which would surface as many high-numbered IDs. And even a confirmed leak of blocked goroutines is cheap and would not by itself make the service stop responding; that symptom points at saturation or a wait cycle among the *request* goroutines, which is what the dump above is meant to expose.\n\nThe ticket also conflates the two: nothing yet ties this goroutine to the incident window. It may well be unrelated to the hang.\n\n**Status: unresolved.** Mechanism unknown; the discriminating capture is the paired `goroutine?debug=2` dump taken during an active hang."
+        },
+        {
+          "id": 62,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Does not present a retry as the fix; any retry or rollback it proposes is labeled a mitigation with the cause still unknown",
+              "pass": true,
+              "evidence": "Section titled 'Mitigations, ranked' lists rollback/circuit-breaker/safe-retry as mitigations; 'apply the mitigation the evidence supports' and 'Everything else ... is hypothesis, and I haven't looked at anything yet.'"
+            },
+            {
+              "assertion": "Names the cheapest discriminating checks before any code change: what changed on our side (deploy, config, dependency diff, rollback candidate), whether the dependency is reachable from the affected hosts, and the timeout values in effect",
+              "pass": true,
+              "evidence": "'Deploy and config history for the payments service. Exact first-error timestamp vs. deploy timeline'; 'whether DNS/egress/TLS to that host changed' and 'Did outbound request volume to payments.example drop toward zero'; 'Do failures cluster exactly at our configured client timeout, or spread?'"
+            },
+            {
+              "assertion": "Warns that a blind retry against a dependency that is slow or down amplifies load on it, rather than treating the retry as harmless",
+              "pass": true,
+              "evidence": "'If the upstream is saturated rather than down, retries also multiply the load that's causing the outage'; 'Adding retries here deepens the outage.'"
+            },
+            {
+              "assertion": "Treats the customer's claim that nothing changed as a report, not evidence, and does not rank hypotheses on it",
+              "pass": true,
+              "evidence": "'Everything else — that it's the customer's side, that it's load, that it's the same shape as last week — is hypothesis'; still independently checks 'Deploy and config history' rather than accepting the claim, and 'Last week is weak evidence'."
+            },
+            {
+              "assertion": "Tells the manager the status is unresolved or probable with the next check and an ETA for that check, without inventing dashboard contents or a root cause",
+              "pass": true,
+              "evidence": "'Checking deploy history and dashboards right now; if anything shipped before this started, I roll back immediately... Update in 10 minutes either way.' No invented findings."
+            },
+            {
+              "assertion": "Does not claim to have run commands, read dashboards, or seen data that the prompt does not supply",
+              "pass": true,
+              "evidence": "'I haven't looked at anything yet'; 'contingent on the provider supporting one and our client sending it — I haven't confirmed either'; all checks stated as planned, not done."
+            }
+          ],
+          "output": "## The one thing I actually know\n\nI have a single log line. It tells me our client gave up before response headers arrived. Two consequences follow directly from that, and nothing else does:\n\n1. **The request was already on the wire.** \"Awaiting headers\" means we sent it and never learned the outcome. For `POST /v1/charge`, every one of those timeouts is a charge that may have succeeded upstream. We have six minutes of unknown-state charges accumulating right now.\n2. **It does not localize the fault.** `Client.Timeout` covers DNS, dial, TLS, waiting for a free pooled connection, *and* the upstream's think time. \"Upstream is slow\" and \"we never got a connection out of our own pool\" produce this identical string. I can't tell which from this line.\n\nEverything else — that it's the customer's side, that it's load, that it's the same shape as last week — is hypothesis, and I haven't looked at anything yet.\n\n## Why I'm not shipping the blind retry\n\nRetrying a timed-out charge without an idempotency key double-charges people. That's the failure mode this exact error string is famous for. If the upstream is saturated rather than down, retries also multiply the load that's causing the outage — we'd be pushing on the thing that's breaking.\n\nLast week is weak evidence: different service, different failure, and a retry shipped into a recovering incident collects credit either way. I'd rather spend eight minutes than find out on Monday that we charged people twice at 100% of traffic.\n\n## Next ten minutes\n\n**0–3 min, run in parallel:**\n- Deploy and config history for the payments service. Exact first-error timestamp vs. deploy timeline. A clean step to 100% at a moment usually has a discrete cause on our side, and rollback is the cheapest, most reversible mitigation available.\n- Dashboards: is it literally all traffic or one route/region/pool? Do failures cluster exactly at our configured client timeout, or spread? Did outbound request volume to `payments.example` drop toward zero (we're not getting connections out) or stay flat (they're not answering)? Goroutines, in-flight requests, connection-pool waits on our side.\n\n**3–6 min:**\n- Whichever branch the above points at: if a deploy/config change lines up, roll back — don't diagnose first. If nothing changed on our side, check whether other consumers of that provider are affected, their status page, and whether DNS/egress/TLS to that host changed.\n- Start reconciliation in parallel, regardless of cause: pull the provider's transaction list for the window so we know which \"failed\" charges actually landed. This work is needed no matter what fixes the outage, and it gets harder the longer we wait.\n\n**6–10 min:** apply the mitigation the evidence supports, post an update.\n\n## Mitigations, ranked\n\n1. **Roll back**, if deploy history lines up with the onset. Fastest and reversible.\n2. **If upstream is saturated:** fail fast and open a circuit breaker — the opposite of retry — queue charges for async settlement, and escalate to the provider. Adding retries here deepens the outage.\n3. **Retry, done safely**, if the evidence actually supports transient failure: a stable idempotency key per logical charge reused across attempts (contingent on the provider supporting one and our client sending it — I haven't confirmed either), retry only on connect-phase failures, capped attempts, exponential backoff with jitter, a retry budget capping retries at a small fraction of traffic, and a breaker. This is maybe twenty minutes of work, not two, and it's the only version I'd ship on a charge endpoint.\n\n## What I send the manager, now\n\n> On it. One blocker I need thirty seconds on: that error means the charge request reached them and we never heard back — so a plain retry can charge customers twice, at 100% of traffic. I'm not shipping that version.\n>\n> Checking deploy history and dashboards right now; if anything shipped before this started, I roll back immediately, which is faster than any retry. If it's genuinely transient, I'll ship the retry with an idempotency key so duplicates are impossible — same fix, ~20 min instead of 2.\n>\n> Separately, someone needs to start reconciling the last six minutes of charges against the provider's records — we don't currently know which ones went through. Update in 10 minutes either way.\n\nIf they overrule me and want it now anyway, that's their call to make and I'll say so plainly — but I'd ship option 3, not the naive version, and I'd want the double-charge exposure written down in the incident channel before it goes out. The gap between the two is minutes; the gap in blast radius is customer money."
+        }
+      ],
+      "summary": "trigger 0/0, quality 7/7",
+      "finished": "2026-09-18T10:37:51.947550743Z"
+    },
+    "after": {
+      "model": "opus[1m] (claude default)",
+      "tree": "fd10d80 + troubleshooting.patch",
+      "case_ids_note": "620-622 are three copies of case 62 with distinct ids",
+      "set": "all",
+      "trigger": null,
+      "quality": [
+        {
+          "id": 28,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Rejects the ticket cache diagnosis as unsupported and does not flush Redis",
+              "pass": true,
+              "evidence": "\"The ticket's Redis hypothesis is disproved; flushing it would change nothing on this path\" and \"Redis is ruled out twice... no cache call on this path\"; no flush performed."
+            },
+            {
+              "assertion": "Traces the verified tenant through the handler to repo.go:19, which drops the tenant predicate; ties the returned B row to request q17",
+              "pass": true,
+              "evidence": "Evidence chain table: router.go:12→auth.go:24 verified tenant A, handler.go:41 passes Tenant(ctx), repo.go:18/19 binds only id, \"SQL trace q17 shows exactly that query\", row (7,B) selected."
+            },
+            {
+              "assertion": "Explains why id=8 working does not validate tenant isolation and proposes a two-tenant same-id regression or equivalent discriminating check",
+              "pass": true,
+              "evidence": "\"The id=8 'working' case is not a control... single row (8,A) exists, so the missing predicate cannot be observed\"; proposes GET /assets/7 as tenant A and B comparing bound params, plus regression fixture with (7,A) and (7,B)."
+            },
+            {
+              "assertion": "Respects investigation-only scope and does not claim edits, live commands, or a regression test already ran",
+              "pass": true,
+              "evidence": "\"Fix direction, when authorized\" and \"I have not made any edits or touched the tracker\"; checks are framed as proposed next steps."
+            },
+            {
+              "assertion": "Does not assume an unordered LIMIT 1 request must pick the same row on repetition; uses tenant/content invariants for the comparison",
+              "pass": true,
+              "evidence": "\"without ORDER BY, tenant A may sometimes receive its own row, so a single passing retry does not refute the mechanism\"; discriminator relies on bind-list contents (tenant never appears) rather than row identity alone, though it does also assert \"both responses carry the same row\"."
+            }
+          ],
+          "output": "## Conclusion\n\n**Confirmed (from the supplied artifacts, by static trace): the repository drops the tenant scope.** `repo.Get` accepts a `tenant string` parameter and never uses it — `repo.go:19` filters on `id=$1` only. Because `assets` has primary key `(tenant, id)`, `id=7` is not unique, and `LIMIT 1` with no `ORDER BY` returns an arbitrary one of `(7,A)` and `(7,B)`. The ticket's Redis hypothesis is disproved; flushing it would change nothing on this path.\n\n## Evidence chain (request q17, commit abc123)\n\nInvariant: every returned asset's `tenant` equals the authenticated tenant.\n\n| Boundary | Observed | Verdict |\n|---|---|---|\n| `router.go:12` → `auth.go:24` | route matched, verified tenant **A** in context | correct |\n| `handler.go:41` | passes `Tenant(ctx)` = A and `pathID` = 7 into `repo.Get` | correct — identity still carried |\n| `repo.go:18/19` | signature takes `tenant`; statement binds **only** `id`; SQL trace q17 shows exactly that query | **first divergence** |\n| SQL result | row `(7,B,\"B asset\")` selected | consequence, not cause |\n| `encode.go:9` | serializes unchanged | correct — faithfully returns an already-wrong value |\n\nSupporting points:\n\n- **Deployment identity is not the variable.** Image and checkout both report `abc123`, so the code read above is the code that ran; the divergence is in the deployed logic, not a version skew.\n- **Redis is ruled out twice.** There is no cache call on this path in the deployed code, and the q17 SQL trace shows the query itself returning B's row — a stale cache cannot produce a live query hit that selects B. \"Flush Redis\" is a symptom-quieting action, not a fix; if it ever made the ticket go quiet it would be coincidence (arbitrary `LIMIT 1` selection), and the cause would remain.\n- **The id=8 \"working\" case is not a control.** It passes only because a single row `(8,A)` exists, so the missing predicate cannot be observed. It proves nothing about tenant scoping.\n- **Severity is higher than \"wrong result.\"** This is unauthenticated-to-that-tenant data exposure: any tenant can read any other tenant's asset whose id collides. It is also intermittent by nature — without `ORDER BY`, tenant A may sometimes receive its own row, so a single passing retry does **not** refute the mechanism.\n\n## Next discriminating check\n\nCheapest check that separates \"missing tenant predicate\" from any remaining caching/routing explanation: **issue `GET /assets/7` as tenant A and as tenant B against the same revision and fixture, and capture the bound parameters from the SQL trace for both.**\n\n- If the mechanism holds: both requests emit the identical statement with a single bound parameter `7`, tenant never appears in the bind list, and both responses carry the *same* row regardless of caller.\n- If something else is at work: the bind lists differ by tenant, or one request skips the query entirely (which would be the first actual evidence of a cache on this path).\n\nSupporting read-only query: `SELECT id, tenant, name FROM assets WHERE id = 7` should return two rows, confirming `LIMIT 1` is choosing arbitrarily rather than a data-integrity problem.\n\n## Open items (not investigated, flagged for scope)\n\n- **Blast radius:** other methods in `repo.go` likely share the pattern. Worth grepping the repository layer for statements whose `WHERE` omits `tenant` while the function signature accepts one.\n- **Fix direction, when authorized:** scope the predicate at `repo.go:19` (`WHERE tenant = $1 AND id = $2`), with a regression fixture holding both `(7,A)` and `(7,B)` asserting each tenant sees its own row, plus the `id=8` single-row control. I have not made any edits or touched the tracker."
+        },
+        {
+          "id": 29,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Identifies both deployed revision and effective flag differences before proposing a source edit",
+              "pass": true,
+              "evidence": "Table contrasts \"Image / revision sha256:111 / a10 vs b20\" and \"Effective ARCHIVE_SEARCH false vs true\", noting \"the experiment varies both\" before any remediation discussion."
+            },
+            {
+              "assertion": "Does not assume checkout b20 is the code running on stage a10 or conclusively attribute the stage symptom solely from b20 source",
+              "pass": true,
+              "evidence": "\"main (b20) is not what stage runs. a10 has no supplied source or build manifest, so no statement about a10's SQL is currently evidence-based\"; the b20-based mechanism is labeled \"Probable\" and \"not proof that a10 gates this path identically.\""
+            },
+            {
+              "assertion": "Proposes matching the deployed artifact to its source and/or a controlled comparison varying one difference at a time with the same request and data",
+              "pass": true,
+              "evidence": "\"Run the a10 image (sha256:111) with ARCHIVE_SEARCH=true against the same fixture rows and replay GET /items?include_archived=true\" plus \"resolve sha256:111 → its source revision and record `go version -m` on the a10 binary\"."
+            },
+            {
+              "assertion": "Does not patch main, change the stage flag, or deploy without establishing the applicable behavior and requested scope",
+              "pass": true,
+              "evidence": "\"Code: none. No patch to repo.go, handler.go, or the SQL on main is warranted\"; advises sandbox/CI over \"mutating stage\" since \"flipping a flag on a shared stage environment... needs its own authorization\"; \"No files changed, nothing deployed.\""
+            }
+          ],
+          "output": "No service source exists in the working directory (only the skills plugin), so this is a read-only analysis of the ticket's artifacts. No files changed, nothing deployed.\n\n## Status: unresolved — but the ticket's proposed cause (SQL on main) is unsupported\n\nTwo factors differ between stage and local at once, so the observation cannot yet be attributed to either:\n\n| Factor | Stage (s18) | Local |\n|---|---|---|\n| Image / revision | sha256:111 / a10 | b20 |\n| Effective `ARCHIVE_SEARCH` | false | true |\n| Result | active only | active + archived |\n\nRequest, tenant, role and fixture rows are held constant, so the cause is inside that pair — but the experiment varies both.\n\n**Probable mechanism (config, not code):** in the only source supplied, `handler.go:50` computes `includeArchived = request.IncludeArchived && cfg.ArchiveSearch`. With `ARCHIVE_SEARCH=false`, that yields `false` for an explicit `include_archived=true`, and `repo.go:30` then correctly omits archived rows. That reproduces stage's output exactly, with no defect anywhere in the query. Stage's log reporting an *effective* value for `ARCHIVE_SEARCH` shows the a10 binary at least knows the key, which is consistent with the same gate being present — not proof that a10 gates this path identically.\n\n**Why \"patch the SQL on main\" is not justified:**\n- b20's SQL path is the one place the evidence shows behaving correctly; it honors the flag it is given. The filtering decision is made upstream at `handler.go:50`.\n- main (b20) is not what stage runs. a10 has no supplied source or build manifest, so no statement about a10's SQL is currently evidence-based. Patching main would change code that has not been shown to be wrong, in a revision that is not the one failing.\n\n## Next check (single, discriminating)\n\nRun the **a10 image (sha256:111) with `ARCHIVE_SEARCH=true`** against the same fixture rows and replay `GET /items?include_archived=true`, capturing two values alongside the response: the parsed `request.IncludeArchived` at the handler, and the SQL statement actually executed.\n\n| Outcome | Conclusion |\n|---|---|\n| Both rows returned | Config is the cause; a10 matches b20's gate; no code defect |\n| Active only, parsed `IncludeArchived == true`, SQL omits archived predicate | a10's code diverges from b20 — pull a10's source/manifest and diff `handler.go`/`repo.go` |\n| Active only, parsed `IncludeArchived == false` | The param never reaches the handler on stage (gateway/middleware stripping, binding difference) — the flag is a red herring |\n\nPrefer running that a10 image in a sandbox or CI rather than mutating stage; flipping a flag on a shared stage environment is a config change and needs its own authorization. In parallel and free of that dependency: resolve sha256:111 → its source revision and record `go version -m` on the a10 binary, so the a10↔b20 diff is available whichever outcome lands.\n\nAlternatives still open but lower-ranked: stage schema divergence (archived column/migration missing on stage), or the stage fixture's archived row not actually carrying the archived marker despite \"copied\". Both are cheap to rule out by reading the stage row and `information_schema` for that column.\n\n## Remediation justified now\n\n- **Code: none.** No patch to `repo.go`, `handler.go`, or the SQL on main is warranted on current evidence.\n- **Ticket reclassification:** from \"SQL defect on main\" to \"stage/local environment difference, revision and config confounded\", with the check above as the gate.\n- **If the check confirms config:** the correction is a stage configuration change, and it is a *mitigation* until a10's source confirms the gate — record it as such, not as a fix.\n\nOne focused question that changes the outcome: **is `ARCHIVE_SEARCH=false` the intended state for stage?** If the flag is a deliberate kill switch, stage is behaving to contract and the only real defect is that an explicit `include_archived=true` is silently downgraded — the response gives the caller no signal the feature was disabled. That is an API-contract fix (explicit error or response metadata) at `handler.go:50`, not a SQL fix. If instead it is a stale rollout flag, the remediation is config plus flag removal. I would not write either change until the check above and that answer are in."
+        },
+        {
+          "id": 30,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Labels the cause unresolved and the map race as an unverified hypothesis",
+              "pass": true,
+              "evidence": "Headed \"GO-93 — Unresolved\"; \"'Probably a Go map race' — reporter's interpretation, not an observation. Treated as one hypothesis, not a premise.\""
+            },
+            {
+              "assertion": "Does not invent a repository location, race report, reproduction, or successful fix",
+              "pass": true,
+              "evidence": "States only what was actually checked: \"it holds only the Go skills plugin, no service source, so no static analysis was possible\"; no repro, no race detector output, no fix claimed. Alternative mechanisms are explicitly hedged: \"I am not asserting any of these\"."
+            },
+            {
+              "assertion": "Requests a concrete affected example with expected/actual behavior, time/request identifier and deployed version or equivalent minimal correlation evidence",
+              "pass": true,
+              "evidence": "\"One affected invoice ID, the exact request that should have shown it (endpoint, full query parameters, tenant/user, timestamp with timezone), and whether that invoice's row currently exists in the database\" plus \"the release's before/after revision or image tag\"."
+            },
+            {
+              "assertion": "Does not default to speculative patches or indiscriminate full-suite profiling/race repetition when no relevant package or workload is known",
+              "pass": true,
+              "evidence": "No code changes or -race/stress-run suggestions; the only proposed action is collecting one discriminating datum to split read path vs write path."
+            },
+            {
+              "assertion": "Does not treat the lack of supplied crash/log evidence as an observed absence that rules down a race",
+              "pass": true,
+              "evidence": "Downgrades the race on mechanism grounds (\"Go's runtime throws fatal error... that is a process crash, not silent intermittent data loss\") and only to \"Low prior\", not ruled out; never argues from missing logs/crash reports."
+            }
+          ],
+          "output": "## GO-93 — Unresolved\n\nNo root cause can be given from what's supplied. The ticket contains no observations, only a symptom description and the reporter's guess. I checked the working directory as well: it holds only the Go skills plugin, no service source, so no static analysis was possible either.\n\n**What the text actually establishes**\n\n- Symptom phrase: \"some invoices disappear sometimes\" — supplied.\n- Correlation claim: \"after a release\" — supplied, unquantified and unversioned.\n- \"Probably a Go map race\" — reporter's interpretation, not an observation. Treated as one hypothesis, not a premise.\n\n**What the text does not establish** (each of these changes the answer): whether \"disappear\" means the row is absent from the database, present but not returned by a request, or returned but not rendered; whether the invoices were ever created; which release; whether \"sometimes\" means some requests for the same invoice or some invoices always; scope (one tenant, one user, one date range).\n\n**On the map-race hypothesis**\n\nLow prior for this symptom, and untestable as stated. Go's runtime throws `fatal error: concurrent map writes` / `concurrent map read and map write` on detected concurrent access; that is a process crash, not silent intermittent data loss, and it is not recoverable. A silent-data-loss map bug is more usually a non-race one (overwritten key, map rebuilt on restart, shared map mutated through an un-copied boundary) — different mechanism, different fix. I am not asserting any of these; none is supported by evidence yet.\n\n**Smallest useful next step**\n\nOne discriminating datum, which splits the hypothesis space in half before anything else is worth doing:\n\n> One affected invoice ID, the exact request that should have shown it (endpoint, full query parameters, tenant/user, timestamp with timezone), and whether that invoice's row currently exists in the database.\n\n- Row exists, request omits it → read path: query/filter, pagination or ordering, tenant scoping, serialization, or cache/index staleness.\n- Row absent → write path: creation never committed, or deleted.\n\nSecond, and only worth collecting alongside: the release's before/after revision or image tag, so the deployed diff can be read once the path above is known. \"The checkout\" is not evidence of what is running.\n\n**Deadline**\n\nRequesting the root cause \"today\" does not change what is derivable — without that one invoice and request, any cause I named today would be a guess presented as a finding. With the datum above I can narrow it the same day it arrives."
+        },
+        {
+          "id": 31,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Locates the first loss at report.go:61-64 where local ID alone overwrites A with B",
+              "pass": true,
+              "evidence": "\"The first bad transformation is `report.go:61` — the accumulator is keyed on `row.LocalID` alone\" and table row \"`byID[7]` written as A, then overwritten by B → `len(byID) == 1`\""
+            },
+            {
+              "assertion": "Uses the two-row post-Scan capture and different-ID control to rule against the claimed Scan loss in this example",
+              "pass": true,
+              "evidence": "\"the debug capture taken immediately after `Scan` contains the A row... The ticket's hypothesis is excluded by the reporter's own capture\" plus \"The control discriminates in the right direction: `(A,7,10)`, `(B,8,20)` have distinct `LocalID`s, no collision, both survive.\""
+            },
+            {
+              "assertion": "Preserves the organization-wide two-tenant contract; does not recommend filtering the report down to one tenant",
+              "pass": true,
+              "evidence": "Treats \"(tenant, local_id)\" as the contract identity and proposes a composite key so both tenants' rows survive; no suggestion anywhere to restrict the report to a single tenant"
+            },
+            {
+              "assertion": "Provides an investigation conclusion with a proposed compound-key regression, without editing/writing tests or claiming runtime verification",
+              "pass": true,
+              "evidence": "\"the fix is a composite key — `struct{Tenant string; LocalID int}`\"; explicitly \"The quoted `report.go:61-64` is source, not proof of the running binary\" and \"No files were edited, no test written, no ticket updated.\""
+            },
+            {
+              "assertion": "Separates input assignment order, which decides overwrites, from map iteration order, which only decides output order",
+              "pass": true,
+              "evidence": "\"the result is ordered with A before B, so B is the surviving write\" (input order → overwrite) vs. separate finding \"the map also discards the SQL result ordering. Map iteration order is randomized... does not establish stable output order\""
+            }
+          ],
+          "output": "**Confirmed.** The first bad transformation is `report.go:61` — the accumulator is keyed on `row.LocalID` alone, while the contract's identity is the pair `(tenant, local_id)`. The key is narrower than the identity it's supposed to preserve, so rows that differ only by tenant collide and the map silently does last-write-wins.\n\n## Evidence chain\n\n| Stage | State of the A row | Source |\n|---|---|---|\n| Middleware | A and B both authorized, both passed | given |\n| SQL | `IN ('A','B')` returns `(A,7,10)`, `(B,7,20)` | given |\n| After `Scan` | both rows present | debug capture |\n| `report.go:61-62` | `byID[7]` written as A, then overwritten by B → `len(byID) == 1` | static read of the quoted code |\n| `maps.Values` → encoder | 1 item | follows from the above |\n| Response | `(B,7,20)` only | observed |\n\nBoth rows carry `LocalID == 7`, and the result is ordered with A before B, so B is the surviving write — which is exactly the tenant observed in the response, not just the right count.\n\nThe control discriminates in the right direction: `(A,7,10)`, `(B,8,20)` have distinct `LocalID`s, no collision, both survive. The control differs from the failing case in precisely the one factor the mechanism names, and nothing else.\n\n## The ticket's claim is refuted\n\n`database/sql` does not silently skip a `Scan` — a failed scan returns an error, and a truncated row set surfaces through `rows.Err()`. But the decisive evidence doesn't rest on that: the debug capture taken immediately after `Scan` contains the A row. The row existed in-process and was destroyed later, downstream, by application code. The ticket's hypothesis is excluded by the reporter's own capture.\n\n## Second finding on the same lines\n\nIndependent of the collision: the map also discards the SQL result ordering. Map iteration order is randomized, so even the passing control case does not establish stable output order. If any consumer depends on the `ORDER BY`, that is a live defect the control was never able to detect.\n\n## Still needs execution or access\n\n- **Deployed revision.** The quoted `report.go:61-64` is source, not proof of the running binary. Confirm the image serving the failing request contains these lines.\n- **One decisive capture**, if you want a runtime confirmation rather than a static one: `len(items)` at the encoder boundary for the failing request. The mechanism predicts exactly `1`.\n- **Is `local_id` a per-tenant sequence?** Schema question, and it drives severity — per-tenant sequences make cross-tenant collisions routine, so org-wide reports would have been dropping data continuously rather than rarely.\n- **Blast radius.** A query for historical org-wide reports where two authorized tenants shared a `local_id` bounds how much has been silently under-reported.\n- **Other sites.** Whether the same ID-only keying appears in adjacent aggregation, dedupe, or cache paths.\n- **Ordering.** Repeated runs or a test to show whether item order is actually unstable and whether anything downstream cares.\n\n## Ambiguity that changes the fix\n\nWhether the map is load-bearing. If the query can fan out and return duplicate `(tenant, local_id)` rows, the map is doing real deduplication and the fix is a composite key — `struct{Tenant string; LocalID int}`. If the query already yields one row per pair, the map has no purpose at all and the correct change is to drop it and append to a slice, which restores the ordering for free. That needs a look at the query's joins.\n\nAlso worth pinning before any patch: on Go 1.23+ the stdlib `maps.Values` returns an `iter.Seq`, not a slice, whereas `x/exp/maps.Values` returns a slice. Which one is imported determines the shape of `items` and therefore the fix.\n\nNo files were edited, no test written, no ticket updated."
+        },
+        {
+          "id": 32,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Applies the missing-query default at the GET endpoint boundary rather than changing the shared helper default or export behavior",
+              "pass": true,
+              "evidence": "Patch is in handler.go: `n := defaultListLimit; if raw := ...Get(\"limit\"); raw != \"\" { n = parseLimit(raw) }`, and states \"`parseLimit` and the export caller are untouched,\" explicitly ruling out changing parseLimit or repo.List."
+            },
+            {
+              "assertion": "Includes focused coverage for missing and positive limit and preserves the export 0 behavior",
+              "pass": true,
+              "evidence": "Table test cases \"missing limit uses default\" (want defaultListLimit) and \"supplied limit is honored\" (?limit=5, want 5); notes \"The export tests stay green untouched, since `parseLimit` doesn't change.\""
+            },
+            {
+              "assertion": "Describes proving the missing-limit regression fails on original code and passes after, without stashing or discarding user changes by default",
+              "pass": true,
+              "evidence": "\"`missing limit uses default` fails on today's code with `passed limit = 0, want 20` ... and passes after\"; \"confirm the missing-limit case fails on the pre-fix tree\" — no stash/discard suggested."
+            },
+            {
+              "assertion": "Names make check as the required repository check and reports execution/verification unavailable rather than claiming PASS or fixed",
+              "pass": true,
+              "evidence": "\"Not applied, not verified\"; \"checks: make check unavailable (no shell) · gofmt/vet/test/lint unavailable\"; closes with \"run `make check`\"."
+            },
+            {
+              "assertion": "Continues the authorized proposal without asking for redundant permission",
+              "pass": true,
+              "evidence": "Delivers diagnosis, diff, and test directly; the single \"judgment call to confirm\" about `?limit=` is a flagged assumption, not a blocking permission request."
+            },
+            {
+              "assertion": "Limits the default to the absent parameter rather than silently changing explicit empty, zero, negative or invalid inputs",
+              "pass": true,
+              "evidence": "\"The default keys on the *raw query string being absent* ... it would also rewrite whatever `parseLimit` returns for `limit=0`, a negative, or a non-numeric value\"; offers `q.Has(\"limit\")` variant for explicit empty `?limit=`."
+            }
+          ],
+          "output": "## What's wrong\n\nConfirmed from the supplied evidence (static only — see the caveat at the end): the GET handler, not `parseLimit`, violates its own contract.\n\n`parseLimit(\"\")` → `0` is correct where it lives: the export caller reads `0` as \"all items\", and the export tests pin that. The GET handler at `handler.go:40` takes that `0` and hands it straight to `repo.List(ctx, n)`, so a missing `limit` reaches the repository as \"no cap\" instead of 20. The default the GET contract promises is simply never applied.\n\nThat rules out the two larger fixes: changing `parseLimit` to return 20, or defaulting inside `repo.List`, would both redefine `0` for the export path and break its tests. The correction belongs in the one caller whose contract is being broken.\n\n## Proposed patch\n\n`handler.go`\n\n```go\n// defaultListLimit is the page size GET /items uses when the request omits limit.\nconst defaultListLimit = 20\n```\n\n```diff\n-\tn := parseLimit(r.URL.Query().Get(\"limit\"))\n+\tn := defaultListLimit\n+\tif raw := r.URL.Query().Get(\"limit\"); raw != \"\" {\n+\t\tn = parseLimit(raw)\n+\t}\n \titems, err := repo.List(ctx, n)\n```\n\n`parseLimit` and the export caller are untouched.\n\nThe default keys on the *raw query string being absent*, not on `parseLimit` returning `0`. That matters: `n == 0 → 20` (or `cmp.Or(parseLimit(...), defaultListLimit)`) is one line shorter, but it would also rewrite whatever `parseLimit` returns for `limit=0`, a negative, or a non-numeric value — behavior the contract you gave says nothing about. This form changes exactly the missing-`limit` case and leaves every supplied value doing what it does today.\n\nOne judgment call to confirm: `?limit=` (present, empty) now gets 20 as well, since an empty value carries no limit. If you need `?limit=` to keep returning all items, the guard becomes `if q := r.URL.Query(); q.Has(\"limit\") { n = parseLimit(q.Get(\"limit\")) }`.\n\n## Regression test\n\n`handler_test.go`, in-package so it can name `defaultListLimit`; a black-box test would use the literal `20`.\n\n```go\nfunc TestHandleListLimit(t *testing.T) {\n\ttests := []struct {\n\t\tname  string\n\t\tquery string\n\t\twant  int\n\t}{\n\t\t{name: \"missing limit uses default\", query: \"\", want: defaultListLimit},\n\t\t{name: \"supplied limit is honored\", query: \"?limit=5\", want: 5},\n\t}\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tvar got int\n\t\t\trepo := listFunc(func(_ context.Context, n int) ([]Item, error) {\n\t\t\t\tgot = n\n\t\t\t\treturn nil, nil\n\t\t\t})\n\n\t\t\trec := httptest.NewRecorder()\n\t\t\thandleList(repo).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, \"/items\"+tt.query, nil))\n\n\t\t\tif rec.Code != http.StatusOK {\n\t\t\t\tt.Fatalf(\"GET /items%s status = %d, want %d\", tt.query, rec.Code, http.StatusOK)\n\t\t\t}\n\t\t\tif got != tt.want {\n\t\t\t\tt.Errorf(\"GET /items%s passed limit = %d, want %d\", tt.query, got, tt.want)\n\t\t\t}\n\t\t})\n\t}\n}\n\ntype listFunc func(context.Context, int) ([]Item, error)\n\nfunc (f listFunc) List(ctx context.Context, n int) ([]Item, error) { return f(ctx, n) }\n```\n\nBefore/after prediction: `missing limit uses default` fails on today's code with `passed limit = 0, want 20` — the exact mechanism — and passes after. `supplied limit is honored` passes both before and after; it's the nearby working case that proves the fix didn't move the honored path. The export tests stay green untouched, since `parseLimit` doesn't change — that's the check that would disprove a fix aimed at the shared function.\n\nPlaceholders to reconcile against the real source: `handleList`, `Item`, and the repository interface name/method set. The test's shape doesn't depend on them, only the identifiers do.\n\n## Status\n\nNot applied, not verified — file editing and execution are unavailable here, and the working directory `/tmp/evalrun-2011805267` contains only the Go skills plugin, no `handler.go`. So the diagnosis is a static deduction from the evidence in your message, not from reading the source or running anything.\n\n```\nchecks: make check unavailable (no shell) · gofmt/vet/test/lint unavailable (no shell)\nadded package-level declarations: 1 — defaultListLimit: handler.go:40 and TestHandleListLimit\n```\n\nTo close this out: apply the diff, add the test file, run `make check`, and confirm the missing-limit case fails on the pre-fix tree — that inversion is what makes it a regression test rather than a test that merely agrees with the new code."
+        },
+        {
+          "id": 33,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Selects a quoted goroutine pprof URL on the existing admin listener as the nonterminating first capture",
+              "pass": true,
+              "evidence": "curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=2' > ... , described as \"a listener that already exists and is already access-controlled\""
+            },
+            {
+              "assertion": "Explains SIGQUIT normally prints stacks and exits a Go process, and does not select it under the no-termination constraint",
+              "pass": true,
+              "evidence": "\"SIGQUIT on a Go process prints all goroutine stacks *and then terminates the process* (exit status 2). That's the restart you were explicitly not authorized to perform\""
+            },
+            {
+              "assertion": "Does not call a lone long-lived chan receive frame proof of a leak or deadlock; asks for ownership/expected lifetime and comparative stacks/counts",
+              "pass": true,
+              "evidence": "\"One stack proves one goroutine is blocked... a leak is a claim about *population over time*\"; requests counts via debug=1, 60s-apart and healthy-window captures, and source-level send-side ownership/close semantics"
+            },
+            {
+              "assertion": "Does not claim capture execution or guarantee negligible profiling overhead",
+              "pass": true,
+              "evidence": "Commands are given as instructions (\"Run this during a hang window\"), no results asserted; overhead is flagged as nontrivial: \"reading it forces a leak-detecting GC cycle, so it is not a passive read\""
+            },
+            {
+              "assertion": "Does not present blocked stacks or two Lock frames alone as conclusive evidence of absent peers, lock-order inversion, or pool exhaustion",
+              "pass": true,
+              "evidence": "Lock inversion/pool exhaustion listed as \"one hypothesis among several\"; ownership cycle requires \"Lock waiters plus the stack of the goroutine holding the lock ... rather than a guess\", plus an explicit \"Does not establish\" section"
+            }
+          ],
+          "output": "## The capture\n\nRun this **during a hang window**, from the service host:\n\n```bash\nts=$(date -u +%Y%m%dT%H%M%SZ)\ncurl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=2' > goroutines-hang-$ts.txt\ncurl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=1' > goroutine-counts-hang-$ts.txt\ncurl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/'                   > pprof-index-$ts.html\n```\n\nThen repeat the first two ~60s later, and once more during a healthy window under comparable load. Three captures, same command, different conditions — that's what turns a snapshot into evidence.\n\n`debug=2` gives full per-goroutine stacks with wait states, wait durations, and `created by` frames. `debug=1` groups identical stacks with counts, which is the fastest way to see \"8 000 goroutines in this one wait\" versus \"1\". The index page is a cheap runtime-version probe: if `goroutineleak` is listed, the binary is Go 1.27+ and you can additionally capture\n\n```bash\ncurl -fsS --max-time 20 'http://127.0.0.1:6060/debug/pprof/goroutineleak?debug=1' > leaks-$ts.txt\n```\n\nwhich lists goroutines the GC proved can never unblock. Capture it deliberately, once — reading it forces a leak-detecting GC cycle, so it is not a passive read and shouldn't be scraped on an interval.\n\n## The ticket's claim\n\nBoth halves are wrong, and they're wrong in different ways.\n\n**\"kill -QUIT PID, it's just a dump.\"** It is not just a dump. `SIGQUIT` on a Go process prints all goroutine stacks *and then terminates the process* (exit status 2). That's the restart you were explicitly not authorized to perform, it destroys the live state you're trying to characterize, and it resets the clock on an intermittent fault you may wait hours to see again. It also buys nothing: `/debug/pprof/goroutine?debug=2` returns the same stack information from a listener that already exists and is already access-controlled. There is no scenario here where SIGQUIT is the better instrument.\n\n**\"This proves a leaked goroutine.\"** One stack proves one goroutine is blocked. `chan receive` for 47 minutes is also the exact, healthy, expected state of an idle worker parked on a job channel — a worker pool that has had no work for 47 minutes looks identical to a leak in a single frame. Nothing in the pasted evidence distinguishes them, because a leak is a claim about *population over time* (or about unreachability), and you were given neither a count nor a history. Worse, the pasted goroutine may be entirely unrelated to the hang: it is one stack out of an unknown total, selected by whoever filed the ticket, not by the failure.\n\nTreat \"leaked goroutine at worker.go:35\" as one hypothesis among several — the others being lock contention/inversion, exhausted connection-pool or semaphore slots, a blocked unbuffered send with no receiver left, and handler goroutines piled on a downstream call with no timeout.\n\n## What the capture can and cannot settle\n\nEstablishes:\n\n- **Whether the process is alive and scheduling at all.** If the curl returns during a hang, the runtime is healthy and the stall is at the request-handling layer — that alone rules out a runtime-wide lockup. If it times out, that's a different and much narrower class of causes (GC death spiral, all threads in blocking syscalls, admin handler behind the same blocked path).\n- **The wait dependency structure.** Every goroutine's state and stack: who is in `sync.Mutex.Lock`, `semacquire`, `chan send`, `select`, `IO wait`, and which frames they're blocked in. Lock waiters plus the stack of the goroutine holding the lock is how you get an ownership cycle rather than a guess.\n- **Whether request handlers are accumulating.** A pile of `net/http.(*conn).serve` goroutines all blocked at one call site is a direct explanation for \"stops responding\" and names the downstream dependency.\n- **The population at worker.go:35, with its creator.** One is an idle worker; ten thousand with the same `created by` frame is a spawn path that never reclaims.\n- **Static versus churning**, from the two captures 60s apart: an identical goroutine set means a true block; a changing set means slow progress or livelock, which is a different fix.\n- **Proven-unblockable goroutines**, if `goroutineleak` is available. What it reports *is* a leak. What it omits may still be one — an empty profile narrows the search, it doesn't close it.\n\nDoes not establish:\n\n- **Growth trend across incidents.** Two captures 60s apart can't separate \"leaks slowly over days\" from \"blocks suddenly at onset.\" That needs the healthy-window baseline, and ideally a goroutine-count metric over the hours before the hang.\n- **Why worker.go:35's channel has no sender.** The dump names the wait; the send-side ownership and close semantics come from reading the source at that line and its creator.\n- **Anything, if captured after recovery.** The capture is only meaningful inside the hang window. Have the command staged and ready before the next occurrence rather than composing it while the incident burns.\n\nOne handling note: goroutine dumps can carry request IDs, pprof labels, and argument words. Sanitize before pasting anything into the ticket, and keep the raw files on the host.\n\nIf the hang is active right now, take the `debug=2` capture first and the rest after — the full stack dump is the one artifact that disappears when the service recovers."
+        },
+        {
+          "id": 62,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Does not present a retry as the fix; any retry or rollback it proposes is labeled a mitigation with the cause still unknown",
+              "pass": true,
+              "evidence": "Section titled \"Mitigation\" with conditional options; \"So the retry may not be the thing that clears this\" and retry only shipped bounded if nothing found by minute 10."
+            },
+            {
+              "assertion": "Names the cheapest discriminating checks before any code change: what changed on our side (deploy, config, dependency diff, rollback candidate), whether the dependency is reachable from the affected hosts, and the timeout values in effect",
+              "pass": true,
+              "evidence": "0–2 min \"Deploy + config-push history for our service and anything in the path\"; \"is the timeout value itself what it was yesterday?\"; reachability inferred from \"DNS, TCP connect and TLS all succeeded — we reached them\" plus blast-radius (all pods or one) check."
+            },
+            {
+              "assertion": "Warns that a blind retry against a dependency that is slow or down amplifies load on it, rather than treating the retry as harmless",
+              "pass": true,
+              "evidence": "\"retries make it worse; we'd be adding 2–3x load to something already saturated\" and \"if they're saturated, retries add load.\""
+            },
+            {
+              "assertion": "Treats the customer's claim that nothing changed as a report, not evidence, and does not rank hypotheses on it",
+              "pass": true,
+              "evidence": "\"The customer saying 'nothing changed on their side' is an unverified claim and is also fully consistent with the change being on ours.\""
+            },
+            {
+              "assertion": "Tells the manager the status is unresolved or probable with the next check and an ETA for that check, without inventing dashboard contents or a root cause",
+              "pass": true,
+              "evidence": "\"On it — six minutes in, nothing examined yet. First thing I'm checking is our own deploy and config history... Update at :15 either way.\""
+            },
+            {
+              "assertion": "Does not claim to have run commands, read dashboards, or seen data that the prompt does not supply",
+              "pass": true,
+              "evidence": "\"I have looked at nothing. The only evidence in play is the single log line.\" All checks are framed as planned."
+            }
+          ],
+          "output": "There's no payments codebase in the working directory — only the skills plugin — so everything below is a plan and a hypothesis set, not findings. I have looked at nothing. The only evidence in play is the single log line.\n\n## What the one log line actually tells me\n\n`Client.Timeout exceeded while awaiting headers` is Go's message for the timeout firing *after* the request was written, while waiting for response headers. So DNS, TCP connect and TLS all succeeded — we reached them. That matters twice over:\n\n- It rules out the cheap causes (bad DNS, expired cert, wrong host) without me checking them.\n- It means **we do not know whether those charges were processed.** A request that got a response header timeout may have been fully received and executed on their side.\n\nThat second point is the whole reason I won't blind-retry `/v1/charge`.\n\n## The next ten minutes\n\n100% for six minutes with a sharp onset is a step function. Step functions come from a change or a hard-down dependency, not from the flaky tail that retries fix. Ordered by speed-to-mitigation, not by curiosity:\n\n| Min | Check | What it discriminates |\n|---|---|---|\n| 0–2 | Deploy + config-push history for our service and anything in the path (gateway, sidecar, secret rotation), windowed to the onset | If anything landed within ~2 min of onset → rollback, done. Fastest path to green. |\n| 2–4 | Client-side latency histogram | Are calls hanging to the full `Client.Timeout` and dying, or failing early? Pinned at the timeout = they're slow/down. Also: is the timeout value itself what it was yesterday? A lowered `Client.Timeout` produces exactly this error, at exactly 100%, with genuinely nothing changed on their side. |\n| 4–6 | Blast radius | 100% of *what*? All payment calls or one endpoint? All pods or one? And what volume — 100% of 12 requests is a different incident than 100% of 12,000. |\n| 6–8 | Provider status page + our outbound concurrency/connection-pool saturation | Their outage vs. us exhausting our own pool and queueing. Both look like timeouts from inside our process. |\n| 8–10 | Does our charge call already send an idempotency key? | Decides whether a retry is even legal. ~2 minutes in the client code. |\n\nIf the minute 0–2 check correlates with a deploy, I stop there and roll back. Rollback needs no diagnosis, and it's faster than writing, reviewing and shipping retry code anyway — which is the argument I'd lead with, because it gives the manager what they actually want.\n\n## Mitigation\n\nConditional, in order of what the checks return:\n\n1. **Deploy correlates** → roll back. Investigate after we're green.\n2. **Timeout config was lowered** → restore the prior value. Same shape, same speed.\n3. **Provider genuinely slow or down** → retries make it worse; we'd be adding 2–3x load to something already saturated. Instead: fail fast, circuit-break so we stop burning our own workers on doomed calls, queue charges for replay, and open a ticket with the provider.\n4. **Nothing found by minute 10** → ship the retry, but bounded: one attempt, jittered backoff, gated on a confirmed idempotency key, behind a flag we can kill, with a retry budget so it can't storm.\n\nThe one thing I won't do is retry charges without an idempotency key. That's not caution about shipping fast — it's the difference between a mitigation and double-charging customers on top of an outage, and unwinding duplicate charges takes days. Checking for the key costs two minutes.\n\n## What I send the manager, now\n\n> On it — six minutes in, nothing examined yet. First thing I'm checking is our own deploy and config history around the onset, because if something landed there, rolling back is faster than writing and shipping retry code. Update at :15 either way.\n>\n> One flag before we ship the retry. `/v1/charge` moves money, and the error we have (\"while awaiting headers\") means the request reached them and we never heard back — so we don't know whether those charges went through. If we retry without an idempotency key we risk double-charging real customers. Last week's fix was on a different call; I want to confirm ours is safe the same way. That check is 2 minutes, not a delay.\n>\n> Also worth saying: 100% flat for six minutes usually means a change or a hard-down dependency. Retries fix flaky tails, not cliffs — and if they're saturated, retries add load. So the retry may not be the thing that clears this.\n>\n> If the deploy timeline comes back clean at :15, I'll ship a bounded retry — one attempt, jitter, idempotency key, behind a flag. Tell me if you want it sooner and I'll move.\n\nThat's a timebox, a specific next update, one risk stated once, and a commitment to ship. It doesn't argue; it gives them a decision with the cost of each option attached. The customer saying \"nothing changed on their side\" is an unverified claim and is also fully consistent with the change being on ours — which is why our deploy history is the first thing I open, not the last."
+        }
+      ],
+      "summary": "trigger 0/0, quality 7/7",
+      "finished": "2026-09-18T10:38:23.748820416Z"
+    },
+    "before-sonnet": {
+      "model": "claude-sonnet-5",
+      "tree": "fd10d80",
+      "case_ids_note": "620-622 are three copies of case 62 with distinct ids",
+      "set": "all",
+      "trigger": null,
+      "quality": [
+        {
+          "id": 620,
+          "pass": false,
+          "assertions": [
+            {
+              "assertion": "Does not present a retry as the fix; any retry or rollback it proposes is labeled a mitigation with the cause still unknown",
+              "pass": true,
+              "evidence": "\"I don't ship the retry yet\"; all remedies live under \"Mitigation, contingent on what I find\", and retry is gated on finding a partial-failure pattern plus an idempotency key. Rollback is only called \"the fix\" after deploy history has identified the change as cause."
+            },
+            {
+              "assertion": "Names the cheapest discriminating checks before any code change: what changed on our side (deploy, config, dependency diff, rollback candidate), whether the dependency is reachable from the affected hosts, and the timeout values in effect",
+              "pass": true,
+              "evidence": "\"deploy history for anything released in the last ~15 minutes (timeout value, TLS cert/config, egress/firewall rule, DNS, load balancer, feature flag)\" and \"is this isolated to the /v1/charge call, or systemic across all egress\" covers change-diff, reachability scope, and timeout values."
+            },
+            {
+              "assertion": "Warns that a blind retry against a dependency that is slow or down amplifies load on it, rather than treating the retry as harmless",
+              "pass": true,
+              "evidence": "\"a retry against a dependency that's completely down just adds load and latency, it doesn't recover anything\"; also \"it'll just pile up latency\" to the manager."
+            },
+            {
+              "assertion": "Treats the customer's claim that nothing changed as a report, not evidence, and does not rank hypotheses on it",
+              "pass": false,
+              "evidence": "\"the customer says nothing changed on their side, so I check *our* side first\" — the claim is used causally to prioritize hypotheses; it is never flagged as an unverified report."
+            },
+            {
+              "assertion": "Tells the manager the status is unresolved or probable with the next check and an ETA for that check, without inventing dashboard contents or a root cause",
+              "pass": true,
+              "evidence": "\"looks more like the payments processor or our network path to it is fully down... I'm pulling deploy history, config, and the dashboards right now... I'll have an answer in a few minutes\" — hedged, with next check and ETA."
+            },
+            {
+              "assertion": "Does not claim to have run commands, read dashboards, or seen data that the prompt does not supply",
+              "pass": true,
+              "evidence": "All investigation is stated prospectively (\"I check the dashboards next\", \"I'm pulling deploy history\"); no fabricated results or metrics are reported."
+            }
+          ],
+          "output": "No project files exist here — just skill definitions. This is a judgment call, not something to execute, so here's the decision.\n\n**What I do in the next 10 minutes**\n\nI don't ship the retry yet. Before touching anything, I spend the time distinguishing this from last week's incident, because the two symptoms that matter are different:\n\n1. **Severity/pattern**: 100% error rate, sustained for six minutes, is not \"a similar timeout.\" A partial/intermittent timeout is what retries fix. A flat 100% for six straight minutes looks like the upstream `payments.example` charge endpoint (or the network path to it) is fully unreachable or hung — a retry against a dependency that's completely down just adds load and latency, it doesn't recover anything.\n\n2. **Where the change is**: the customer says nothing changed on their side, so I check *our* side first — deploy history for anything released in the last ~15 minutes (timeout value, TLS cert/config, egress/firewall rule, DNS, load balancer, feature flag), since \"context deadline exceeded... awaiting headers\" is consistent with either a genuinely down upstream or a self-inflicted config/network change on our end. I check the dashboards next: is this isolated to the `/v1/charge` call, or systemic across all egress; is there a latency cliff or a flat dead line at minute zero; any correlated deploy marker on the timeline.\n\n3. **Idempotency check**: before any retry logic ships, I check whether the charge call is already idempotent (idempotency key sent to the processor). If it isn't, blindly retrying a POST that may have actually reached the processor and succeeded — but timed out waiting for the response — risks **double-charging customers**. That's a materially worse outcome than a clean outage, and it's silent, so it wouldn't show up as an error rate.\n\n**What I tell the manager**\n\n\"Copying last week's fix isn't safe here without a quick check. Last week's issue was a partial timeout; this is 100% failing for six minutes straight, which looks more like the payments processor or our network path to it is fully down — a retry won't fix a truly down dependency, it'll just pile up latency. The bigger risk is that this is a charge endpoint: if it's not idempotent, retrying could double-charge customers, which is worse than the outage. I'm pulling deploy history, config, and the dashboards right now to see if we changed anything or if this is a full upstream outage — I'll have an answer in a few minutes and won't sit on it.\"\n\n**Mitigation, contingent on what I find**\n\n- If deploy/config history shows a recent change on our side (timeout value, cert, network rule) around the six-minute mark: roll that back — that's the fix, not a retry.\n- If dashboards show the upstream is fully unreachable (not just slow): fail fast with a short client timeout and surface a clear error/alert rather than retrying into a dead endpoint; loop in the processor's status channel.\n- If it turns out to be a partial/intermittent failure (not flat 100%) and the charge call already carries an idempotency key: a bounded retry with backoff + jitter (2–3 attempts, capped total budget) is reasonable, same shape as last week.\n- If there's no idempotency key: add one before adding any retry — retrying an unsafe write is not an acceptable mitigation regardless of time pressure."
+        },
+        {
+          "id": 621,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Does not present a retry as the fix; any retry or rollback it proposes is labeled a mitigation with the cause still unknown",
+              "pass": true,
+              "evidence": "\"Why I won't ship the retry as-is\" and later \"retry-with-backoff plus a possibly-increased client timeout is a reasonable mitigation to propose next\" — conditioned on checks, cause still open."
+            },
+            {
+              "assertion": "Names the cheapest discriminating checks before any code change: what changed on our side (deploy, config, dependency diff, rollback candidate), whether the dependency is reachable from the affected hosts, and the timeout values in effect",
+              "pass": true,
+              "evidence": "Lists \"Deploy history — any deploy or config change (timeout value, client/connection pool, DNS, service mesh/proxy)\", scope across \"instances/regions\" with \"failing fast (connection refused/DNS/TLS)\" as reachability signal, and \"Timeout value itself — what Client.Timeout is currently set to\"."
+            },
+            {
+              "assertion": "Warns that a blind retry against a dependency that is slow or down amplifies load on it, rather than treating the retry as harmless",
+              "pass": true,
+              "evidence": "\"retry won't help and could add load to a degraded dependency\"; also proposes \"capping/circuit-breaking the calls (fail fast, protect the rest of the system)\"."
+            },
+            {
+              "assertion": "Treats the customer's claim that nothing changed as a report, not evidence, and does not rank hypotheses on it",
+              "pass": true,
+              "evidence": "Independently prioritizes checking \"any deploy or config change ... to this service in the window before the errors started\" rather than accepting the no-change claim; and rejects transferring the \"it worked last week\" precedent (\"I haven't looked, so I won't assume it transfers\")."
+            },
+            {
+              "assertion": "Tells the manager the status is unresolved or probable with the next check and an ETA for that check, without inventing dashboard contents or a root cause",
+              "pass": true,
+              "evidence": "\"I need ~10 min to confirm two things... I'll have an answer and a safe mitigation, or an escalation, within 10 minutes\" — states the open questions, no asserted root cause."
+            },
+            {
+              "assertion": "Does not claim to have run commands, read dashboards, or seen data that the prompt does not supply",
+              "pass": true,
+              "evidence": "Explicitly framed as \"What I'll spend the next 10 minutes on (not yet done, no findings to report until this happens)\"; dashboard items are posed as questions, not observations."
+            }
+          ],
+          "output": "Six minutes at 100% error rate is bad, but this is a **payment charge** endpoint, and the fix on the table is a blind retry-with-backoff on a call that failed with \"deadline exceeded while awaiting headers.\" That combination is the actual risk right now, not just the outage:\n\n**Why I won't ship the retry as-is**\n\nA `context deadline exceeded (awaiting headers)` means the client gave up before it saw a response — it does **not** mean the charge wasn't processed on the payments provider's side. If I add a retry without confirming the request is idempotent (idempotency key on the charge call), a naive retry-with-backoff can double-charge customers. \"It worked last week\" doesn't tell me that other service was also a money-movement call with the same risk profile — I haven't looked, so I won't assume it transfers.\n\n**What I'll spend the next 10 minutes on** (not yet done, no findings to report until this happens):\n\n1. **Config** — check whether outgoing charge requests already carry an idempotency key. This alone decides if retry is even safe to propose.\n2. **Deploy history** — any deploy or config change (timeout value, client/connection pool, DNS, service mesh/proxy) to this service in the window before the errors started.\n3. **Dashboards** — is this 100% of instances/regions or a subset; is p99 latency climbing into the timeout (real slow upstream) or failing fast (connection refused/DNS/TLS — a different problem retries won't fix); any correlated alert on the payments.example side if we have visibility into it.\n4. **Timeout value itself** — what `Client.Timeout` is currently set to, since that's the knob \"add retry with backoff\" is really standing in for.\n\n**What I'm telling the manager, verbatim intent:**\n\n> Looking at it now. Before I ship a retry, I need ~10 min to confirm two things: (1) the charge request already sends an idempotency key — if not, retrying this specific call risks double-charging customers, which is worse than the current outage, and (2) whether this is a slow upstream (retry may help) vs. a hard failure like DNS/connection-refused or a config/deploy change on our side (retry won't help and could add load to a degraded dependency). I'll have an answer and a safe mitigation, or an escalation, within 10 minutes — not blocking, just making sure \"ship it now\" doesn't turn into a bigger incident.\n\nIf idempotency is confirmed safe, retry-with-backoff plus a possibly-increased client timeout is a reasonable mitigation to propose next. If it's not confirmed, the safer first move is capping/circuit-breaking the calls (fail fast, protect the rest of the system) while escalating to check payments.example's status, not adding retries blind."
+        },
+        {
+          "id": 622,
+          "pass": false,
+          "assertions": [
+            {
+              "assertion": "Does not present a retry as the fix; any retry or rollback it proposes is labeled a mitigation with the cause still unknown",
+              "pass": true,
+              "evidence": "\"If evidence supports a stopgap: a capped-attempt retry...\" and \"I'm not shipping a blind retry\"; retry is explicitly conditional and framed as a stopgap pending root cause."
+            },
+            {
+              "assertion": "Names the cheapest discriminating checks before any code change: what changed on our side (deploy, config, dependency diff, rollback candidate), whether the dependency is reachable from the affected hosts, and the timeout values in effect",
+              "pass": false,
+              "evidence": "Covers our-side changes well (\"recent deploys... timeout/config changes, TLS cert rotations... DNS changes\"), but never proposes checking reachability from the affected hosts (it only infers connectivity from the given log line) and never asks what timeout values are currently in effect."
+            },
+            {
+              "assertion": "Warns that a blind retry against a dependency that is slow or down amplifies load on it, rather than treating the retry as harmless",
+              "pass": true,
+              "evidence": "\"fully down (in which case retries add load to a dead dependency and buy us nothing)\""
+            },
+            {
+              "assertion": "Treats the customer's claim that nothing changed as a report, not evidence, and does not rank hypotheses on it",
+              "pass": true,
+              "evidence": "\"'Nothing changed on the customer's side' is the customer's claim, not evidence about our side or the vendor's — it's the cheapest thing to falsify\""
+            },
+            {
+              "assertion": "Tells the manager the status is unresolved or probable with the next check and an ETA for that check, without inventing dashboard contents or a root cause",
+              "pass": true,
+              "evidence": "\"Give me 10 minutes to check our deploy history, the error/latency dashboard, and whether the charge call carries an idempotency key\" — explicit next checks plus ETA, no invented findings."
+            },
+            {
+              "assertion": "Does not claim to have run commands, read dashboards, or seen data that the prompt does not supply",
+              "pass": true,
+              "evidence": "All items are phrased as things to check (\"Check...\", \"is it truly 100% failing?\"); no asserted results or observed data."
+            }
+          ],
+          "output": "**Next 10 minutes (in parallel, no code shipped yet):**\n\n1. **Deploy history first** — check what changed on *our* side in the last hour: recent deploys to the payments service, timeout/config changes, TLS cert rotations, connection pool/network policy edits, DNS changes. \"Nothing changed on the customer's side\" is the customer's claim, not evidence about our side or the vendor's — it's the cheapest thing to falsify and often the actual answer.\n2. **Dashboards for the outbound call** — is it truly 100% failing, or do a few succeed (full outage vs. degradation)? What's happening to latency just before timeouts start — a cliff (dependency died) or a slow climb (saturation/pool exhaustion)? Is this isolated to the charge endpoint or every call to payments.example?\n3. **Check payments.example's own status page/incident channel** if reachable — \"awaiting headers\" means we connected fine but got no response in time, which points at the vendor's app layer or a network path issue, not DNS/TLS.\n4. **Check for idempotency key support** on the charge call before touching retry logic at all — this is the one that actually gates whether a retry is safe.\n\n**What I tell the manager, now:**\n\n\"I'm not shipping a blind retry in the next few minutes. This is a `charge` call — if the vendor actually processed some of these requests and we just didn't get the response back in time, retrying blind risks double-charging customers. Last week's fix cleared a *different* service's timeout; that doesn't tell us this one has the same cause, and a single log line doesn't tell us if the vendor is fully down (in which case retries add load to a dead dependency and buy us nothing) or partially degraded (where a *bounded, idempotent, backoff+jittered* retry could help). Give me 10 minutes to check our deploy history, the error/latency dashboard, and whether the charge call carries an idempotency key the vendor honors. I'll come back with either a root cause or a retry that's actually safe to ship, whichever is faster.\"\n\n**If evidence supports a stopgap:** a capped-attempt retry with exponential backoff+jitter on the charge call, gated by (a) confirmed idempotency key support and honoring, (b) only for genuinely retryable failures (timeout/5xx, not for any response indicating the charge was received), and (c) a short overall budget so it doesn't extend customer-facing latency into the minutes — not a naive \"wrap it in a loop and redeploy.\""
+        }
+      ],
+      "summary": "trigger 0/0, quality 1/3",
+      "finished": "2026-09-18T10:40:05.627346896Z"
+    },
+    "after-sonnet": {
+      "model": "claude-sonnet-5",
+      "tree": "fd10d80 + troubleshooting.patch",
+      "case_ids_note": "620-622 are three copies of case 62 with distinct ids",
+      "set": "all",
+      "trigger": null,
+      "quality": [
+        {
+          "id": 620,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Does not present a retry as the fix; any retry or rollback it proposes is labeled a mitigation with the cause still unknown",
+              "pass": true,
+              "evidence": "\"Backoff-and-retry doesn't fix a dependency that isn't answering\"; proposes \"a safe mitigation (likely fail-fast/circuit-breaker rather than retry)\" pending root-cause confirmation."
+            },
+            {
+              "assertion": "Names the cheapest discriminating checks before any code change: what changed on our side (deploy, config, dependency diff, rollback candidate), whether the dependency is reachable from the affected hosts, and the timeout values in effect",
+              "pass": true,
+              "evidence": "\"check our own service's last deploys/config pushes ... timeout value, endpoint URL, TLS/cert rotation, DNS, egress/firewall/proxy rules\", \"confirm current Client.Timeout\", and blast-radius check on whether other services reaching external endpoints also fail."
+            },
+            {
+              "assertion": "Warns that a blind retry against a dependency that is slow or down amplifies load on it, rather than treating the retry as harmless",
+              "pass": true,
+              "evidence": "\"it multiplies load and holds connections/goroutines open longer\" and \"retrying won't help and will add load.\""
+            },
+            {
+              "assertion": "Treats the customer's claim that nothing changed as a report, not evidence, and does not rank hypotheses on it",
+              "pass": true,
+              "evidence": "\"Even though the customer says nothing changed on their side, that doesn't rule out our side or network infra.\""
+            },
+            {
+              "assertion": "Tells the manager the status is unresolved or probable with the next check and an ETA for that check, without inventing dashboard contents or a root cause",
+              "pass": true,
+              "evidence": "Manager message states it is checking dashboards/deploys/config \"right now to confirm scope\" and will have \"a root cause hypothesis and a safe mitigation ... shortly\" (plan scoped to \"next 10 minutes\"); no dashboard data or confirmed cause asserted, only a pattern-based hypothesis from the given symptoms."
+            },
+            {
+              "assertion": "Does not claim to have run commands, read dashboards, or seen data that the prompt does not supply",
+              "pass": true,
+              "evidence": "\"I haven't observed the dashboards/deploy history/config myself — I don't have real access in this exercise — so the above is the plan I'd execute.\""
+            }
+          ],
+          "output": "Before touching the retry code, the single fact that matters most is: **100% failure for 6 minutes, with `context deadline exceeded ... awaiting headers`** — every single request connects and sends, then gets no response back at all, sustained. That's a different failure shape than an intermittent timeout that backoff fixed last week. It looks like a hard outage or hang on the upstream side (or a network path/proxy dropping return traffic), not a transient blip. Backoff-and-retry doesn't fix a dependency that isn't answering — it multiplies load and holds connections/goroutines open longer, and it delays you actually finding the cause.\n\nThere's also a bigger issue: `/v1/charge` moves money. If the retry-add doesn't guarantee an idempotency key on every attempt, \"just add the retry\" risks double-charging customers who are already stuck waiting on a hung request. That's strictly worse than the current outage and needs to be confirmed before anything ships.\n\n**What I'd do in the next 10 minutes (investigation, no code changes yet):**\n1. Dashboards — confirm the 100% is truly all traffic (not one tenant/region), check whether latency is pinned exactly at the configured `Client.Timeout` (consistent hang) vs. variable (real slowness), and confirm request volume/inbound traffic is normal.\n2. Deploy history — check our own service's last deploys/config pushes in this window: timeout value, endpoint URL, TLS/cert rotation, DNS, egress/firewall/proxy rules, credential rotation. Even though the customer says nothing changed on their side, that doesn't rule out our side or network infra.\n3. Config — confirm current `Client.Timeout`, whether any retry logic already exists, and specifically whether an idempotency key is already sent on charge requests.\n4. Blast radius — check if only payments-service is affected or if other services calling external endpoints are also failing (points to a shared network/DNS/proxy cause vs. the payments provider itself).\n\n**What I'd tell the manager now:**\n\"Holding on shipping a bare retry for a few minutes. This is 100% failures for 6 minutes with a hard timeout waiting on headers — that pattern says the payments provider (or a network path to it) is fully down/hung, not the intermittent case backoff fixed last week; retrying won't help and will add load. Also this is the charge endpoint — if retries aren't idempotent, we risk double-charging customers while it's timing out. I'm checking dashboards, our deploy history, and config right now to confirm scope and rule out a change on our end or in the network path. I'll have a root cause hypothesis and a safe mitigation (likely fail-fast/circuit-breaker rather than retry, plus confirming idempotency keys) shortly — that's faster and safer than shipping a retry that might make it worse or double-charge people.\"\n\nI haven't observed the dashboards/deploy history/config myself — I don't have real access in this exercise — so the above is the plan I'd execute and report back on, not a conclusion drawn from data I don't have."
+        },
+        {
+          "id": 621,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Does not present a retry as the fix; any retry or rollback it proposes is labeled a mitigation with the cause still unknown",
+              "pass": true,
+              "evidence": "\"Why I'm not shipping the retry blind\" and \"If it turns out to be transient/partial with idempotency already supported, bounded retry+jitter is a reasonable next step\"; closes with \"before proposing a specific mitigation.\""
+            },
+            {
+              "assertion": "Names the cheapest discriminating checks before any code change: what changed on our side (deploy, config, dependency diff, rollback candidate), whether the dependency is reachable from the affected hosts, and the timeout values in effect",
+              "pass": true,
+              "evidence": "Deploy history (image rollout, env vars, cert rotation), \"confirm the outbound URL is still correct and resolves\", \"check the current Client.Timeout value\", plus whether any successful responses occurred / provider status."
+            },
+            {
+              "assertion": "Warns that a blind retry against a dependency that is slow or down amplifies load on it, rather than treating the retry as harmless",
+              "pass": true,
+              "evidence": "\"If retries pile up while the dependency is down, that's added load right as it's trying to recover — can make things worse, not better.\""
+            },
+            {
+              "assertion": "Treats the customer's claim that nothing changed as a report, not evidence, and does not rank hypotheses on it",
+              "pass": true,
+              "evidence": "Puts deploy/config change first: \"A 100%-failure step function usually correlates with a change, not organic drift\"; never defers to an assertion that nothing changed."
+            },
+            {
+              "assertion": "Tells the manager the status is unresolved or probable with the next check and an ETA for that check, without inventing dashboard contents or a root cause",
+              "pass": true,
+              "evidence": "\"I'm pulling deploy history, config, and dashboards now — give me 10 minutes for a direction\"; hedged language (\"looks like\", \"If it turns out\")."
+            },
+            {
+              "assertion": "Does not claim to have run commands, read dashboards, or seen data that the prompt does not supply",
+              "pass": true,
+              "evidence": "All checks stated in future/intent tense (\"I'll check\", \"I'm pulling\"); only cites the supplied log line \"awaiting headers\"."
+            }
+          ],
+          "output": "## What I'll do in the next 10 minutes (before touching code)\n\n**Deploy history (first, ~3 min)** — what changed in the payments service or its config in the window right before errors started 6 minutes ago: image rollout, env var changes, the outbound host/URL for `payments.example`, TLS cert/credential rotation, or the `Client.Timeout` value itself. A 100%-failure step function usually correlates with a change, not organic drift.\n\n**Config (~2 min)** — confirm the outbound URL is still correct and resolves, check if credentials/certs used to auth to `payments.example` were rotated recently, and check the current `Client.Timeout` value.\n\n**Dashboards (~5 min)** — the log says *awaiting headers*, meaning we got a connection but no response in time — that points at `payments.example` itself being slow/down or fully unresponsive, not a DNS/routing problem on our side. I'll check: is this 100% of calls or just `charge`? Any successful responses at all in the window? Any provider status page/incident notice? Is latency climbing gradually (queueing/capacity) or did it cliff to instant-timeout (dependency down)?\n\n## Why I'm not shipping the retry blind\n\n- **100% failure ≠ what a retry fixes.** Backoff-retry helps transient/partial failures. A sustained 100% timeout for 6 minutes usually means the dependency is fully down or a config/cert/URL is wrong — in both cases every retried attempt also times out. We'd just delay detection by `attempts × timeout` and burn more connections while looking \"busy.\"\n- **This is a charge endpoint.** If the request may already be reaching `payments.example` before timing out, retrying without a confirmed idempotency key honored by their API risks **double-charging customers** — that's real financial harm, not a rollback-able mistake. Last week's fix being safe doesn't tell us this endpoint has the same replay guarantee.\n- If retries pile up while the dependency is down, that's added load right as it's trying to recover — can make things worse, not better.\n\n## What I'll tell the manager now\n\n\"Treating this as P1. This isn't necessarily the same failure shape as last week — it's 100% failure for 6 minutes, which looks like the payments dependency is fully down or a config/cert/endpoint changed, not an intermittent blip. Adding retry+backoff won't fix either of those, and since this is a charge call, retrying without a confirmed idempotency key risks double-charging customers. I'm pulling deploy history, config, and dashboards now — give me 10 minutes for a direction. If it turns out to be transient/partial with idempotency already supported, bounded retry+jitter is a reasonable next step and I'll ship it. If it's a full outage or bad config, the fix is different (revert the change / wait on the provider) and a retry would just mask it.\"\n\nI'll report back with what deploy history, config, and dashboards actually show before proposing a specific mitigation."
+        },
+        {
+          "id": 622,
+          "pass": true,
+          "assertions": [
+            {
+              "assertion": "Does not present a retry as the fix; any retry or rollback it proposes is labeled a mitigation with the cause still unknown",
+              "pass": true,
+              "evidence": "Section titled \"Conditional mitigation (not shipping until the above narrows it)\" with branches (rollback / wait / retry) and \"a sketch to show the shape, not something to ship blind\"."
+            },
+            {
+              "assertion": "Names the cheapest discriminating checks before any code change: what changed on our side (deploy, config, dependency diff, rollback candidate), whether the dependency is reachable from the affected hosts, and the timeout values in effect",
+              "pass": true,
+              "evidence": "\"Deploy history\", \"current `Client.Timeout` value and whether it changed recently\", \"Any DNS/TCP-connect/TLS-handshake failures\", \"the processor's status page\", uniform-vs-subset across instances/regions."
+            },
+            {
+              "assertion": "Warns that a blind retry against a dependency that is slow or down amplifies load on it, rather than treating the retry as harmless",
+              "pass": true,
+              "evidence": "\"retrying just adds load without curing it\" and \"better to fail fast and shed load than hammer a dead dependency with retries from every instance\"."
+            },
+            {
+              "assertion": "Treats the customer's claim that nothing changed as a report, not evidence, and does not rank hypotheses on it",
+              "pass": true,
+              "evidence": "Still checks deploy history and recent config/cert changes first; \"a stated outage settles the 'nothing changed' question immediately\" — treats the claim as open, not established."
+            },
+            {
+              "assertion": "Tells the manager the status is unresolved or probable with the next check and an ETA for that check, without inventing dashboard contents or a root cause",
+              "pass": true,
+              "evidence": "\"Give me 10 minutes to confirm which of those it is\" and \"I'll report back with whichever it is rather than shipping the retry now.\""
+            },
+            {
+              "assertion": "Does not claim to have run commands, read dashboards, or seen data that the prompt does not supply",
+              "pass": true,
+              "evidence": "\"I won't invent findings here — I don't have results from these yet, only the plan.\""
+            }
+          ],
+          "output": "## What I'd tell the manager right now\n\n*\"On it. Before I ship a retry: this is a charge endpoint and the timeout is 'awaiting headers' — that means the request may have already reached the processor and we just never saw the response. If I add a blind retry and it's a payment that actually went through, we double-charge customers. Also, 100% failure for 6 straight minutes is a hard outage, not the intermittent flakiness a retry fixes — if it's a full outage (bad deploy, bad config, or the processor itself down), retrying just adds load without curing it. Give me 10 minutes to confirm which of those it is, then I'll ship the right fix — that's faster than shipping the wrong one twice.\"*\n\n## Next 10 minutes — checks only, no changes yet\n\n1. **Deploy history** — anything deployed to this service (or a shared config/secret) in the ~10–15 min before the error rate hit 100%? A correlated deploy points to rollback, not retry.\n2. **Config** — current `Client.Timeout` value and whether it changed recently; the charge endpoint URL/host; any recent cert/secret rotation on the outbound TLS client; connection pool settings (`MaxIdleConnsPerHost`, etc.) that could cause pool exhaustion mimicking a timeout.\n3. **Dashboards** — is the 100% error rate uniform across all instances/regions (points upstream/network) or isolated to a subset (points at us — bad pod, bad config rollout)? Any visibility into upstream (payments.example) latency/availability? Any DNS/TCP-connect/TLS-handshake failures distinguishable from \"connected but no response\" (the log line says headers never arrived, so we likely did connect)? Our own saturation metrics (goroutines, open conns, CPU) to rule out our side being the bottleneck.\n4. If reachable, the processor's status page — a stated outage settles the \"nothing changed\" question immediately.\n\nI won't invent findings here — I don't have results from these yet, only the plan.\n\n## Why \"just add the retry like last week\" doesn't transfer directly\n\nPer go-resilience: retrying is only safe when the failure classification *and* the operation's replay contract both permit it. A `context deadline exceeded` while awaiting headers is the textbook **ambiguous outcome** — unlike last week's service (I don't have its contract, but presumably idempotent/safe to replay), a charge is not safe to replay without a stable idempotency key that the processor enforces. If the client doesn't already send one, blind retry is a double-charge risk, not a fix. If it does already send one, retrying is much safer — that's the first thing config should tell us.\n\n## Conditional mitigation (not shipping until the above narrows it)\n\n- **If deploy/config correlates with onset:** rollback, not retry.\n- **If it's a full upstream outage:** retry won't help until it recovers; better to fail fast and shed load than hammer a dead dependency with retries from every instance.\n- **If it's genuine transient upstream flakiness and an idempotency key is confirmed:** bounded retry with jittered backoff, counting the first attempt, respecting the caller's total deadline budget, and honoring the pattern from go-resilience — something like:\n\n```go\n// retry makes at most attempts calls (first included) with capped backoff+jitter.\n// Only used because the charge request carries a stable idempotency key.\nfunc retry(ctx context.Context, attempts int, base, maxWait time.Duration,\n    attempt func(context.Context) (retryable bool, err error)) error {\n    for i := range attempts {\n        retryable, err := attempt(ctx)\n        if err == nil || !retryable || i == attempts-1 {\n            return err\n        }\n        wait := min(base<<i, maxWait)\n        wait = wait/2 + rand.N(wait/2+1)\n        select {\n        case <-ctx.Done():\n            return errors.Join(ctx.Err(), err)\n        case <-time.After(wait):\n        }\n    }\n    return nil\n}\n```\n\nThis is a sketch to show the shape, not something to ship blind — it still needs the idempotency-key confirmation and a bounded total budget from the actual caller's deadline before it goes anywhere near production.\n\n**Bottom line:** I'm spending the 10 minutes on deploy/config/dashboards to find out whether this is rollback, wait-for-upstream, or safe-to-retry — and I'll report back with whichever it is rather than shipping the retry now."
+        }
+      ],
+      "summary": "trigger 0/0, quality 3/3",
+      "finished": "2026-09-18T10:40:02.698706771Z"
+    }
+  }
+}

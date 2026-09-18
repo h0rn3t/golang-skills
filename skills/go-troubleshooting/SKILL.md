@@ -29,9 +29,8 @@ code version, and a check that could disprove them.
 - **Investigate and fix:** continue through a minimal correction and regression
   verification once evidence supports the mechanism. Routine implementation
   choices do not require another approval. Keep unrelated findings out of the diff.
-- Use the pasted ticket or available repository first. A tracker connector,
-  Claude `Skill` tool, and sibling skills are not prerequisites. If a resource
-  is unavailable, name the missing evidence and continue independent work.
+- A pasted ticket or the available repository is enough to start. If a
+  resource is unavailable, name the missing evidence and continue independent work.
 - Preserve the distinction between observed behavior, the intended contract,
   and the reporter's interpretation. If the contract is ambiguous in a way that
   changes the fix, ask a focused question while continuing evidence collection.
@@ -44,6 +43,11 @@ code version, and a check that could disprove them.
 2. **Match the environment.** Establish the running image/revision and relevant
    effective config, flags, schema/migrations, and dependencies. The checkout
    is not evidence of deployed code. Compare a working case with the same input.
+   For a regression, name the last working revision or deployment and diff
+   what changed up to the first failing one: source, `go.mod`, effective
+   config, schema. When the diff is too wide to read, bisect it
+   (`git bisect run go test -count=1 -run '^TestName$' ./pkg`); compare
+   dependency versions with `go version -m` on both binaries, not on the checkout.
 3. **Locate the first divergence.** Follow the relevant execution/data path or
    capture the artifact below. Inspect values at boundaries before changing code.
    If no reproduction exists, use historical evidence or propose the smallest
@@ -56,12 +60,30 @@ code version, and a check that could disprove them.
 5. **Reassess.** A failed hypothesis narrows the search. Repeated failed patches
    call for revisiting assumptions and boundaries, not another speculative fix
    or an arbitrary attempt-count approval stop. Track plausible alternatives.
+   When each fix moves the failure to a new place, the shared state or
+   ownership behind those places is the finding: name it and route the
+   restructuring to [go-code-refactor](../go-code-refactor/SKILL.md) instead
+   of patching the next site.
 6. **Finish in scope.** Investigation ends with the evidence report below.
    An authorized fix corrects the responsible boundary, adds regression coverage,
    and runs the applicable repository verification through `go-linting`.
 
-A restart, retry, cache flush, or flag change can mitigate a symptom without
-proving its cause. Keep mitigation and causal evidence separate.
+## Stop Signals
+
+Each of these is a patch on the symptom and means the mechanism is still
+unknown. Return to step 3 before writing it:
+
+- `recover()` around the panicking call, or a nil check at the faulting line
+  before the nil's origin is known.
+- A longer `time.Sleep`, a wider `-timeout`, or a retry loop in a flaky test.
+- A mutex or channel added without naming the two racing accesses.
+- A retry, restart, cache flush, flag change, or `GOMEMLIMIT` that makes the
+  ticket go quiet.
+- A re-run with `-count=1` or a cleared cache that passes once.
+- "It is probably X" followed by an edit, with no check that could disprove X.
+
+Any of these can be the right mitigation once the cause is recorded as
+unknown. It is not a fix, and the report says which of the two it is.
 
 ## Symptom → First Capture
 
@@ -100,10 +122,11 @@ suspected nil values against the matching source or debugger.
 - Go 1.27 prints `runtime/pprof` goroutine labels in traceback headers —
   `goroutine 19 [chan receive] {request_id: "abc-123"}` — which attributes a
   stack to its request or job, for modules whose `go` directive is 1.27 or
-  later (`GODEBUG=tracebacklabels=1` enables it for older directives). Missing labels prove nothing: `pprof.Do`
-  restores the previous set in a defer, so the panicking goroutine's own labels
-  are usually gone by the time its trace prints, while the other goroutines in
-  a `GOTRACEBACK=all` dump still carry theirs.
+  later (`GODEBUG=tracebacklabels=1` enables it for older directives).
+  Missing labels prove nothing: `pprof.Do` restores the previous set in a
+  defer, so the panicking goroutine's own labels are usually gone by the time
+  its trace prints, while the other goroutines in a `GOTRACEBACK=all` dump
+  still carry theirs.
 
 ### Hangs and Goroutine Leaks
 
@@ -150,12 +173,17 @@ lifetime. For a local hanging test,
 Start with the affected package/test and preserve the failing seed and environment:
 
 ```bash
-go test -count=20 -shuffle=on -failfast -run '^TestName$' ./pkg
+go test -count=20 -failfast -run '^TestName$' ./pkg   # focused repeat
+go test -count=5 -shuffle=on -v ./pkg                  # order dependence; prints the seed
 ```
 
+`-shuffle` reorders top-level tests, so it does nothing when `-run` matches one.
 Choose the repetition count from observed frequency and cost; add `-race` for
-concurrent access. A clean race run only covers executed paths. Compare isolated
-and package runs for shared state; inspect ports, time, temp files, and cleanup.
+concurrent access. A clean race run only covers executed paths. If the test
+fails only with the package, replay the printed seed with `-shuffle=<seed> -v`,
+then bisect the tests that ran before it with `-run`, reading the order `-v`
+prints each time, until the polluting pair remains. Inspect ports, time, temp
+files, and cleanup.
 `testing/synctest` (Go 1.25+) can make supported concurrent time-based tests
 repeatable; it is not a universal replacement for real I/O or external systems.
 

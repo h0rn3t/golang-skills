@@ -4,7 +4,33 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- `go-troubleshooting`: a **Stop Signals** list of symptom patches that mean
+  the mechanism is still unknown (`recover()` around the panic, a longer
+  `time.Sleep`, a mutex without the racing pair named, a retry or
+  `GOMEMLIMIT` that quiets the ticket), a regression clause in the loop with
+  `git bisect run` and a `go version -m` diff of the two binaries, a
+  test-order bisection recipe for "passes alone, fails with the package", and
+  a route to `go-code-refactor` when each fix moves the failure elsewhere.
+  Ideas adapted from obra/superpowers `systematic-debugging` (MIT); the
+  three-attempt approval stop and defense-in-depth were deliberately not
+  adopted, as they conflict with the pack's smallest-attributable-change rule.
+- Quality eval 62: an on-call pressure scenario for `go-troubleshooting`
+  where a retry "worked last week"; grades whether mitigation stays separate
+  from cause and whether the retry is flagged as load amplification.
+  Evidence: [`docs/evidence/2026-09-18-go-troubleshooting-stop-signals.md`](docs/evidence/2026-09-18-go-troubleshooting-stop-signals.md).
+  Opus default passes all seven troubleshooting quality cases before and
+  after the edit; Sonnet 5 on case 62 goes 1/3 → 3/3, with both arms already
+  refusing the retry as a fix, so the edit is a no-regression change with a
+  suggestive, not proven, Sonnet gain.
+
 ### Changed
+
+- `go-troubleshooting`: the flaky-test command no longer combines `-shuffle=on`
+  with a single-test `-run`, which reorders nothing; the focused repeat and
+  the package-order run are two commands. The tracker/`Skill`-tool bullet
+  in "Scope and Starting Evidence" is cut to one line.
 
 - Both READMEs now treat the 2026-09-13 GPT-5.6-Luna medium control as the
   source of that row's refactoring and new-code cells, and name `v1.18.0` in

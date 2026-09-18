@@ -9,6 +9,94 @@ documented stubs and the hidden golden test is the specification, and
 defects and the review is scored against a hidden key by the source line each
 defect sits on.
 
+## The `HEAD` case named, the empty-list case read as body text — Sonnet 5 on `gateway` (2026-09-18)
+
+[`HEAD` report](../../docs/evidence/2026-09-18-go-implement-head-case-gateway-sonnet-5.md),
+[`null` report](../../docs/evidence/2026-09-18-go-implement-null-body-gateway-sonnet-5.md):
+twenty `gateway` sessions of the evening read against the model's own test
+file gave the mechanism behind every Sonnet 5 golden miss — a `HEAD` case
+in the contract test means the edit hook prints the failure and the model
+fixes it; no case, no fix; every `null` miss decoded the body and could not
+see it. Two edits, each measured on `gateway` alone against the tree before
+it, `medium` n=5 and `low` n=3: the `HEAD` case named with its scope and the
+`go-http` rule made a count — `HEAD` in the code 8/8 against 5/8 (`low` 3/3
+against 0/3), golden 5/5 against 4/5 and 2/3 against 0/3, cost level at
+`medium`; the body-text sentence — 7/8 against 5/8 tests compare the body
+with `[]`, the two remaining `null` misses in `low` sessions that wrote no
+empty-list case. One `medium` session reported `test pass (hook)` after the
+hook had printed a failing test and nothing cleared it.
+
+## The idiom card through the host route, Sonnet 5 medium at n=3 plus n=2 (2026-09-18)
+
+[Report](../../docs/evidence/2026-09-18-go-implement-card-hook-route-roster-feed-gateway-n3-sonnet-5-medium.md):
+the 1.21.0 branch head against the same tree with `go-prompt-routing.sh`
+naming the card's installed path in its load sentence and
+`go-code-routing.sh` requiring one whole `Read` of it before the first `.go`
+edit, on `roster`, `feed`, `gateway`, 18 then 12 sessions. Card read 15/15
+against 1/15 — 14 from the note, 1 from the gate; golden 14/15 against
+15/15 (the `gateway` `HEAD` clause); +15% cost ($0.424 against $0.367,
+p ≈ 0.30), about half of it the card's own tokens; the note's first wording,
+a sentence of its own, spread the loads (3.22 Skill turns against 2.44),
+folded into the load sentence 2.67 against 2.33. `roster` is saturated on
+this model (no older form in 10/10 either way), so the read is the result,
+not a code effect. At [`low` effort](../../docs/evidence/2026-09-18-go-implement-card-hook-route-roster-feed-gateway-n2-sonnet-5-low.md)
+(n=2) the note is followed the same way, 6/6 against 0/6, at +10%; the
+route arm met the gate for `go-style-core` in 1/6 sessions against 6/6, and
+`gateway` failed 0/4 in both arms. The [third seed of the 1.20.1 comparison](../../docs/evidence/2026-09-18-go-implement-card-in-step2-seed3-roster-feed-gateway-n3-sonnet-5-medium.md)
+the same evening turned the afternoon's +8% cost lean to −6%; pooled over
+21 sessions a side the 1.21.0 tree is +2% (p ≈ 0.86), golden 19/21 against
+21/21 on two `gateway` clauses.
+
+## The review checklist split, Sonnet 5 medium at n=2 (2026-09-18)
+
+[Report](../../docs/evidence/2026-09-18-go-review-cuts-only-vs-restated-n2-sonnet-5-medium.md):
+the eleven cuts alone against the cuts with the seven restatements, six
+fixtures, 24 sessions. Recall 117 against 116 of 152, must 57 against 55 of
+62, cost $0.258 in both arms; the afternoon's 0.72 → 0.80 was the cuts. The
+same bytes scored 0.80 at seed 1 and 0.76 at seed 2: ±0.04 recall is this
+corpus's run-to-run movement at n=2. One row to watch: `invoice/middle-man`
+found 2/2 under "No premature interfaces" and 0/2 under "Interfaces where
+they are consumed".
+
+## The Orient move on the refactor corpus, Sonnet 5 medium at n=3 plus `report` at n=5 (2026-09-18)
+
+[Report](../../docs/evidence/2026-09-18-go-refactor-orient-move-n3-sonnet-5-medium.md):
+release 1.20.1 against the 1.21.0 branch head — the `REFACTOR_SKILL_DIR`
+paragraph moved into Orient, the `loc-diff`, bugs-found and hook-record
+sentences restated — on the four fixtures at n=3 (24 sessions) and on
+`report` alone at n=5 (10 sessions). Golden 17/17 and lint identical in both
+arms, one load of the refactor skill per session in 34/34, cost −10% and +4%
+in the two runs. Lines −10.8 against −15.5 at n=3 with the whole gap in
+`report` (four helpers in 3/3 sessions against 1/3), which at n=5 reversed to
++7.2 against +9.0 (p = 0.75): the fixture is bimodal on this model, a flat
+`Render` or three to four write helpers, and eight sessions a side (p = 0.30)
+do not settle it. Shell-less sessions stated a line count anyway in 7/12
+against 6/12, so the `loc-diff` restatement is neutral there; the idiom card
+was read in 1/17 and 0/17 refactor sessions.
+
+## The idiom card as a workflow step, Sonnet 5 medium and Haiku 4.5 (2026-09-18)
+
+[Sonnet report](../../docs/evidence/2026-09-18-go-implement-card-step-roster-feed-gateway-n2-sonnet-5-medium.md),
+[Haiku report](../../docs/evidence/2026-09-18-go-implement-card-step-roster-n5-haiku-4-5.md):
+`reference` (1.20.1) against the working tree, twice — the card read first as
+a numbered step of its own, then folded into step 2 of `go-code` — on
+`roster`, `feed`, `gateway` at n=2 (Sonnet 5 medium, 24 sessions) and on
+`roster` at n=5 (Haiku 4.5, 20 sessions). Sonnet 5 read the card in 0/24
+sessions under every wording; the separate step made it skip the load steps
+as a block in 2/6 sessions (six gate blocks against one) and the step-2 form
+restored the 1.20.1 shape (2.00 Skill turns a session, no gate block). Haiku
+read it in 5/10 reference sessions, 3/5 with the separate step, 4/5 with
+step 2; every session that read it wrote no older form (12/12), two of eight
+that did not wrote `sort.Strings`. Golden 11/12 against 12/12 on Sonnet (the
+`gateway` nil-list `null`), 10/10 both arms on Haiku. The same tree carried
+`go-style-core` "The Edit Hook Record"; shell-less Sonnet sessions marked
+every claimed check `(hook)` in 8/11 reports against 1/11. Cost leaned
+against the tree on Sonnet (+8% over both runs) within the reference's own
+run-to-run movement. [Opus 5 medium](../../docs/evidence/2026-09-18-go-implement-hook-record-feed-gateway-n2-opus-5-medium.md)
+on `feed` and `gateway` at n=2: neutral on every axis, $0.989 against
+$1.037 a session, card read 8/8 in both arms, `(hook)` marking 4/4 against
+3/4.
+
 ## The load step and the three-router gate, three arms at n=1 (2026-09-13)
 
 [Report](../../docs/evidence/2026-09-13-go-refactor-routing-load-n1-sonnet-5-medium.md):

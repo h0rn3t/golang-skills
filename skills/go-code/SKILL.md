@@ -22,10 +22,9 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
   read whole before the first edit of a task that writes Go.
 - `../go-linting/SKILL.md` — Read its Verification Gate at step 6, on a task
   that edits Go and only when a shell tool (`Bash` in Claude Code) is in your
-  tool list. Without one nothing in it can run: leave the file unread. The
-  plugin's edit hook runs gofmt, vet, go fix, the package's tests, and the
-  linter after every edit of a `.go` file either way and prints what failed;
-  a hook finding is fixed before the next step, not reported around.
+  tool list. Without one nothing in it can run: leave the file unread; the
+  edit hook's output is the check record
+  ([go-style-core](../go-style-core/SKILL.md#the-edit-hook-record)).
 - `references/NEW-CODE-EXAMPLES.md` — Read when the shape of a Contract Table
   case, a Plain Code body, or a budgeted helper is in doubt. Ordinary tasks do
   not require it.
@@ -43,12 +42,17 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
    `/opsx:apply add-auth /go-code`, remove the modifier before the host parses
    its arguments; it is never a change name or path, and the host keeps
    workflow state, checkpoints, and delegation policy.
-2. **Load `go-style-core`, read the code, check for a shell.** Load
-   `go-style-core` on every task; inspect repository instructions, `go.mod`,
-   neighboring code, tests, and callers. A shell tool (`Bash` in Claude Code)
-   in your tool list means step 6 runs the checks; without one `go-linting`
-   stays unread and the report says so in one line. A new function, package,
-   or stub body makes step 4 apply; a fix or a restructuring skips it.
+2. **Load `go-style-core`, read the idiom card and the code, check for a
+   shell.** Load `go-style-core` on every task and read its
+   `references/CURRENT-GO.md` whole in the same message — one line per idiom
+   with the older form, the form the module's `go` directive allows, and the
+   trap; its older rows apply at every directive, so a `head` or a `grep`
+   over it misses what a Go 1.19 module still gets. Then inspect repository
+   instructions, `go.mod` (its `go` directive sets the idiom), neighboring
+   code, tests, and callers. A shell tool (`Bash` in Claude Code) in your
+   tool list means step 6 runs the checks; without one `go-linting` stays
+   unread and the report says so in one line. A new function, package, or
+   stub body makes step 4 apply; a fix or a restructuring skips it.
 3. **Load the owners before the first edit.** Match the task against
    [Route Before The First Edit](#route-before-the-first-edit) and load each
    matched owner plus every `Also load` entry whose condition holds, with the
@@ -87,11 +91,11 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
    <one sentence per material gap, or nothing>
    ```
 
-   Without a shell the checks line carries what the host's edit hook
-   reported, check by check — `test pass (hook)`, `lint pass (hook)` — and
-   `unavailable (no shell)` for a check no hook ran; a hook's silence is not a
-   result. The report names the test file and its result, not the cases one
-   by one.
+   Without a shell the checks line carries the edit hook's record, check by
+   check — `test pass (hook)`, `lint unavailable (no shell)` — as
+   [go-style-core](../go-style-core/SKILL.md#the-edit-hook-record) defines
+   it. The report names the test file and its result, not the cases one by
+   one.
 
 ## Writing New Code
 
@@ -110,12 +114,18 @@ or input class, each method and status code, ordering, error text, and the
 empty, nil, and invalid inputs; a clause that says what the code must *not*
 do is a case too. The empty case is built from nil — a nil slice, a nil map,
 a request with no body — not from an empty literal: `[]T{}` already has the
-shape the case is meant to prove, and `slices.Clone` of nil is nil. A clause written as a class — "any other method", "any other value", "nothing
-else" — takes its case from the member a library default treats unlike the
-rest, because that member is where the class leaks: `HEAD` under a `GET`
-pattern, `t` and `1` under `strconv.ParseBool`, the bare path under a subtree
-pattern. The member the code plainly rejects (`POST`, `maybe`) fails on its
-own and needs no case.
+shape the case is meant to prove, and `slices.Clone` of nil is nil. A case
+for a list that may come back empty compares the body text with `[]`
+(`strings.TrimSpace(rec.Body.String())`), never a decoded value:
+`json.Unmarshal` reads `null` into an empty slice, and the case passes on the
+one body the contract forbids. A clause written as a class — "any other method", "any other value", "nothing else" —
+takes its case from the member a library default treats unlike the rest,
+because that member is where the class leaks. For "any method other than
+`GET`" that member is `HEAD`, and the case is one `HEAD` request per `GET`
+path in the contract, the health check included: a `GET` pattern answers
+`HEAD` with 200 on its own. For `strconv.ParseBool` it is `t` and `1`; for a
+subtree pattern, the bare path. The member the code plainly rejects (`POST`,
+`maybe`) fails on its own and needs no case.
 
 Where a case contradicts a standard-library default — a nil slice encoding as
 `null`, a `GET` pattern answering `HEAD` with 200 — the contract wins, and the

@@ -119,10 +119,14 @@ the syntax it gets right.
 
 These defaults incorporate [OpenAI's GPT-6 Astra prompting guidance](https://developers.openai.com/api/docs/guides/latest-model/gpt-6-astra.md#prompting-best-practices)
 on instruction priority, follow-through, communication, delegation, and bounded
-verification, and Anthropic's guides to [prompting Claude Sonnet 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5)
-and [prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5)
+verification, and Anthropic's guides to [prompting Claude Sonnet 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5),
+[prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5),
+and [prompting Claude Fable 5.1](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1)
 on literal instruction following, positive examples over prohibitions,
-verbosity, and over-verification. They are shared rules for GPT-6 and Claude,
+verbosity, over-verification, progress updates, and tool-call batching. A
+mandatory action is a numbered workflow step, not one bullet among the
+"Read when" entries of Resource Routing; the skill-authoring guide's
+"Use workflows for complex tasks" is the source. They are shared rules for GPT-6 and Claude,
 not claims about either model's automatic behavior. Test behavior in each host: a schema check alone
 does not establish model quality. See [the cross-model review](CROSS_MODEL_REVIEW.md).
 

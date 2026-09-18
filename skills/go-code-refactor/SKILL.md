@@ -38,24 +38,8 @@ target project using the resolved absolute script path.
 - `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no upgrade path.
 - `assets/refactor-report.md` - Use as the final report structure.
 
-Every command below needs a shell tool (`Bash` in Claude Code) and runs the
-scripts through `REFACTOR_SKILL_DIR`. Set it once, before the first one, to
-the base directory the host printed for this skill
-(`${CLAUDE_PLUGIN_ROOT}/skills/go-code-refactor` under the Claude Code plugin,
-`~/.agents/skills/go-code-refactor` under Codex), and keep the working directory
-in the target project. Unset, the path collapses to `/scripts/verify-refactor.sh`
-and every call exits 127 (`No such file or directory`) — with no baseline
-recorded, the gate below cannot pass. **Without a shell tool in your tool list,
-run nothing**: do not read the scripts, reload this skill, or load `go-linting`
-or `go-code-review` to find a way to verify. The plugin's edit hook runs gofmt,
-vet, `go fix -diff`, the package tests, and golangci-lint after every `.go`
-edit and prints what failed; that output is the check record, and a check no
-hook ran is reported as `unavailable (no shell)`.
-
-```bash
-export REFACTOR_SKILL_DIR="<base directory the host printed for this skill>"
-bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" --version    # must print a version; 127 means the path is wrong
-```
+Every command below needs a shell tool (`Bash` in Claude Code); Workflow
+step 1 sets the variable the commands run through.
 
 ## When Not to Refactor
 
@@ -212,9 +196,9 @@ bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-diff ./internal/gatewa
 
 `loc-diff` exits 0 when neither count grew and 1 when one did. Exit 1 is a
 signal, not a verdict: name the declaration, layer, or dependency that grew and
-why; unjustified growth is a finding. Do not estimate the numbers, do not
-substitute a nonblank-line count, and do not report counts the counter did not
-print. If it cannot run, report that. The `baseline`, `after` and `diff` modes
+why; unjustified growth is a finding. The report carries only the two counts
+`loc-diff` printed, physical and code; when it could not run, that sentence
+stands where the numbers would. The `baseline`, `after` and `diff` modes
 compare check records and say nothing about size.
 
 Keep documentation that explains a decision or contract. Removing comments
@@ -228,6 +212,25 @@ counts, their deltas, and the checks supporting behavior preservation.
 ## Workflow
 
 ### 1. Orient
+
+Set `REFACTOR_SKILL_DIR` once, before the first command, to the base
+directory the host printed for this skill
+(`${CLAUDE_PLUGIN_ROOT}/skills/go-code-refactor` under the Claude Code plugin,
+`~/.agents/skills/go-code-refactor` under Codex), and keep the working
+directory in the target project:
+
+```bash
+export REFACTOR_SKILL_DIR="<base directory the host printed for this skill>"
+bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" --version    # must print a version; 127 means the path is wrong
+```
+
+Unset, the path collapses to `/scripts/verify-refactor.sh`, every call exits
+127 (`No such file or directory`), and with no baseline recorded the gate
+below cannot pass. With no shell tool in your tool list, the edit hook's
+output after each `.go` edit is the whole check record
+([go-style-core](../go-style-core/SKILL.md#the-edit-hook-record)): run
+nothing, read no script, and load no further skill — not this one again, not
+`go-linting`, not `go-code-review` — to find a way to verify.
 
 Load the skills before the first edit (a read of `../<name>/SKILL.md` where
 there is no `Skill` tool): [go-style-core](../go-style-core/SKILL.md) on every
@@ -288,9 +291,10 @@ handed over as bloated — the audit *is* the deliverable: use the tags and
 ranked format in `references/OVER-ENGINEERING.md` and stop there.
 
 You will notice actual bugs while auditing — races, ignored errors, leaks,
-off-by-ones. **Do not fix them.** A diff that mixes "reads better" with
-"behaves differently" cannot be reviewed as a refactor. Collect them and hand
-them back. Report every severity; the user triages faster than you can filter.
+off-by-ones. **Record each one in the findings list and leave the code as it
+is**: a diff that mixes "reads better" with "behaves differently" cannot be
+reviewed as a refactor. Report every severity; the user triages faster than
+you can filter.
 
 ### 3. Scope mechanical modernization
 
@@ -353,8 +357,9 @@ behavior they exercise; report what remains unverified.
 Watch tests that assert on error strings or JSON output — they catch the
 invisible breakages compilation misses.
 [go-linting](../go-linting/SKILL.md) owns what the individual checks mean;
-without a shell tool it stays unread, the edit hook's output after each edit
-is the check record, and nothing else is loaded to verify or to report.
+without a shell tool it stays unread and the
+[edit hook's record](../go-style-core/SKILL.md#the-edit-hook-record) is the
+report's check line.
 
 ### 6. Report
 

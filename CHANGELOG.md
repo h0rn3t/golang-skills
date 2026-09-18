@@ -145,6 +145,24 @@ All notable changes to this repository are documented here.
   Say" and of tool-call batching; `docs/RULE_OWNERSHIP.md` gains the edit hook
   record row.
 
+### Added
+
+- `README.md` and `README.uk.md`: a **DeepSeek V4.1-Flash / OpenCode** row in
+  "Do the skills help this model?". All three corpora against no skills at
+  n=1, 34 sessions for $0.34: the routers fire — `go-code-refactor` 4/4,
+  `go-code` 5/7, `go-code-review` 5/6 — where `deepseek-v4-flash`, a
+  different model, never loaded `go-code` at all, so this one can carry a
+  measurement of router text. `refactor` −18.2 lines against −4.8 with golden
+  4/4 in both arms, the whole gap in `report`; `implement` has no room at all
+  (golden 7/7 both arms, +56.0 lines against +74.0); `review` recall 69/76
+  against 65/76, must 31/31 against 29/31, off-key citations 27 → 13, baits
+  6/13 against 4/13. A firing smoke at one repetition per fixture, not an
+  effect, and no `reference` arm, so it says nothing about the 1.21.0 edits.
+  The run also records that `-j 4` races opencode's own SQLite state in a
+  shared arm `HOME` (one `database is locked` failure, re-run at `-j 1`).
+  Evidence:
+  [`docs/evidence/2026-09-19-go-three-corpora-control-n1-deepseek-v4.1-flash.md`](docs/evidence/2026-09-19-go-three-corpora-control-n1-deepseek-v4.1-flash.md).
+
 ## [1.20.1] - 2026-09-18
 
 ### Added

@@ -114,12 +114,18 @@ or input class, each method and status code, ordering, error text, and the
 empty, nil, and invalid inputs; a clause that says what the code must *not*
 do is a case too. The empty case is built from nil — a nil slice, a nil map,
 a request with no body — not from an empty literal: `[]T{}` already has the
-shape the case is meant to prove, and `slices.Clone` of nil is nil. A clause written as a class — "any other method", "any other value", "nothing
-else" — takes its case from the member a library default treats unlike the
-rest, because that member is where the class leaks: `HEAD` under a `GET`
-pattern, `t` and `1` under `strconv.ParseBool`, the bare path under a subtree
-pattern. The member the code plainly rejects (`POST`, `maybe`) fails on its
-own and needs no case.
+shape the case is meant to prove, and `slices.Clone` of nil is nil. A case
+for a list that may come back empty compares the body text with `[]`
+(`strings.TrimSpace(rec.Body.String())`), never a decoded value:
+`json.Unmarshal` reads `null` into an empty slice, and the case passes on the
+one body the contract forbids. A clause written as a class — "any other method", "any other value", "nothing else" —
+takes its case from the member a library default treats unlike the rest,
+because that member is where the class leaks. For "any method other than
+`GET`" that member is `HEAD`, and the case is one `HEAD` request per `GET`
+path in the contract, the health check included: a `GET` pattern answers
+`HEAD` with 200 on its own. For `strconv.ParseBool` it is `t` and `1`; for a
+subtree pattern, the bare path. The member the code plainly rejects (`POST`,
+`maybe`) fails on its own and needs no case.
 
 Where a case contradicts a standard-library default — a nil slice encoding as
 `null`, a `GET` pattern answering `HEAD` with 200 — the contract wins, and the

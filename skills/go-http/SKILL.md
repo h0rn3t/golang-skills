@@ -29,24 +29,27 @@ mux.HandleFunc("GET /users/{id}", s.handleGetUser) // serves GET and HEAD
 mux.HandleFunc("POST /users", s.handleCreateUser)
 mux.HandleFunc("GET /{$}", s.handleIndex) // exact "/", not a subtree
 
-// Only when the contract makes HEAD a 405: without this, the GET pattern
-// above answers HEAD with 200. More specific than the GET pattern, so both register.
-mux.HandleFunc("HEAD /users/{id}", func(w http.ResponseWriter, r *http.Request) {
+// Only when the contract makes HEAD a 405: without these, the GET patterns
+// above answer HEAD with 200. One per GET pattern, the index included; more
+// specific than the GET pattern, so both register.
+methodNotAllowed := func(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Allow", "GET")
     http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-})
+}
+mux.HandleFunc("HEAD /users/{id}", methodNotAllowed)
+mux.HandleFunc("HEAD /{$}", methodNotAllowed)
 
 id := r.PathValue("id")
 ```
 
 - **A `GET` pattern also serves `HEAD`.** A method pattern answers every other
   method on its path with 405 and an `Allow` header; `HEAD` is the one it lets
-  through, with the `GET` handler's status. A contract that lists the requests
-  it answers and makes every other method a 405 therefore needs either the
-  `HEAD` pattern above beside each `GET` route or an
-  `r.Method != http.MethodGet` check inside the handler, and a test that sends
-  `HEAD` is what catches the default. A pattern without a method matches every
-  method.
+  through, with the `GET` handler's status. Under a contract that makes every
+  method but `GET` a 405, every `GET` pattern gets a `HEAD` pattern — the
+  health check and the index as much as the resource routes, so the file
+  registers as many `HEAD` patterns as `GET` patterns — or every handler
+  opens with the `r.Method != http.MethodGet` check; the test file sends
+  `HEAD` to each `GET` path. A pattern without a method matches every method.
 - Conflicting patterns panic at registration; overlapping patterns are valid
   when one is more specific, which is why `HEAD /users/{id}` registers beside
   `GET /users/{id}`.

@@ -11,14 +11,27 @@
 #                                     2026-09-13).
 #   PostToolUse (Skill|Read)          record which go-* skills this session has
 #                                     loaded, via the Skill tool or a direct
-#                                     read of a sibling SKILL.md.
+#                                     read of a sibling SKILL.md, and whether it
+#                                     has read the idiom card
+#                                     (go-style-core/references/CURRENT-GO.md)
+#                                     whole.
 #   PreToolUse  (Edit|Write|MultiEdit) before an edit of a .go file in a session
-#                                     that loaded a router, require go-style-core
-#                                     plus the owner skills the edit's content
-#                                     points at. Exit 2 blocks the edit and names
-#                                     the missing skills. Each skill is named at
-#                                     most once per session, so a retry always
-#                                     passes: the gate reminds, it cannot deadlock.
+#                                     that loaded a router, require go-style-core,
+#                                     the owner skills the edit's content points
+#                                     at, and one whole Read of the idiom card.
+#                                     Exit 2 blocks the edit and names what is
+#                                     missing, the card by its installed path.
+#                                     Each name is used at most once per
+#                                     session, so a retry always passes: the
+#                                     gate reminds, it cannot deadlock.
+#
+# The card is a gate item because no wording of go-code or go-style-core made
+# Sonnet 5 medium read it: 0/24 sessions on 2026-09-18 under three wordings
+# (a Resource Routing bullet, a numbered step of its own, the first clause of
+# step 2), while Opus 5 reads it from the routing line in 8/8 and Haiku 4.5 in
+# 4/5. A Read counts only whole — no offset, no limit shorter than the file —
+# because the card's older rows apply at every go directive and a head over
+# it misses what a Go 1.19 module still gets.
 #
 # The owner hints below are heuristics: regular expressions over the edited
 # text that recognize the decision-bearing forms of thirteen owners (error
@@ -119,12 +132,27 @@ text = ti.get("new_string") or ti.get("content") or ""
 for e in ti.get("edits") or []:
     text += "\n" + (e.get("new_string") or "")
 owners = hints(path, text)
+# A Read of the idiom card counts when it covers the whole file: no offset
+# past the first line, no limit shorter than the card.
+card = ""
+if path.endswith("/go-style-core/references/CURRENT-GO.md"):
+    card = "whole"
+    try:
+        if int(ti.get("offset") or 1) > 1:
+            card = "partial"
+        limit = ti.get("limit")
+        if limit is not None:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                if int(limit) < sum(1 for _ in f):
+                    card = "partial"
+    except (OSError, TypeError, ValueError):
+        card = "partial"
 for v in (d.get("hook_event_name") or "", d.get("session_id") or "",
-          d.get("tool_name") or "", skill, path, " ".join(owners)):
+          d.get("tool_name") or "", skill, path, " ".join(owners), card):
     print(v.replace("\n", " "))
 ')" || exit 0
 [[ -n "$parsed" ]] || exit 0
-{ read -r event; read -r session; read -r tool; read -r skill; read -r path; read -r hints; } <<< "$parsed"
+{ read -r event; read -r session; read -r tool; read -r skill; read -r path; read -r hints; read -r card; } <<< "$parsed"
 
 state="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/${session:-default}"
 loaded="$state/loaded"
@@ -148,6 +176,9 @@ PostToolUse)
         case "$path" in
         */go-*/SKILL.md) record "$(basename "$(dirname "$path")")" ;;
         esac
+        if [[ "$card" == "whole" ]]; then
+            mkdir -p "$state" && : > "$state/card"
+        fi
         ;;
     esac
     # Sessions end without notice; drop state older than two days.
@@ -167,19 +198,47 @@ PreToolUse)
         has "$reminded" "$want" && continue
         missing+="$want "
     done
-    [[ -n "$missing" ]] || exit 0
-    mkdir -p "$state" && printf '%s\n' $missing >> "$reminded"
-    cat >&2 <<EOF
-golang-skills routing gate: this session loaded ${routers% } but not: ${missing% }
-This edit was not applied and the file is unchanged. Load them (in Claude Code,
-one Skill call per name, all in one message), then retry the same edit
-against the unchanged file.
+    # The card, by the path this plugin copy carries it at; the hook runs as
+    # bash "${CLAUDE_PLUGIN_ROOT}/hooks/go-code-routing.sh".
+    card_path="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)/skills/go-style-core/references/CURRENT-GO.md"
+    need_card=""
+    if [[ -f "$card_path" && ! -f "$state/card" ]] && ! has "$reminded" current-go-card; then
+        need_card="$card_path"
+    fi
+    [[ -n "$missing" || -n "$need_card" ]] || exit 0
+    mkdir -p "$state"
+    [[ -z "$missing" ]] || printf '%s\n' $missing >> "$reminded"
+    [[ -z "$need_card" ]] || printf 'current-go-card\n' >> "$reminded"
+    {
+        opening="golang-skills routing gate: this session loaded ${routers% }"
+        if [[ -n "$missing" && -n "$need_card" ]]; then
+            printf '%s but not: %s, and has not read the idiom card.\n' "$opening" "${missing% }"
+            printf 'This edit was not applied and the file is unchanged. Load them (in Claude Code,\n'
+            printf 'one Skill call per name) and Read the card whole, no offset or limit, all in\n'
+            printf 'one message, then retry the same edit against the unchanged file. The card:\n%s\n' "$need_card"
+        elif [[ -n "$missing" ]]; then
+            printf '%s but not: %s\n' "$opening" "${missing% }"
+            printf 'This edit was not applied and the file is unchanged. Load them (in Claude Code,\n'
+            printf 'one Skill call per name, all in one message), then retry the same edit\n'
+            printf 'against the unchanged file.\n'
+        else
+            printf '%s but has not read the idiom card.\n' "$opening"
+            printf 'This edit was not applied and the file is unchanged. Read the card whole, no\n'
+            printf 'offset or limit, then retry the same edit against the unchanged file. The card:\n%s\n' "$need_card"
+        fi
+        if [[ -n "$missing" ]]; then
+            cat <<'EOF'
 The gate reads the edited text and recognizes some owners only: tests, error
 wrapping, goroutines, context creation, SQL, slog, exec and templates, defer,
 type parameters, interfaces, main, retries, HTTP. The routing table in
-go-code/SKILL.md decides, including the owners the gate cannot see; each skill
-is named once per session, and the gate's silence is not a passing result.
+go-code/SKILL.md decides, including the owners the gate cannot see; each name
+is used once per session, and the gate's silence is not a passing result.
 EOF
+        else
+            printf 'Its older rows apply at every go directive. The card is named once per session,\n'
+            printf 'and the gate'"'"'s silence is not a passing result.\n'
+        fi
+    } >&2
     exit 2
     ;;
 esac

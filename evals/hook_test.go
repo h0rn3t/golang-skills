@@ -152,7 +152,10 @@ func TestRoutingGate(t *testing.T) {
 		if code != 2 {
 			t.Fatalf("first Go edit after go-code: exit %d, stderr %q; want 2", code, msg)
 		}
-		for _, want := range []string{"go-style-core", "go-http", "go-error-handling"} {
+		// The card is named by the path this checkout carries it at, so the
+		// model can Read it in the same message as the loads.
+		cardPath := filepath.Join(repoRoot(t), "skills", "go-style-core", "references", "CURRENT-GO.md")
+		for _, want := range []string{"go-style-core", "go-http", "go-error-handling", "and has not read the idiom card", cardPath} {
 			if !strings.Contains(msg, want) {
 				t.Errorf("block message must name %s:\n%s", want, msg)
 			}
@@ -203,6 +206,8 @@ func TestRoutingGate(t *testing.T) {
 		// go-http arrives through a direct read of its SKILL.md, the Codex path.
 		hookEvent(t, script, state, routingPayload("PostToolUse", "s3", "Read",
 			map[string]any{"file_path": "/home/u/.claude/skills/go-http/SKILL.md"}))
+		hookEvent(t, script, state, routingPayload("PostToolUse", "s3", "Read",
+			map[string]any{"file_path": "/home/u/.claude/skills/go-style-core/references/CURRENT-GO.md"}))
 
 		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "s3", "Write",
 			map[string]any{"file_path": "/repo/api/handler.go", "content": handler}))
@@ -211,11 +216,71 @@ func TestRoutingGate(t *testing.T) {
 		}
 	})
 
+	// The idiom card is a gate item of its own: no wording of go-code made
+	// Sonnet 5 medium read it (0/24 sessions on 2026-09-18). One whole Read per
+	// session satisfies it; a head over it does not, since the card's older
+	// rows apply at every go directive.
+	t.Run("the idiom card is read whole once per session", func(t *testing.T) {
+		t.Parallel()
+		cardPath := filepath.Join(repoRoot(t), "skills", "go-style-core", "references", "CURRENT-GO.md")
+		load := func(state, session string) {
+			for _, skill := range []string{"go-code", "go-style-core", "go-http", "go-error-handling"} {
+				hookEvent(t, script, state, routingPayload("PostToolUse", session, "Skill", map[string]any{"skill": skill}))
+			}
+		}
+		edit := func(session string) map[string]any {
+			return routingPayload("PreToolUse", session, "Write",
+				map[string]any{"file_path": "/repo/api/handler.go", "content": handler})
+		}
+
+		// Every owner loaded, the card unread: the block names the card alone.
+		state := t.TempDir()
+		load(state, "c1")
+		code, msg := hookEvent(t, script, state, edit("c1"))
+		if code != 2 || !strings.Contains(msg, "has not read the idiom card") || !strings.Contains(msg, cardPath) {
+			t.Fatalf("edit with the card unread: exit %d, stderr %q; want 2 naming the card at %s", code, msg, cardPath)
+		}
+		if strings.Contains(msg, "but not:") || strings.Contains(msg, "Skill call") {
+			t.Errorf("every skill is loaded; the block must ask for the card only:\n%s", msg)
+		}
+		if code, msg := hookEvent(t, script, state, edit("c1")); code != 0 {
+			t.Fatalf("retry after the card reminder: exit %d, stderr %q; want 0 (no deadlock)", code, msg)
+		}
+
+		// A Read with an offset is not the whole card.
+		state = t.TempDir()
+		load(state, "c2")
+		hookEvent(t, script, state, routingPayload("PostToolUse", "c2", "Read",
+			map[string]any{"file_path": cardPath, "offset": 40}))
+		if code, msg := hookEvent(t, script, state, edit("c2")); code != 2 || !strings.Contains(msg, "idiom card") {
+			t.Fatalf("edit after a partial card read: exit %d, stderr %q; want 2 naming the card", code, msg)
+		}
+
+		// A limit that covers the file is a whole read; the path is the
+		// installed one, wherever the plugin lives.
+		state = t.TempDir()
+		load(state, "c3")
+		hookEvent(t, script, state, routingPayload("PostToolUse", "c3", "Read",
+			map[string]any{"file_path": cardPath, "limit": 2000}))
+		if code, msg := hookEvent(t, script, state, edit("c3")); code != 0 || msg != "" {
+			t.Fatalf("edit after a whole card read with a wide limit: exit %d, stderr %q; want silent 0", code, msg)
+		}
+		state = t.TempDir()
+		load(state, "c4")
+		hookEvent(t, script, state, routingPayload("PostToolUse", "c4", "Read",
+			map[string]any{"file_path": "/home/u/.claude/plugins/x/skills/go-style-core/references/CURRENT-GO.md"}))
+		if code, msg := hookEvent(t, script, state, edit("c4")); code != 0 || msg != "" {
+			t.Fatalf("edit after a whole card read: exit %d, stderr %q; want silent 0", code, msg)
+		}
+	})
+
 	t.Run("test file requires go-testing", func(t *testing.T) {
 		t.Parallel()
 		state := t.TempDir()
 		hookEvent(t, script, state, routingPayload("PostToolUse", "s4", "Skill", map[string]any{"skill": "go-code"}))
 		hookEvent(t, script, state, routingPayload("PostToolUse", "s4", "Skill", map[string]any{"skill": "go-style-core"}))
+		hookEvent(t, script, state, routingPayload("PostToolUse", "s4", "Read",
+			map[string]any{"file_path": "/home/u/.claude/skills/go-style-core/references/CURRENT-GO.md"}))
 		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "s4", "Edit",
 			map[string]any{"file_path": "/repo/api/handler_test.go", "old_string": "a", "new_string": "func TestX(t *testing.T) {}"}))
 		if code != 2 || !strings.Contains(msg, "go-testing") {
@@ -271,6 +336,8 @@ func TestRoutingGate(t *testing.T) {
 		for _, skill := range []string{"go-code", "go-style-core"} {
 			hookEvent(t, script, state, routingPayload("PostToolUse", "s6", "Skill", map[string]any{"skill": skill}))
 		}
+		hookEvent(t, script, state, routingPayload("PostToolUse", "s6", "Read",
+			map[string]any{"file_path": "/home/u/.claude/skills/go-style-core/references/CURRENT-GO.md"}))
 		routine := "package store\n\n// Save maps a miss to http.StatusOK.\nfunc (s *Store) Save() error {\n\treturn fmt.Errorf(\"x: %v\", err)\n}\n"
 		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "s6", "Write",
 			map[string]any{"file_path": "/repo/store/save.go", "content": routine}))
@@ -288,6 +355,8 @@ func TestRoutingGate(t *testing.T) {
 		for _, skill := range []string{"go-code", "go-style-core"} {
 			hookEvent(t, script, state, routingPayload("PostToolUse", "s10", "Skill", map[string]any{"skill": skill}))
 		}
+		hookEvent(t, script, state, routingPayload("PostToolUse", "s10", "Read",
+			map[string]any{"file_path": "/home/u/.claude/skills/go-style-core/references/CURRENT-GO.md"}))
 		collections := "package store\n\nfunc (s *Store) IDs() []string {\n\tids := make([]string, 0, len(s.m))\n\tseen := make(map[string]struct{})\n\tfor id := range s.m {\n\t\tids = append(ids, id)\n\t}\n\treturn ids\n}\n"
 		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "s10", "Write",
 			map[string]any{"file_path": "/repo/store/ids.go", "content": collections}))
@@ -606,6 +675,12 @@ func TestPromptRouting(t *testing.T) {
 		if strings.Contains(out, "go-code-refactor") {
 			t.Fatalf("implement prompt must not name go-code-refactor:\n%s", out)
 		}
+		// The idiom card by its installed path, for a Read in the same message
+		// as the go-style-core load; the gate asks for it otherwise.
+		cardPath := filepath.Join(repoRoot(t), "skills", "go-style-core", "references", "CURRENT-GO.md")
+		if !strings.Contains(out, "Read the idiom card whole") || !strings.Contains(out, cardPath) {
+			t.Fatalf("note must name the idiom card at %s:\n%s", cardPath, out)
+		}
 	})
 
 	t.Run("refactor prompt names go-code-refactor", func(t *testing.T) {
@@ -697,7 +772,7 @@ func TestPromptRouting(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("slash invocation: exit %d; want 0", code)
 		}
-		for _, want := range []string{"`/go-code`", "`go-style-core`", "`go-context`", "`go-error-handling`", "in one message"} {
+		for _, want := range []string{"`/go-code`", "`go-style-core`", "`go-context`", "`go-error-handling`", "in one message", "CURRENT-GO.md"} {
 			if !strings.Contains(out, want) {
 				t.Errorf("slash note must name %s:\n%s", want, out)
 			}
@@ -730,6 +805,10 @@ func TestPromptRouting(t *testing.T) {
 			_, out := promptEvent(t, state, router, t.TempDir(), "/"+router+" ./dispatch")
 			if !strings.Contains(out, "`/"+router+"`") || !strings.Contains(out, "`go-style-core`") {
 				t.Fatalf("slash %s: stdout %q; want the note naming the command and go-style-core", router, out)
+			}
+			// A review writes nothing, so its note names no card; a refactor does.
+			if wantCard := router == "go-code-refactor"; strings.Contains(out, "CURRENT-GO.md") != wantCard {
+				t.Errorf("slash %s names the card = %v, want %v:\n%s", router, !wantCard, wantCard, out)
 			}
 			gate := filepath.Join(repoRoot(t), "hooks", "go-code-routing.sh")
 			code, msg := hookEvent(t, gate, state, routingPayload("PreToolUse", router, "Write",

@@ -39,6 +39,12 @@
 # On 2026-09-13 the gate blocked five edits in three sessions to name owners
 # one at a time; a session that has the list before its first edit loads them
 # without a block. Test files stay out of the scan.
+#
+# For go-code and go-code-refactor the note also names the idiom card by its
+# installed path, since the gate requires one whole Read of it before the
+# first .go edit and no skill wording made Sonnet 5 medium read it (0/24 on
+# 2026-09-18): named here, the Read can land in the same message as the
+# go-style-core load instead of costing a gate block.
 set -u
 
 input="$(cat)"
@@ -197,13 +203,26 @@ if [[ -n "$owners" ]]; then
     for o in $owners; do list+="\`$o\`, "; done
     line+=", and the owners its code points at: ${list%, }"
 fi
+# The idiom card, at the path this plugin copy carries it; the edit gate
+# requires one whole Read of it, and names it again if this note is not
+# followed.
+card=""
+if [[ "$skill" != "go-code-review" ]]; then
+    card="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)/skills/go-style-core/references/CURRENT-GO.md"
+    [[ -f "$card" ]] || card=""
+fi
+# One sentence carries the loads and the card: named in a sentence of its own
+# ("in the same message as the go-style-core load"), the card pulled
+# go-style-core off the owners' turn and cost 3.22 Skill turns a session
+# against 2.44 (2026-09-18, Sonnet 5 medium, n=3).
+line+='; `go-testing` if you write or edit a test'
+[[ -z "$card" ]] || line+="; and Read the idiom card whole (no offset or limit): $card"
+line+='. All of them in one message, before the first edit.'
 if [[ "$mode" == "slash" ]]; then
-    line+='; `go-testing` if you write or edit a test. All of them in one message, before the first edit.'
     printf 'golang-skills: the `/%s` command inserted that skill file and loaded nothing else.\n' "$skill"
     printf '%s\n' "$line"
     exit 0
 fi
-line+='; `go-testing` if you write or edit a test. All of them before the first edit.'
 
 printf 'golang-skills: this prompt looks like %s.\n' "$kind"
 printf 'Before the first edit, load the `%s` skill (Skill tool, name `%s`); %s.\n' "$skill" "$skill" "$what"

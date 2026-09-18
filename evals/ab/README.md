@@ -9,6 +9,29 @@ documented stubs and the hidden golden test is the specification, and
 defects and the review is scored against a hidden key by the source line each
 defect sits on.
 
+## The idiom card as a workflow step, Sonnet 5 medium and Haiku 4.5 (2026-09-18)
+
+[Sonnet report](../../docs/evidence/2026-09-18-go-implement-card-step-roster-feed-gateway-n2-sonnet-5-medium.md),
+[Haiku report](../../docs/evidence/2026-09-18-go-implement-card-step-roster-n5-haiku-4-5.md):
+`reference` (1.20.1) against the working tree, twice — the card read first as
+a numbered step of its own, then folded into step 2 of `go-code` — on
+`roster`, `feed`, `gateway` at n=2 (Sonnet 5 medium, 24 sessions) and on
+`roster` at n=5 (Haiku 4.5, 20 sessions). Sonnet 5 read the card in 0/24
+sessions under every wording; the separate step made it skip the load steps
+as a block in 2/6 sessions (six gate blocks against one) and the step-2 form
+restored the 1.20.1 shape (2.00 Skill turns a session, no gate block). Haiku
+read it in 5/10 reference sessions, 3/5 with the separate step, 4/5 with
+step 2; every session that read it wrote no older form (12/12), two of eight
+that did not wrote `sort.Strings`. Golden 11/12 against 12/12 on Sonnet (the
+`gateway` nil-list `null`), 10/10 both arms on Haiku. The same tree carried
+`go-style-core` "The Edit Hook Record"; shell-less Sonnet sessions marked
+every claimed check `(hook)` in 8/11 reports against 1/11. Cost leaned
+against the tree on Sonnet (+8% over both runs) within the reference's own
+run-to-run movement. [Opus 5 medium](../../docs/evidence/2026-09-18-go-implement-hook-record-feed-gateway-n2-opus-5-medium.md)
+on `feed` and `gateway` at n=2: neutral on every axis, $0.989 against
+$1.037 a session, card read 8/8 in both arms, `(hook)` marking 4/4 against
+3/4.
+
 ## The load step and the three-router gate, three arms at n=1 (2026-09-13)
 
 [Report](../../docs/evidence/2026-09-13-go-refactor-routing-load-n1-sonnet-5-medium.md):

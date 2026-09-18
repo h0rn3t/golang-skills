@@ -163,3 +163,32 @@ and remaining model limitations against baseline `e94ee92`.
 The [go-resilience review](GO_RESILIENCE_REVIEW.md) records the new failure-policy
 owner, replay/admission scenarios, native Opus selection, and remaining model
 limitations against baseline `558f8f9`.
+
+## Fable 5.1 follow-up
+
+Read on 2026-09-18 against tree `89d702a` (release 1.20.1):
+[Prompting Claude Fable 5.1](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1).
+Two of its sections touch this pack.
+
+- **Progress updates.** Fable 5.1 writes fewer user-facing updates between
+  tool calls than Opus 5, and the page says to remove prompt lines that
+  suppress narration before adding any. `go-style-core` "How Much To Say"
+  asks *for* an initial update and progress updates, so it is aligned; the
+  one suppressive clause ("Avoid narrating every read") was reworded to say
+  what an update is. The "prose stays short" routes in `go-code-review` step
+  7 and `go-code-refactor` step 6 concern report length, which the Opus 5
+  page still asks to calibrate; they stay. No rule change beyond that.
+- **Tool-call batching.** In coding loops Fable 5.1 may load one skill per
+  turn when the next calls are implied rather than requested; the page's
+  remedy is a one-sentence nudge re-sent after every tool result, which a
+  `SKILL.md` cannot do and a hook can. The batching sentence in `go-code`
+  step 5 and the gate's "one Skill call per name, all in one message" line in
+  `hooks/go-code-routing.sh` are the pack's two carriers; whether either
+  wording moves the count of load turns is an event-count A/B, not a cost
+  comparison.
+
+The page also confirms the Opus 5 reading of verification: instructions to
+re-check add tokens on Opus 5 with no quality gain, while Sonnet 5 benefits
+from the edit hook (golden 7/10 → 9/10 on 2026-09-12). The pack keeps the
+repository gate as required evidence and states what the hook runs once, in
+`go-style-core` "The Edit Hook Record"; the routers route to it.

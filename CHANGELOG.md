@@ -4,6 +4,75 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- `go-code`: the idiom card read is the first clause of workflow step 2 —
+  "Load `go-style-core`, read the idiom card and the code, check for a
+  shell", the `Skill` call and the `Read` of `references/CURRENT-GO.md` in the
+  same message. Before, the only instruction to read the card whole sat in a
+  Resource Routing bullet beside nine "Read when" entries. A first cut made
+  the read a numbered step of its own (eight steps); measured against 1.20.1
+  it made Sonnet 5 skip the load steps as a block in 2/6 sessions (six gate
+  blocks against one) and cost Haiku 4.5 +18% a session, so it was folded
+  back. Neither wording makes Sonnet 5 medium read the card (0/24 sessions,
+  now on record); Haiku 4.5 reads it in 4/5 with the step-2 wording against
+  5/10 with 1.20.1, and no Haiku session that read it wrote an older form
+  (12/12). Evidence:
+  [`docs/evidence/2026-09-18-go-implement-card-step-roster-feed-gateway-n2-sonnet-5-medium.md`](docs/evidence/2026-09-18-go-implement-card-step-roster-feed-gateway-n2-sonnet-5-medium.md),
+  [`docs/evidence/2026-09-18-go-implement-card-step-roster-n5-haiku-4-5.md`](docs/evidence/2026-09-18-go-implement-card-step-roster-n5-haiku-4-5.md).
+- What the plugin's edit hook runs, and how its output enters a report that
+  had no shell, is stated once, in `go-style-core` "The Edit Hook Record";
+  `go-code` (Resource Routing bullet, step 8), `go-code-refactor` (Resource
+  Routing, step 5), and "Write Current Go" route to it instead of carrying
+  their own copy. The record resolves the case the 2026-09-13 hook-vs-text
+  report left open: the hook prints only failures, so `pass (hook)` is a check
+  the hook printed and a later edit cleared, `unavailable (no shell)` is a
+  check it never printed, and its silence after the final edit counts as a
+  clean run only in a session where it has already printed once. In the
+  Sonnet 5 runs above, shell-less sessions marked every claimed check
+  `(hook)` in 8/11 reports against 1/11 with the 1.20.1 text. On Opus 5
+  medium (`feed`, `gateway`, n=2) the change is neutral on every axis and
+  costs nothing (−5% a session, within noise); Opus 5 already reads the card
+  from the routing line in 8/8 sessions. Evidence:
+  [`docs/evidence/2026-09-18-go-implement-hook-record-feed-gateway-n2-opus-5-medium.md`](docs/evidence/2026-09-18-go-implement-hook-record-feed-gateway-n2-opus-5-medium.md).
+- `go-code-refactor`: the `REFACTOR_SKILL_DIR` setup paragraph and its `bash`
+  block moved from Resource Routing to the top of Workflow step 1 (Orient),
+  where the first command runs; Resource Routing is again the file list.
+- Negative rules restated as the action to take: the `loc-diff` report
+  sentence ("report only the two counts `loc-diff` printed"), the audit rule
+  on bugs found while refactoring ("record each one in the findings list and
+  leave the code as it is"), the "How Much To Say" narration clause, and seven
+  `go-code-review` rows (errors handled, built-in names, contexts, interfaces,
+  copying, errors over panics, pass values). Safety rules ("never golf",
+  "never simplified away") keep their absolute form.
+- `go-code-review`: eleven checklist rows that restated what the bundled
+  linters report or what the model knows unprompted are gone — comment
+  sentences and doc comments (`revive exported`, `godot`), error-string case
+  (`staticcheck` ST1005), MixedCaps, initialisms, receiver names, `any` over
+  `interface{}` (`modernize`), `crypto/rand` (`gosec` G404), and the import
+  group, blank, and dot rows. Step 3 names what the checklist no longer
+  carries, so a session whose linter is `unavailable` reports those as
+  unreviewed instead of re-deriving them by hand. Opus 5 medium found 34/35
+  seeded defects with no skill at all (2026-09-12). Measured against 1.20.1
+  on the six review fixtures at n=2, Sonnet 5 medium: recall 0.72 → 0.80 over
+  152 key lines, must 0.82 → 0.87, the linter-reported lines 12/16 → 15/16,
+  bait lines flagged 8 → 5, off-key citations 25 → 15, at level cost. The
+  arm carried the cut and the seven restated rows together. Evidence:
+  [`docs/evidence/2026-09-18-go-review-checklist-cut-n2-sonnet-5-medium.md`](docs/evidence/2026-09-18-go-review-checklist-cut-n2-sonnet-5-medium.md).
+- `go-code` step 3's batching clause stays as it is: three wordings (current,
+  the `<use_parallel_tool_calls>` form, the Fable 5.1 one-line nudge) were
+  compared on Haiku 4.5 (`roster`, `feed`, n=3), where the loads still spread
+  over turns; Sonnet 5 medium already loads the owners in one message in
+  24/24 sessions. None reached the two-turn floor; the Fable form leaned that
+  way by one session in six (3.00 Skill turns against 3.33, 3 gate blocks
+  against 5), the parallel form did not move. Evidence:
+  [`docs/evidence/2026-09-18-go-implement-batching-wording-roster-feed-n3-haiku-4-5.md`](docs/evidence/2026-09-18-go-implement-batching-wording-roster-feed-n3-haiku-4-5.md).
+- `docs/SKILL_AUTHORING_TEMPLATE.md` names the Fable 5.1 prompting guide as a
+  source and states the numbered-step rule for mandatory actions;
+  `docs/CROSS_MODEL_REVIEW.md` records the Fable 5.1 reading of "How Much To
+  Say" and of tool-call batching; `docs/RULE_OWNERSHIP.md` gains the edit hook
+  record row.
+
 ## [1.20.1] - 2026-09-18
 
 ### Added

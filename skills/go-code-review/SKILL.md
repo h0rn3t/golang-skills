@@ -35,6 +35,11 @@ allowed-tools: Bash(bash:*)
 3. From the project, run `bash <installed-skill-dir>/scripts/pre-review.sh ./...` plus
    `go fix -diff <packages in the diff>`. Fix or report what the tools find
    before the checklist; never spend review attention on what a tool reports.
+   The rows below carry no line for what `gofmt`, `go vet`, `revive`,
+   `godot`, `staticcheck`, `gosec`, and `modernize` report — doc-comment
+   form, error-string case, naming case, `interface{}`, `math/rand`, import
+   order — so an `unavailable` linter leaves those unreviewed, and the report
+   says so.
 4. **Subtract first**: before any style row, ask of each added block what could
    stop existing — the Less Code section below. Unneeded growth is a Should Fix.
 5. Read the scope file-by-file; for each file, check the categories below in order
@@ -70,8 +75,6 @@ allowed-tools: Bash(bash:*)
 
 ## Documentation
 
-- [ ] **Comment sentences**: Comments are full sentences starting with the name being described, ending with a period → [go-documentation](../go-documentation/SKILL.md)
-- [ ] **Doc comments**: All exported names have doc comments; non-trivial unexported declarations too → [go-documentation](../go-documentation/SKILL.md)
 - [ ] **Package comments**: Package comment appears adjacent to package clause with no blank line → [go-documentation](../go-documentation/SKILL.md)
 - [ ] **Named result parameters**: Only used when they clarify meaning (e.g., multiple same-type returns), not just to enable naked returns → [go-documentation](../go-documentation/SKILL.md)
 
@@ -79,8 +82,7 @@ allowed-tools: Bash(bash:*)
 
 ## Error Handling
 
-- [ ] **Handle errors**: No discarded errors with `_`; handle, return, or (exceptionally) panic → [go-error-handling](../go-error-handling/SKILL.md)
-- [ ] **Error strings**: Lowercase, no punctuation (unless starting with proper noun/acronym) → [go-error-handling](../go-error-handling/SKILL.md)
+- [ ] **Every error is handled**: returned, wrapped once, or logged once; a `_` on an error value is a finding unless the line says why → [go-error-handling](../go-error-handling/SKILL.md)
 - [ ] **In-band errors**: No magic values (-1, "", nil); use multiple returns with error or ok bool → [go-error-handling](../go-error-handling/SKILL.md)
 - [ ] **Indent error flow**: Handle errors first and return; keep normal path at minimal indentation → [go-style-core](../go-style-core/SKILL.md#reduce-nesting)
 
@@ -88,12 +90,9 @@ allowed-tools: Bash(bash:*)
 
 ## Naming
 
-- [ ] **MixedCaps**: Use `MixedCaps` or `mixedCaps`, never underscores; unexported is `maxLength` not `MAX_LENGTH` → [go-naming](../go-naming/SKILL.md)
-- [ ] **Initialisms**: Keep consistent case: `URL`/`url`, `ID`/`id`, `HTTP`/`http` (e.g., `ServeHTTP`, `xmlHTTPRequest`) → [go-naming](../go-naming/SKILL.md)
 - [ ] **Variable names**: Short names for limited scope (`i`, `r`, `c`); longer names for wider scope → [go-naming](../go-naming/SKILL.md)
-- [ ] **Receiver names**: One or two letter abbreviation of type (`c` for `Client`); no `this`, `self`, `me`; consistent across methods → [go-naming](../go-naming/SKILL.md)
 - [ ] **Package names**: No stuttering (use `chubby.File` not `chubby.ChubbyFile`); avoid `util`, `common`, `misc` → [go-packages](../go-packages/SKILL.md)
-- [ ] **Avoid built-in names**: Don't shadow `error`, `string`, `len`, `cap`, `append`, `copy`, `new`, `make` → [go-style-core](../go-style-core/SKILL.md)
+- [ ] **Built-in names stay free**: `error`, `string`, `len`, `cap`, `append`, `copy`, `new`, `make` name only the builtins; a local of that name is a finding → [go-style-core](../go-style-core/SKILL.md)
 
 ---
 
@@ -101,14 +100,14 @@ allowed-tools: Bash(bash:*)
 
 - [ ] **Goroutine lifetimes**: Clear when/whether goroutines exit; document if not obvious → [go-concurrency](../go-concurrency/SKILL.md)
 - [ ] **Synchronous functions**: Prefer sync over async; let callers add concurrency if needed → [go-concurrency](../go-concurrency/SKILL.md)
-- [ ] **Contexts**: First parameter; not in structs; no custom Context types; pass even if you think you don't need to → [go-context](../go-context/SKILL.md)
+- [ ] **Contexts**: the first parameter, passed through every call that can block or be cancelled; a `ctx` field in a struct or a custom Context type is a finding → [go-context](../go-context/SKILL.md)
 
 ---
 
 ## Interfaces
 
 - [ ] **Interface location**: Define in consumer package, not implementor; return concrete types from producers → [go-interfaces](../go-interfaces/SKILL.md)
-- [ ] **No premature interfaces**: Don't define before used; don't define "for mocking" on implementor side → [go-interfaces](../go-interfaces/SKILL.md)
+- [ ] **Interfaces where they are consumed**: an interface appears when a consumer substitutes implementations, declared in the consumer's package; one declared beside its only implementation "for mocking" is a finding → [go-interfaces](../go-interfaces/SKILL.md)
 - [ ] **Receiver type**: Use pointer if mutating, has sync fields, or is large; value for small immutable types; don't mix → [go-interfaces](../go-interfaces/SKILL.md)
 
 ---
@@ -116,7 +115,7 @@ allowed-tools: Bash(bash:*)
 ## Data Structures
 
 - [ ] **Empty slices**: Prefer `var t []string` (nil) over `t := []string{}` (non-nil zero-length) → [go-data-structures](../go-data-structures/SKILL.md)
-- [ ] **Copying**: Be careful copying structs with pointer/slice fields; don't copy `*T` methods' receivers by value → [go-data-structures](../go-data-structures/SKILL.md)
+- [ ] **Copying**: a struct holding a pointer, slice, map, or lock is copied only where sharing is meant or through its `Clone`; a value receiver on a type with `*T` methods is a finding → [go-data-structures](../go-data-structures/SKILL.md)
 
 ---
 
@@ -124,8 +123,7 @@ allowed-tools: Bash(bash:*)
 
 - [ ] **Trace untrusted input to its sink**: SQL, shell, template, file path, outbound URL, log line — each has a stdlib defense at the boundary → [go-security](../go-security/SKILL.md)
 - [ ] **Secrets**: constant-time compare, memory-hard password hash, no credential in a log or error, `InsecureSkipVerify` only in tests → [go-security](../go-security/SKILL.md)
-- [ ] **Crypto rand**: Use `crypto/rand` for keys, not `math/rand` → [go-defensive](../go-defensive/SKILL.md)
-- [ ] **Don't panic**: Use error returns for normal error handling; panic only for truly exceptional cases → [go-defensive](../go-defensive/SKILL.md)
+- [ ] **Errors over panics**: a failure the caller can act on returns an error; `panic` marks a programmer error the process cannot continue past → [go-defensive](../go-defensive/SKILL.md)
 
 ---
 
@@ -135,7 +133,6 @@ allowed-tools: Bash(bash:*)
 - [ ] **var vs :=**: Use `var` for intentional zero values; `:=` for explicit assignments → [go-style-core](../go-style-core/SKILL.md)
 - [ ] **Reduce scope**: Move declarations close to usage; use if-init to limit variable scope → [go-style-core](../go-style-core/SKILL.md)
 - [ ] **Struct init**: Prefer keyed fields; preserve meaningful zero values and local exceptions → [go-style-core](../go-style-core/SKILL.md)
-- [ ] **Use `any`**: Prefer `any` over `interface{}` in new code → [go-style-core](../go-style-core/SKILL.md)
 
 ---
 
@@ -153,7 +150,7 @@ allowed-tools: Bash(bash:*)
 - [ ] **Current Go**: Changed lines use the form available at the `go` directive; an older idiom kept because the neighbor uses it is Should Fix, and `go fix -diff` on the diff's packages reports nothing in changed lines; the forms are one line each in [CURRENT-GO.md](../go-style-core/references/CURRENT-GO.md) → [go-style-core](../go-style-core/SKILL.md#write-current-go)
 - [ ] **Line length**: No rigid limit, but avoid uncomfortably long lines; break by semantics, not arbitrary length → [go-style-core](../go-style-core/SKILL.md)
 - [ ] **Naked returns**: Only in short functions; explicit returns in medium/large functions → [go-style-core](../go-style-core/SKILL.md)
-- [ ] **Pass values**: Don't use pointers just to save bytes; pass `string` not `*string` for small fixed-size types → [go-functions](../go-functions/SKILL.md)
+- [ ] **Pass values**: small fixed-size types (`string`, `time.Time`, a few ints) travel by value; a pointer parameter means mutation or identity → [go-functions](../go-functions/SKILL.md)
 - [ ] **String concatenation**: `+` for simple; `fmt.Sprintf` for formatting; `strings.Builder` for loops → [go-performance](../go-performance/SKILL.md)
 
 ---
@@ -187,10 +184,7 @@ allowed-tools: Bash(bash:*)
 
 ## Imports
 
-- [ ] **Import groups**: Standard library first, then blank line, then external packages → [go-packages](../go-packages/SKILL.md)
 - [ ] **Import renaming**: Avoid unless collision; rename local/project-specific import on collision → [go-packages](../go-packages/SKILL.md)
-- [ ] **Import blank**: `import _ "pkg"` only in main package or tests → [go-packages](../go-packages/SKILL.md)
-- [ ] **Import dot**: Only for circular dependency workarounds in tests → [go-packages](../go-packages/SKILL.md)
 
 ---
 

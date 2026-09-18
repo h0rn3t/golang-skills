@@ -100,7 +100,7 @@ skills only.
 |------|--------------|
 | `agents/go-verify.md` | Opt-in Claude agent for requested checks: "check it builds" selects build; "run the gate" selects the full gate. Reports findings and unavailable checks, with `INCOMPLETE` when required evidence is missing. Routine checks stay inline unless the user or host requests delegation |
 | `hooks/go-vet-on-edit.sh` | PostToolUse hook: after every `Edit`/`Write` of a `.go` file it runs `gofmt -l`, `go vet`, `go fix -diff` (report only), the package's own tests (`go test -short -count=1`, once the package type-checks and has test files), and `golangci-lint` (the repository's configuration, else the bundled one; findings in the edited file are listed, the rest of the package is one count) on that package and hands the failures back to the agent. The hook is the host's process, so a session without a shell still sees what the gate would have said. `GOLANG_SKILLS_EDIT_TESTS=off` and `GOLANG_SKILLS_EDIT_LINT=off` switch the two off. Silent when clean; never blocks the edit |
-| `hooks/go-prompt-routing.sh` | UserPromptSubmit hook: when a prompt asks for Go work — it names Go, a `.go` file or `go.mod`, or is sent from a directory holding Go and names a function, package, handler, or test — it adds one note to the model's context naming the router to load before the first edit: `go-code-refactor` for refactor, clean-up, or simplify wording, `go-code` for anything else — with `go-style-core` and, when the prompt names a package or file, the owner skills its code points at, from the same table the gate uses (`go-code-routing.sh --hints`), so the loads happen before the first edit rather than one gate block at a time. Once per skill per session; silent when the session already loaded it, when the prompt already invokes a go-* skill, or when there is no work verb. Never blocks |
+| `hooks/go-prompt-routing.sh` | UserPromptSubmit hook: when a prompt asks for Go work — it names Go, a `.go` file or `go.mod`, or is sent from a directory holding Go and names a function, package, handler, or test — it adds one note to the model's context naming the router to load before the first edit: `go-code-refactor` for refactor, clean-up, or simplify wording, `go-code` for anything else — with `go-style-core` and, when the prompt names a package or file, the owner skills its code points at, from the same table the gate uses (`go-code-routing.sh --hints`), so the loads happen before the first edit rather than one gate block at a time. Once per skill per session; silent when the session already loaded it, when the prompt names a go-* skill in prose, or when there is no work verb. A slash invocation of a router (`/go-code`, `/golang-skills:go-code-refactor`) gets a note of its own: the host inserts the skill file and calls no tool, so this hook also records the router in `loaded`, which is what arms the edit gate. Never blocks |
 | `hooks/go-code-routing.sh` | Routing gate for the `go-code`, `go-code-refactor`, and `go-code-review` routers. PostToolUse on `Skill` and `Read` records which go-* skills the session loaded; PreToolUse on `Edit`/`Write` of a `.go` file, in a session that loaded one of them, blocks the edit (exit 2) until `go-style-core` and the owners the edited content points at are loaded, naming the router and the missing skills. Each skill is named once per session, so a retry always passes. Silent in sessions that loaded none of the three |
 | `hooks/go-subagent-routing.sh` | SubagentStart hook: a subagent starts with an empty context, so when the working directory holds Go it adds one note naming `go-code`, or `go-code-refactor` for a refactor, to load before the first edit. Fires for every subagent; skips the plugin's own `go-verify` agent; never blocks |
 
@@ -201,13 +201,13 @@ To uninstall: `rm -rf ~/.claude/skills/go-*`.
 
 ### Pinning a version
 
-Every release is a git tag (`v1.18.0`). None of the installers above takes a
+Every release is a git tag (`v1.20.1`). None of the installers above takes a
 version argument — `npx skills add` and `/plugin marketplace add
 h0rn3t/golang-skills` both follow the default branch, so they always give you
 the newest release. To pin one, install from a tagged checkout:
 
 ```bash
-git clone --branch v1.18.0 --depth 1 https://github.com/h0rn3t/golang-skills.git
+git clone --branch v1.20.1 --depth 1 https://github.com/h0rn3t/golang-skills.git
 cd golang-skills
 
 # manual install from this checkout

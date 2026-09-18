@@ -37,10 +37,12 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
 ## Workflow
 
 1. **Resolve invocation.** `$go-code <task>` or `/go-code <task>` selects Go
-   work. As a modifier, e.g. `/opsx:apply add-auth /go-code`, remove the
-   modifier before the host parses its arguments; it is never a change name
-   or path, and the host keeps workflow state, checkpoints, and delegation
-   policy.
+   work. A slash command inserts this file and loads nothing else: no sibling
+   skill comes with it, so steps 2 and 3 make their `Skill` calls exactly as
+   they do on any other invocation. As a modifier, e.g.
+   `/opsx:apply add-auth /go-code`, remove the modifier before the host parses
+   its arguments; it is never a change name or path, and the host keeps
+   workflow state, checkpoints, and delegation policy.
 2. **Load `go-style-core`, read the code, check for a shell.** Load
    `go-style-core` on every task; inspect repository instructions, `go.mod`,
    neighboring code, tests, and callers. A shell tool (`Bash` in Claude Code)

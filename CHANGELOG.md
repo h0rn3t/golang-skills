@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.20.1] - 2026-09-18
+
 ### Added
 
 - `go-troubleshooting`: a **Stop Signals** list of symptom patches that mean
@@ -39,6 +41,26 @@ All notable changes to this repository are documented here.
   sat on its own line, so `TestManifestCounts` did not see it). The English
   prose under the table still described the superseded three-arm new-code
   run as "the cell."
+
+### Fixed
+
+- A slash invocation of a router — `/go-code`, `/golang-skills:go-code-refactor`
+  — left the routing gate disarmed for the whole session. The host expands the
+  command itself: it inserts the router's `SKILL.md` and calls no tool, so
+  PostToolUse never fires, `go-code-routing.sh` records no load, and the gate,
+  which blocks a `.go` edit only for a session whose `loaded` names a router,
+  stayed silent. `go-prompt-routing.sh` stood down as well, on the rule that a
+  prompt already naming a go-* skill means the host's matcher has fired. In the
+  sessions on record, three slash invocations (2026-09-16..18) loaded no owner
+  skill at all and left no `loaded` file behind, while all six sessions that
+  reached a router through the `Skill` tool loaded three to eight owners. A
+  probe on CLI 2.1.267 shows the mechanism: a slash invocation raises
+  `UserPromptSubmit` and nothing else, while a `Skill` call also raises
+  `PostToolUse` with `tool_input.skill`. The prompt hook now recognizes the
+  slash form, records the router in `loaded` — which arms the gate — and names
+  `go-style-core` plus the owners the target's code points at, instead of
+  standing down. `go-code/SKILL.md` step 1 states that a slash command loads no
+  sibling skill.
 
 ## [1.18.0] - 2026-09-13
 

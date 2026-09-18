@@ -100,8 +100,8 @@ uses stays ([House Style Wins](#house-style-wins);
 [go-packages](../go-packages/SKILL.md) owns replacing one). Scope stays too:
 untouched neighbors are not rewritten for consistency, and the report names
 the older forms left in place as an opportunity. A scoped `go fix -diff`
-previews what the mechanical modernizers would change, and the plugin's edit
-hook prints it after each edit where installed.
+previews what the mechanical modernizers would change, and the
+[edit hook](#the-edit-hook-record) prints it after each edit where installed.
 [go-linting](../go-linting/SKILL.md) owns the analyzers and verification gate;
 [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships)
 lists the standard-library replacements beyond the automated modernizers.
@@ -123,10 +123,11 @@ keep the branches when evaluation has side effects or is expensive.
 ## How Much To Say
 
 This skill owns narration, report length, and delegation guidance for the pack.
-Follow the host's communication requirements. Give a short initial update and
-meaningful progress updates during longer work: findings, decisions, blockers,
-or the next check. Avoid narrating every read. Close with the outcome, observed
-verification results, and material limitations; never imply a skipped check ran.
+Follow the host's communication requirements. Give a short initial update,
+then progress updates on what changed the work: a finding, a decision, a
+blocker, the next check; a read that changed nothing is not an update. Close
+with the outcome, observed verification results, and material limitations;
+never imply a skipped check ran.
 
 Size reports, reviews, and design notes to the task. Use applicable `assets/`
 templates without filler sections or repeated summaries.
@@ -136,6 +137,19 @@ work, delegate only bounded, independent tasks with clear ownership and useful
 work remaining locally. Do not spawn a second agent merely to repeat a completed
 check. A requested independent review is a separate task. Agent availability,
 model choice, and delegation limits belong to the host, not to a Go style rule.
+
+### The Edit Hook Record
+
+Where the Claude Code plugin is installed, a hook runs after every edit of a
+`.go` file — `gofmt`, `go vet`, `go fix -diff`, the package's tests, and
+`golangci-lint` — and prints the checks that failed; a clean run prints
+nothing, and it never blocks. A finding it prints is fixed before the next
+step, not reported around. Without a shell tool its output is the whole check
+record. The report carries a check the hook printed and a later edit cleared
+as `<check> pass (hook)`; a check the hook never printed is `unavailable (no
+shell)`, because a session that has not seen the hook print cannot tell a
+clean run from a hook that is not installed. Once the hook has printed in a
+session, its silence after the final edit is that session's clean run.
 
 ## Related Skills
 

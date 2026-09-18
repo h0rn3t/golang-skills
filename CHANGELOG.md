@@ -6,6 +6,55 @@ All notable changes to this repository are documented here.
 
 ### Changed
 
+- Hooks: the idiom card `go-style-core/references/CURRENT-GO.md` is now a
+  host-routed read. `go-prompt-routing.sh` names it by its installed path in
+  the sentence that lists the loads for a `go-code` or `go-code-refactor`
+  prompt (and a slash invocation), for one whole `Read` in the same message;
+  `go-code-routing.sh` records a whole `Read` of it (no `offset` past line 1,
+  no `limit` shorter than the file) and, in a session that loaded a router,
+  refuses the first `.go` edit until one has happened, naming the path — once
+  per session, like every other gate item. Measured on Sonnet 5 medium
+  against this tree (`roster`, `feed`, `gateway`, n=3 then n=2): the card is
+  read in 15/15 sessions against 1/15, 14 of them from the note and 1 from the
+  gate; golden 14/15 against 15/15 (the `gateway` `HEAD` clause); +15% cost a
+  session ($0.424 against $0.367, p ≈ 0.30), about half of it the card's own
+  tokens (roughly 4,700 on Sonnet 5's tokenizer) and the rest the turns the
+  loads spread over — the note's
+  first wording, a sentence of its own, cost 3.22 Skill turns a session
+  against 2.44; folded into the load sentence, 2.67 against 2.33. Whether the
+  read changes the code Sonnet 5 writes is not something `roster` can show on
+  that model; Haiku 4.5 is where the card's code effect is on record and the
+  route is unmeasured there, as it is on the refactor corpus. At `low`
+  effort (n=2) the note is followed the same way — card read 6/6 against
+  0/6, none through the gate — at +10%; the route arm met the gate for
+  `go-style-core` in 1/6 sessions against 6/6, and `gateway` failed 0/4 in
+  both arms on the `HEAD` and nil-list clauses. Evidence:
+  [`docs/evidence/2026-09-18-go-implement-card-hook-route-roster-feed-gateway-n3-sonnet-5-medium.md`](docs/evidence/2026-09-18-go-implement-card-hook-route-roster-feed-gateway-n3-sonnet-5-medium.md),
+  [`docs/evidence/2026-09-18-go-implement-card-hook-route-roster-feed-gateway-n2-sonnet-5-low.md`](docs/evidence/2026-09-18-go-implement-card-hook-route-roster-feed-gateway-n2-sonnet-5-low.md).
+- `go-code` "Contract Table" and `go-http` "Routing": the `HEAD` case is a
+  named case with its scope stated — "one `HEAD` request per `GET` path in
+  the contract, the health check included" — where it had been one example of
+  a principle ("the member a library default treats unlike the rest"); the
+  routing example registers `HEAD` for both `GET` routes through one local
+  `methodNotAllowed`, and the bullet makes the code rule a count: "as many
+  `HEAD` patterns as `GET` patterns", the health check and the index included.
+  The same paragraph says how the empty-list case reads the answer: the body
+  text compared with `[]`, never a decoded value, since `json.Unmarshal`
+  reads `null` into an empty slice and the case passes on the body the
+  contract forbids. Both follow the Sonnet 5 prompting guide's reading of the
+  model — it "does not silently generalize an instruction from one item to
+  another" — and the day's `gateway` traces: every Sonnet 5 session whose own
+  test carried a `HEAD` case passed the `HEAD` clause (the edit hook runs the
+  package tests), every session without one shipped `GET` patterns and
+  nothing for `HEAD`, and every `null` miss decoded the body. Measured on
+  `gateway` alone, each edit against the tree before it: `HEAD` in the code
+  8/8 against 5/8 (the five all at `medium`; `low` 3/3 against 0/3), golden
+  5/5 against 4/5 at `medium` and 2/3 against 0/3 at `low`, cost level at
+  `medium`; the body-text sentence 7/8 against 5/8 tests comparing the body
+  with `[]`, the two remaining `null` misses in sessions with no empty-list
+  case at all, both at `low`. Evidence:
+  [`docs/evidence/2026-09-18-go-implement-head-case-gateway-sonnet-5.md`](docs/evidence/2026-09-18-go-implement-head-case-gateway-sonnet-5.md),
+  [`docs/evidence/2026-09-18-go-implement-null-body-gateway-sonnet-5.md`](docs/evidence/2026-09-18-go-implement-null-body-gateway-sonnet-5.md).
 - `go-code`: the idiom card read is the first clause of workflow step 2 —
   "Load `go-style-core`, read the idiom card and the code, check for a
   shell", the `Skill` call and the `Read` of `references/CURRENT-GO.md` in the
@@ -17,9 +66,13 @@ All notable changes to this repository are documented here.
   back. Neither wording makes Sonnet 5 medium read the card (0/24 sessions,
   now on record); Haiku 4.5 reads it in 4/5 with the step-2 wording against
   5/10 with 1.20.1, and no Haiku session that read it wrote an older form
-  (12/12). Evidence:
+  (12/12). The two runs' +8% cost lean against 1.20.1 did not survive a third
+  run at n=3: it reversed to −6%, and pooled over 21 sessions a side the
+  tree costs +2% (p ≈ 0.86); golden 19/21 against 21/21, both misses
+  `gateway` on clauses recorded flipping before. Evidence:
   [`docs/evidence/2026-09-18-go-implement-card-step-roster-feed-gateway-n2-sonnet-5-medium.md`](docs/evidence/2026-09-18-go-implement-card-step-roster-feed-gateway-n2-sonnet-5-medium.md),
-  [`docs/evidence/2026-09-18-go-implement-card-step-roster-n5-haiku-4-5.md`](docs/evidence/2026-09-18-go-implement-card-step-roster-n5-haiku-4-5.md).
+  [`docs/evidence/2026-09-18-go-implement-card-step-roster-n5-haiku-4-5.md`](docs/evidence/2026-09-18-go-implement-card-step-roster-n5-haiku-4-5.md),
+  [`docs/evidence/2026-09-18-go-implement-card-in-step2-seed3-roster-feed-gateway-n3-sonnet-5-medium.md`](docs/evidence/2026-09-18-go-implement-card-in-step2-seed3-roster-feed-gateway-n3-sonnet-5-medium.md).
 - What the plugin's edit hook runs, and how its output enters a report that
   had no shell, is stated once, in `go-style-core` "The Edit Hook Record";
   `go-code` (Resource Routing bullet, step 8), `go-code-refactor` (Resource
@@ -38,13 +91,24 @@ All notable changes to this repository are documented here.
 - `go-code-refactor`: the `REFACTOR_SKILL_DIR` setup paragraph and its `bash`
   block moved from Resource Routing to the top of Workflow step 1 (Orient),
   where the first command runs; Resource Routing is again the file list.
+  Measured against 1.20.1 on the refactor corpus, Sonnet 5 medium, four
+  fixtures at n=3 and `report` alone at n=5: golden 17/17 and lint identical
+  in both arms, one load of the refactor skill per session in 34/34 sessions,
+  cost −10% and +4% in the two runs, lines −10.8 against −15.5 at n=3 with
+  the whole gap in `report`, which at n=5 reversed to +7.2 against +9.0
+  (p = 0.75) — the fixture is bimodal on this model, a flat `Render` or three
+  to four write helpers. Evidence:
+  [`docs/evidence/2026-09-18-go-refactor-orient-move-n3-sonnet-5-medium.md`](docs/evidence/2026-09-18-go-refactor-orient-move-n3-sonnet-5-medium.md).
 - Negative rules restated as the action to take: the `loc-diff` report
   sentence ("report only the two counts `loc-diff` printed"), the audit rule
   on bugs found while refactoring ("record each one in the findings list and
   leave the code as it is"), the "How Much To Say" narration clause, and seven
   `go-code-review` rows (errors handled, built-in names, contexts, interfaces,
   copying, errors over panics, pass values). Safety rules ("never golf",
-  "never simplified away") keep their absolute form.
+  "never simplified away") keep their absolute form. On the refactor corpus
+  the `loc-diff` restatement is neutral where it can be read: shell-less
+  sessions stated a line count anyway in 7/12 against 6/12 and 1/5 against
+  1/5 (same evidence file as above).
 - `go-code-review`: eleven checklist rows that restated what the bundled
   linters report or what the model knows unprompted are gone — comment
   sentences and doc comments (`revive exported`, `godot`), error-string case
@@ -56,9 +120,17 @@ All notable changes to this repository are documented here.
   seeded defects with no skill at all (2026-09-12). Measured against 1.20.1
   on the six review fixtures at n=2, Sonnet 5 medium: recall 0.72 → 0.80 over
   152 key lines, must 0.82 → 0.87, the linter-reported lines 12/16 → 15/16,
-  bait lines flagged 8 → 5, off-key citations 25 → 15, at level cost. The
-  arm carried the cut and the seven restated rows together. Evidence:
-  [`docs/evidence/2026-09-18-go-review-checklist-cut-n2-sonnet-5-medium.md`](docs/evidence/2026-09-18-go-review-checklist-cut-n2-sonnet-5-medium.md).
+  bait lines flagged 8 → 5, off-key citations 25 → 15, at level cost. Split
+  the same evening — the eleven cuts alone against the cuts with the seven
+  restatements, same fixtures at n=2 — the two arms sit one line apart on
+  every column (recall 0.77 against 0.76, must 0.92 against 0.89, cost
+  equal): the gain is the cuts, the restatements are neutral, with one row to
+  watch (`invoice/middle-man` found 2/2 under the 1.20.1 "No premature
+  interfaces" wording and 0/2 under "Interfaces where they are consumed").
+  The same bytes scored 0.80 at seed 1 and 0.76 at seed 2, which is the
+  corpus's noise floor at n=2. Evidence:
+  [`docs/evidence/2026-09-18-go-review-checklist-cut-n2-sonnet-5-medium.md`](docs/evidence/2026-09-18-go-review-checklist-cut-n2-sonnet-5-medium.md),
+  [`docs/evidence/2026-09-18-go-review-cuts-only-vs-restated-n2-sonnet-5-medium.md`](docs/evidence/2026-09-18-go-review-cuts-only-vs-restated-n2-sonnet-5-medium.md).
 - `go-code` step 3's batching clause stays as it is: three wordings (current,
   the `<use_parallel_tool_calls>` form, the Fable 5.1 one-line nudge) were
   compared on Haiku 4.5 (`roster`, `feed`, n=3), where the loads still spread

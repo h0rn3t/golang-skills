@@ -120,7 +120,11 @@ eleven linter-covered checklist rows cut and seven restated against release
 sixteen linter-reported lines 12 → 15, baits 8 → 5 of 26, unkeyed 25 → 15,
 cost level. `invoice`, `orders` and `vault` moved, `books` and `worker`
 held, `partner` gave one line back and stays the fixture with the room
-(≈0.55 in both arms).
+(≈0.55 in both arms). The [split the same evening](../../../docs/evidence/2026-09-18-go-review-cuts-only-vs-restated-n2-sonnet-5-medium.md)
+— the eleven cuts alone against the cuts with the restatements — put the
+two arms one line apart on every column (0.77 against 0.76), so the gain is
+the cuts; the same bytes scored 0.80 and 0.76 on two seeds, which is the
+corpus's run-to-run movement at n=2.
 
 ## What gets measured
 

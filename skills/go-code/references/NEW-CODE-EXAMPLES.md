@@ -1,8 +1,8 @@
 # New Code Examples
 
-> Sources: project policy ([go-code](../SKILL.md#writing-new-code)); docs/evidence/2026-09-11-go-implement-newcode-workflow-opus-5-medium.md
+> Sources: project policy ([go-code](../SKILL.md#writing-new-code)); docs/evidence/2026-09-11-go-implement-newcode-workflow-opus-5-medium.md; `go doc encoding/json/v2`
 > Authority: advisory
-> Last verified: 2026-09-12
+> Last verified: 2026-09-19 against go1.27.1
 
 Read when the shape of a Contract Table case or a Plain Code body is in
 doubt. The rules live in the parent skill; this file only shows them applied
@@ -31,10 +31,14 @@ a failure message in the `Func(input) = got, want` form;
 
 ## A Plain Code Body
 
-The function below is the whole implementation of a documented JSON document:
-one function-local type, one anonymous document, the empty-input rule and the
-one tracked fact (`largest`, the size behind `doc.Largest`) as code. Its one
-comment marks the one overridden default; nothing else in it needs prose. The same document as two package-level types, a
+The function below is the whole implementation of a documented JSON document,
+with `import json "encoding/json/v2"`: one function-local type, one anonymous
+document, the empty-input rule and the one tracked fact (`largest`, the size
+behind `doc.Largest`) as code. It carries no comment: v2 writes the nil
+`Files` of a build with no files as `[]`, so that clause is a case in the
+contract test rather than a line in the body. Under `encoding/json` v1 the
+same clause costs `Files: []entry{}` in the literal plus the one comment that
+marks the overridden default. The same document as two package-level types, a
 constructor for the entry, and a `writeJSON` helper is the growth the
 [Declaration Budget](../SKILL.md#declaration-budget) counts.
 
@@ -52,7 +56,7 @@ func Manifest(build string, files []File) ([]byte, error) {
 		Files   []entry `json:"files"`
 		Largest string  `json:"largest"`
 		Total   int64   `json:"total"`
-	}{Build: build, Files: []entry{}} // [] for a build with no files, never null
+	}{Build: build}
 	var largest int64
 	for _, f := range files {
 		if f.Path == "" {

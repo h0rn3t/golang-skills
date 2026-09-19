@@ -58,7 +58,7 @@ Writing the loop instead is a reviewable defect, not a style choice —
 | Empty a map, zero a slice | `clear(m)`; `clear(s)` keeps the length |
 | Drop spare capacity before keeping a subslice | `slices.Clip` |
 | Collect keys/values, where an empty result may be nil | `slices.Collect(maps.Keys(m))`, `slices.Sorted(maps.Keys(m))` |
-| Collect keys into a slice that must encode as `[]` | `keys := slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m)); slices.Sort(keys)` — `Collect` and `Sorted` return nil for an empty iterator |
+| Collect keys into a slice that must encode as `[]` under `encoding/json` v1 (v2 writes nil as `[]`) | `keys := slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m)); slices.Sort(keys)` — `Collect` and `Sorted` return nil for an empty iterator |
 | Insert/delete in the middle | `slices.Insert`, `slices.Delete` |
 | Iterate in reverse | `slices.Backward` |
 | Split a string once at a separator | `strings.Cut`, `strings.CutPrefix`, `strings.CutSuffix` (Go 1.20+) |

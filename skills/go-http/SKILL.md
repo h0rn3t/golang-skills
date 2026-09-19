@@ -7,7 +7,7 @@ description: Use when writing or reviewing Go HTTP code — handlers, routing wi
 
 > Compatibility: Baseline Go 1.27 (`COMPATIBILITY.md`). `ServeMux` method and
 > wildcard patterns require Go 1.22+; `http.NewCrossOriginProtection` Go 1.25+;
-> `http.Server.MaxHeaderValueCount` Go 1.27+.
+> `http.Server.MaxHeaderValueCount` and `encoding/json/v2` Go 1.27+.
 
 ## Resource Routing
 
@@ -62,51 +62,54 @@ shared by handlers; a small handler can capture them directly. Preserve the
 existing structure. No package-level state.
 
 Bound and decode → validate → call the domain with `r.Context()` → map the
-error → write once.
+error → write once. With `import json "encoding/json/v2"` (Go 1.27):
 
 ```go
 func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
     r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-    dec := json.NewDecoder(r.Body)
-    dec.DisallowUnknownFields()
-    var req createUserRequest
-    if err := dec.Decode(&req); err != nil {
+    var req *struct {
+        Name string `json:"name"`
+    }
+    // One decode: an unknown member, a second value, trailing junk, and a
+    // body past the cap are errors; trailing whitespace is not; nil is "null".
+    if err := json.UnmarshalRead(r.Body, &req, json.RejectUnknownMembers(true)); err != nil || req == nil {
         http.Error(w, "invalid JSON body", http.StatusBadRequest)
         return
     }
-    if err := dec.Decode(new(any)); err != io.EOF {
-        http.Error(w, "body must contain one JSON value", http.StatusBadRequest)
+    if req.Name == "" {
+        http.Error(w, "name is required", http.StatusBadRequest)
         return
     }
-    if err := req.validate(); err != nil {
-        http.Error(w, err.Error(), http.StatusBadRequest)
-        return
-    }
-    user, err := s.store.Create(r.Context(), req.toUser())
+    user, err := s.store.Create(r.Context(), req.Name)
     if err != nil {
         s.writeError(w, r, err)
         return
     }
-    writeJSON(w, http.StatusCreated, user)
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusCreated)
+    _ = json.MarshalWrite(w, user) // headers are sent; a failed write is the client's disconnect
 }
 ```
 
-- Bound every decoded body with `http.MaxBytesReader`. For a single-document
-  endpoint, require EOF after the first value before calling the domain;
-  `DisallowUnknownFields` alone accepts trailing data. The second decode
-  allows trailing whitespace while still enforcing the cap.
-- Which decoder: a **new endpoint** uses the `encoding/json/v2` form in
-  [JSON-V2.md](references/JSON-V2.md#one-bounded-request-document) — one
-  `UnmarshalRead` with `RejectUnknownMembers(true)` replaces both decodes
-  above; an endpoint with an **existing v1 wire contract** keeps this form.
+- Bound every decoded body with `http.MaxBytesReader`. `UnmarshalRead`
+  succeeds only at EOF, so one decode is the whole single-document check;
+  `{}` still decodes, so required fields are validated before the store
+  call. The request type is declared in the handler that reads it; a second
+  handler decoding the same document is what moves it to package level
+  ([go-code](../go-code/SKILL.md#declaration-budget)).
+- A package already decoding with `encoding/json` v1 keeps v1 and its two
+  decodes: `dec.DisallowUnknownFields()`, `dec.Decode(&req)`, then
+  `dec.Decode(new(any))` must return `io.EOF` — `DisallowUnknownFields`
+  alone accepts trailing data, and the second decode allows trailing
+  whitespace while the cap still holds.
 - Pass `r.Context()` downstream; it is cancelled on client disconnect.
-- For a JSON array contract, preserve the wire type on unfiltered and filtered
-  paths, including nil input and no matches. When the encoder maps nil to null
-  (v1 or v2 compatibility options), use `make([]T, 0, n)`; v2 defaults already
-  encode nil non-byte slices as arrays. See [JSON v2](references/JSON-V2.md).
-- Set headers before `WriteHeader`, and call it once. Buffer encoding when an
-  encode error must change the status; otherwise log the encode error because
-  headers have already been sent.
+- v2 encodes a nil slice as `[]` and a nil map as `{}`, so a filtered list
+  with no matches is written as it is, with no `make([]T, 0, n)`; that line
+  belongs to a package on v1, or under `FormatNilSliceAsNull(true)`
+  ([JSON-V2.md](references/JSON-V2.md#defaults-that-can-change-the-contract)).
+- Set headers before `WriteHeader`, and call it once. `json.Marshal` first
+  when an encode error must change the status; otherwise `MarshalWrite`
+  after the headers, and its error is the client's disconnect.
 - A write whose error has nowhere to go is discarded in the open with its
   reason on the line, never bare:
 
@@ -114,9 +117,9 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
   _, _ = w.Write(body) // headers are sent; a failed write is the client's disconnect
   ```
 
-  `errcheck` reads a bare `w.Write`, `io.WriteString(w, …)`, or
-  `json.NewEncoder(w).Encode(v)` as a finding, and `//nolint:errcheck` is not
-  a way out: `gosec` G104 reports the same line.
+  `errcheck` reads a bare `w.Write`, `io.WriteString(w, …)`,
+  `json.MarshalWrite(w, v)`, or `json.NewEncoder(w).Encode(v)` as a finding,
+  and `//nolint:errcheck` is not a way out: `gosec` G104 reports the same line.
 
 ### Mapping errors to status codes
 
@@ -154,7 +157,7 @@ Construct an `http.Server`; bare `http.ListenAndServe` sets no timeouts.
 | `ReadHeaderTimeout` | Slowloris defense; must never be zero |
 | `ReadTimeout`, `WriteTimeout` | Bound slow clients; `WriteTimeout` exceeds the slowest handler |
 | `IdleTimeout` | Reclaim keep-alive connections |
-| `MaxHeaderBytes`, `MaxHeaderValueCount` (Go 1.27+) | Cap header abuse |
+| `MaxHeaderBytes`, `MaxHeaderValueCount` (Go 1.27+) | Only to change the defaults, 1 MiB (`http.DefaultMaxHeaderBytes`) and 500 values: zero is the default, so `MaxHeaderBytes: 1 << 20` restates it |
 | `Handler: http.NewCrossOriginProtection().Handler(mux)` | CSRF for state-changing requests (Go 1.25+) |
 | `DisableClientPriority` (Go 1.27+) | HTTP/2 only: ignore RFC 9218 client priorities and serve round-robin, so one client cannot starve others; no-op with a custom write scheduler |
 | `BaseContext` | Expose process shutdown to handlers |

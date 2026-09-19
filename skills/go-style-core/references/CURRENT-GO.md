@@ -1,9 +1,9 @@
 # Current Go Idiom Card
 
-> Sources: Go release notes 1.13–1.27; `$GOROOT/api/go1.*.txt`; `go tool fix help`; JetBrains go-modern-guidelines `guidelines.json` at `155dc7c` (54 items with frequency ranks, cross-checked one by one 2026-09-13)
+> Sources: Go release notes 1.13–1.27; `$GOROOT/api/go1.*.txt`; `go tool fix help`; `go doc encoding/json/v2`; JetBrains go-modern-guidelines `guidelines.json` at `155dc7c` (54 items with frequency ranks, cross-checked one by one 2026-09-13)
 > Authority: normative — the forms [Write Current Go](../SKILL.md#write-current-go) requires at the module's `go` directive; project policy for the grouping and order
 > Minimum Go: each row names its own; a row newer than the module's `go` directive does not apply
-> Last verified: 2026-09-13
+> Last verified: 2026-09-19
 
 One line per idiom: the form an older habit produces, the form the directive
 allows, and the trap on the same line. Read the whole card before the first
@@ -38,11 +38,11 @@ empty for every collection row.
 
 | Habit | Write at the directive |
 |---|---|
-| collect the keys, then `sort.Strings` | `slices.Sorted(maps.Keys(m))` (Go 1.23) — nil for an empty map; when `[]` must encode, `slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m))` then `slices.Sort` |
+| collect the keys, then `sort.Strings` | `slices.Sorted(maps.Keys(m))` (Go 1.23) — nil for an empty map, which `encoding/json/v2` writes as `[]` and v1 as `null`; under v1, when `[]` must encode, `slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m))` then `slices.Sort` |
 | `sort.Slice(s, func(i, j int) bool {...})` | `slices.SortFunc(s, func(a, b T) int { return cmp.Compare(a.Key, b.Key) })` (Go 1.21) — the comparator returns `int`, not `bool`; both are unstable, and `sort.SliceStable` becomes `slices.SortStableFunc` |
 | `sort.Ints`, `sort.Strings` | `slices.Sort` (Go 1.21) |
-| a copy loop, `append([]T(nil), s...)` | `slices.Clone`, `maps.Clone` (Go 1.21) — nil stays nil; `make` plus `copy` when `[]` must encode |
-| index, max, min, reverse, dedupe loops | `slices.Index`, `slices.Max`, `slices.Min`, `slices.Reverse`, `slices.Compact` (Go 1.21) — `Compact` drops adjacent duplicates only, so sort first |
+| a copy loop, `append([]T(nil), s...)` | `slices.Clone`, `maps.Clone` (Go 1.21) — nil stays nil; under `encoding/json` v1, `make` plus `copy` when `[]` must encode |
+| index, max, min, reverse, dedupe, filter loops | `slices.Index`, `slices.Max`, `slices.Min`, `slices.Reverse`, `slices.Compact`, `slices.DeleteFunc` (Go 1.21) — `Compact` drops adjacent duplicates only, so sort first; `DeleteFunc` edits in place, so it runs on `slices.Clone(s)` when `s` is kept |
 | merging or filtering a map by hand | `maps.Copy`, `maps.DeleteFunc` (Go 1.21) |
 | `s = s[:len(s):len(s)]` | `slices.Clip` (Go 1.21) |
 | a slice built only to be ranged over | a function returning `iter.Seq[T]` (Go 1.23); `slices.Collect` when a slice is needed after all |
@@ -88,7 +88,7 @@ empty for every collection row.
 | `omitempty` on a struct, bool, number or `time.Time` field | `omitzero` (Go 1.24) — `omitempty` stays for strings, slices and maps; on an existing field the wire changes |
 | a UUID module for creating and parsing | the standard `uuid` package (Go 1.27) |
 | `*u` copied by hand; `url.Values` copied in a loop | `u.Clone()`, `v.Clone()` (Go 1.27) |
-| `encoding/json` in new JSON code | `encoding/json/v2` (Go 1.27) — nil slices encode as `[]`, duplicate keys are rejected; existing `encoding/json` code stays until a migration is asked for |
+| `encoding/json` in a package with no JSON yet; `json.NewEncoder(w).Encode(v)` | `import json "encoding/json/v2"` (Go 1.27): `json.Marshal`, `json.MarshalWrite(w, v)`, `json.UnmarshalRead(r, &v)` — nil slices encode as `[]` and nil maps as `{}`, so no `make` for the wire; duplicate names are rejected; `MarshalWrite` adds no newline; a package already on `encoding/json` stays on it until a migration is asked for |
 
 ## Tests and benchmarks
 

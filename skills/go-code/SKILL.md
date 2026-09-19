@@ -158,13 +158,21 @@ entry point, anything it calls, and the contract test alike.
   names is not a comment; a comment longer than the code under it is prose
   the test already carries. [go-style-core](../go-style-core/SKILL.md#formatting)
   owns comment style and [the early return](../go-style-core/SKILL.md#reduce-nesting).
-- **A loop that sorts, collects, or defaults is a call.** `slices.SortFunc`;
-  `keys := slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m))` then
-  `slices.Sort(keys)` for a map's keys as a slice that encodes as `[]` when
-  the map is empty; `cmp.Or` for a zero-value default; `min` and `max`.
+- **A loop that sorts, filters, collects, or defaults is a call.**
+  `slices.SortFunc`; `slices.DeleteFunc(slices.Clone(s), drop)` for a
+  filtered view that leaves `s` as it was; `slices.Sorted(maps.Keys(m))` for
+  a map's keys; `cmp.Or` for a zero-value default; `min` and `max`.
   [Reach For What Go Ships](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships)
   has the table, and [go-data-structures](../go-data-structures/SKILL.md)
   the collectors whose empty result is nil.
+- **New JSON is `encoding/json/v2`.** A package with no `encoding/json`
+  import writes `import json "encoding/json/v2"` (Go 1.27): `json.Marshal(doc)`
+  and `json.MarshalWrite(w, doc)` encode a nil slice as `[]` and a nil map
+  as `{}`, so the body carries no `make([]T, 0, n)`, `[]T{}`, or
+  `slices.AppendSeq` for the wire, and the empty case built from nil passes
+  as written. A package already decoding with v1 keeps v1, where nil is
+  `null` and `[]` is `make([]T, 0, n)`;
+  [JSON-V2.md](../go-http/references/JSON-V2.md#choose-the-io-api) owns the API.
 - **Neighbors set the register.** Where the package has code, match its
   naming and comment density ([House Style](../go-style-core/SKILL.md#house-style-wins)).
   Not its Go version: the current form at the module's `go` directive is
@@ -186,6 +194,11 @@ line a reviewer sends back:
   is used.
 - A blank line inside one operation. Paragraphs separate operations, not
   steps of one.
+- A field, header, or option set to what the library uses when it is
+  absent: `MaxHeaderBytes: 1 << 20` is `http.DefaultMaxHeaderBytes`,
+  `Content-Type: text/plain` before `w.Write([]byte("ok"))` is what the
+  writer sniffs, and `false`, `0`, `nil`, or `""` in a keyed literal is the
+  zero value. The line says nothing its absence does not.
 - A failure branch, or a `fmt.Errorf` wrap, on a call that cannot fail for a
   value the function built itself — `json.Marshal` of its own document. The
   error is returned as it is (`return json.Marshal(doc)`). A write whose
@@ -226,9 +239,14 @@ package-level function written in the wrong place: it counts under the same
 three rules, and when it earns its place it is a small unexported function of
 the package with a one-line comment or none. A closure is for capturing state
 — a mutex, a counter, the request being served — and a handler registered
-once is written at its registration: it meets none of the three rules. The count is a record, not a
-score: a helper two call sites need is one declaration named in the report,
-and hiding it inside a function changes the number without changing the code.
+once is written at its registration: it meets none of the three rules. In a
+constructor that returns the `*http.Server`, a `type server struct` holding
+what the routes read, one method per route, and a `handleHealthz` beside them
+are four declarations for handlers registered once each; the values the
+routes share are locals of the constructor that the handler literals capture.
+The count is a record, not a score: a helper two call sites need is one
+declaration named in the report, and hiding it inside a function changes the
+number without changing the code.
 
 A representation is a value, not a reason: a wire document, a formatted error,
 and a sorted view take the [Plain Code](#plain-code) form. A helper that names

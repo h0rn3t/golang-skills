@@ -9,6 +9,39 @@ documented stubs and the hidden golden test is the specification, and
 defects and the review is scored against a hidden key by the source line each
 defect sits on.
 
+## A refactor's helper meets a Declaration Budget rule or is not added — Sonnet 5 `medium` on `report`, n=5 (2026-09-19)
+
+[Report](../../docs/evidence/2026-09-19-go-refactor-helper-rule-report-n5-sonnet-5-medium.md):
+release 1.21.1 against the working tree where "Delete Before You
+Restructure" ties a helper the refactor adds to the Declaration Budget's
+three rules and names the `writeHeader`/`writeRow`/`writeTotal` trio as the
+one-call-site shape. Ten sessions, $3.81, golden 10/10, lint 6 → 0 in
+10/10. The reference wrote the one-call-site trio in 2/5 sessions (+12 and
++13) and a two-call-site `formatLine` in a third (+4); the baseline wrote no
+one-call-site helper, and its one helper, `formatAmount`, folds four repeated
+`"%d.%02d"` sites. Δfuncs
+0.20 against 1.40 (p = 0.29), Δlines +2.0 against +5.8 (p = 0.28), the
+baseline's +1/+2 being an `errors` import and a blank line. Cost $0.366
+against $0.396 a session. The fixture's bimodality did not show in the
+baseline arm on this seed; a claim needs the four fixtures at n=3.
+
+## `encoding/json/v2` as the default for new JSON code — Sonnet 5 `low` on `feed` and `gateway`, n=1 (2026-09-19)
+
+[Report](../../docs/evidence/2026-09-19-go-implement-json-v2-feed-gateway-n1-sonnet-5-low.md):
+release 1.21.1 against the working tree where `go-code` Plain Code makes
+`encoding/json/v2` the default for a package with no `encoding/json` import,
+names the filter loop as `slices.DeleteFunc` on a clone, and deletes a value
+set to the library's default; the card, `go-http`, and `go-code-refactor`
+carry the matching rows. Four sessions, one per arm and fixture, $1.57.
+Golden 4/4, lint clean 4/4. The `gateway` baseline session took every named
+form — v2 with `MarshalWrite` at both response sites, no `writeJSON`, no
+`make` for the wire, no `MaxHeaderBytes: 1 << 20`, no `text/plain` on the
+health body, the `active` filter as `slices.DeleteFunc(slices.Clone(…))` —
+at +64 lines against +79. The `feed` baseline session took v2 and wrote no
+`make`/`AppendSeq` but declared `document` and `eventDoc` at package level,
++43 against +38, with a budget line that quoted a reason. Cost $0.358 against
+$0.425 a session. A smoke: the shape question on `feed` is for n=5.
+
 ## The `HEAD` case named, the empty-list case read as body text — Sonnet 5 on `gateway` (2026-09-18)
 
 [`HEAD` report](../../docs/evidence/2026-09-18-go-implement-head-case-gateway-sonnet-5.md),

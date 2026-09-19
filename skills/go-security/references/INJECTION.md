@@ -3,7 +3,7 @@
 > Sources: `os/exec`, `html/template`, `net/netip`, `net/url` package docs; OWASP Go-SCP
 > Authority: normative for the stdlib defenses; advisory for the allowlist shapes
 > Minimum Go: 1.24 for `os.Root`; everything else long-standing
-> Last verified: 2026-09-02
+> Last verified: 2026-09-19
 
 Every section is the same story: untrusted bytes reach an interpreter (SQL,
 shell, HTML, the filesystem, a URL fetcher) as **code** instead of **data**.
@@ -46,6 +46,18 @@ rows, err := db.QueryContext(ctx, q, orgID, limit) // col is ours; orgID and lim
 
 `gosec` G201/G202 flag `fmt.Sprintf` and `+` feeding a query function. A
 `//nolint:gosec` there needs the allowlist visible in the same function.
+
+Authorization sits on the same boundary. A row the caller reaches by ID is
+selected with the caller's tenant in the `WHERE`, so a foreign ID is
+`sql.ErrNoRows` rather than a loaded row that a later `if` may forget:
+
+```go
+// ✗ Bad — the row is loaded first; the ownership check lives in each handler, until one skips it
+row := db.QueryRowContext(ctx, "SELECT org_id, body FROM notes WHERE id = $1", id)
+
+// ✓ Good — ownership is part of the query; a foreign id is sql.ErrNoRows, mapped to 404
+row := db.QueryRowContext(ctx, "SELECT body FROM notes WHERE id = $1 AND org_id = $2", id, caller.OrgID)
+```
 
 ---
 
@@ -111,6 +123,18 @@ Set `Content-Type: text/html; charset=utf-8` yourself; sniffing turns a JSON
 endpoint into an HTML one when a client saves it as `.html`. Add
 `X-Content-Type-Options: nosniff` in middleware.
 
+A file the client uploaded and later downloads is input on the way out: its
+stored `Content-Type` is whatever the uploader sent, and served inline from
+your origin an uploaded `text/html` runs with your cookies. Serve it as an
+attachment with a type you derived, or from a separate origin that holds no
+session:
+
+```go
+w.Header().Set("X-Content-Type-Options", "nosniff")
+w.Header().Set("Content-Type", "application/octet-stream") // or http.DetectContentType(head); never the stored one
+w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
+```
+
 ---
 
 ## File paths
@@ -162,10 +186,23 @@ func safeTarget(ctx context.Context, raw string) (*url.URL, error) {
 
 The resolve-then-connect gap (DNS rebinding) is real: pin the checked address
 by setting `http.Transport.DialContext` to dial the vetted IP, or accept the
-residual risk explicitly. Where the set of legitimate hosts is known, an
-**allowlist of hostnames** replaces all of this and is the better default.
-Disable redirects (`CheckRedirect` returning `http.ErrUseLastResponse`) or
-re-validate each hop; a public URL that 302s to `127.0.0.1` defeats the check.
+residual risk explicitly. Disable redirects (`CheckRedirect` returning
+`http.ErrUseLastResponse`) or re-validate each hop; a public URL that 302s to
+`127.0.0.1` defeats the check.
+
+Where the set of legitimate hosts is known, an **allowlist of hostnames**
+replaces all of this and is the better default. It matches whole labels, and
+every URL the handler fetches goes through it — a second URL derived from the
+same record is the same input:
+
+```go
+func allowedHost(host, domain string) bool {
+    return host == domain || strings.HasSuffix(host, "."+domain) // "evilpartner.example" fails for "partner.example"
+}
+```
+
+`strings.HasSuffix(host, domain)` without the dot accepts `evilpartner.example`
+for `partner.example`; `strings.Contains` accepts it anywhere in the name.
 
 ---
 
@@ -216,6 +253,7 @@ Decoders are parsers running on attacker bytes; bound them.
 | Regex on input | RE2 is linear — Go's `regexp` is safe; a third-party PCRE engine is not |
 | `strconv.Atoi` into a size | range-check before `make([]T, n)` |
 | Multipart upload | Cap the body before `ParseMultipartForm`; `maxMemory` only sets the memory/disk threshold. Check file sizes and count; use `MultipartReader` with per-part limits when early rejection matters |
+| Struct target | Decode into a request type holding only the client-writable fields, never into the storage model — a `Role`, `OrgID`, or `IsAdmin` field on it is set by whoever sends the body |
 
 `encoding/gob` and any format that instantiates types from the wire must
 never see untrusted bytes — that is deserialization RCE in other languages and

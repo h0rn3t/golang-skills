@@ -2,8 +2,8 @@
 
 > Sources: https://pkg.go.dev/net/http; the owner skills each section names
 > Authority: project policy (a composition example, not a rule source)
-> Minimum Go: `ServeMux` patterns 1.22; `CrossOriginProtection` 1.25
-> Last verified: 2026-09-10
+> Minimum Go: `ServeMux` patterns 1.22; `CrossOriginProtection` 1.25; `encoding/json/v2` 1.27
+> Last verified: 2026-09-19
 
 This example shows how Go skills integrate in a real HTTP server. Each section
 references the relevant skill for detailed guidance.
@@ -15,7 +15,7 @@ package main
 
 import (
     "context"
-    "encoding/json"
+    json "encoding/json/v2"
     "errors"
     "log/slog"
     "net/http"
@@ -92,7 +92,7 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
 
     w.Header().Set("Content-Type", "application/json")
     // go-error-handling: never discard this — a half-written body is a real failure
-    if err := json.NewEncoder(w).Encode(user); err != nil {
+    if err := json.MarshalWrite(w, user); err != nil {
         slog.ErrorContext(ctx, "encode response failed", "id", id, "err", err)
     }
 }

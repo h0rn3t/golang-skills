@@ -112,9 +112,13 @@ line count after each step. Growth is a new declaration, layer, indirection,
 file, or dependency, and it needs a reason in the report; a guard clause or a
 named constant is a name, not growth.
 
-Extract a helper when it removes repeated logic or hides a meaningful operation.
-Keep a short, single-use sequence inline when the helper only renames its steps.
-Count the helper and its call sites when comparing complexity.
+A helper the refactor adds meets one of the three
+[Declaration Budget](../go-code/SKILL.md#declaration-budget) rules — two call
+sites in the final code, a caller outside the function that names it, or a
+distinct algorithm — or it is not added: a `writeHeader`, `writeRow`, and
+`writeTotal` that `Render` calls once each rename the steps of one call site,
+and the report names the rule each kept helper meets. Count the helper and
+its call sites when comparing complexity.
 
 Before writing any new line — helper, wrapper, interface — climb the restraint
 ladder in `references/OVER-ENGINEERING.md` and stop at the first rung that

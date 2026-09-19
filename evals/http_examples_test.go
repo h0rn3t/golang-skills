@@ -40,26 +40,26 @@ func TestResponseLimit(t *testing.T) {
 func TestHTTPHandlerExampleRejectsTrailingJSON(t *testing.T) {
 	code := exampleBlock(t, "skills/go-http/SKILL.md", "## Handler Shape")
 	runExampleTest(t, `package example
-import ("encoding/json"; "io"; "net/http"; "net/http/httptest"; "strings"; "testing"; "context")
-var _ = io.EOF
-type createUserRequest struct { Name string }
-func (r createUserRequest) validate() error { return nil }
-func (r createUserRequest) toUser() string { return r.Name }
+import (json "encoding/json/v2"; "net/http"; "net/http/httptest"; "strings"; "testing"; "context")
 type store struct { calls int }
 func (s *store) Create(_ context.Context, name string) (string, error) { s.calls++; return name, nil }
 type Server struct { store *store }
 func (s *Server) writeError(w http.ResponseWriter, _ *http.Request, _ error) { w.WriteHeader(500) }
-func writeJSON(w http.ResponseWriter, code int, _ any) { w.WriteHeader(code) }
 `+code+`
 func TestBody(t *testing.T) {
  for _, tt := range []struct { body string; status, calls int }{
-  {"{\"Name\":\"ok\"}", 201, 1},
-  {"{\"Name\":\"ok\"} \n\t", 201, 1},
-  {"{\"Name\":\"ok\"} garbage", 400, 0},
-  {"{\"Name\":\"ok\"}]", 400, 0},
-  {"{\"Name\":\"ok\"}}", 400, 0},
-  {"{\"Name\":\"ok\"} {}", 400, 0},
-  {"{\"Name\":\"ok\"}" + strings.Repeat(" ", 1<<20), 400, 0},
+  {"{\"name\":\"ok\"}", 201, 1},
+  {"{\"name\":\"ok\"} \n\t", 201, 1},
+  {"{\"name\":\"ok\"} garbage", 400, 0},
+  {"{\"name\":\"ok\"}]", 400, 0},
+  {"{\"name\":\"ok\"}}", 400, 0},
+  {"{\"name\":\"ok\"} {}", 400, 0},
+  {"{\"name\":\"ok\",\"x\":1}", 400, 0},
+  {"{\"Name\":\"ok\"}", 400, 0},
+  {"{\"name\":\"ok\",\"name\":\"dup\"}", 400, 0},
+  {"null", 400, 0},
+  {"{}", 400, 0},
+  {"{\"name\":\"ok\"}" + strings.Repeat(" ", 1<<20), 400, 0},
  } {
   t.Run(tt.body[:min(len(tt.body), 30)], func(t *testing.T) {
    s := &Server{store: &store{}}

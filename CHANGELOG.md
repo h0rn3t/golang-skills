@@ -4,6 +4,65 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.21.2] - 2026-09-19
+
+### Changed
+
+- `go-code`, `go-http`, `go-style-core`, `go-data-structures`: new JSON code
+  in a package with no `encoding/json` import is `encoding/json/v2`
+  (Go 1.27). Plain Code carries the rule with its scope; the idiom card's
+  row names `json.Marshal`, `json.MarshalWrite`, `json.UnmarshalRead` and
+  the nil-slice `[]` and nil-map `{}` defaults that take `make([]T, 0, n)`,
+  `[]T{}`, and `slices.AppendSeq` off the wire path; the v1 forms in the
+  card's Collections rows, in `go-data-structures`, and in `go-http` are
+  scoped to a package already on v1. The `go-http` Handler Shape example is
+  the one-decode `UnmarshalRead` form with inline validation and
+  `MarshalWrite` for the response (its compile test sends unknown, wrong-case
+  and duplicate members, `null`, and `{}` besides the trailing-data cases);
+  the web-server example writes with `MarshalWrite`; `NEW-CODE-EXAMPLES.md`'s
+  `Manifest` loses its `[]entry{}` line and its one comment. Read from the
+  17 `gateway` and `feed` sessions of 2026-09-12..18 whose final files the
+  traces carry: `encoding/json/v2` in 0/17, `make([]T, 0, n)` or
+  `slices.AppendSeq` for the wire in 14/17, a `writeJSON` helper in 11/14
+  `gateway` sessions. Smoke at Sonnet 5 `low`, n=1
+  ([report](docs/evidence/2026-09-19-go-implement-json-v2-feed-gateway-n1-sonnet-5-low.md)):
+  golden 4/4, lint clean 4/4; the `gateway` session took every named form
+  (`json/v2` with `MarshalWrite`, no `writeJSON`, no wire `make`, no
+  `MaxHeaderBytes` or `text/plain`, the filter as `slices.DeleteFunc`) at
+  −15 lines; the `feed` session took v2 and dropped the `make`/`AppendSeq`
+  lines but declared its two document types at package level, +5 lines.
+  Not a line-count claim: `medium` n=5 is what one costs.
+- `go-code`: the Delete Pass names a field, header, or option set to the
+  library's own default — `MaxHeaderBytes: 1 << 20`, `Content-Type:
+  text/plain` before a text write, a zero value in a keyed literal — as a
+  line to delete; Sonnet 5 set `MaxHeaderBytes` to its default in 4/6
+  `gateway` sessions read, Opus 5 set `text/plain` in 7/8. The Declaration
+  Budget names the `type server struct` plus one method per route as four
+  declarations for handlers registered once each. Plain Code's call list
+  gains the filter loop (`slices.DeleteFunc` on a clone), and the card's
+  Collections row carries the same.
+- `go-code-refactor`: a helper the refactor adds meets one of the
+  Declaration Budget's three rules or is not added, with the `report`
+  fixture's `writeHeader`/`writeRow`/`writeTotal` named as the one-call-site
+  shape (3/3 sessions of one 2026-09-18 run, 1/3 of the other). Measured on
+  `report` alone, Sonnet 5 `medium` n=5
+  ([report](docs/evidence/2026-09-19-go-refactor-helper-rule-report-n5-sonnet-5-medium.md)):
+  one-call-site helpers in 0/5 baseline sessions against 2/5 reference
+  (the `writeHeader`/`writeRow`/`writeTotal` trio, +12 and +13 lines); the
+  other helpers on either side, the reference's `formatLine` and the
+  baseline's `formatAmount`, have two and four call sites. Δfuncs
+  0.20 against 1.40 (p = 0.29), Δlines +2.0 against +5.8 (p = 0.28), golden
+  10/10, lint 6 → 0 in 10/10, cost −8%. A direction, not a claim: the
+  four-fixture corpus at n=3 is what one costs.
+- `go-http`: the Server Construction table says the header caps are set
+  only to change the defaults (1 MiB, 500 values).
+- `evals/evals.json` quality eval 18 accepts the `json/v2` one-decode form
+  beside the v1 decoder.
+- Tried and not adopted: `gocritic`, `unparam`, `unconvert`, `wastedassign`,
+  and twelve `revive` rules in `skills/go-linting/assets/golangci.yml`
+  reported 0 findings on the same 17 session trees, as the current
+  configuration does, so the edit hook would have printed nothing new.
+
 ## [1.21.1] - 2026-09-19
 
 ### Added

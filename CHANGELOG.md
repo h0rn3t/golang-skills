@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.21.1] - 2026-09-19
+
 ### Added
 
 - `go-security`: four sinks the review corpus seeds and the skill did not

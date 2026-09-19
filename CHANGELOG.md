@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.21.2] - 2026-09-19
+
 ### Changed
 
 - `go-code`, `go-http`, `go-style-core`, `go-data-structures`: new JSON code

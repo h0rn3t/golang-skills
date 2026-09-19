@@ -3,7 +3,7 @@
 > Sources: `crypto/*`, `crypto/tls`, `crypto/subtle`, `net/http` package docs; go.dev/blog/fips140; OWASP Password Storage Cheat Sheet
 > Authority: normative for stdlib API choices; project policy for the argon2 default
 > Minimum Go: 1.24 for `crypto/pbkdf2`, `crypto/hkdf`, `crypto/sha3`, `crypto/mlkem`, `rand.Text`
-> Last verified: 2026-09-02
+> Last verified: 2026-09-19
 
 Rule zero: **do not invent cryptography**. Every primitive below is a stdlib
 or Go-team-maintained call. The job is choosing the right one and handling the
@@ -105,7 +105,13 @@ owns the form; the choice table:
 | Nonce for AES-GCM | `cipher.NewGCMWithRandomNonce` (Go 1.24+) for new formats; explicit nonces only when the protocol requires them |
 
 A token that must expire carries its expiry server-side (a store lookup) or
-inside a signed payload (HMAC) — never trust a client-supplied expiry.
+inside a signed payload (HMAC) — never trust a client-supplied expiry. When
+the payload is a signed token the client presents (JWT, PASETO, a cookie you
+signed), verification takes a fixed algorithm allowlist and your key: nothing
+in the token — `alg`, `kid`, `jku`, `x5u` — selects the key or turns
+verification off (`alg: none`), and `exp` is checked against the server
+clock. A token that must be revocable before `exp` carries an ID looked up
+server-side.
 
 ---
 

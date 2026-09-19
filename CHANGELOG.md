@@ -4,6 +4,46 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- `go-security`: four sinks the review corpus seeds and the skill did not
+  name — an uploaded file served back inline (`Content-Disposition:
+  attachment`, `nosniff`, a derived `Content-Type`, or a separate origin), a
+  hostname allowlist matched by whole label (`host == d` or
+  `HasSuffix(host, "."+d)`) applied to every URL the handler fetches,
+  object-level authorization as the caller's tenant in the same `WHERE`,
+  and mass assignment (decode into a request type, not the storage model).
+  Signed-token verification (fixed algorithm allowlist; `alg`, `kid`, `jku`
+  never pick the key; `exp` against the server clock) in Secrets and the
+  Tokens section. Unmeasured: `partner/host-suffix-check`,
+  `partner/label-skips-host-check`, and `vault/uploader-content-type-served`
+  in `evals/ab/_review` are the fixtures an `abrun -corpus review` run
+  scores before a claim is made. `docs/RULE_OWNERSHIP.md` lists the new
+  items under `go-security`.
+
+### Changed
+
+- `go-security`: the Weak TLS cell is three rows (`InsecureSkipVerify`,
+  `MinVersion`, `CurvePreferences`), each with its own defense and check.
+  Review Mode says where a finding goes inside a `go-code-review` pass —
+  the review template's severity sections with the `verified`/`plausible`
+  marker; blast radius orders Must Fix. `X-Forwarded-For` guidance names
+  the last entry, and the command-injection example says `--end-of-options`
+  is git's spelling of `--`.
+
+### Fixed
+
+- `go-security`: the cookie example carries the `__Host-` prefix its
+  reference already showed; the open-redirect line names the check (one
+  leading `/`, none of `//`, `\`, control characters) instead of "accept
+  relative paths", which the reference's own Local Redirects section calls
+  an open redirect; the path-traversal row shows `root.Open(name)` rather
+  than a call that drops `os.OpenRoot`'s error; `net/http` "neutralizes"
+  rather than "rejects" CR/LF in header values (a response writer replaces
+  them with spaces; the server and `Transport` reject them); the weak-hash
+  row names G401 and the G501/G505 import blocklists; the fuzz command no
+  longer carries a literal `FuzzParse` target.
+
 ## [1.21.0] - 2026-09-19
 
 ### Changed

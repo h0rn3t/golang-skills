@@ -1,6 +1,6 @@
 # New Code Examples
 
-> Sources: project policy ([go-code](../SKILL.md#writing-new-code)); docs/evidence/2026-09-11-go-implement-newcode-workflow-opus-5-medium.md; `go doc encoding/json/v2`
+> Sources: project policy ([go-code](../SKILL.md#writing-new-code)); `go doc encoding/json/v2`
 > Authority: advisory
 > Last verified: 2026-09-19 against go1.27.1
 

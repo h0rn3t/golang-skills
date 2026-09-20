@@ -15,8 +15,8 @@ each a `SKILL.md` plus optional `references/`, `scripts/`, `assets/`. There is
 no Go application. The only Go module is `evals/`, whose tests are the
 structural suite for the Markdown, shell scripts, and hooks, plus two headless
 runners (`evalrun`, `abrun`) that drive real model sessions. `source/` holds
-upstream style-guide snapshots and is never edited. `docs/` holds maintenance
-policy; `docs/evidence/` holds the raw report behind every published claim.
+upstream style-guide snapshots and is never edited. `docs/` holds the retained
+maintenance policy; model-run reports and traces are not committed.
 
 `CLAUDE.md` is listed in `.gitignore`, so this file stays local unless that
 entry is removed.
@@ -167,12 +167,12 @@ run against the target project.
   `_golden/<fixture>/key.json` by source line). `_golden/` is copied in after
   the session and never reaches the model; the model's own tests are renamed
   `*_test.go.model` first. `-runner` supports claude, codex, copilot, and
-  opencode with differences the `evals/ab/README.md` spells out; compare arms
-  within one runner. `no-skill` vs `baseline` only shows a fixture has a trap;
+  opencode with differences documented by the runner implementations; compare
+  arms within one runner. `no-skill` vs `baseline` only shows a fixture has a trap;
   `reference` vs `baseline` is what judges a skill edit.
-- Evidence contract: no result table without its raw JSON. Reports go to
-  `docs/evidence/<date>-<slug>.{md,json}` with `-keep` scratch trees archived,
-  and `CHANGELOG.md` entries link them.
+- Model-driven runs are exploratory and their reports, traces, and scratch
+  trees stay outside this repository. If a result is published elsewhere,
+  retain the raw JSON with it and compare arms within one runner.
 
 ## Conventions
 
@@ -187,7 +187,8 @@ run against the target project.
   baseline sentence in `COMPATIBILITY.md` and `GOLANGCI_LINT_VERSION` in
   `validate-skills.yml` by regex, so keep both spellings intact.
 - Skill wording is judged by measurement, not by reading: a claim that an edit
-  helps needs a reference-vs-baseline `abrun` run saved as evidence. The
+  helps needs a reference-vs-baseline `abrun` run with raw output retained
+  outside the repository. The
   400-line cap is a ceiling, not a target; cut only on measured evidence.
 - `source/` snapshots keep upstream licenses and provenance headers, and
   `THIRD_PARTY_NOTICES.md` must cover every file there. Project files are

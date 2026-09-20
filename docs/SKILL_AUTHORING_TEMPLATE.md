@@ -99,8 +99,8 @@ the syntax it gets right.
   recommended `Clone` and added that nil stays nil was applied for `Clone`
   and ignored for nil; the non-nil copy as its own row with its own code was
   not. Give every "except when" its own row or line that shows the code to
-  write, and keep the sentence for the reader who wants the reason
-  (`docs/evidence/2026-09-10-go-implement-newcode-final-sonnet-5-medium.md`).
+  write, and keep the sentence for the reader who wants the reason. Retain
+  any supporting model-run output outside this repository.
 - **State a rule's scope in the rule.** Claude Sonnet 5 and Claude Opus 5
   follow an instruction literally, at `low` and `medium` effort especially,
   and do not carry it from one item to the next: write "every function in
@@ -127,8 +127,9 @@ verbosity, over-verification, progress updates, and tool-call batching. A
 mandatory action is a numbered workflow step, not one bullet among the
 "Read when" entries of Resource Routing; the skill-authoring guide's
 "Use workflows for complex tasks" is the source. They are shared rules for GPT-6 and Claude,
-not claims about either model's automatic behavior. Test behavior in each host: a schema check alone
-does not establish model quality. See [the cross-model review](CROSS_MODEL_REVIEW.md).
+not claims about either model's automatic behavior. Test behavior in each host:
+a schema check alone does not establish model quality. Keep model-run output
+outside this repository.
 
 ## Required Conformance
 

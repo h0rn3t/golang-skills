@@ -1,6 +1,6 @@
 # Refactoring Shared Policy Tables
 
-> Sources: evals/ab/README.md (selection-once experiments); source/google-go-styleguide/guide.md (Least mechanism)
+> Sources: project policy; source/google-go-styleguide/guide.md (Least mechanism)
 > Authority: project policy
 > Last verified: 2026-09-10
 
@@ -90,4 +90,3 @@ which was already a literal costs what the table saved, and then the `switch`
 was shorter. Map iteration order is not source order, so a function returning
 the keys in order keeps its literal. Error texts and the point where an unknown
 key fails do not move.
-

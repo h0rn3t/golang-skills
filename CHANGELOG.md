@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.22.0] - 2026-09-23
+
 - Removed archived model-run reports, generated traces, and obsolete
   maintenance notes from the repository. Structural tests and golden fixtures
   remain under `evals/`; model-run output is local scratch data.

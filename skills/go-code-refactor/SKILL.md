@@ -112,11 +112,12 @@ line count after each step. Growth is a new declaration, layer, indirection,
 file, or dependency, and it needs a reason in the report; a guard clause or a
 named constant is a name, not growth.
 
-A helper the refactor adds meets one of the three
+A helper the refactor adds meets one of the four
 [Declaration Budget](../go-code/SKILL.md#declaration-budget) rules — two call
-sites in the final code, a caller outside the function that names it, or a
-distinct algorithm — or it is not added: a `writeHeader`, `writeRow`, and
-`writeTotal` that `Render` calls once each rename the steps of one call site,
+sites in the final code, a caller outside the function that names it, a
+distinct algorithm, or a step at another level of abstraction than its
+caller — or it is not added: a few-line `writeHeader`, `writeRow`, and
+`writeTotal` that `Render` calls once each rename its steps at its own level,
 and the report names the rule each kept helper meets. Count the helper and
 its call sites when comparing complexity.
 
@@ -180,10 +181,10 @@ the coupling it removes and named in the report
 
 ## Concision Gate
 
-Keep a transformation only when the final code is at least as clear and
-behavior is preserved. Measure both production LOC counts; growth in either
-needs the reason [Delete Before You Restructure](#delete-before-you-restructure)
-requires:
+Keep a transformation only when behavior is preserved and a reader can trace
+decisions, errors, and side effects from the entry point without chasing
+trivial wrappers. Measure both production LOC counts; growth in either needs
+the reason [Delete Before You Restructure](#delete-before-you-restructure) requires:
 
 - **Physical LOC:** every line in the scoped non-test `*.go` files, including
   blank lines and comments; include new files and account for deleted files.

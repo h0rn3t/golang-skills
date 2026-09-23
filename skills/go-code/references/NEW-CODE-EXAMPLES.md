@@ -42,6 +42,10 @@ marks the overridden default. The same document as two package-level types, a
 constructor for the entry, and a `writeJSON` helper is the growth the
 [Declaration Budget](../SKILL.md#declaration-budget) counts.
 
+Its loop collects entries, totals sizes, and tracks the largest file in one
+pass. Replacing it with several collection calls would make those related
+state changes harder to follow.
+
 ```go
 func Manifest(build string, files []File) ([]byte, error) {
 	if build == "" {
@@ -65,10 +69,23 @@ func Manifest(build string, files []File) ([]byte, error) {
 		doc.Files = append(doc.Files, entry{Path: f.Path, Size: f.Size})
 		doc.Total += f.Size
 		if f.Size > largest {
-			doc.Largest, largest = f.Path, f.Size
+			largest = f.Size
+			doc.Largest = f.Path
 		}
 	}
 	return json.Marshal(doc)
+}
+```
+
+## A Name Used Once
+
+With `time` imported, `expiresAt` names the boundary the comparison checks.
+Inlining it saves a line but makes that boundary less visible:
+
+```go
+func expired(now, issuedAt time.Time, ttl time.Duration) bool {
+	expiresAt := issuedAt.Add(ttl)
+	return !now.Before(expiresAt)
 }
 ```
 
@@ -86,3 +103,9 @@ constructor it captures nothing, serves the same two call sites, and is one
 more thing a reader has to scroll past to find the routes. It is the same
 declaration; the budget counts it in either position, and the package-level
 form is the one a reviewer accepts.
+
+A single caller can also justify a helper when it separates substantial work
+at another level of abstraction. A handler may call `decodeOrderRequest(r)`
+once when that function owns size limits, JSON decoding, and field rules and
+the handler makes the business decision. A helper that only forwards one
+`json.Unmarshal` call adds a name to follow without hiding meaningful detail.

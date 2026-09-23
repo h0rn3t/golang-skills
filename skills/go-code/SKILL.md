@@ -69,7 +69,7 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
 5. **Implement the authorized scope.** New code takes the
    [Plain Code](#plain-code) form, counts every package-level declaration
    it adds in the [Declaration Budget](#declaration-budget), and gets the
-   [Delete Pass](#delete-pass) once its cases pass. Restructuring
+   [Delete Pass](#delete-pass) and [Reader Pass](#reader-pass) once its cases pass. Restructuring
    follows the [delete-first priority](../go-code-refactor/SKILL.md#delete-before-you-restructure)
    and climbs the restraint ladder in [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder)
    for each proposed helper, type, layer, option, or import. Preserve
@@ -139,32 +139,37 @@ form; [go-testing](../go-testing/SKILL.md) owns the table-test form, and
 
 ### Plain Code
 
-The body reads as the documentation reads: guard clauses first, the work
-once, one return. This is the form for every function the task adds — the
-entry point, anything it calls, and the contract test alike.
+The body reads as the documentation reads: reject invalid states early, then
+do the main work in its natural order. Return directly when that makes the
+result clear; do not introduce a result variable to enforce one final return.
+This applies to the entry point, anything it calls, and the contract test.
 
 - **Vocabulary from the specification.** The doc comment's nouns name the
   variables.
 - **Smallest scope that works.** A document built in one function is an
   anonymous struct or a type declared inside that function; a step done once
-  is inline; an error carrying context is `fmt.Errorf("op %q: %w", key, err)`,
-  matched by the caller with `errors.Is`.
-- **Fewer names, not fewer states.** A value used once is written where it is
-  used and has no name; a fact the code tracks — what was already asked for,
-  what was sent, what failed — keeps its own variable even when another one
-  almost holds it.
-- **A comment states a constraint the code cannot show**: one per default
-  deliberately overridden, and nothing else. A clause the contract test
-  names is not a comment; a comment longer than the code under it is prose
-  the test already carries. [go-style-core](../go-style-core/SKILL.md#formatting)
+  is inline unless it sits at another level of abstraction
+  ([Declaration Budget](#declaration-budget) rule 4); an error carrying
+  context is `fmt.Errorf("op %q: %w", key, err)`, matched by the caller with
+  `errors.Is`.
+- **Names that explain, states that stay.** An intermediate value gets a name
+  when its expression nests deeper than one call or the name says what the
+  expression does not; otherwise it is written where it is used. A fact the
+  code tracks — what was already asked for, what was sent, what failed —
+  keeps its own variable even when another one almost holds it.
+- **A comment states what the code cannot show**: a constraint, a default
+  deliberately overridden, the business or historical reason behind a choice
+  that neither the code nor the signature shows — never a narration of the
+  next line. [go-style-core](../go-style-core/SKILL.md#formatting)
   owns comment style and [the early return](../go-style-core/SKILL.md#reduce-nesting).
-- **A loop that sorts, filters, collects, or defaults is a call.**
-  `slices.SortFunc`; `slices.DeleteFunc(slices.Clone(s), drop)` for a
-  filtered view that leaves `s` as it was; `slices.Sorted(maps.Keys(m))` for
-  a map's keys; `cmp.Or` for a zero-value default; `min` and `max`.
-  [Reach For What Go Ships](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships)
-  has the table, and [go-data-structures](../go-data-structures/SKILL.md)
-  the collectors whose empty result is nil.
+- **Use a standard-library operation when it states the intent more clearly.**
+  `slices.SortFunc`, `slices.Sorted(maps.Keys(m))`, `min`, and `max` can
+  replace mechanical loops; a loop that tracks several related facts may
+  read better as a loop. Check ordering, ownership, and nil-versus-empty
+  results. `cmp.Or` evaluates every argument, so use it only when that is
+  acceptable. [Reach For What Go Ships](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships)
+  lists replacements; [go-data-structures](../go-data-structures/SKILL.md)
+  owns collection semantics.
 - **New JSON is `encoding/json/v2`.** A package with no `encoding/json`
   import writes `import json "encoding/json/v2"` (Go 1.27): `json.Marshal(doc)`
   and `json.MarshalWrite(w, doc)` encode a nil slice as `[]` and a nil map
@@ -188,12 +193,11 @@ When the Contract Table passes, walk the diff once, top to bottom, and delete
 what the test already proves or the code already shows. Each item below is a
 line a reviewer sends back:
 
-- A comment that restates a case the contract test names, or narrates the
-  next line. What stays is the one comment per overridden default.
-- A name used once, and the variable it fills: the value is written where it
-  is used.
-- A blank line inside one operation. Paragraphs separate operations, not
-  steps of one.
+- A comment that narrates the next line or repeats what the code already
+  shows. A comment giving a reason the code cannot show stays.
+- A name used once that explains nothing, and the variable it fills: the
+  value is written where it is used. A name that passes the Plain Code test
+  stays.
 - A field, header, or option set to what the library uses when it is
   absent: `MaxHeaderBytes: 1 << 20` is `http.DefaultMaxHeaderBytes`,
   `Content-Type: text/plain` before `w.Write([]byte("ok"))` is what the
@@ -211,6 +215,15 @@ line a reviewer sends back:
 The pass runs behind the test, never ahead of it: a line a case needs stays,
 and validation at a trust boundary, failure behavior, and security controls
 are not deleted for a smaller diff. Rerun or reread the cases after it.
+
+### Reader Pass
+
+Read the changed path from its entry point to its result or side effect. Can a
+reader find the main decision, error exits, and state the code tracks without
+chasing wrappers that only rename an operation? Keep a one-use name when it
+exposes a meaningful boundary or state; keep a helper when it hides details
+that obscure the caller's decision. If either adds a jump without answering a
+reader's question, inline it and run the cases again.
 
 ### Declaration Budget
 
@@ -232,14 +245,19 @@ written:
 3. It is a distinct algorithm — a parser, a scheduler — whose name at the
    call site says more than its body would, and the body left behind reads
    top to bottom without it.
+4. It is a step at another level of abstraction than the rest of the
+   function — decoding a request body beside the business decision, building
+   SQL beside the domain rule — even with one call site; the report names its
+   caller and this rule. A helper whose name only restates two or three lines
+   of its body is not such a step: those lines stay inline.
 
 A function literal bound to a name — `writeJSON := func(w http.ResponseWriter,
 v any) {...}` — that captures nothing from the function around it is a
 package-level function written in the wrong place: it counts under the same
-three rules, and when it earns its place it is a small unexported function of
+four rules, and when it earns its place it is a small unexported function of
 the package with a one-line comment or none. A closure is for capturing state
 — a mutex, a counter, the request being served — and a handler registered
-once is written at its registration: it meets none of the three rules. In a
+once is written at its registration: it meets none of the four rules. In a
 constructor that returns the `*http.Server`, a `type server struct` holding
 what the routes read, one method per route, and a `handleHealthz` beside them
 are four declarations for handlers registered once each; the values the
@@ -250,7 +268,8 @@ number without changing the code.
 
 A representation is a value, not a reason: a wire document, a formatted error,
 and a sorted view take the [Plain Code](#plain-code) form. A helper that names
-the steps of one call site meets none of the three; write the steps inline.
+a step at its caller's own level of abstraction meets none of the four; write
+the step inline.
 The named helpers in skill examples (`validate`, `writeJSON`, `writeError`)
 show the order of an operation, not a list to reproduce.
 

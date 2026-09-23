@@ -4,6 +4,30 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.22.1] - 2026-09-23
+
+- `go-code` now uses a reader pass after its delete pass, permits direct
+  returns, and selects standard-library collection operations only when they
+  clarify the call site and preserve ordering, ownership, and empty results.
+  `go-code-refactor` applies the same reader-path check alongside LOC; the
+  new-code examples show a useful one-use name and a justified one-call helper.
+- `go-code`'s Plain Code and Delete Pass no longer cap body comments at one
+  per overridden default. A comment may give a constraint, an overridden
+  default, or the reason behind a choice; narration of the next line is still
+  deleted.
+- `go-code`'s `NEW-CODE-EXAMPLES.md` sets `largest` and `doc.Largest` on two
+  lines instead of one parallel assignment of two unrelated facts.
+- `go-code`'s Declaration Budget gains a fourth rule: a step at another level
+  of abstraction than its caller (request decoding beside the business
+  decision) may be extracted with one call site; a helper that only restates
+  two or three lines stays inline. `go-code-refactor` cites the four rules,
+  which also settles its conflict with `PLAYBOOK.md` §2.
+- `go-code`'s Plain Code names an intermediate value when its expression
+  nests deeper than one call or the name says what the expression does not,
+  and allows a comment giving the business or historical reason for a choice.
+  The Delete Pass no longer removes blank lines inside a function, and keeps
+  a single-use name that explains.
+
 ## [1.22.0] - 2026-09-23
 
 - Removed archived model-run reports, generated traces, and obsolete

@@ -18,7 +18,9 @@ linters:
     - errorlint     # go-error-handling: errors.Is/AsType, never == or a type assertion
     - exhaustive    # go-style-core: switch covers every iota enum member
     - godot         # go-documentation: doc comments are full sentences
+    - iface         # go-interfaces: a constructor returns the concrete type, not an interface with one implementation
     - modernize     # go-style-core: current Go idioms; appendclipped/slicesdelete stay off (they change nilness)
+    - nilnil        # go-error-handling: no in-band nil, nil; return a sentinel or an ok bool
     - noctx         # go-context / go-http: outbound calls carry a context
     - nolintlint    # go-linting: a suppression names its linter and its reason
     - perfsprint    # go-performance: strconv over fmt.Sprint
@@ -26,12 +28,22 @@ linters:
     - rowserrcheck  # go-database: rows.Err checked after the loop
     - sloglint      # go-logging: static message, key-value attrs, snake_case keys
     - sqlclosecheck # go-database: rows and statements closed
+    - unparam       # go-code-refactor: a parameter that always gets one value, a result always nil or never read
     - usetesting    # go-testing: t.Context, t.TempDir, t.Setenv over hand-rolled forms
     - usestdlibvars # go-http: named HTTP methods and status codes
   settings:
     revive:
       rules:
         - name: exported
+        # go-style-core Reduce Nesting: no else after a branch that exits
+        - name: early-return
+        - name: indent-error-flow
+        - name: superfluous-else
+    iface:
+      # opaque only: `unused` and `identical` report exported interfaces a
+      # library declares for its callers.
+      enable:
+        - opaque
     gocyclo:
       min-complexity: 15
     depguard:

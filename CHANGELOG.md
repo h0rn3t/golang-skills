@@ -26,6 +26,15 @@ All notable changes to this repository are documented here.
   field (`s.logger.Error`) and when the error is returned wrapped
   (`return fmt.Errorf("...: %w", err)`); before, only `return err` after a
   `log`, `logger`, or `slog` call counted.
+- The bundled `golangci.yml` enables `iface` (the `opaque` check only),
+  `nilnil`, `unparam`, and `revive`'s `early-return`, `indent-error-flow`, and
+  `superfluous-else`, each enforcing a rule a skill already states. On a
+  deliberately over-built sample file the config reports 5 findings where it
+  reported 2; on five existing codebases (this repository's `evals/`, `fiber`,
+  `excelize`, two MCP servers) it adds 0 to 4.4% to the findings. `revive`'s
+  `unused-parameter` and `iface`'s `unused` and `identical` were measured and
+  left off as noise. `abrun`'s lint counts from before this change are not
+  comparable with counts after it.
 
 ## [1.21.2] - 2026-09-19
 

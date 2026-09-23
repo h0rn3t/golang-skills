@@ -621,6 +621,22 @@ func TestScriptFunctional(t *testing.T) {
 			requireFinding(t, loud.Findings, "evals/fixtures/errors/"+tc.name+"/"+tc.name+".go", 6, "bare-return-err", "bare return err")
 		}
 
+		// The common generated shape: a logger held in a field, and the same
+		// error returned wrapped rather than bare. A log line without err
+		// after a wrapped return is not a finding.
+		out = runCommand(t, 1, "bash", script, "--json", filepath.Join(fixturesDir, "errors", "fieldlogger"))
+		var fieldResult struct {
+			Findings []jsonFinding `json:"findings"`
+			Total    int           `json:"total"`
+		}
+		if err := json.Unmarshal(out, &fieldResult); err != nil {
+			t.Fatalf("parse fieldlogger JSON: %v\n%s", err, out)
+		}
+		if fieldResult.Total != 1 {
+			t.Fatalf("fieldlogger fixture should produce one log-and-return finding, got %d\n%s", fieldResult.Total, out)
+		}
+		requireFinding(t, fieldResult.Findings, "evals/fixtures/errors/fieldlogger/fieldlogger.go", 12, "log-and-return", "logged")
+
 		out = runCommand(t, 0, "bash", script, "--json", filepath.Join(fixturesDir, "errors", "clean"))
 		var cleanResult struct {
 			Total int `json:"total"`

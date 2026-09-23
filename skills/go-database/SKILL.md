@@ -16,7 +16,8 @@ description: Use when writing or reviewing Go SQL queries, transactions, reposit
 ## Stdlib First
 
 > **Normative**: `database/sql` plus a driver covers most services. An ORM is
-> rung four of the dependency ladder in [go-packages](../go-packages/SKILL.md).
+> a new module, the last rung of the dependency ladder in
+> [go-packages](../go-packages/SKILL.md).
 
 ```
 What does the repository already use?

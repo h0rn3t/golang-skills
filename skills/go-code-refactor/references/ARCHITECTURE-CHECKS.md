@@ -7,8 +7,8 @@
 
 Companion to [ARCHITECTURE.md](ARCHITECTURE.md): how to install and read the
 bundled checker, what each rule fails, what the checker cannot see, the
-optional `depguard` duplicate, the report shape, and the scenarios the skill
-is evaluated against. The checker is
+optional `depguard` duplicate, the report shape, and the required behavior per
+situation. The checker is
 [`scripts/check-architecture.go`](../scripts/check-architecture.go), run
 through [`scripts/check-architecture.sh`](../scripts/check-architecture.sh);
 its unit tests are
@@ -23,7 +23,7 @@ and the [fixture](../testdata/architecture/README.md) is the module it passes.
 - [Rules](#rules)
 - [What the checker does not cover](#what-the-checker-does-not-cover)
 - [Optional depguard duplicate](#optional-depguard-duplicate)
-- [Report contract and skill evaluation](#report-contract-and-skill-evaluation)
+- [Report contract](#report-contract)
 - [Common mistakes](#common-mistakes)
 
 ## Running the checker
@@ -192,7 +192,7 @@ linters:
 components with `mayDependOn` once the target tree exists; it is a separate
 binary and a second gate step, and it has no exception ledger with owners.
 
-## Report contract and skill evaluation
+## Report contract
 
 Use this compact report shape; cite repository paths/lines or measured edges where available:
 
@@ -207,9 +207,9 @@ Verification: commands, tool/build scope, results, and before/after findings.
 Exceptions/limits: approved waivers, unexecuted checks, remaining uncertainty.
 ```
 
-Do not turn "fewer imports" or "more modules" into success criteria. Evaluate the skill with both positive and negative cases:
+Do not turn "fewer imports" or "more modules" into success criteria. The required behavior by situation:
 
-| Fixture/scenario | Required behavior |
+| Situation | Required behavior |
 |---|---|
 | Coherent one-domain B | No unsolicited directory migration |
 | One handler-to-repository shortcut | Local boundary repair, not a new architecture |
@@ -222,7 +222,7 @@ Do not turn "fewer imports" or "more modules" into success criteria. Evaluate th
 | Package move across an atomic use case | Atomicity and observable behavior preserved |
 | Tool unavailable or build scope incomplete | Report the limitation without inventing a green gate |
 
-Skill-level scenarios are acceptance criteria, not claims that the attached checker proves the model will choose the correct architecture. Compare behavior and justified changes, not one golden directory tree. Load examples and executable details only when they are needed; see [Agent Skills authoring practices](https://agentskills.io/skill-creation/best-practices).
+The checker proves import rules, not that the chosen architecture is right; there is no single correct directory tree.
 
 ## Common mistakes
 

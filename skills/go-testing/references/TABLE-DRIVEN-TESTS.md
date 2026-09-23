@@ -146,8 +146,9 @@ func TestTranslate(t *testing.T) {
 ## Parallel Tests
 
 Loop variables are per-iteration since Go 1.22, so `t.Parallel()` in a table
-test needs no capture line. Delete any `tt := tt` you find — it is dead code,
-and `go fix -forvar ./...` removes it for you.
+test needs no capture line. Under a `go` directive of 1.22 or later a
+`tt := tt` in lines you touch is dead code; `go fix -forvar <packages in scope>`
+removes it.
 
 ```go
 for _, tt := range tests {

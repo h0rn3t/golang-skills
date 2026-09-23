@@ -4,6 +4,22 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.22.2] - 2026-09-24
+
+- `evalrun`'s quality judge returns its verdict through `claude -p
+  --json-schema` and reads `structured_output`; the "JSON only" prompt line
+  and the brace-slicing `extractJSON` are gone.
+- `go-code-review` drops the "fast pass, then deep pass" Depth note; the
+  Review Procedure's risk and section order is the one reading order.
+- `OVER-ENGINEERING.md` no longer caps a new-code report's omission notes at
+  three lines; report length follows `go-style-core` "How Much To Say".
+- `ARCHITECTURE.md` and `ARCHITECTURE-CHECKS.md` drop revision-handoff and
+  skill-evaluation wording; the section is "Report contract", and its table
+  states the required behavior per situation.
+- `TABLE-DRIVEN-TESTS.md` removes `tt := tt` only under a `go` directive of
+  1.22 or later and runs `go fix -forvar` on the packages in scope, matching
+  `BEHAVIOR-TRAPS.md` and the gate's scope rule.
+
 ## [1.22.1] - 2026-09-23
 
 - `go-code` now uses a reader pass after its delete pass, permits direct

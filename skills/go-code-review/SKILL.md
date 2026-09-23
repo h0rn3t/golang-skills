@@ -52,9 +52,6 @@ allowed-tools: Bash(bash:*)
 > `verified` / `plausible` marker — a guess dressed as `verified` costs trust.
 > Name the checks you actually ran; a linter that was not installed or tests
 > that did not run are `unavailable`, never presented as clean.
->
-> **Depth**: a fast pass over the whole diff, then a deep pass over the
-> risk-ordered files.
 
 ---
 

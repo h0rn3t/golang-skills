@@ -26,7 +26,7 @@ Here, **business module** means an owned feature/domain package tree, not a Go m
 - [Choosing a target](#choosing-a-target)
 - [Staging the move](#staging-the-move)
 - [Enforcing the boundary](#enforcing-the-boundary)
-- [Report contract and skill evaluation](#report-contract-and-skill-evaluation)
+- [Report contract](#report-contract)
 - [Common mistakes](#common-mistakes)
 - [Decision rule](#decision-rule)
 - [Sources and companion materials](#sources-and-companion-materials)
@@ -146,7 +146,7 @@ that a use case's atomicity, error identity, or authorization passes through.
 
 ## Real-world examples
 
-The original community examples and their limitations are retained in [ARCHITECTURE-EXAMPLES.md](ARCHITECTURE-EXAMPLES.md). Read it when examples are needed to explain a choice, not before every refactor. They demonstrate naming and dependency techniques; they are not production-quality certifications or templates to copy wholesale. Inspect a specific revision before relying on a repository's current structure.
+Community examples and their limitations are in [ARCHITECTURE-EXAMPLES.md](ARCHITECTURE-EXAMPLES.md). Read it when examples are needed to explain a choice, not before every refactor. They demonstrate naming and dependency techniques; they are not production-quality certifications or templates to copy wholesale. Inspect a specific revision before relying on a repository's current structure.
 
 ## Target shapes
 
@@ -261,12 +261,11 @@ The optional standalone `depguard` configuration declares golangci-lint schema v
 
 **The model must not add a new allowlist entry, broaden a glob/allow rule, suppress a failure, change the selected layout, or disable a gate merely to make its refactor pass.** A new exception is a separate architecture decision. The supplied configurations start with empty `known` lists; approval metadata cannot be inferred from a failing test. Do not mark a check as passed when it was not run.
 
-## Report contract and skill evaluation
+## Report contract
 
 The compact report shape (observation, consequence, decision, why not smaller,
-preserve, changes, verification, exceptions) and the positive and negative
-scenarios the skill is judged by live in
-[ARCHITECTURE-CHECKS.md](ARCHITECTURE-CHECKS.md#report-contract-and-skill-evaluation).
+preserve, changes, verification, exceptions) and the required behavior per
+situation live in [ARCHITECTURE-CHECKS.md](ARCHITECTURE-CHECKS.md#report-contract).
 Fewer imports or more modules are never the success criterion.
 
 ## Common mistakes
@@ -290,8 +289,8 @@ Improve an established ownership or dependency problem with the smallest safe ch
 
 ## Sources and companion materials
 
-The original source framing is retained: Go module layout and package naming; Google Go Style Guide; Ben Johnson, *Standard Package Layout* (2016); Kat Zien's GopherCon 2018 talk and JetBrains follow-up; Three Dots Labs on modular monoliths and Clean Architecture; Fowler's *Branch by Abstraction* and *Strangler Fig Application*; Feathers, *Working Effectively with Legacy Code*; Russ Cox's comment in `golang-standards/project-layout#117`; depguard and go-arch-lint. These works are background, not authorities for this project's exact folder spellings or policy preference order.
+Background sources: Go module layout and package naming; Google Go Style Guide; Ben Johnson, *Standard Package Layout* (2016); Kat Zien's GopherCon 2018 talk and JetBrains follow-up; Three Dots Labs on modular monoliths and Clean Architecture; Fowler's *Branch by Abstraction* and *Strangler Fig Application*; Feathers, *Working Effectively with Legacy Code*; Russ Cox's comment in `golang-standards/project-layout#117`; depguard and go-arch-lint. These works are background, not authorities for this project's exact folder spellings or policy preference order.
 
-The links beside technical statements identify the directly relevant official/primary documentation. New normative clarifications, checker rules, report format, and evaluation cases are project-policy proposals applied in this revision, not attributed quotations from those sources.
+The links beside technical statements identify the directly relevant official/primary documentation. The checker rules and the report format are project policy, not attributed quotations from those sources.
 
-Companions: [examples](ARCHITECTURE-EXAMPLES.md), [check installation and coverage](ARCHITECTURE-CHECKS.md), [checker](../scripts/check-architecture.go), [checker tests](../scripts/check-architecture_test.go), and [compilable fixture](../testdata/architecture/README.md). Links to other skills and pre-existing refactor references are preserved integration points; those files are not included or independently reviewed in this update.
+Companions: [examples](ARCHITECTURE-EXAMPLES.md), [check installation and coverage](ARCHITECTURE-CHECKS.md), [checker](../scripts/check-architecture.go), [checker tests](../scripts/check-architecture_test.go), and [compilable fixture](../testdata/architecture/README.md).

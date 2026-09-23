@@ -365,6 +365,13 @@ func triggered(want []string, got map[string]bool) bool {
 	return true
 }
 
+// judgeSchema is the verdict shape `claude -p --json-schema` enforces; the
+// result arrives in the output's structured_output field.
+const judgeSchema = `{"type":"object","additionalProperties":false,"required":["results"],` +
+	`"properties":{"results":{"type":"array","items":{"type":"object","additionalProperties":false,` +
+	`"required":["assertion","pass","evidence"],"properties":{"assertion":{"type":"string"},` +
+	`"pass":{"type":"boolean"},"evidence":{"type":"string"}}}}}}`
+
 // runQuality lets the model answer with read-only tools, then has a second,
 // plugin-free model grade the answer against the assertions.
 func runQuality(o options, root string, ev qualityEval) qualityResult {
@@ -412,10 +419,10 @@ ANSWER:
 
 CHECKLIST:
 %s
-Respond with JSON only, no prose, in this exact shape and order:
-{"results":[{"assertion":"<checklist item>","pass":true,"evidence":"<short quote or reason>"}]}`, answer, checklist.String())
+Return one result per checklist item, in checklist order; evidence is a short quote or reason.`, answer, checklist.String())
 
-	jargs := []string{"-p", judgePrompt, "--output-format", "json", "--max-turns", "1", "--tools", ""}
+	jargs := []string{"-p", judgePrompt, "--output-format", "json", "--json-schema", judgeSchema,
+		"--max-turns", "2", "--tools", ""}
 	if o.judgeModel != "" {
 		jargs = append(jargs, "--model", o.judgeModel)
 	}
@@ -424,21 +431,18 @@ Respond with JSON only, no prose, in this exact shape and order:
 		res.Err = "judge: " + err.Error()
 		return res
 	}
-	verdict, err := resultText(jout)
-	if err != nil {
-		res.Err = "judge: " + err.Error()
-		return res
-	}
 	var graded struct {
-		Results []assertionResult `json:"results"`
+		StructuredOutput struct {
+			Results []assertionResult `json:"results"`
+		} `json:"structured_output"`
 	}
-	if err := json.Unmarshal([]byte(extractJSON(verdict)), &graded); err != nil {
-		res.Err = fmt.Sprintf("judge returned non-JSON: %v", err)
+	if err := json.Unmarshal(jout, &graded); err != nil {
+		res.Err = fmt.Sprintf("judge: %v", err)
 		return res
 	}
-	res.Assertions = graded.Results
-	res.Pass = len(graded.Results) == len(ev.Assertions)
-	for _, a := range graded.Results {
+	res.Assertions = graded.StructuredOutput.Results
+	res.Pass = len(res.Assertions) == len(ev.Assertions)
+	for _, a := range res.Assertions {
 		res.Pass = res.Pass && a.Pass
 	}
 	return res
@@ -464,15 +468,6 @@ func resultText(out []byte) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no result field in claude output: %.200s", out)
-}
-
-func extractJSON(s string) string {
-	if i := strings.Index(s, "{"); i >= 0 {
-		if j := strings.LastIndex(s, "}"); j > i {
-			return s[i : j+1]
-		}
-	}
-	return s
 }
 
 func sortedKeys(m map[string]bool) []string {

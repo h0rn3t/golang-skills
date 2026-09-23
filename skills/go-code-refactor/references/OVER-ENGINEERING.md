@@ -176,10 +176,10 @@ correctness, scope, or authorization, while doing independent work. Respect an
 explicit choice on the first request — no re-arguing or requiring the user to
 ask twice. `go-code-refactor` owns baseline and generated-code decisions.
 
-For new code, lead with the code and the gate result, then at most three short
-lines: `skipped: <X>, add when <Y>`. If the explanation outgrows the code, cut
-the explanation — a paragraph defending a simplification is complexity
-smuggled back in as prose. A report, walkthrough, or per-step note the user
+For new code, lead with the code and the gate result, and name each deliberate
+omission as `skipped: <X>, add when <Y>`; report length follows
+[go-style-core](../../go-style-core/SKILL.md#how-much-to-say). A paragraph
+defending a simplification is complexity smuggled back in as prose. A report, walkthrough, or per-step note the user
 asked for is not prose debt; give it in full. A refactor reports through
 `assets/refactor-report.md`, whose table is already the short form.
 

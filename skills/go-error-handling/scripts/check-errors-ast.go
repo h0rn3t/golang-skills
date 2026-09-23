@@ -9,11 +9,12 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 )
 
-const version = "1.1.0"
+const version = "1.2.0"
 
 type finding struct {
 	File    string `json:"file"`
@@ -186,17 +187,17 @@ func analyzeFile(path string, checkBareReturn bool) ([]finding, error) {
 				logLines = append(logLines, line)
 			}
 		case *ast.ReturnStmt:
-			if returnsErr(node) {
-				line := fset.Position(node.Return).Line
+			line := fset.Position(node.Return).Line
+			if returnsErr(node) || returnsWrappedErr(node) {
 				errReturnLines = append(errReturnLines, line)
-				if checkBareReturn {
-					findings = append(findings, finding{
-						File:    path,
-						Line:    line,
-						Rule:    "bare-return-err",
-						Message: "bare return err: confirm the caller does not need context this frame could add (fmt.Errorf(\"...: %w\", err))",
-					})
-				}
+			}
+			if checkBareReturn && returnsErr(node) {
+				findings = append(findings, finding{
+					File:    path,
+					Line:    line,
+					Rule:    "bare-return-err",
+					Message: "bare return err: confirm the caller does not need context this frame could add (fmt.Errorf(\"...: %w\", err))",
+				})
 			}
 		}
 		return true
@@ -270,11 +271,16 @@ func isLogCallWithErr(call *ast.CallExpr) bool {
 	if !ok {
 		return false
 	}
-	x, ok := sel.X.(*ast.Ident)
-	if !ok {
-		return false
+	// The receiver is the logger itself (`slog.Error`, `logger.Warn`) or a
+	// field holding it (`s.logger.Error`, `h.log.Printf`).
+	var name string
+	switch x := sel.X.(type) {
+	case *ast.Ident:
+		name = x.Name
+	case *ast.SelectorExpr:
+		name = x.Sel.Name
 	}
-	switch x.Name {
+	switch strings.ToLower(name) {
 	case "log", "logger", "slog":
 	default:
 		return false
@@ -309,6 +315,16 @@ func returnsErr(stmt *ast.ReturnStmt) bool {
 	}
 	ident, ok := stmt.Results[len(stmt.Results)-1].(*ast.Ident)
 	return ok && ident.Name == "err"
+}
+
+// returnsWrappedErr reports a last result that is a call carrying err, such as
+// fmt.Errorf("save %d: %w", id, err): the same error, returned with context.
+func returnsWrappedErr(stmt *ast.ReturnStmt) bool {
+	if len(stmt.Results) == 0 {
+		return false
+	}
+	call, ok := stmt.Results[len(stmt.Results)-1].(*ast.CallExpr)
+	return ok && slices.ContainsFunc(call.Args, func(arg ast.Expr) bool { return containsIdent(arg, "err") })
 }
 
 func findGoFiles(target string) ([]string, error) {

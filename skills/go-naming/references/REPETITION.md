@@ -84,7 +84,7 @@ func (db *DB) UserCount() (userCount int, err error) {
 func (db *DB) UserCount() (int, error) {
     var count int64
     if err := db.Load("count(distinct users)", &count); err != nil {
-        return 0, fmt.Errorf("failed to load user count: %s", err)
+        return 0, fmt.Errorf("load user count: %w", err)
     }
     return int(count), nil
 }

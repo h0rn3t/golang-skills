@@ -76,20 +76,9 @@ func process(animal Animal) error {
 
 ## Checking Errors
 
-For direct comparison (when errors are not wrapped):
-
-```go
-// Good: Direct comparison with sentinel
-switch err := process(an); err {
-case ErrDuplicate:
-    return fmt.Errorf("feed %q: %v", an, err)
-case ErrMarsupial:
-    alternate := an.BackupAnimal()
-    return handlePet(alternate)
-}
-```
-
-When errors may be wrapped, use `errors.Is`:
+Match a sentinel with `errors.Is`, even when the callee does not wrap today:
+`switch err { case ErrDuplicate: }` compares with `==`, stops matching the
+first time a wrap is added, and `errorlint` in the gate reports it.
 
 ```go
 // Good: Works with wrapped errors

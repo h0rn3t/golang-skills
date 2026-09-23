@@ -1,63 +1,67 @@
-// Package example demonstrates proper Go documentation conventions.
-//
-// This package shows how to write doc comments for packages, types,
-// functions, methods, and constants following Google Go Style Guide
-// conventions.
+// Package example appends text records to a log file.
 //
 // # Getting Started
 //
-// Create a new Widget with [NewWidget]:
+// Open a [Log], append to it, and close it when done:
 //
-//	w := example.NewWidget("name")
-//	defer w.Close()
+//	l, err := example.Open("app.log")
+//	if err != nil {
+//		return err
+//	}
+//	defer l.Close()
+//	return l.Append("started")
 package example
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"os"
+	"sync"
+)
 
-// ErrNotFound is returned when a requested item does not exist.
-var ErrNotFound = errors.New("example: not found")
+// ErrEmpty is returned by [Log.Append] for an empty record.
+var ErrEmpty = errors.New("example: empty record")
 
-// MaxRetries is the default number of retry attempts.
-const MaxRetries = 3
-
-// Widget processes items with configurable options.
+// A Log appends records to a file, one per line.
 //
-// A zero-value Widget is not valid; use [NewWidget] to create one.
-// Widget is safe for concurrent use.
-//
-// # Cleanup
-//
-// Call [Widget.Close] when done to release resources.
-type Widget struct {
-	name string
+// A Log is safe for concurrent use. Call [Log.Close] to release the file.
+type Log struct {
+	mu sync.Mutex
+	f  *os.File
 }
 
-// NewWidget creates a Widget with the given name.
-//
-// Name must be non-empty; NewWidget panics otherwise.
-func NewWidget(name string) *Widget {
-	if name == "" {
-		panic("example: name must be non-empty")
+// Open opens the log at path for appending, creating the file if it does not
+// exist.
+func Open(path string) (*Log, error) {
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return nil, err
 	}
-	return &Widget{name: name}
+	return &Log{f: f}, nil
 }
 
-// Process handles the given input and returns the result.
+// Append writes record followed by a newline.
+func (l *Log) Append(record string) error {
+	if record == "" {
+		return ErrEmpty
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	_, err := fmt.Fprintln(l.f, record)
+	return err
+}
+
+// Close closes the underlying file.
+func (l *Log) Close() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.f.Close()
+}
+
+// A renamed API keeps its old name as a forwarder until callers move; a new
+// package has nothing to deprecate.
+
+// OpenLog opens the log at path.
 //
-// Process returns [ErrNotFound] if the input references
-// a missing item.
-func (w *Widget) Process(input string) (string, error) {
-	return input, nil
-}
-
-// Close releases resources held by the Widget.
-func (w *Widget) Close() error {
-	return nil
-}
-
-// NewWidgetLegacy creates a Widget with the given name.
-//
-// Deprecated: Use [NewWidget] instead.
-func NewWidgetLegacy(name string) *Widget {
-	return NewWidget(name)
-}
+// Deprecated: Use [Open] instead.
+func OpenLog(path string) (*Log, error) { return Open(path) }

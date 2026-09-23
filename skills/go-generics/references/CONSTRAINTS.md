@@ -84,14 +84,17 @@ A type satisfying `Stringer` must be comparable **and** have a `String()` method
 **Bad**
 ```go
 // Only uses == but restricts to int and string
-func Contains[T interface{ ~int | ~string }](s []T, v T) bool { ... }
+func Count[T interface{ ~int | ~string }](s []T, v T) int { ... }
 ```
 
 **Good**
 ```go
 // comparable is the minimal constraint for ==
-func Contains[T comparable](s []T, v T) bool { ... }
+func Count[T comparable](s []T, v T) int { ... }
 ```
+
+The standard library ships the membership test: `slices.Contains` and
+`slices.Index` are not written again.
 
 Over-constraining limits reuse and forces callers to work around restrictions
 that the implementation never needed.
@@ -156,17 +159,29 @@ You can only call operations the constraint allows:
 
 **Bad**
 ```go
-func Stringify[T any](v T) string {
-    return v.String()  // compile error: any does not have String()
+func Join[T any](items []T, sep string) string {
+    parts := make([]string, len(items))
+    for i, v := range items {
+        parts[i] = v.String() // compile error: any does not have String()
+    }
+    return strings.Join(parts, sep)
 }
 ```
 
 **Good**
 ```go
-func Stringify[T fmt.Stringer](v T) string {
-    return v.String()
+func Join[T fmt.Stringer](items []T, sep string) string {
+    parts := make([]string, len(items))
+    for i, v := range items {
+        parts[i] = v.String()
+    }
+    return strings.Join(parts, sep)
 }
 ```
+
+The slice is what earns the type parameter: a `[]Celsius` is not a
+`[]fmt.Stringer`. A function taking one value accepts `fmt.Stringer` itself,
+as [Don't Use Generics When Interfaces Suffice](#dont-use-generics-when-interfaces-suffice) says.
 
 ---
 

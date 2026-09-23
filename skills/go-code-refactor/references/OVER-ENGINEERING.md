@@ -54,7 +54,8 @@ stop at the first rung that holds:
    over sleep-based waits, a build tag over a runtime switch.
 5. **A module already in `go.mod`?** Use it. Never add a new one for what a few
    lines do — [go-packages](../../go-packages/SKILL.md) owns the module rungs
-   (stdlib → `golang.org/x/...` → existing module → new module).
+   (stdlib → a module already in `go.mod` → a new module, `golang.org/x/...`
+   included).
 6. **Can it be one line?** One line.
 7. **Only then**: the minimum that works, in the fewest files — a new file only
    when the existing one is unwieldy.
@@ -141,7 +142,7 @@ code a swap may be observable; `MODERNIZATION.md` says what each can change.
 | `errors.As` with a declared target variable | `errors.AsType[T]` (Go 1.26) |
 | `sync.Once` plus a captured result field | `sync.OnceFunc`, `sync.OnceValue`, `sync.OnceValues` |
 | `wg.Add(1)` / `go func() { defer wg.Done() }()` | `wg.Go(f)` (Go 1.25) → [go-concurrency](../../go-concurrency/SKILL.md) |
-| A `WaitGroup`, an error channel, and first-error logic; a semaphore channel | `errgroup.Group` and `SetLimit` (`golang.org/x/sync`, the `x/` rung of the dependency ladder) |
+| A `WaitGroup`, an error channel, and first-error logic; a semaphore channel | `errgroup.Group` and `SetLimit` (`golang.org/x/sync`: a new module on the dependency ladder unless `go.mod` already has it) |
 | A mutex around a single counter or flag with no compound invariant | `atomic.Int64`, `atomic.Bool` → [go-concurrency](../../go-concurrency/SKILL.md) |
 | A goroutine parked on `ctx.Done()` to run cleanup; a detached copy of a context | `context.AfterFunc`, `context.WithoutCancel` → [go-context](../../go-context/SKILL.md) |
 

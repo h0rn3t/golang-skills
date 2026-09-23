@@ -22,32 +22,22 @@ var db *sql.DB
 func TestInsert(t *testing.T) { /* uses db */ }
 func TestSelect(t *testing.T) { /* uses db */ }
 
-func runMain(ctx context.Context, m *testing.M) (code int, err error) {
-    ctx, cancel := context.WithCancel(ctx)
-    defer cancel()
-
-    d, err := setupDatabase(ctx)
-    if err != nil {
-        return 0, err
-    }
-    defer d.Close()
-    db = d
-
-    return m.Run(), nil
-}
-
 func TestMain(m *testing.M) {
-    code, err := runMain(context.Background(), m)
+    d, err := setupDatabase(context.Background())
     if err != nil {
         log.Fatal(err)
     }
-    // defer statements do not run past os.Exit
-    os.Exit(code)
+    defer d.Close()
+    db = d
+    m.Run()
 }
 ```
 
 Key points:
-- Extract setup into a helper function (`runMain`) so `defer` works correctly
+- `TestMain` returns rather than calling `os.Exit`: the test wrapper passes
+  the result of `m.Run` to `os.Exit` itself (`go doc testing`), after the
+  deferred `Close` has run. A `runMain` helper returning an exit code is the
+  workaround for toolchains that predate this, not a pattern to copy
 - Write failure messages to stderr via `log.Fatal`
 - Ensure individual test cases remain hermetic---reset any global state they modify
 
@@ -140,7 +130,8 @@ anyway — or stay on `httptest.NewServer`, which listens on loopback.
 ### Calling os.Exit directly in TestMain
 
 `os.Exit` terminates the process immediately — deferred cleanup functions never
-run. Extract setup/teardown into a helper so `defer` works correctly:
+run. Return from `TestMain` instead; the test wrapper exits with the code
+`m.Run` returned:
 
 ```go
 // Bad: defers won't run
@@ -150,14 +141,10 @@ func TestMain(m *testing.M) {
     os.Exit(m.Run()) // cleanup() never executes
 }
 
-// Good: Extract to a helper function so defer runs before os.Exit
-func runTests(m *testing.M) int {
+// Good: cleanup runs, then the wrapper exits with m.Run's code
+func TestMain(m *testing.M) {
     setup()
     defer cleanup()
-    return m.Run()
-}
-
-func TestMain(m *testing.M) {
-    os.Exit(runTests(m))
+    m.Run()
 }
 ```

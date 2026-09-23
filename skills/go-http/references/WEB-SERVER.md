@@ -27,8 +27,9 @@ import (
 
 // --- Interfaces (go-interfaces) ---
 
-// Store defines the data access boundary. Defined in the consumer
-// package, not the implementation package.
+// Store is what Server reads from the database, declared beside its consumer
+// so Server's tests can pass a fake. In a split module it stays with Server,
+// not with dbStore.
 type Store interface {
     GetUser(ctx context.Context, id string) (*User, error)
 }
@@ -42,8 +43,9 @@ type User struct {
 // dbStore is the production Store; the body is elided here.
 type dbStore struct{ dsn string }
 
-// NewDBStore returns the Store backed by the database at dsn (go-database).
-func NewDBStore(dsn string) Store { return &dbStore{dsn: dsn} }
+// newDBStore returns the concrete store; Server accepts it as a Store
+// (go-interfaces: accept interfaces, return concrete types).
+func newDBStore(dsn string) *dbStore { return &dbStore{dsn: dsn} }
 
 func (s *dbStore) GetUser(ctx context.Context, id string) (*User, error) {
     return nil, ErrNotFound // real query: go-database
@@ -57,8 +59,7 @@ type Server struct {
     router *http.ServeMux
 }
 
-// NewServer creates a Server with the given dependencies.
-// The caller must call Shutdown to release resources.
+// NewServer returns a Server whose routes read from store.
 func NewServer(store Store) *Server {
     s := &Server{store: store}
     s.router = http.NewServeMux()
@@ -91,10 +92,7 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
     }
 
     w.Header().Set("Content-Type", "application/json")
-    // go-error-handling: never discard this — a half-written body is a real failure
-    if err := json.MarshalWrite(w, user); err != nil {
-        slog.ErrorContext(ctx, "encode response failed", "id", id, "err", err)
-    }
+    _ = json.MarshalWrite(w, user) // headers are sent; a failed write is the client's disconnect
 }
 
 // --- Graceful shutdown (go-concurrency, go-defensive, go-packages) ---
@@ -111,7 +109,7 @@ func run() error {
     ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
     defer stop()
 
-    store := NewDBStore(os.Getenv("DATABASE_URL"))
+    store := newDBStore(os.Getenv("DATABASE_URL"))
     srv := NewServer(store)
 
     httpSrv := &http.Server{
@@ -151,7 +149,7 @@ func run() error {
 
 | Area | Skill | What's demonstrated |
 |------|-------|---------------------|
-| Interface at consumer | [go-interfaces](../../go-interfaces/SKILL.md) | `Store` defined where it's used |
+| Interface at consumer | [go-interfaces](../../go-interfaces/SKILL.md) | `Store` defined where it's used; the constructor returns the concrete type |
 | Naming | [go-naming](../../go-naming/SKILL.md) | MixedCaps, receiver abbreviation, clear func names |
 | Error handling | [go-error-handling](../../go-error-handling/SKILL.md) | Sentinels, `errors.Is`, log-or-return |
 | Context | [go-context](../../go-context/SKILL.md) | Derived from request, passed through |

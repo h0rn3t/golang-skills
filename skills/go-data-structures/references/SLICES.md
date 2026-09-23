@@ -105,8 +105,7 @@ subset[0] = 99
 fmt.Println(original)  // [1, 99, 3, 4, 5] - modified!
 
 // Fix: make independent copy
-subset := make([]int, 2)
-copy(subset, original[1:3])
+subset := slices.Clone(original[1:3])
 ```
 
 ### 2. Append May or May Not Reallocate
@@ -125,11 +124,7 @@ a = append(a, 5, 6) // Exceeds capacity - now independent
 func getHeader(file []byte) []byte { return file[:100] }
 
 // Good: copy to release the large array
-func getHeader(file []byte) []byte {
-    header := make([]byte, 100)
-    copy(header, file)
-    return header
-}
+func getHeader(file []byte) []byte { return bytes.Clone(file[:100]) }
 ```
 
 ### 4. Nil vs Empty Slice

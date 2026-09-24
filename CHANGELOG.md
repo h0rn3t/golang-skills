@@ -85,6 +85,19 @@ All notable changes to this repository are documented here.
     overflow to a negative wait.
   - Smaller fixes in go-documentation, go-interfaces, go-functions,
     go-naming, go-style-core, go-context, and go-performance.
+- `abrun` records readability, which the counts could not see on a model
+  whose golden tests saturate: `max_func_lines`, `p90_func_lines`,
+  `max_nesting`, and three slop proxies — `echo_docs` (a doc comment whose
+  first sentence only restates the name), `one_call_helpers` (an unexported
+  function of at most three statements used once), and `log_and_return`.
+  Each run also keeps its production `source`. The fields are new keys; a
+  report written before them loads, and its summary prints a dash instead of
+  a zero.
+- `abrun -judge` asks a blind pairwise judge (`-judge-model`, default
+  `claude-fable-5-1`) which of two arms' diffs reads better
+  (`-judge-pair`, default `reference,baseline`). Each pair is judged in both
+  orders; a preference counts only when both agree, the rest are ties with a
+  positional-disagreement count, and a failed call is `skipped (reason)`.
 
 ## [1.22.2] - 2026-09-24
 

@@ -151,6 +151,11 @@ type options struct {
 	verbose    bool
 	keep       bool
 	repair     bool
+	// judge runs the blind pairwise readability judge on judgePair after the
+	// runs; judgeModel is the model it asks.
+	judge      bool
+	judgeModel string
+	judgePair  string
 }
 
 func main() {
@@ -173,6 +178,9 @@ func main() {
 	flag.BoolVar(&o.verbose, "verbose", false, "print the model's final message for every run")
 	flag.BoolVar(&o.keep, "keep", false, "keep every run's scratch tree, including successful source and model tests (.model)")
 	flag.BoolVar(&o.repair, "repair", false, "after the session, return the measured line count and any independent failure and grant one repair turn")
+	flag.BoolVar(&o.judge, "judge", false, "after the runs, ask a blind pairwise judge which arm's production code reads better (through the claude CLI, whatever -runner is)")
+	flag.StringVar(&o.judgeModel, "judge-model", judgeModelDefault, "model the -judge comparisons ask")
+	flag.StringVar(&o.judgePair, "judge-pair", referenceArm+",baseline", "the two arms -judge compares, comma-separated")
 	flag.Parse()
 
 	if err := run(o); err != nil {
@@ -253,6 +261,23 @@ type metrics struct {
 	// leaning on what the standard library already decides and re-deciding it
 	// by hand — which the declaration counts cannot see when the API is fixed.
 	Branches int `json:"branches"`
+	// The readability fields (readability.go) read the shape the counts cannot
+	// see. They are pointers so a report written before they existed loads as
+	// unmeasured, and a summary prints a dash for it rather than a zero.
+	MaxFuncLines   *int `json:"max_func_lines,omitempty"`
+	P90FuncLines   *int `json:"p90_func_lines,omitempty"`
+	MaxNesting     *int `json:"max_nesting,omitempty"`
+	EchoDocs       *int `json:"echo_docs,omitempty"`
+	OneCallHelpers *int `json:"one_call_helpers,omitempty"`
+	LogAndReturn   *int `json:"log_and_return,omitempty"`
+}
+
+// subPtr is a - b, or nil when either side was not measured.
+func subPtr(a, b *int) *int {
+	if a == nil || b == nil {
+		return nil
+	}
+	return new(*a - *b)
 }
 
 func (m metrics) sub(o metrics) metrics {
@@ -268,6 +293,13 @@ func (m metrics) sub(o metrics) metrics {
 		Pattern:      m.Pattern - o.Pattern,
 		Exported:     m.Exported - o.Exported,
 		Branches:     m.Branches - o.Branches,
+
+		MaxFuncLines:   subPtr(m.MaxFuncLines, o.MaxFuncLines),
+		P90FuncLines:   subPtr(m.P90FuncLines, o.P90FuncLines),
+		MaxNesting:     subPtr(m.MaxNesting, o.MaxNesting),
+		EchoDocs:       subPtr(m.EchoDocs, o.EchoDocs),
+		OneCallHelpers: subPtr(m.OneCallHelpers, o.OneCallHelpers),
+		LogAndReturn:   subPtr(m.LogAndReturn, o.LogAndReturn),
 	}
 }
 
@@ -294,6 +326,9 @@ type result struct {
 	// with a zero delta; it is a run that never happened where it was measured,
 	// and averaging it in would hide that as a tie.
 	Edited bool `json:"edited"`
+	// Source is the production code the run left, by path in the fixture; the
+	// judge reads it, and a heuristic's hits are checked against it by hand.
+	Source map[string]string `json:"source,omitempty"`
 	// Leaked reports that the transcript mentions the fixture corpus in the
 	// repository rather than the scratch copy. The hidden golden test sits there
 	// next to the fixtures, so a session that found its way back to the checkout
@@ -387,6 +422,8 @@ type report struct {
 	// Rescored is set when the review scores were recomputed against amended
 	// keys after the run; the sessions and their outputs are the originals.
 	Rescored time.Time `json:"rescored,omitzero"`
+	// Judgements are the -judge comparisons; empty when the judge did not run.
+	Judgements []judgement `json:"judgements,omitempty"`
 }
 
 type job struct {
@@ -442,6 +479,12 @@ func run(o options) error {
 	if err != nil {
 		return err
 	}
+	var pair [2]string
+	if o.judge {
+		if pair, err = judgePair(o, arms); err != nil {
+			return err
+		}
+	}
 	switch o.runner {
 	case runnerOpencode:
 		homes, err := opencodeHomes(arms)
@@ -480,6 +523,10 @@ func run(o options) error {
 
 	fmt.Println()
 	printSummary(rep)
+	if o.judge {
+		rep.Judgements = judgePairs(rep, abDir, pair, claudeJudge(o), o.parallel)
+		printJudgeSummary(rep.Judgements, pair)
+	}
 
 	if o.out != "" {
 		data, err := json.MarshalIndent(rep, "", "  ")
@@ -846,6 +893,12 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		}
 		res.After = after
 		res.Delta = after.sub(before)
+		if o.corpus != corpusReview {
+			if res.Source, err = productionSources(pkgDir); err != nil && res.Err == "" {
+				res.Err = fmt.Sprintf("read result source: %v", err)
+				return false
+			}
+		}
 		res.LineGatePass = res.Delta.Lines <= 0
 		res.EmptyDiff = !res.Edited && res.Err == ""
 		res.GoFail, res.Build = "", false
@@ -1235,6 +1288,7 @@ func fixtureDigest(dir string) (string, error) {
 func analyze(dir string) (metrics, error) {
 	var m metrics
 	fset := token.NewFileSet()
+	packages := map[string][]*ast.File{}
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -1259,9 +1313,14 @@ func analyze(dir string) (metrics, error) {
 		}
 		countDecls(file, &m)
 		m.BodyComments += bodyCommentLines(fset, file)
+		packages[filepath.Dir(path)] = append(packages[filepath.Dir(path)], file)
 		return nil
 	})
-	return m, err
+	if err != nil {
+		return m, err
+	}
+	m.readability(fset, packages)
+	return m, nil
 }
 
 // bodyCommentLines counts the comment lines that sit inside a function body,
@@ -1986,6 +2045,41 @@ type armSummary struct {
 	Costed int
 	// Review is filled on the review corpus only.
 	Review reviewSummary
+	// Readability sums the readability deltas over the valid runs that carry
+	// them. A report written before those fields existed has none, and the
+	// summary prints a dash rather than a zero.
+	Readability readabilitySum
+}
+
+type readabilitySum struct {
+	Runs                                   int
+	MaxFuncLines, P90FuncLines, MaxNesting int
+	EchoDocs, OneCallHelpers, LogAndReturn int
+}
+
+// add counts d when every readability field was measured.
+func (s *readabilitySum) add(d metrics) {
+	fields := []*int{d.MaxFuncLines, d.P90FuncLines, d.MaxNesting, d.EchoDocs, d.OneCallHelpers, d.LogAndReturn}
+	if slices.Contains(fields, nil) {
+		return
+	}
+	s.Runs++
+	s.MaxFuncLines += *d.MaxFuncLines
+	s.P90FuncLines += *d.P90FuncLines
+	s.MaxNesting += *d.MaxNesting
+	s.EchoDocs += *d.EchoDocs
+	s.OneCallHelpers += *d.OneCallHelpers
+	s.LogAndReturn += *d.LogAndReturn
+}
+
+// line renders the per-run means, or a dash when no run was measured.
+func (s readabilitySum) line(valid int) string {
+	if s.Runs == 0 {
+		return "readability Δ/run: — (not measured in this report)"
+	}
+	mean := func(sum int) float64 { return float64(sum) / float64(s.Runs) }
+	return fmt.Sprintf("readability Δ/run: max func %.1f, p90 func %.1f, nesting %.2f, echo docs %.2f, one-call helpers %.2f, log-and-return %.2f (%d/%d runs)",
+		mean(s.MaxFuncLines), mean(s.P90FuncLines), mean(s.MaxNesting), mean(s.EchoDocs), mean(s.OneCallHelpers), mean(s.LogAndReturn), s.Runs, valid)
 }
 
 // skillFired reports whether a run reached the skill its corpus is about. The
@@ -2074,6 +2168,7 @@ func summarizeArm(rep report, name string) armSummary {
 		summary.Pattern += r.Delta.Pattern
 		summary.Exported += r.Delta.Exported
 		summary.Branches += r.Delta.Branches
+		summary.Readability.add(r.Delta)
 		if r.FixHunksBefore != nil && r.FixHunks != nil {
 			summary.FixMeasured++
 			summary.FixBefore += *r.FixHunksBefore
@@ -2143,6 +2238,7 @@ func printSummary(rep report) {
 		}
 		fmt.Printf("%-24s   line gate %d/%d, behavior failures %d, counts reported %d/%d\n",
 			"", summary.LineGatePasses, completed, summary.BehaviorFailures, summary.ReportedCounts, completed)
+		fmt.Printf("%-24s   %s\n", "", summary.Readability.line(summary.Valid))
 		if summary.FixMeasured > 0 {
 			fixMean := func(sum int) float64 { return float64(sum) / float64(summary.FixMeasured) }
 			fmt.Printf("%-24s   go fix pending %.2f -> %.2f hunk(s)/run, nothing left to propose in %d/%d\n",

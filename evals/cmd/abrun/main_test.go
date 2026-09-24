@@ -81,6 +81,11 @@ func TestAnalyzeIncludesNestedGoFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("analyze(%q) error = %v, want nil", root, err)
 	}
+	if got.MaxFuncLines == nil || *got.MaxFuncLines != 1 {
+		t.Errorf("analyze(%q).MaxFuncLines = %v, want 1 for two one-line functions", root, got.MaxFuncLines)
+	}
+	got.MaxFuncLines, got.P90FuncLines, got.MaxNesting = nil, nil, nil
+	got.EchoDocs, got.OneCallHelpers, got.LogAndReturn = nil, nil, nil
 	want := metrics{Lines: 7, Files: 2, TestFiles: 1, Types: 2, Interfaces: 1, Funcs: 2, Exported: 4}
 	if got != want {
 		t.Errorf("analyze(%q) = %+v, want %+v", root, got, want)

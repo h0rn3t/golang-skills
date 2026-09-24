@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -123,4 +124,27 @@ func lastEnv(env []string, key string) string {
 		}
 	}
 	return value
+}
+
+func TestOpencodeVariants(t *testing.T) {
+	listing := []byte("opencode-go/gpt-6-luna-mini\n{\"id\": \"mini\", \"variants\": {\"high\": {}}}\n" +
+		"opencode-go/gpt-6-luna\n{\n  \"id\": \"gpt-6-luna\",\n  \"variants\": {\"none\": {}, \"medium\": {\"reasoningEffort\": \"medium\"}, \"low\": {}}\n}\n")
+	got, ok := opencodeVariants(listing, "opencode-go/gpt-6-luna")
+	if !ok || !slices.Equal(got, []string{"low", "medium", "none"}) {
+		t.Errorf("opencodeVariants(gpt-6-luna) = %v, %t; want [low medium none], true", got, ok)
+	}
+	if _, ok := opencodeVariants(listing, "opencode-go/absent"); ok {
+		t.Error("opencodeVariants(absent model) ok = true, want false")
+	}
+}
+
+func TestOpencodeErrorEvent(t *testing.T) {
+	out := []byte(`{"type":"step_start"}` + "\n" +
+		`{"type":"error","error":{"name":"UnknownError","data":{"message":"Unexpected server error."}}}` + "\n")
+	if got, want := opencodeErrorEvent(out), "UnknownError: Unexpected server error."; got != want {
+		t.Errorf("opencodeErrorEvent() = %q, want %q", got, want)
+	}
+	if got := opencodeErrorEvent([]byte(`{"type":"text"}`)); got != "" {
+		t.Errorf("opencodeErrorEvent(no error event) = %q, want empty", got)
+	}
 }

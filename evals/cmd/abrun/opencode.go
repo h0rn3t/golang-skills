@@ -6,12 +6,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -83,6 +88,24 @@ func opencodeAuth() ([]byte, error) {
 // writeOpencodeHome lays out one arm home: the shared config, the credentials,
 // and the arm's skills. armDir is the materialized plugin tree, or empty for the
 // control arm, which gets a home with no skills directory at all.
+// opencodeCatalog reads the operator's cached model catalog; a missing one is
+// not an error.
+func opencodeCatalog() ([]byte, error) {
+	cache := os.Getenv("XDG_CACHE_HOME")
+	if cache == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("locate opencode model catalog: %w", err)
+		}
+		cache = filepath.Join(home, ".cache")
+	}
+	data, err := os.ReadFile(filepath.Join(cache, "opencode", "models.json"))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	return data, err
+}
+
 func writeOpencodeHome(home, armDir string, auth []byte) error {
 	config := filepath.Join(home, ".config", "opencode")
 	if err := os.MkdirAll(config, 0o755); err != nil {
@@ -90,6 +113,20 @@ func writeOpencodeHome(home, armDir string, auth []byte) error {
 	}
 	if err := os.WriteFile(filepath.Join(config, "opencode.json"), []byte(fmt.Sprintf(opencodeConfig, maxSteps)), 0o644); err != nil {
 		return err
+	}
+	// The model catalog opencode resolves -model against lives in its cache. A
+	// fresh home falls back to the catalog bundled with the binary, which lacks
+	// newer models, so the arm gets the one the operator's opencode has.
+	if catalog, err := opencodeCatalog(); err != nil {
+		return err
+	} else if catalog != nil {
+		cache := filepath.Join(home, ".cache", "opencode")
+		if err := os.MkdirAll(cache, 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(cache, "models.json"), catalog, 0o644); err != nil {
+			return err
+		}
 	}
 	if auth != nil {
 		data := filepath.Join(home, ".local", "share", "opencode")
@@ -143,8 +180,47 @@ func opencodeSession(o options, home, work, prompt string) ([]byte, error) {
 	if o.model != "" {
 		args = append(args, "--model", o.model)
 	}
+	if o.effort != "" {
+		args = append(args, "--variant", o.effort)
+	}
 	args = append(args, prompt)
 	return opencodeCmd(o.timeout, work, home, args...)
+}
+
+// checkOpencodeVariant confirms the model declares variant. opencode accepts
+// any --variant without complaint and serves an unknown one at the model's
+// default, which would make the effort recorded in the report a lie.
+func checkOpencodeVariant(model, variant string) error {
+	provider, _, _ := strings.Cut(model, "/")
+	out, err := exec.Command("opencode", "models", provider, "--verbose").Output()
+	if err != nil {
+		return fmt.Errorf("list opencode models for %s: %w", provider, err)
+	}
+	variants, ok := opencodeVariants(out, model)
+	if !ok {
+		return exitError{2, fmt.Sprintf("opencode lists no model %q", model)}
+	}
+	if !slices.Contains(variants, variant) {
+		return exitError{2, fmt.Sprintf("-effort %q: opencode model %s declares variants [%s]", variant, model, strings.Join(variants, ", "))}
+	}
+	return nil
+}
+
+// opencodeVariants reads the variants of model from `opencode models
+// --verbose`, which prints each model's name on its own line followed by its
+// metadata as a JSON object.
+func opencodeVariants(listing []byte, model string) ([]string, bool) {
+	_, rest, ok := bytes.Cut(append([]byte("\n"), listing...), []byte("\n"+model+"\n"))
+	if !ok {
+		return nil, false
+	}
+	var meta struct {
+		Variants map[string]json.RawMessage `json:"variants"`
+	}
+	if err := json.NewDecoder(bytes.NewReader(rest)).Decode(&meta); err != nil {
+		return nil, false
+	}
+	return slices.Sorted(maps.Keys(meta.Variants)), true
 }
 
 // opencodeCmd runs one opencode invocation and returns everything it wrote to
@@ -185,9 +261,33 @@ func opencodeCmd(timeout time.Duration, dir, home string, args ...string) ([]byt
 		if message := strings.TrimSpace(stderr.String()); message != "" {
 			return out, fmt.Errorf("opencode: %w: %s", runErr, message)
 		}
+		if message := opencodeErrorEvent(out); message != "" {
+			return out, fmt.Errorf("opencode: %w: %s", runErr, message)
+		}
 		return out, fmt.Errorf("opencode: %w", runErr)
 	}
 	return out, nil
+}
+
+// opencodeErrorEvent returns the message of the first error event in a JSON
+// transcript. opencode run reports a failed session there and leaves stderr
+// empty, so without it the run's error says only "exit status 1".
+func opencodeErrorEvent(out []byte) string {
+	for line := range bytes.Lines(out) {
+		var ev struct {
+			Type  string `json:"type"`
+			Error struct {
+				Name string `json:"name"`
+				Data struct {
+					Message string `json:"message"`
+				} `json:"data"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(line, &ev) == nil && ev.Type == "error" {
+			return strings.TrimSpace(ev.Error.Name + ": " + ev.Error.Data.Message)
+		}
+	}
+	return ""
 }
 
 // opencodeEnv points every path opencode derives from the environment at the

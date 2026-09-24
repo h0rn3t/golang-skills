@@ -98,6 +98,11 @@ All notable changes to this repository are documented here.
   (`-judge-pair`, default `reference,baseline`). Each pair is judged in both
   orders; a preference counts only when both agree, the rest are ties with a
   positional-disagreement count, and a failed call is `skipped (reason)`.
+- `abrun -runner opencode` accepts `-effort`, passed as `--variant` after
+  checking that the model declares that variant (opencode accepts an unknown
+  one silently); arm homes get the operator's model catalog, so a model newer
+  than the binary's bundled catalog resolves; a failed session reports the
+  transcript's error event instead of a bare `exit status 1`.
 
 ## [1.22.2] - 2026-09-24
 

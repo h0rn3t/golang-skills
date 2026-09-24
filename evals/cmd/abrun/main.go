@@ -102,7 +102,7 @@ const (
 // effortRunners are the runners whose CLI can set a reasoning effort level. The
 // flag is rejected elsewhere rather than ignored, because a run recorded as
 // xhigh that was served at the model's default is a report that lies.
-var effortRunners = []string{runnerClaude, runnerCodex, runnerCopilot}
+var effortRunners = []string{runnerClaude, runnerCodex, runnerCopilot, runnerOpencode}
 
 // traceFile is the raw session transcript, written at the root of the scratch
 // tree so it sits outside the fixture package that gets measured and digested.
@@ -166,7 +166,7 @@ func main() {
 	flag.StringVar(&o.prompt, "prompt", "", "prompt template; %s is the fixture directory (default: the corpus prompt)")
 	flag.StringVar(&o.corpus, "corpus", corpusRefactor, "fixture corpus to run: refactor, implement or review")
 	flag.StringVar(&o.model, "model", "", "model for the evaluated run (default: the runner's own default; required for opencode)")
-	flag.StringVar(&o.effort, "effort", "", "reasoning effort for the evaluated run, e.g. medium (claude, codex and copilot only)")
+	flag.StringVar(&o.effort, "effort", "", "reasoning effort for the evaluated run, e.g. medium (opencode: a --variant the model declares)")
 	flag.StringVar(&o.runner, "runner", runnerClaude, "agent CLI to drive: claude, opencode, copilot or codex")
 	flag.StringVar(&o.out, "out", "", "write the JSON report to this file")
 	flag.StringVar(&o.referenceRoot, "reference-root", "", "alternate plugin root for a reference arm")
@@ -487,6 +487,11 @@ func run(o options) error {
 	}
 	switch o.runner {
 	case runnerOpencode:
+		if o.effort != "" {
+			if err := checkOpencodeVariant(o.model, o.effort); err != nil {
+				return err
+			}
+		}
 		homes, err := opencodeHomes(arms)
 		defer homes()
 		if err != nil {

@@ -52,6 +52,43 @@ and `assets/` subdirectories:
 cp -R skills/go-* ~/.claude/skills/
 ```
 
+## Updating
+
+### Claude Code
+
+Refresh the marketplace snapshot, update the plugin, then restart Claude Code
+to load the new version:
+
+```bash
+claude plugin marketplace update golang-skills
+claude plugin update golang-skills@golang-skills
+claude plugin list   # shows the installed version
+```
+
+### Codex
+
+Codex reads the skills that `npx skills` installs under `~/.agents/skills/`.
+Update them, then start a new Codex session:
+
+```bash
+npx skills update -g
+```
+
+Re-running `npx skills add h0rn3t/golang-skills --all -g` also works and picks
+up skills added since the last install.
+
+### Manual installation
+
+Pull the checkout and replace the skill directories rather than copying over
+them, so files removed upstream do not linger:
+
+```bash
+git pull
+rm -rf ~/.claude/skills/go-* && cp -R skills/go-* ~/.claude/skills/
+```
+
+For Codex, use `~/.agents/skills/` as the target directory.
+
 ## Validation
 
 `evals/` contains the structural Go test suite, fixtures, golden tests, and

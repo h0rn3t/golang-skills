@@ -51,6 +51,43 @@ npx skills add h0rn3t/golang-skills --all
 cp -R skills/go-* ~/.claude/skills/
 ```
 
+## Оновлення
+
+### Claude Code
+
+Оновіть знімок маркетплейсу, потім сам плагін і перезапустіть Claude Code, щоб
+підхопити нову версію:
+
+```bash
+claude plugin marketplace update golang-skills
+claude plugin update golang-skills@golang-skills
+claude plugin list   # показує встановлену версію
+```
+
+### Codex
+
+Codex читає скіли, які `npx skills` встановлює в `~/.agents/skills/`. Оновіть
+їх і відкрийте нову сесію Codex:
+
+```bash
+npx skills update -g
+```
+
+Повторний `npx skills add h0rn3t/golang-skills --all -g` теж працює і додає
+скіли, що з'явилися після попереднього встановлення.
+
+### Ручне встановлення
+
+Оновіть checkout і замініть директорії скілів, а не копіюйте поверх них, щоб
+видалені в апстрімі файли не залишалися:
+
+```bash
+git pull
+rm -rf ~/.claude/skills/go-* && cp -R skills/go-* ~/.claude/skills/
+```
+
+Для Codex цільова директорія — `~/.agents/skills/`.
+
 ## Перевірка
 
 `evals/` містить структурні Go-тести, fixtures, golden-тести та опційні

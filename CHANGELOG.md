@@ -4,6 +4,10 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- `README.md` and `README.uk.md` gain an "Updating" section: the Claude Code
+  plugin update commands, `npx skills update -g` for Codex, and a manual
+  replace-not-overwrite refresh.
+
 ## [1.22.2] - 2026-09-24
 
 - `evalrun`'s quality judge returns its verdict through `claude -p

@@ -30,7 +30,7 @@ sensitive details; external responses may need a separate safe message.
 // Good: keep the cause opaque when that is the API's contract
 func (s *Server) SuggestFortune(ctx context.Context, req *pb.Request) (*pb.Response, error) {
     if err != nil {
-        return nil, fmt.Errorf("couldn't find fortune database: %v", err)
+        return nil, fmt.Errorf("find fortune database: %v", err)
     }
 }
 ```
@@ -43,7 +43,7 @@ Use `%w` when you want callers to programmatically inspect the underlying error:
 // Good: %w preserves error chain for errors.Is/errors.As
 func (s *Server) internalFunction(ctx context.Context) error {
     if err != nil {
-        return fmt.Errorf("couldn't find remote file: %w", err)
+        return fmt.Errorf("fetch remote file: %w", err)
     }
 }
 
@@ -110,7 +110,7 @@ information the underlying error already provides:
 // Good: Adds meaningful context
 f, err := os.Open("settings.txt")
 if err != nil {
-    return fmt.Errorf("launch codes unavailable: %v", err)
+    return fmt.Errorf("launch codes unavailable: %w", err)
 }
 defer f.Close()
 // Output: launch codes unavailable: open settings.txt: no such file or directory

@@ -133,29 +133,44 @@ scope `err` into the `if` when it is not used later
 ## 2. Extract meaningful operations
 
 Apply the [helper rule](../SKILL.md#delete-before-you-restructure): function
-length alone does not justify extraction. Mixed abstraction levels can: parsing
-an HTTP body and building SQL may each hide substantial detail worth naming.
-The example below assumes those operations contain that detail; short steps
-that are already clear stay inline.
+length alone does not justify extraction; mixed abstraction levels can.
+Decoding a body — size cap, strict decode, client-safe error — is byte
+handling beside the handler's order rule, so it is the one step named here,
+even with one call site. The price lookup, the order, and the error mapping
+are the handler's own decision and stay inline.
 
 ```go
-// after: parsing and domain details are hidden behind meaningful operations
 func (s *Server) HandleOrder(w http.ResponseWriter, r *http.Request) {
-    req, err := decodeOrderRequest(r)
+    req, err := decodeOrderRequest(w, r)
     if err != nil {
-        writeError(w, http.StatusBadRequest, err)
+        http.Error(w, err.Error(), http.StatusBadRequest)
         return
     }
-    if err := validateOrder(req); err != nil {
-        writeError(w, http.StatusUnprocessableEntity, err)
+    price, ok := s.prices[req.SKU]
+    if !ok {
+        http.Error(w, "unknown sku", http.StatusUnprocessableEntity)
         return
     }
-    order := buildOrder(req, s.pricing)
+    order := Order{SKU: req.SKU, Quantity: req.Quantity, Total: price * int64(req.Quantity)}
     if err := s.orders.Save(r.Context(), order); err != nil {
-        writeError(w, http.StatusInternalServerError, err)
+        slog.ErrorContext(r.Context(), "save order", "sku", req.SKU, "err", err)
+        http.Error(w, "internal error", http.StatusInternalServerError)
         return
     }
-    writeJSON(w, http.StatusOK, orderResponse(order))
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.MarshalWrite(w, order) // headers are sent; a failed write is the client's disconnect
+}
+
+// decodeOrderRequest's error text goes to the client, so it omits the decoder's detail.
+func decodeOrderRequest(w http.ResponseWriter, r *http.Request) (orderRequest, error) {
+    var req orderRequest
+    if err := json.UnmarshalRead(http.MaxBytesReader(w, r.Body, 1<<20), &req, json.RejectUnknownMembers(true)); err != nil {
+        return orderRequest{}, errors.New("invalid JSON body")
+    }
+    if req.SKU == "" || req.Quantity <= 0 {
+        return orderRequest{}, errors.New("sku and a positive quantity are required")
+    }
+    return req, nil
 }
 ```
 

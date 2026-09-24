@@ -131,26 +131,25 @@ func IsExpired(expiry time.Time) bool {
 
 **Good**
 ```go
-type Checker struct {
-    now func() time.Time
-}
-
-func NewChecker() *Checker {
-    return &Checker{now: time.Now}
-}
-
-func (c *Checker) IsExpired(expiry time.Time) bool {
-    return c.now().After(expiry)
+func IsExpired(now, expiry time.Time) bool {
+    return now.After(expiry)
 }
 ```
 
-Tests replace `now` with a fixed function:
+The caller passes `time.Now()`; a test passes a fixed instant, and no type
+exists to hold a clock:
 
 ```go
-c := &Checker{now: func() time.Time {
-    return time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
-}}
+expiry := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+if !IsExpired(expiry.Add(time.Second), expiry) {
+    t.Error("IsExpired(expiry+1s, expiry) = false, want true")
+}
 ```
+
+Code that sleeps or waits on a timer keeps calling `time.Now`, and its test
+runs inside `synctest.Test`, whose fake clock starts at midnight UTC
+2000-01-01 and advances only when every goroutine in the bubble is blocked
+([go-testing](../../go-testing/SKILL.md#use-the-toolchains-test-apis)).
 
 ## Summary
 

@@ -25,16 +25,14 @@ loops, it keeps the loop body from being optimized away.
 func BenchmarkStrconv(b *testing.B) {
     n := 123456789
     for b.Loop() {
-        s := strconv.Itoa(n)
-        _ = s
+        strconv.Itoa(n)
     }
 }
 
 func BenchmarkFmtSprint(b *testing.B) {
     n := 123456789
     for b.Loop() {
-        s := fmt.Sprint(n)
-        _ = s
+        _ = fmt.Sprint(n) // vet's unusedresult reports a bare fmt.Sprint
     }
 }
 ```

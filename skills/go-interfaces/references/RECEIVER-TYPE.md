@@ -30,7 +30,7 @@ sense.
 - **Simple basic types**: `int`, `string`, etc.
 
 ```go
-// Value receiver: small, immutable type
+// Value receivers: small, immutable type; scaling returns a new Point
 type Point struct {
     X, Y float64
 }
@@ -39,13 +39,11 @@ func (p Point) Distance(q Point) float64 {
     return math.Hypot(q.X-p.X, q.Y-p.Y)
 }
 
-// Pointer receiver: method mutates receiver
-func (p *Point) ScaleBy(factor float64) {
-    p.X *= factor
-    p.Y *= factor
+func (p Point) Scale(factor float64) Point {
+    return Point{X: p.X * factor, Y: p.Y * factor}
 }
 
-// Pointer receiver: contains sync.Mutex
+// Pointer receiver: mutates, and contains sync.Mutex
 type Counter struct {
     mu    sync.Mutex
     count int

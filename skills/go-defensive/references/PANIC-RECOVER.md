@@ -95,49 +95,19 @@ Unexpected panics (nil pointer, etc.) propagate normally.
 `recover` regains control of a panicking goroutine. It only works inside
 deferred functions.
 
-### Basic Recovery Pattern
-
-```go
-func safelyDo(work *Work) {
-    defer func() {
-        if err := recover(); err != nil {
-            log.Println("work failed:", err)
-        }
-    }()
-    do(work)
-}
-```
-
-### Server Goroutine Protection
-
-Isolate panics to individual goroutines in servers:
-
-```go
-func server(workChan <-chan *Work) {
-    for work := range workChan {
-        go safelyDo(work)  // Each worker is protected
-    }
-}
-```
-
-If `do(work)` panics, the result is logged and the goroutine exits cleanly
-without disturbing others.
-
 ### Package-Internal Panic/Recover
 
 Use panic internally but convert to errors at API boundaries:
 
 ```go
-// Error is a parse error type
 type Error string
+
 func (e Error) Error() string { return string(e) }
 
-// Internal: panic with Error type
 func (regexp *Regexp) error(err string) {
     panic(Error(err))
 }
 
-// External API: converts panic to error return
 func Compile(str string) (regexp *Regexp, err error) {
     regexp = new(Regexp)
     defer func() {
@@ -162,8 +132,6 @@ func Compile(str string) (regexp *Regexp, err error) {
 
 | Pattern | Description |
 |---------|-------------|
-| Basic recovery | `defer func() { if err := recover(); err != nil { ... } }()` |
-| Server protection | Wrap each goroutine handler in safelyDo |
 | Package-internal | Panic internally, recover and return error at API boundary |
 | Type-safe recovery | Use type assertion to re-panic on unexpected errors |
 

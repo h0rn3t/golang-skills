@@ -73,22 +73,6 @@ func MustParseConfig(path string) *Config {
 func MustParseConfig(path string) *Config { ... }
 ```
 
-### Generic Must Helper
-
-For one-off uses, a generic Must helper avoids boilerplate:
-
-```go
-func Must[T any](v T, err error) T {
-    if err != nil {
-        panic(err)
-    }
-    return v
-}
-
-// Usage at package level
-var cfg = Must(ParseConfig("app.yaml"))
-```
-
 ## Relationship to Panic/Recover
 
 Must functions are a controlled use of `panic`. They should:

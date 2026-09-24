@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -29,27 +30,37 @@ func buildExampleModule(t *testing.T, files map[string]string) {
 	}
 }
 
-// The SSRF check is the security reference most likely to be copied
-// verbatim; it must compile with a caller-supplied context and reject the
-// literal addresses an attacker reaches for.
+// The SSRF defenses are the security reference most likely to be copied
+// verbatim: the allowlist must match whole labels, and the client must refuse
+// the literal addresses an attacker reaches for before it connects.
 func TestSecurityExampleSSRFTarget(t *testing.T) {
-	code := exampleBlock(t, "skills/go-security/references/INJECTION.md", "## Outbound URLs (SSRF)")
+	allow := exampleBlock(t, "skills/go-security/references/INJECTION.md", "## Outbound URLs (SSRF)")
+	client := exampleBlock(t, "skills/go-security/references/INJECTION.md", "### Arbitrary public destinations")
 	runExampleTest(t, `package example
-import ("context"; "fmt"; "net"; "net/url"; "testing")
-`+code+`
-func TestSafeTarget(t *testing.T) {
-	for _, raw := range []string{"http://127.0.0.1/admin", "http://[::1]/", "http://169.254.169.254/latest", "http://10.0.0.8/", "ftp://8.8.8.8/", "http://0.0.0.0/"} {
-		if _, err := safeTarget(t.Context(), raw); err == nil {
-			t.Errorf("safeTarget(%q) = nil error, want a blocked-range or scheme error", raw)
+import ("fmt"; "net"; "net/http"; "net/http/httptest"; "net/netip"; "strings"; "syscall"; "testing"; "time")
+`+allow+client+`
+func TestAllowedHost(t *testing.T) {
+	for host, want := range map[string]bool{"partner.example": true, "api.partner.example": true, "evilpartner.example": false, "partner.example.evil": false} {
+		if got := allowedHost(host, "partner.example"); got != want {
+			t.Errorf("allowedHost(%q, %q) = %t, want %t", host, "partner.example", got, want)
 		}
 	}
-	if _, err := safeTarget(t.Context(), "https://8.8.8.8/"); err != nil {
-		t.Errorf("safeTarget(public literal) error = %v, want nil", err)
+}
+func TestPublicClient(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer srv.Close()
+	c := publicClient()
+	for _, raw := range []string{srv.URL, "http://169.254.169.254/latest", "http://[::1]:1/", "http://10.0.0.8:1/", "http://0.0.0.0:1/"} {
+		resp, err := c.Get(raw)
+		if err == nil {
+			resp.Body.Close()
+			t.Errorf("Get(%q) = nil error, want a blocked address range", raw)
+			continue
+		}
+		if !strings.Contains(err.Error(), "blocked address range") {
+			t.Errorf("Get(%q) error = %v, want a blocked address range", raw, err)
+		}
 	}
-	var _ = fmt.Sprint
-	var _ = net.IPv4len
-	var _ = url.Parse
-	var _ context.Context
 }
 `)
 }
@@ -148,8 +159,7 @@ func TestHTTPExampleWebServer(t *testing.T) {
 	buildExampleModule(t, map[string]string{"main.go": code})
 }
 
-// The "caller adds concurrency" example was two declarations glued to a
-// top-level statement; it must be a compilable pair of functions.
+// The synchronous-function example must compile as a whole declaration.
 func TestConcurrencyExampleSynchronousFunctions(t *testing.T) {
 	code := exampleBlock(t, "skills/go-concurrency/references/GOROUTINE-PATTERNS.md", "## Prefer Synchronous Functions")
 	buildExampleModule(t, map[string]string{"work.go": `package example
@@ -268,6 +278,9 @@ func TestNewStore(t *testing.T) {
 // pass against the white-box package it declares.
 func TestTestingAssetTableTemplate(t *testing.T) {
 	asset := readFile(t, filepath.Join(repoRoot(t), "skills", "go-testing", "assets", "table-test-template.go"))
+	if strings.Contains(asset, "TODO") || strings.Contains(asset, "//") {
+		t.Errorf("table-test template carries TODO or commented-out code:\n%s", asset)
+	}
 	buildExampleModule(t, map[string]string{
 		"example.go":      "package example\n\nfunc Example(s string) string { return s }\n",
 		"example_test.go": asset,
@@ -279,6 +292,35 @@ func TestTestingAssetTableTemplate(t *testing.T) {
 func TestDocumentationAssetTemplate(t *testing.T) {
 	asset := readFile(t, filepath.Join(repoRoot(t), "skills", "go-documentation", "assets", "doc-template.go"))
 	buildExampleModule(t, map[string]string{"widget.go": asset})
+}
+
+// The subcommand example returns a usage error on empty input instead of
+// indexing os.Args, and returns a failed Parse instead of exiting.
+func TestPackagesExampleSubcommands(t *testing.T) {
+	code := exampleBlock(t, "skills/go-packages/references/PACKAGE-SIZE.md", "### Subcommands")
+	runExampleTest(t, `package example
+import ("errors"; "flag"; "fmt"; "os"; "testing")
+var served, dry = 0, false
+func serve(port int) error { served = port; return nil }
+func migrate(d bool) error { dry = d; return nil }
+`+code+`
+func TestRun(t *testing.T) {
+ for _, tt := range []struct { args []string; wantErr bool }{
+  {nil, true},
+  {[]string{"deploy"}, true},
+  {[]string{"serve", "-port", "x"}, true},
+  {[]string{"serve", "-port", "9090"}, false},
+  {[]string{"migrate", "-dry_run"}, false},
+ } {
+  if err := run(tt.args); (err != nil) != tt.wantErr {
+   t.Errorf("run(%q) = %v, want error %t", tt.args, err, tt.wantErr)
+  }
+ }
+ if served != 9090 || !dry {
+  t.Errorf("serve got %d, migrate got %t; want 9090 and true", served, dry)
+ }
+}
+`)
 }
 
 func TestPackagesExampleRunPattern(t *testing.T) {

@@ -76,10 +76,7 @@ The whole policy in one function — the caller classifies the failure, the
 loop owns the budget, the wait, and cancellation:
 
 ```go
-// retry makes at most attempts calls (the first included), waiting between
-// them with capped exponential backoff and jitter. A server-requested delay
-// is a floor, never shrunk to maxWait. It stops on success, on a failure the
-// caller marks non-retryable, when attempts are spent, or when ctx ends.
+// retry makes at most attempts calls, with capped, jittered backoff between them.
 func retry(ctx context.Context, attempts int, base, maxWait time.Duration,
     attempt func(context.Context) (retryAfter time.Duration, retryable bool, err error)) error {
     for i := range attempts {
@@ -87,7 +84,7 @@ func retry(ctx context.Context, attempts int, base, maxWait time.Duration,
         if err == nil || !retryable || i == attempts-1 {
             return err
         }
-        wait := min(base<<i, maxWait)
+        wait := min(base<<min(i, 20), maxWait) // an uncapped shift overflows to a negative wait
         wait = wait/2 + rand.N(wait/2+1) // jitter within [wait/2, wait]
         wait = max(wait, retryAfter)     // Retry-After is a lower bound
         select {

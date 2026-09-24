@@ -19,7 +19,7 @@ func mustLoadTestData(t *testing.T, filename string) []byte {
     t.Helper()
     data, err := os.ReadFile(filename)
     if err != nil {
-        t.Fatalf("Setup failed: could not read %s: %v", filename, err)
+        t.Fatalf("os.ReadFile(%q) error = %v", filename, err)
     }
     return data
 }
@@ -28,7 +28,7 @@ func setupTestDB(t *testing.T) *sql.DB {
     t.Helper()
     db, err := sql.Open("sqlite3", ":memory:")
     if err != nil {
-        t.Fatalf("Could not open database: %v", err)
+        t.Fatalf("sql.Open(%q) error = %v", ":memory:", err)
     }
     t.Cleanup(func() { db.Close() })
     return db
@@ -75,22 +75,6 @@ want := BlogPost{
 }
 if diff := cmp.Diff(want, got); diff != "" {
     t.Errorf("GetPost() mismatch (-want +got):\n%s", diff)
-}
-```
-
-### Domain-Specific Comparisons
-
-For domain-specific comparisons, return values or errors instead of calling
-`t.Error`:
-
-```go
-func postLength(p BlogPost) int { return len(p.Body) }
-
-func TestBlogPost(t *testing.T) {
-    post := BlogPost{Body: "Hello"}
-    if got, want := postLength(post), 5; got != want {
-        t.Errorf("postLength(post) = %v, want %v", got, want)
-    }
 }
 ```
 

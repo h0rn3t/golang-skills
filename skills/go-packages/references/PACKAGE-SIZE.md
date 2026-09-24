@@ -67,20 +67,14 @@ func init() {
 
 ```go
 // Good: Explicit function for loading config
-func loadConfig() (Config, error) {
-    cwd, err := os.Getwd()
+func loadConfig(name string) (Config, error) {
+    raw, err := os.ReadFile(name)
     if err != nil {
         return Config{}, err
     }
-
-    raw, err := os.ReadFile(path.Join(cwd, "config.yaml"))
-    if err != nil {
-        return Config{}, err
-    }
-
     var config Config
     if err := yaml.Unmarshal(raw, &config); err != nil {
-        return Config{}, err
+        return Config{}, fmt.Errorf("parse %s: %w", name, err)
     }
     return config, nil
 }
@@ -121,19 +115,11 @@ func readFile(path string) string {
 ```go
 // Good: Return errors, let main() decide to exit
 func main() {
-    body, err := readFile(path)
+    body, err := os.ReadFile(path)
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Println(body)
-}
-
-func readFile(path string) (string, error) {
-    b, err := os.ReadFile(path)
-    if err != nil {
-        return "", err
-    }
-    return string(b), nil
+    fmt.Println(string(body))
 }
 ```
 
@@ -197,26 +183,39 @@ flag.String("output-dir", ".", "")   // hyphens beside snake_case flags
 
 ### Subcommands
 
-For complex CLIs with subcommands, use `flag.NewFlagSet` per subcommand:
+For complex CLIs with subcommands, use `flag.NewFlagSet` per subcommand with
+`flag.ContinueOnError`, so `run` returns the parse error and `main` stays the
+only exit:
 
 ```go
 func main() {
-    serveCmd := flag.NewFlagSet("serve", flag.ExitOnError)
-    port := serveCmd.Int("port", 8080, "listen port")
+    if err := run(os.Args[1:]); err != nil && !errors.Is(err, flag.ErrHelp) {
+        fmt.Fprintln(os.Stderr, err)
+        os.Exit(2)
+    }
+}
 
-    migrateCmd := flag.NewFlagSet("migrate", flag.ExitOnError)
-    dryRun := migrateCmd.Bool("dry-run", false, "preview changes")
-
-    switch os.Args[1] {
+func run(args []string) error {
+    if len(args) == 0 {
+        return errors.New("usage: tool serve|migrate [flags]")
+    }
+    switch args[0] {
     case "serve":
-        serveCmd.Parse(os.Args[2:])
-        runServe(*port)
+        fs := flag.NewFlagSet("serve", flag.ContinueOnError)
+        port := fs.Int("port", 8080, "listen port")
+        if err := fs.Parse(args[1:]); err != nil {
+            return err
+        }
+        return serve(*port)
     case "migrate":
-        migrateCmd.Parse(os.Args[2:])
-        runMigrate(*dryRun)
+        fs := flag.NewFlagSet("migrate", flag.ContinueOnError)
+        dryRun := fs.Bool("dry_run", false, "print changes without applying them")
+        if err := fs.Parse(args[1:]); err != nil {
+            return err
+        }
+        return migrate(*dryRun)
     default:
-        fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
-        os.Exit(1)
+        return fmt.Errorf("unknown command %q; usage: tool serve|migrate [flags]", args[0])
     }
 }
 ```

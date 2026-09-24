@@ -11,26 +11,22 @@ for non-blocking operations.
 > **Source**: Effective Go
 
 ```go
-var freeList = make(chan *Buffer, 100) // Buffered channel as free list
+var freeList = make(chan *Buffer, 100)
 
-// Client: Get buffer from free list or allocate new one
 func getBuffer() *Buffer {
     select {
     case b := <-freeList:
-        return b // Reuse existing buffer
+        return b
     default:
-        return new(Buffer) // Free list empty; allocate new buffer
+        return new(Buffer)
     }
 }
 
-// Server: Return buffer to free list if room, otherwise drop it
 func putBuffer(b *Buffer) {
-    b.Reset() // Prepare for reuse
+    b.Reset()
     select {
     case freeList <- b:
-        // Buffer returned to free list
-    default:
-        // Free list full; drop buffer (GC will reclaim)
+    default: // free list full: drop b for the GC
     }
 }
 ```

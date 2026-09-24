@@ -37,18 +37,15 @@ Use `slog.LevelVar` to change the minimum level at runtime (e.g., via an
 admin endpoint or signal handler):
 
 ```go
-var programLevel = new(slog.LevelVar) // default Info
+func run() error {
+    level := new(slog.LevelVar) // Info until changed
+    slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
 
-func init() {
-    logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-        Level: programLevel,
-    }))
-    slog.SetDefault(logger)
-}
-
-// Call from an admin endpoint or signal handler
-func enableDebug() {
-    programLevel.Set(slog.LevelDebug)
+    admin := http.NewServeMux() // served on an internal-only listener
+    admin.HandleFunc("POST /log-level/debug", func(w http.ResponseWriter, r *http.Request) {
+        level.Set(slog.LevelDebug)
+    })
+    // ...
 }
 ```
 
@@ -163,11 +160,8 @@ func loggingMiddleware(next http.Handler) http.Handler {
             "path", r.URL.Path,
         )
 
-        // Wrap the response writer to capture the status code
         rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
-
-        // Store logger in context for downstream handlers
-        ctx := context.WithValue(r.Context(), loggerKey, logger)
+        ctx := context.WithValue(r.Context(), loggerKey{}, logger)
         next.ServeHTTP(rw, r.WithContext(ctx))
 
         logger.Info("request completed",
@@ -223,12 +217,10 @@ that preserves those interfaces; `Unwrap` alone does not satisfy them.
 ### Retrieving the Logger from Context
 
 ```go
-type ctxKey struct{}
-
-var loggerKey = ctxKey{}
+type loggerKey struct{}
 
 func loggerFromCtx(ctx context.Context) *slog.Logger {
-    if l, ok := ctx.Value(loggerKey).(*slog.Logger); ok {
+    if l, ok := ctx.Value(loggerKey{}).(*slog.Logger); ok {
         return l
     }
     return slog.Default()
@@ -256,7 +248,7 @@ slog.Info("user logged in", "user_id", userID, "ip", ip)
 log.Fatalf("failed to connect: %v", err)
 
 // After — slog has no Fatal; use slog + os.Exit in main
-slog.Error("failed to connect", "err", err)
+slog.Error("connect", "err", err)
 os.Exit(1)
 ```
 
@@ -283,9 +275,8 @@ func NewServer(addr string, logger *log.Logger) *Server
 func NewServer(addr string, logger *slog.Logger) *Server
 
 // Or derive from context in handlers
-func (s *Server) handleRequest(ctx context.Context) {
-    logger := loggerFromCtx(ctx)
-    logger.Info("handling request")
+func (s *Server) handleExport(ctx context.Context, id string) {
+    loggerFromCtx(ctx).Info("export queued", "export_id", id)
 }
 ```
 

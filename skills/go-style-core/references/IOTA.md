@@ -21,7 +21,6 @@ const (
     Subtract
     Multiply
 )
-// Add=1, Subtract=2, Multiply=3
 ```
 
 ### When Zero Makes Sense
@@ -51,13 +50,12 @@ Use bit-shifting with `iota` for flag/bitmask enums:
 type Permission int
 
 const (
-    Read    Permission = 1 << iota  // 1
-    Write                           // 2
-    Execute                         // 4
+    Read Permission = 1 << iota
+    Write
+    Execute
 )
 
-// Combine with bitwise OR
-perms := Read | Write  // 3
+perms := Read | Write
 ```
 
 ---
@@ -70,7 +68,7 @@ A common pattern for byte size constants:
 type ByteSize float64
 
 const (
-    _           = iota // ignore first value (0)
+    _           = iota
     KB ByteSize = 1 << (10 * iota)
     MB
     GB

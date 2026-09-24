@@ -91,12 +91,12 @@ Loop:
     for _, v := range items {
         switch v.Type {
         case "done":
-            break Loop  // breaks the for loop
-        case "skip":
-            break  // breaks only the switch
+            break Loop
         }
     }
 ```
+
+A plain `break` in that case would leave only the `switch`.
 
 **Rule of thumb**: Whenever you have a `switch` inside a `for` and need to
 exit the loop from a case, always use a labeled break.

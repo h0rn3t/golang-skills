@@ -39,14 +39,18 @@ With embedding, `bufio.ReadWriter` satisfies `io.Reader`, `io.Writer`, and
 Mix embedded and named fields:
 
 ```go
-type Job struct {
-    Command string
+type job struct {
+    command string
     *log.Logger
 }
 
-job.Println("starting now...")
-job.Logger.SetPrefix("Job: ")
+j.Println("starting now...")
+j.Logger.SetPrefix("job: ")
 ```
+
+The type is unexported: in an exported `Job`, the embed would publish every
+`*log.Logger` method as part of `Job`'s API, and a named field
+`logger *log.Logger` keeps them private.
 
 ## Method Overriding
 

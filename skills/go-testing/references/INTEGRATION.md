@@ -97,18 +97,15 @@ round-trips over hand-implemented client mocks:
 
 ```go
 func TestAPIIntegration(t *testing.T) {
-    // Start a test server with a fake backend; NewTestServer owns the cleanup
     srv := httptest.NewTestServer(t, newFakeHandler())
-
-    // Use the production client over the server's transport
     httpClient := srv.Client() // starts the in-memory server and fills srv.URL
     client := api.NewClient(httpClient, srv.URL)
     result, err := client.GetUser(t.Context(), "user-123")
     if err != nil {
-        t.Fatalf("GetUser() error: %v", err)
+        t.Fatalf("GetUser(%q) error = %v", "user-123", err)
     }
     if result.Name != "Test User" {
-        t.Errorf("GetUser().Name = %q, want %q", result.Name, "Test User")
+        t.Errorf("GetUser(%q).Name = %q, want %q", "user-123", result.Name, "Test User")
     }
 }
 ```

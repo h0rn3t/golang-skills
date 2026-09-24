@@ -23,8 +23,7 @@ func openDB(ctx context.Context, dsn string) (*sql.DB, error) {
     pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
     defer cancel()
     if err := db.PingContext(pingCtx); err != nil {
-        db.Close()
-        return nil, fmt.Errorf("ping db: %w", err)
+        return nil, errors.Join(fmt.Errorf("ping db: %w", err), db.Close())
     }
     return db, nil
 }
@@ -65,11 +64,8 @@ func withTx(ctx context.Context, db *sql.DB, fn func(tx *sql.Tx) error) error {
     if err != nil {
         return fmt.Errorf("begin: %w", err)
     }
-    defer tx.Rollback() // also releases the transaction if fn panics
+    defer tx.Rollback() // no-op after Commit; also runs when fn fails or panics
     if err := fn(tx); err != nil {
-        if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
-            return errors.Join(err, fmt.Errorf("rollback: %w", rbErr))
-        }
         return err
     }
     if err := tx.Commit(); err != nil {
@@ -80,9 +76,9 @@ func withTx(ctx context.Context, db *sql.DB, fn func(tx *sql.Tx) error) error {
 
 func (r *AccountRepo) Transfer(ctx context.Context, from, to int64, cents int64) error {
     return withTx(ctx, r.db, func(tx *sql.Tx) error {
-        // Lock in a fixed order so two transfers cannot deadlock each other.
-        lo, hi := min(from, to), max(from, to)
-        if _, err := tx.ExecContext(ctx, `SELECT id FROM accounts WHERE id IN ($1, $2) ORDER BY id FOR UPDATE`, lo, hi); err != nil {
+        // ORDER BY id takes both locks in one fixed order, so two opposite
+        // transfers cannot deadlock each other.
+        if _, err := tx.ExecContext(ctx, `SELECT id FROM accounts WHERE id IN ($1, $2) ORDER BY id FOR UPDATE`, from, to); err != nil {
             return fmt.Errorf("lock accounts: %w", err)
         }
         if err := move(ctx, tx, from, -cents); err != nil {

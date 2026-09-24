@@ -26,7 +26,7 @@ internal state that helps during development or troubleshooting:
 ```go
 slog.Debug("cache lookup", "key", key, "hit", hit)
 slog.Debug("parsed config", "fields", len(cfg.Fields))
-slog.Debug("SQL query", "query", q, "args", args)
+slog.Debug("SQL query", "query", q, "arg_count", len(args)) // arguments can carry PII
 ```
 
 **When to use**: Internal state transitions, cache behavior, detailed
@@ -125,8 +125,9 @@ Pass `*slog.Logger` as a function parameter alongside context:
 
 ```go
 func processOrder(ctx context.Context, logger *slog.Logger, order *Order) error {
-    logger.Info("processing order", "order_id", order.ID)
     // ...
+    logger.InfoContext(ctx, "order shipped", "order_id", order.ID)
+    return nil
 }
 ```
 

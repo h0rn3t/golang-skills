@@ -111,15 +111,10 @@ import (
 func Test${FUNC}(t *testing.T) {
 ${parallel_top}	tests := []struct {
 		name string
-		give string // TODO: replace with actual input type
-		want string // TODO: replace with actual output type
+		give string
+		want string
 	}{
-		{
-			name: "basic case",
-			give: "",
-			want: "",
-		},
-		// TODO: add more test cases
+		{name: "empty", give: "", want: ""},
 	}
 
 	for _, tt := range tests {
@@ -128,10 +123,6 @@ ${parallel_sub}			got := ${FUNC}(tt.give)
 			if got != tt.want {
 				t.Errorf("${FUNC}(%q) = %q, want %q", tt.give, got, tt.want)
 			}
-			// For richer diffs, consider:
-			//   if diff := cmp.Diff(tt.want, got); diff != "" {
-			//       t.Errorf("${FUNC}() mismatch (-want +got):\n%s", diff)
-			//   }
 		})
 	}
 }

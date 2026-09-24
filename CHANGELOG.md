@@ -51,6 +51,40 @@ All notable changes to this repository are documented here.
   `CATALOG.md` links the duplication fold to its real owner.
 - `TestBundledLintConfig` runs the bundled config over `evals/fixtures/lint`
   and pins which findings it reports and which it does not.
+- Positive examples follow the pack's own rules, since a model copies the
+  code rather than the caveat beside it. `TestPositiveExamplesCarryNoSlop`
+  fails on a section banner, a `// go-<skill>:` tag, or a `failed to` /
+  `could not` / `couldn't` error text in any Go block not marked Bad,
+  Before, or fragment. Rewritten:
+  - `WEB-SERVER.md`: one `package main` with `run()`, a concrete store, the
+    handler at its registration; no banners, rule tags, one-implementation
+    interface, or no-op `CrossOriginProtection` on a GET-only server.
+  - go-http: the default routing block has no capture-free closure; the
+    `HEAD` 405 contract is a package function in its own block; the create
+    handler maps errors inline and decodes into `var req struct`.
+  - `PLAYBOOK.md` §2 extracts one step, decoding, and says why.
+  - go-error-handling: `<operation> <key>: %w` texts; `%v` only for the
+    named opaque case; a flat `switch` in `ERROR-FLOW.md`; `case err != nil`.
+  - go-logging: event logs instead of narration; a local `LevelVar` in
+    `run()` instead of `init`; `type loggerKey struct{}`; no SQL arguments
+    in a debug log.
+  - go-defensive: `IsExpired(now, expiry)` instead of a `Checker` with an
+    injected clock; no generic `Must[T]`; `rand.Text()` inline; one recover
+    example.
+  - go-concurrency: errgroup with `SetLimit` and one `return g.Wait()`; no
+    `processInBackground`, no channel semaphore, no narrating comments.
+  - go-testing: the table-test template and `gen-table-test.sh` carry no
+    `TODO` or commented-out code; failure messages name the call and input.
+  - go-packages: subcommands as `run(args) error` with
+    `flag.ContinueOnError`, a checked `Parse`, and a usage error on no input.
+  - go-database: `withTx` rolls back once through its `defer`; the lock
+    query needs no `min`/`max`; `db.Close` is not discarded.
+  - go-security: SSRF puts the hostname allowlist first and checks arbitrary
+    destinations in `net.Dialer.Control` on the dialed address.
+  - go-resilience: the backoff shift is capped, so a long budget cannot
+    overflow to a negative wait.
+  - Smaller fixes in go-documentation, go-interfaces, go-functions,
+    go-naming, go-style-core, go-context, and go-performance.
 
 ## [1.22.2] - 2026-09-24
 

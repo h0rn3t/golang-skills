@@ -80,7 +80,7 @@ if user, err = db.UserByID(userID); err != nil { // = vs :=
 // Good: Explicit and clear
 u, err := db.UserByID(userID)
 if err != nil {
-    return fmt.Errorf("invalid origin user: %s", err)
+    return fmt.Errorf("invalid origin user: %w", err)
 }
 user = u
 ```

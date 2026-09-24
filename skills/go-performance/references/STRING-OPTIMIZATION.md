@@ -38,11 +38,13 @@ for b.Loop() {
 
 ```go
 for b.Loop() {
-    _ = strconv.Itoa(n)
+    strconv.Itoa(n)
 }
 ```
 
 Use the same `n` for both variants; benchmark setup is outside the loop.
+`b.Loop` keeps both bodies from being optimized away; `fmt.Sprint` keeps its
+`_ =` only because `go vet`'s `unusedresult` reports a bare call.
 See [benchmark methodology](BENCHMARKS.md) for executable examples.
 
 Common conversions:

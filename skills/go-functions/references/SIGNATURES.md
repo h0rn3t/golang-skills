@@ -69,16 +69,16 @@ Factor out local variables instead of splitting function calls across lines:
 
 ```go
 // Bad: long inline call
-result := foo.Call(
-    somePackage.ComplexFunction(arg1, arg2),
-    anotherPackage.Transform(data),
+ranked := search.Rank(
+    scoring.Weighted(votes, weights),
+    text.Normalize(query),
     defaultOptions,
 )
 
-// Good: factor out locals for clarity
-computed := somePackage.ComplexFunction(arg1, arg2)
-transformed := anotherPackage.Transform(data)
-result := foo.Call(computed, transformed, defaultOptions)
+// Good: locals named for what they hold
+score := scoring.Weighted(votes, weights)
+terms := text.Normalize(query)
+ranked := search.Rank(score, terms, defaultOptions)
 ```
 
 Preserve the original left-to-right call order when introducing locals.

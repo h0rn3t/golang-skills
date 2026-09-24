@@ -54,10 +54,9 @@ func loadConfig() (Config, error) {
 enough samples recovers the prefix. Compare anything secret in constant time:
 
 ```go
-import "crypto/subtle"
-
-func validToken(got, want []byte) bool {
-    return subtle.ConstantTimeCompare(got, want) == 1 // also false when lengths differ
+if subtle.ConstantTimeCompare(got, want) != 1 { // crypto/subtle; also unequal when lengths differ
+    http.Error(w, "forbidden", http.StatusForbidden)
+    return
 }
 ```
 

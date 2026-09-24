@@ -57,11 +57,3 @@ func (l *Log) Close() error {
 	defer l.mu.Unlock()
 	return l.f.Close()
 }
-
-// A renamed API keeps its old name as a forwarder until callers move; a new
-// package has nothing to deprecate.
-
-// OpenLog opens the log at path.
-//
-// Deprecated: Use [Open] instead.
-func OpenLog(path string) (*Log, error) { return Open(path) }

@@ -20,19 +20,21 @@ if condition {
 return err  // always nil!
 ```
 
-### Fix: Assign to the Outer Variable
+### Fix: Return Where the Error Occurs
 
 ```go
-var err error
 if condition {
-    var val int
-    val, err = someFunc()  // assigns to outer err
-    if err == nil {
-        use(val)
+    val, err := someFunc()
+    if err != nil {
+        return err
     }
+    use(val)
 }
-return err  // correct
+return nil
 ```
+
+When a value must outlive the block, declare it before the block and assign
+it with `=`.
 
 ### Detection
 

@@ -74,7 +74,7 @@ What are you naming?
 ```go
 for i, v := range items { ... }           // small scope
 pendingOrders := filterPending(orders)    // larger scope
-const _defaultPort = 8080                 // Uber-style prefix — only where the repo already uses it
+const defaultPort = 8080                  // package scope: the full name
 ```
 
 ---

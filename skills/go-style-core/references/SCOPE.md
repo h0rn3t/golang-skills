@@ -58,15 +58,12 @@ s := "foo"
 `var` signals "this starts empty on purpose":
 
 ```go
-// Bad: empty literal hides intent
-filtered := []int{}
-
-// Good: var signals intentional nil slice
-var filtered []int
+var filtered []int // nil until something is appended
 ```
 
-This is especially important for slices: `[]int{}` marshals to `[]` in JSON
-while `nil` marshals to `null`. Choose based on your API contract.
+`filtered := []int{}` is a different value, not a worse spelling: non-nil and
+empty. Under `encoding/json` v1 it marshals to `[]` and the nil slice to
+`null`; `encoding/json/v2` writes `[]` for both. Choose by the API contract.
 
 ### Type annotation when RHS is unclear
 

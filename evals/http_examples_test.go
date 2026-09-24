@@ -40,12 +40,25 @@ func TestResponseLimit(t *testing.T) {
 func TestHTTPHandlerExampleRejectsTrailingJSON(t *testing.T) {
 	code := exampleBlock(t, "skills/go-http/SKILL.md", "## Handler Shape")
 	runExampleTest(t, `package example
-import (json "encoding/json/v2"; "net/http"; "net/http/httptest"; "strings"; "testing"; "context")
-type store struct { calls int }
-func (s *store) Create(_ context.Context, name string) (string, error) { s.calls++; return name, nil }
+import (json "encoding/json/v2"; "errors"; "log/slog"; "net/http"; "net/http/httptest"; "strings"; "testing"; "context")
+var ErrConflict = errors.New("conflict")
+type store struct { calls int; err error }
+func (s *store) Create(_ context.Context, name string) (string, error) { s.calls++; return name, s.err }
 type Server struct { store *store }
-func (s *Server) writeError(w http.ResponseWriter, _ *http.Request, _ error) { w.WriteHeader(500) }
 `+code+`
+func TestStoreErrors(t *testing.T) {
+ for _, tt := range []struct { err error; status int }{
+  {ErrConflict, 409},
+  {errors.New("disk full"), 500},
+ } {
+  s := &Server{store: &store{err: tt.err}}
+  w := httptest.NewRecorder()
+  s.handleCreateUser(w, httptest.NewRequest("POST", "/users", strings.NewReader("{\"name\":\"ok\"}")))
+  if w.Code != tt.status || strings.Contains(w.Body.String(), tt.err.Error()) {
+   t.Errorf("handler with store error %v: status=%d body=%q, want %d without the error text", tt.err, w.Code, w.Body.String(), tt.status)
+  }
+ }
+}
 func TestBody(t *testing.T) {
  for _, tt := range []struct { body string; status, calls int }{
   {"{\"name\":\"ok\"}", 201, 1},

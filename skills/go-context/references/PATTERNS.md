@@ -192,16 +192,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
             // The incoming request itself was cancelled; no response is needed.
             return
         }
-        // The handler exception to handle-once (go-error-handling owns it):
-        // log the detail server-side, answer with a status.
-        slog.ErrorContext(ctx, "slow operation failed", "err", err)
+        slog.ErrorContext(ctx, "slow operation", "err", err)
         http.Error(w, "internal error", http.StatusInternalServerError)
         return
     }
-
-    if err := json.NewEncoder(w).Encode(result); err != nil {
-        slog.ErrorContext(ctx, "encode response failed", "err", err)
-    }
+    _ = json.MarshalWrite(w, result) // encoding/json/v2; a failed write is the client's disconnect
 }
 ```
 

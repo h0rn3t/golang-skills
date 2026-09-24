@@ -46,19 +46,17 @@ if err != nil {
 // Good: Log and degrade gracefully (don't return error)
 if err := emitMetrics(); err != nil {
     // Failure to write metrics should not break the application
-    log.Printf("Could not emit metrics: %v", err)
+    log.Printf("emit metrics: %v", err)
 }
 // Continue execution...
 
 // Good: Match specific errors, return others
 tz, err := getUserTimeZone(id)
-if err != nil {
-    if errors.Is(err, ErrUserNotFound) {
-        // User doesn't exist. Use UTC.
-        tz = time.UTC
-    } else {
-        return fmt.Errorf("get user %q: %w", id, err)
-    }
+switch {
+case errors.Is(err, ErrUserNotFound):
+    tz = time.UTC
+case err != nil:
+    return fmt.Errorf("get user %q: %w", id, err)
 }
 ```
 

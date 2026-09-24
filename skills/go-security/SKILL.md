@@ -53,7 +53,7 @@ once — not at every call site downstream, where it is forgotten.
 | XSS | `html/template` (contextual escaping) | `gosec` G203 (unsafe `template.HTML`) |
 | Path traversal | `root.Open(name)` on an `os.Root` opened once at startup | review — `gosec` G304 fires on every variable path, so the bundled config excludes it |
 | Upload served inline | `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, a `Content-Type` you derived; or a separate origin | review |
-| SSRF | Hostname allowlist by whole label: `host == d` or `strings.HasSuffix(host, "."+d)`; else resolve and reject `netip.Addr.IsPrivate()`/loopback | review |
+| SSRF | Hostname allowlist by whole label: `host == d` or `strings.HasSuffix(host, "."+d)`; else a `net.Dialer.Control` that rejects `netip.Addr.IsPrivate()`/loopback on the dialed address | review |
 | Open redirect | One leading `/`; reject `//`, `\`, and control characters; or an allowlist of hosts | review |
 | Predictable tokens | `crypto/rand.Text()` / `rand.Read` | `gosec` G404 |
 | Timing leak on compare | `subtle.ConstantTimeCompare(a, b) == 1` | review |

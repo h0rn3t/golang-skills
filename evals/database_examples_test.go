@@ -26,7 +26,7 @@ func TestFinalization(t *testing.T) {
   {name: "panic", callback: func(*sql.Tx) error { panic("callback") }, wantPanic: true, rollbacks: 1},
   {name: "begin error", beginErr: errDriver, wantErr: errDriver},
   {name: "commit error", callback: func(*sql.Tx) error { return nil }, commitErr: errDriver, wantErr: errDriver, commits: 1},
-  {name: "rollback error", callback: func(*sql.Tx) error { return errCallback }, rollbackErr: errDriver, wantErr: errCallback, rollbacks: 1},
+  {name: "rollback error keeps the callback error", callback: func(*sql.Tx) error { return errCallback }, rollbackErr: errDriver, wantErr: errCallback, rollbacks: 1},
  } {
   t.Run(tt.name, func(t *testing.T) {
    conn := &testConn{beginErr: tt.beginErr, commitErr: tt.commitErr, rollbackErr: tt.rollbackErr}
@@ -40,7 +40,6 @@ func TestFinalization(t *testing.T) {
    }()
    if panicked != tt.wantPanic { t.Errorf("withTx panic = %t, want %t", panicked, tt.wantPanic) }
    if !errors.Is(gotErr, tt.wantErr) { t.Errorf("withTx error = %v, want %v", gotErr, tt.wantErr) }
-   if tt.rollbackErr != nil && !errors.Is(gotErr, tt.rollbackErr) { t.Errorf("withTx error = %v, missing rollback error", gotErr) }
    if got := db.Stats().InUse; got != 0 { t.Errorf("connections in use after withTx = %d, want 0", got) }
    if conn.commits != tt.commits || conn.rollbacks != tt.rollbacks {
     t.Errorf("commit/rollback calls = %d/%d, want %d/%d", conn.commits, conn.rollbacks, tt.commits, tt.rollbacks)

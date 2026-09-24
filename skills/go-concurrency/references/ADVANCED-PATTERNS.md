@@ -23,33 +23,19 @@ long-lived workers are part of the contract.
 
 ```go
 func processAll(ctx context.Context, items []Item, limit int) error {
-    if limit <= 0 {
-        return fmt.Errorf("concurrency limit must be positive: %d", limit)
-    }
     g, groupCtx := errgroup.WithContext(ctx)
     g.SetLimit(limit)
     for _, item := range items {
-        if groupCtx.Err() != nil {
-            break
-        }
-        g.Go(func() error {
-            if err := groupCtx.Err(); err != nil {
-                return err
-            }
-            return process(groupCtx, item)
-        })
+        g.Go(func() error { return process(groupCtx, item) })
     }
-    if err := g.Wait(); err != nil {
-        return err
-    }
-    return ctx.Err()
+    return g.Wait()
 }
 ```
 
 `process` must honor its context, including blocking I/O and channel operations.
-The checks stop observed cancellation from reaching new work; a `Go` call
-already waiting for a slot can still start its wrapper after cancellation.
-The final `ctx.Err()` preserves parent cancellation even when no task ran.
+After the first failure the loop still submits the remaining items; each
+starts, sees the cancelled context, and returns at once, so a `process` that
+ignores its context turns one failure into a full run.
 
 - `Wait` waits for **all started tasks** and returns their first non-nil error;
   it does not return immediately on the first failure or aggregate failures.
@@ -57,7 +43,7 @@ The final `ctx.Err()` preserves parent cancellation even when no task ran.
   `Wait` returns**, even on success. Use the parent context for subsequent work.
   Cancellation is cooperative; it cannot stop a task that ignores it.
 - `SetLimit(0)` prevents new tasks; a negative limit means unbounded concurrency.
-  This example rejects both because its contract requires a positive bound.
+  The caller passes a positive limit.
   Set the limit before starting tasks and do not change it while tasks run.
 - `Go` blocks while the limit is full; that wait is not context-selectable.
   Avoid nested submissions to the same saturated group. If admission itself
@@ -180,9 +166,8 @@ wg.Wait()
 ### Unbounded goroutine spawning
 
 Launching one goroutine per work item with no limit can exhaust memory or
-overwhelm downstream resources. Use a semaphore to cap concurrency. Validate
-`maxWorkers > 0` before this pattern: zero blocks the first send for nonempty
-input, and a negative channel capacity panics.
+overwhelm downstream resources. Cap it with `SetLimit`
+([Bounded Work with errgroup](#bounded-work-with-errgroup)).
 
 ```go
 // Bad: Spawns len(items) goroutines at once
@@ -193,18 +178,6 @@ for _, item := range items {
         defer wg.Done()
         process(it)
     }(item)
-}
-wg.Wait()
-
-// Good: Semaphore limits concurrency to maxWorkers
-var wg sync.WaitGroup
-sem := make(chan struct{}, maxWorkers)
-for _, item := range items {
-    sem <- struct{}{}
-    wg.Go(func() {
-        defer func() { <-sem }()
-        process(item) // must not panic
-    })
 }
 wg.Wait()
 ```

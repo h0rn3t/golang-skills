@@ -132,17 +132,18 @@ type in a public struct exports its whole method set —
 ## Avoid Mutable Globals
 
 Inject dependencies instead of mutating package-level variables. This makes
-code testable without global save/restore.
+code testable without global save/restore. The smallest injection is an
+argument:
 
 ```go
-type signer struct {
-  now func() time.Time  // injected; tests replace with fixed time
-}
-
-func newSigner() *signer {
-  return &signer{now: time.Now}
+func IsExpired(now, expiry time.Time) bool {
+    return now.After(expiry)
 }
 ```
+
+The caller passes `time.Now()` and a test passes a fixed instant; code that
+sleeps is tested inside `synctest.Test`, whose clock is fake
+([GLOBAL-STATE.md](references/GLOBAL-STATE.md#injecting-time)).
 
 ## Crypto Rand
 
@@ -151,9 +152,7 @@ document their output as predictable regardless of seeding and unsuitable for
 security-sensitive work.
 
 ```go
-import "crypto/rand"
-
-func Key() string { return rand.Text() }
+token := rand.Text() // crypto/rand: at least 128 bits, base32
 ```
 
 For text output, use `crypto/rand.Text` directly, or encode random bytes
@@ -183,8 +182,9 @@ f, err := root.Open(userSuppliedName) // cannot escape /srv/uploads
 Use `panic` only for truly unrecoverable situations; library functions avoid
 it. Never expose a panic across a package boundary — convert it to an error;
 panicking in `init()` is acceptable only when a library cannot set itself up;
-recover isolates panics in server goroutines. The recover guard and its traps
-are in [PANIC-RECOVER.md](references/PANIC-RECOVER.md).
+recover isolates panics in server goroutines, and `net/http` already does it
+per connection. The package-internal recover and its traps are in
+[PANIC-RECOVER.md](references/PANIC-RECOVER.md).
 
 ## Must Functions
 

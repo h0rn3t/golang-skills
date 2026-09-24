@@ -47,7 +47,7 @@ func TestRedirect(t *testing.T) {
 func TestContextHandlerFailureBoundaries(t *testing.T) {
 	code := exampleBlock(t, "skills/go-context/references/PATTERNS.md", "## Respecting Cancellation in HTTP Handlers")
 	runExampleTest(t, `package example
-import ("context"; "encoding/json"; "errors"; "fmt"; "log/slog"; "net/http"; "net/http/httptest"; "strings"; "testing")
+import ("context"; json "encoding/json/v2"; "errors"; "fmt"; "log/slog"; "net/http"; "net/http/httptest"; "strings"; "testing")
 var slowOperation func(context.Context) (string, error)
 `+code+`
 func TestHandler(t *testing.T) {

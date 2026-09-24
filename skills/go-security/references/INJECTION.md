@@ -163,46 +163,50 @@ from **inside** your network: cloud metadata endpoints (`169.254.169.254`),
 `localhost` admin ports, internal services with no auth. `url.Parse` validates
 syntax, not intent.
 
-```go
-func safeTarget(ctx context.Context, raw string) (*url.URL, error) {
-    u, err := url.Parse(raw)
-    if err != nil || (u.Scheme != "https" && u.Scheme != "http") {
-        return nil, fmt.Errorf("unsupported url %q", raw)
-    }
-    addrs, err := net.DefaultResolver.LookupNetIP(ctx, "ip", u.Hostname())
-    if err != nil {
-        return nil, err
-    }
-    for _, a := range addrs {
-        a = a.Unmap()
-        if a.IsPrivate() || a.IsLoopback() || a.IsLinkLocalUnicast() ||
-            a.IsUnspecified() || a.IsMulticast() {
-            return nil, fmt.Errorf("target %s resolves to a blocked range", u.Host)
-        }
-    }
-    return u, nil
-}
-```
-
-The resolve-then-connect gap (DNS rebinding) is real: pin the checked address
-by setting `http.Transport.DialContext` to dial the vetted IP, or accept the
-residual risk explicitly. Disable redirects (`CheckRedirect` returning
-`http.ErrUseLastResponse`) or re-validate each hop; a public URL that 302s to
-`127.0.0.1` defeats the check.
-
-Where the set of legitimate hosts is known, an **allowlist of hostnames**
-replaces all of this and is the better default. It matches whole labels, and
-every URL the handler fetches goes through it — a second URL derived from the
-same record is the same input:
+Where the set of legitimate hosts is known, an **allowlist of hostnames** is
+the defense. It matches whole labels, and every URL the handler fetches goes
+through it — a second URL derived from the same record is the same input:
 
 ```go
 func allowedHost(host, domain string) bool {
-    return host == domain || strings.HasSuffix(host, "."+domain) // "evilpartner.example" fails for "partner.example"
+    return host == domain || strings.HasSuffix(host, "."+domain)
 }
 ```
 
 `strings.HasSuffix(host, domain)` without the dot accepts `evilpartner.example`
 for `partner.example`; `strings.Contains` accepts it anywhere in the name.
+
+### Arbitrary public destinations
+
+When any public host is legitimate — webhooks, link previews — check the
+address the client dials. `net.Dialer.Control` runs after DNS resolution and
+before the connect, for every connection the client opens, so a rebinding
+answer and a redirect to `127.0.0.1` fail the same check:
+
+```go
+func publicClient() *http.Client {
+    dialer := &net.Dialer{
+        Timeout: 5 * time.Second,
+        Control: func(_, address string, _ syscall.RawConn) error {
+            ap, err := netip.ParseAddrPort(address)
+            if err != nil {
+                return err
+            }
+            a := ap.Addr().Unmap()
+            if a.IsPrivate() || a.IsLoopback() || a.IsLinkLocalUnicast() || a.IsUnspecified() || a.IsMulticast() {
+                return fmt.Errorf("dial %s: blocked address range", address)
+            }
+            return nil
+        },
+    }
+    return &http.Client{Transport: &http.Transport{DialContext: dialer.DialContext}, Timeout: 10 * time.Second}
+}
+```
+
+Resolving and checking the hostname before the request instead leaves a gap:
+the dial resolves again, and the attacker's DNS can answer differently the
+second time. A new `http.Transport` sets no proxy; a proxy would make the
+check see the proxy's address, not the target's.
 
 ---
 

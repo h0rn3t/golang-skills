@@ -24,16 +24,16 @@ the right error type for your use case.
 ```go
 // No matching needed, static message
 func Open() error {
-    return errors.New("could not open")
+    return errors.New("open config: no path configured")
 }
 ```
 
 ```go
 // A new stable condition callers need to match - export a sentinel
-var ErrCouldNotOpen = errors.New("could not open")
+var ErrNoPath = errors.New("no config path")
 
 func Open() error {
-    return ErrCouldNotOpen
+    return ErrNoPath
 }
 ```
 
@@ -84,9 +84,11 @@ first time a wrap is added, and `errorlint` in the gate reports it.
 // Good: Works with wrapped errors
 switch err := process(an); {
 case errors.Is(err, ErrDuplicate):
-    return fmt.Errorf("feed %q: %v", an, err)
+    return fmt.Errorf("feed %q: %w", an, err)
 case errors.Is(err, ErrMarsupial):
     // Try to recover...
+case err != nil:
+    return fmt.Errorf("process feed %q: %w", an, err)
 }
 ```
 

@@ -824,6 +824,9 @@ func TestScriptFunctional(t *testing.T) {
 		if !strings.Contains(string(out), "t.Parallel()") {
 			t.Error("--parallel flag did not produce t.Parallel() in output")
 		}
+		if strings.Contains(string(out), "TODO") || strings.Contains(string(out), "//") {
+			t.Errorf("generated test carries TODO or commented-out code:\n%s", out)
+		}
 		out = runCommandStdout(t, 0, "bash", script, "--json", "--parallel", "ParseDuration", "parser")
 		if !json.Valid(out) {
 			t.Fatalf("gen-table --json stdout is not valid JSON:\n%s", out)
@@ -1483,6 +1486,9 @@ func TestKnownReferenceRegressions(t *testing.T) {
 	}
 	if !strings.Contains(webServer, "[go-logging]") {
 		t.Fatal("WEB-SERVER.md logging row must route logging guidance to go-logging")
+	}
+	if strings.Contains(webServer, "type Store interface") {
+		t.Fatal("WEB-SERVER.md must not declare an interface with one implementation")
 	}
 
 	contextPatterns := read("skills/go-context/references/PATTERNS.md")

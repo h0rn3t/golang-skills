@@ -29,16 +29,6 @@ mux.HandleFunc("GET /users/{id}", s.handleGetUser) // serves GET and HEAD
 mux.HandleFunc("POST /users", s.handleCreateUser)
 mux.HandleFunc("GET /{$}", s.handleIndex) // exact "/", not a subtree
 
-// Only when the contract makes HEAD a 405: without these, the GET patterns
-// above answer HEAD with 200. One per GET pattern, the index included; more
-// specific than the GET pattern, so both register.
-methodNotAllowed := func(w http.ResponseWriter, r *http.Request) {
-    w.Header().Set("Allow", "GET")
-    http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-}
-mux.HandleFunc("HEAD /users/{id}", methodNotAllowed)
-mux.HandleFunc("HEAD /{$}", methodNotAllowed)
-
 id := r.PathValue("id")
 ```
 
@@ -55,6 +45,19 @@ id := r.PathValue("id")
   `GET /users/{id}`.
 - Trailing `/` is a subtree; `{$}` pins the exact path.
 
+Only when the contract makes `HEAD` a 405, one package function answers it,
+registered once per `GET` pattern, the index included:
+
+```go
+func methodNotAllowed(w http.ResponseWriter, _ *http.Request) {
+    w.Header().Set("Allow", "GET")
+    http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+}
+
+mux.HandleFunc("HEAD /users/{id}", methodNotAllowed)
+mux.HandleFunc("HEAD /{$}", methodNotAllowed)
+```
+
 ## Handler Shape
 
 Use plain functions, closures, or methods. A struct holds dependencies or state
@@ -67,12 +70,12 @@ error → write once. With `import json "encoding/json/v2"` (Go 1.27):
 ```go
 func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
     r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-    var req *struct {
+    var req struct {
         Name string `json:"name"`
     }
     // One decode: an unknown member, a second value, trailing junk, and a
-    // body past the cap are errors; trailing whitespace is not; nil is "null".
-    if err := json.UnmarshalRead(r.Body, &req, json.RejectUnknownMembers(true)); err != nil || req == nil {
+    // body past the cap are errors; trailing whitespace is not.
+    if err := json.UnmarshalRead(r.Body, &req, json.RejectUnknownMembers(true)); err != nil {
         http.Error(w, "invalid JSON body", http.StatusBadRequest)
         return
     }
@@ -81,8 +84,13 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
         return
     }
     user, err := s.store.Create(r.Context(), req.Name)
+    if errors.Is(err, ErrConflict) {
+        http.Error(w, "name already taken", http.StatusConflict)
+        return
+    }
     if err != nil {
-        s.writeError(w, r, err)
+        slog.ErrorContext(r.Context(), "create user", "err", err)
+        http.Error(w, "internal error", http.StatusInternalServerError)
         return
     }
     w.Header().Set("Content-Type", "application/json")
@@ -93,8 +101,8 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 - Bound every decoded body with `http.MaxBytesReader`. `UnmarshalRead`
   succeeds only at EOF, so one decode is the whole single-document check;
-  `{}` still decodes, so required fields are validated before the store
-  call. The request type is declared in the handler that reads it; a second
+  `{}` and `null` still decode, leaving `req` zero, so required fields are
+  validated before the store call. The request type is declared in the handler that reads it; a second
   handler decoding the same document is what moves it to package level
   ([go-code](../go-code/SKILL.md#declaration-budget)).
 - A package already decoding with `encoding/json` v1 keeps v1 and its two

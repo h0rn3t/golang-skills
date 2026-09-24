@@ -40,7 +40,7 @@ func Encode(w io.Writer, req *Request) { ...
 
 Unexported types/functions with unobvious behavior should also have doc comments.
 
-> **Validation**: `scripts/check-docs.sh` lists exported symbols without a doc comment; it runs with the [go-linting](../go-linting/SKILL.md) gate, once, at the end of the task.
+> **Validation**: `scripts/check-docs.sh` lists exported symbols without a doc comment, outside `package main` and skipping methods of unexported types and standard methods such as `Error` and `ServeHTTP`, as `revive` does; it runs with the [go-linting](../go-linting/SKILL.md) gate, once, at the end of the task.
 
 ---
 

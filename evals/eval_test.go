@@ -503,6 +503,23 @@ func TestScriptFunctional(t *testing.T) {
 		}
 		requireDocMissing(t, detachedResult.Missing, "evals/fixtures/docs/detached/detached.go", 3, "package", "detached")
 
+		out = runCommand(t, 0, "bash", script, "--json", filepath.Join(fixturesDir, "docs", "mainpkg"))
+		if !strings.Contains(string(out), `"total":0`) {
+			t.Fatalf("package main with an undocumented ServeHTTP should be clean\n%s", out)
+		}
+		out = runCommand(t, 1, "bash", script, "--json", filepath.Join(fixturesDir, "docs", "methods"))
+		var methodsResult struct {
+			Missing []jsonFinding `json:"missing"`
+			Total   int           `json:"total"`
+		}
+		if err := json.Unmarshal(out, &methodsResult); err != nil {
+			t.Fatalf("parse methods docs JSON: %v\n%s", err, out)
+		}
+		if methodsResult.Total != 1 {
+			t.Fatalf("standard methods and methods of an unexported type should be skipped, got %d findings\n%s", methodsResult.Total, out)
+		}
+		requireDocMissing(t, methodsResult.Missing, "evals/fixtures/docs/methods/methods.go", 19, "function", "New")
+
 		malformedDir := t.TempDir()
 		malformed := filepath.Join(malformedDir, "bad.go")
 		if err := os.WriteFile(malformed, []byte("package malformed\n\nfunc Broken( {\n"), 0644); err != nil {
@@ -702,6 +719,23 @@ func TestScriptFunctional(t *testing.T) {
 		}
 		if goodResult.CountMissing != 0 {
 			t.Fatalf("all-good interface fixture produced %d missing checks\n%s", goodResult.CountMissing, out)
+		}
+
+		convertedDir := filepath.Join(fixturesDir, "interfaces", "converted")
+		out = runCommand(t, 0, "bash", script, "--json", convertedDir)
+		var convertedResult struct {
+			CountInterfaces int `json:"count_interfaces"`
+			CountMissing    int `json:"count_missing"`
+		}
+		if err := json.Unmarshal(out, &convertedResult); err != nil {
+			t.Fatalf("parse converted JSON: %v\n%s", err, out)
+		}
+		if convertedResult.CountInterfaces != 1 || convertedResult.CountMissing != 0 {
+			t.Fatalf("a constructor returning the interface already converts to it, got %#v\n%s", convertedResult, out)
+		}
+		text := string(runCommand(t, 1, "bash", script, missingDir))
+		if !strings.Contains(text, "does a consumer need interface 'Runner'") || strings.Contains(text, "var _") {
+			t.Fatalf("text output should question the interface, not suggest an assertion:\n%s", text)
 		}
 
 		consumerDir := filepath.Join(fixturesDir, "interfaces", "consumer")

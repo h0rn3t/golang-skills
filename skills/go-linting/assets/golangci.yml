@@ -8,8 +8,8 @@ linters:
     - staticcheck
     # Additional recommended
     - bodyclose
-    - gocyclo
-    - gosec
+    - gocyclo       # only a tangled function: a flat chain of error checks stays under 30
+    - gosec         # G304 off: a path from a client is go-security's os.Root rule
     - ineffassign
     - misspell
     # Enforce what the go-* skills teach
@@ -23,8 +23,7 @@ linters:
     - nilnil        # go-error-handling: no in-band nil, nil; return a sentinel or an ok bool
     - noctx         # go-context / go-http: outbound calls carry a context
     - nolintlint    # go-linting: a suppression names its linter and its reason
-    - perfsprint    # go-performance: strconv over fmt.Sprint
-    - prealloc      # go-performance: capacity hints for appended slices
+    - perfsprint    # go-performance: strconv over fmt.Sprint for a lone value; Sprintf formatting stays
     - rowserrcheck  # go-database: rows.Err checked after the loop
     - sloglint      # go-logging: static message, key-value attrs, snake_case keys
     - sqlclosecheck # go-database: rows and statements closed
@@ -32,9 +31,21 @@ linters:
     - usetesting    # go-testing: t.Context, t.TempDir, t.Setenv over hand-rolled forms
     - usestdlibvars # go-http: named HTTP methods and status codes
   settings:
+    errcheck:
+      # Closing what was only read has no error worth handling
+      # (go-database, go-http); Close on a written file still reports.
+      exclude-functions:
+        - (*database/sql.Rows).Close
+        - (*database/sql.Tx).Rollback
+        - (io.ReadCloser).Close
     revive:
       rules:
+        # go-documentation: imported API only; internal/ and cmd/ are excluded below
         - name: exported
+        # go-naming: initialisms, receiver names, error strings
+        - name: var-naming
+        - name: receiver-naming
+        - name: error-strings
         # go-style-core Reduce Nesting: no else after a branch that exits
         - name: early-return
         - name: indent-error-flow
@@ -45,7 +56,13 @@ linters:
       enable:
         - opaque
     gocyclo:
-      min-complexity: 15
+      min-complexity: 30
+    gosec:
+      excludes:
+        - G304
+    perfsprint:
+      string-format: false
+      strconcat: false
     depguard:
       rules:
         stdlib-first:
@@ -78,6 +95,11 @@ linters:
       http-status-code: true
   exclusions:
     generated: lax
+    rules:
+      - path: '(^|/)(internal|cmd)/'
+        linters:
+          - revive
+        text: should have comment
     paths:
       - third_party$
       - builtin$

@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-const version = "1.1.0"
+const version = "1.2.0"
 
 type ifaceInfo struct {
 	Name string `json:"name"`
@@ -58,7 +58,7 @@ type options struct {
 }
 
 func usage() {
-	fmt.Fprintf(os.Stdout, `check-interface-compliance.sh v%s - Find likely missing compile-time interface compliance verifications
+	fmt.Fprintf(os.Stdout, `check-interface-compliance.sh v%s - List exported interfaces implemented beside their declaration that nothing converts to
 
 USAGE
     bash check-interface-compliance.sh [options] [path]
@@ -213,23 +213,22 @@ func emit(out result, jsonOutput bool) {
 
 	fmt.Printf("Exported interfaces found: %d\n\n", out.CountInterface)
 	if out.CountMissing == 0 {
-		fmt.Println("All interfaces have compile-time compliance checks.")
+		fmt.Println("No interface is implemented only beside its declaration without a static conversion.")
 		return
 	}
 
-	fmt.Println("Missing compile-time compliance checks:")
+	fmt.Println("Interfaces implemented beside their declaration, with nothing converting to them:")
 	fmt.Println()
 	for _, item := range out.Missing {
-		fmt.Printf("  %s:%d  interface '%s' has no 'var _ %s = ...' assertion\n", item.File, item.Line, item.Name, item.Name)
+		fmt.Printf("  %s:%d  does a consumer need interface '%s', or is the concrete type enough?\n", item.File, item.Line, item.Name)
 	}
 	if out.Truncated {
 		fmt.Printf("  ... and %d more (use --limit to adjust)\n", out.CountMissing-len(out.Missing))
 	}
 	fmt.Println()
-	fmt.Println("Add compile-time checks like:")
-	fmt.Println("  var _ MyInterface = (*MyImpl)(nil)")
+	fmt.Println("An interface belongs to the package that consumes it (go-interfaces).")
 	fmt.Println()
-	fmt.Printf("Total: %d interface(s) missing verification\n", out.CountMissing)
+	fmt.Printf("Total: %d interface(s) to question\n", out.CountMissing)
 }
 
 func analyzePackage(group packageGroup) (map[string]bool, []ifaceInfo, map[string]bool, error) {
@@ -246,7 +245,8 @@ func analyzePackage(group packageGroup) (map[string]bool, []ifaceInfo, map[strin
 	}
 
 	info := &types.Info{
-		Defs: map[*ast.Ident]types.Object{},
+		Defs:  map[*ast.Ident]types.Object{},
+		Types: map[ast.Expr]types.TypeAndValue{},
 	}
 	conf := types.Config{
 		Importer: importer.Default(),
@@ -337,7 +337,98 @@ func analyzePackage(group packageGroup) (map[string]bool, []ifaceInfo, map[strin
 		}
 	}
 
+	for name := range staticConversions(parsed, info, interfaces) {
+		assertions[name] = true
+	}
 	return assertions, interfaces, impls, nil
+}
+
+// staticConversions returns the interfaces that a concrete value is assigned,
+// returned, passed, or converted to somewhere in the package. The compiler
+// already checks those pairs, so they need no assertion.
+func staticConversions(files []*ast.File, info *types.Info, interfaces []ifaceInfo) map[string]bool {
+	converted := map[string]bool{}
+	note := func(target types.Type, value ast.Expr) {
+		tv, ok := info.Types[value]
+		if target == nil || !ok || tv.Type == nil || types.IsInterface(tv.Type) {
+			return
+		}
+		for _, iface := range interfaces {
+			if types.Identical(target, iface.obj.Type()) {
+				converted[iface.Name] = true
+			}
+		}
+	}
+	typeOf := func(e ast.Expr) types.Type { return info.Types[e].Type }
+
+	var walk func(root ast.Node, results *types.Tuple)
+	walk = func(root ast.Node, results *types.Tuple) {
+		ast.Inspect(root, func(n ast.Node) bool {
+			switch n := n.(type) {
+			case *ast.FuncLit:
+				if sig, ok := typeOf(n).(*types.Signature); ok {
+					walk(n.Body, sig.Results())
+				}
+				return false
+			case *ast.ValueSpec:
+				if n.Type != nil {
+					for _, v := range n.Values {
+						note(typeOf(n.Type), v)
+					}
+				}
+			case *ast.AssignStmt:
+				if n.Tok == token.ASSIGN && len(n.Lhs) == len(n.Rhs) {
+					for i, v := range n.Rhs {
+						note(typeOf(n.Lhs[i]), v)
+					}
+				}
+			case *ast.ReturnStmt:
+				if results != nil && results.Len() == len(n.Results) {
+					for i, v := range n.Results {
+						note(results.At(i).Type(), v)
+					}
+				}
+			case *ast.CallExpr:
+				fun := info.Types[n.Fun]
+				if fun.IsType() && len(n.Args) == 1 {
+					note(fun.Type, n.Args[0])
+					break
+				}
+				sig, ok := fun.Type.(*types.Signature)
+				if !ok || sig.Params().Len() == 0 {
+					break
+				}
+				last := sig.Params().Len() - 1
+				for i, arg := range n.Args {
+					param := sig.Params().At(min(i, last)).Type()
+					if sig.Variadic() && i >= last && !n.Ellipsis.IsValid() {
+						if slice, ok := param.(*types.Slice); ok {
+							param = slice.Elem()
+						}
+					}
+					note(param, arg)
+				}
+			}
+			return true
+		})
+	}
+	for _, file := range files {
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok {
+				walk(decl, nil)
+				continue
+			}
+			var results *types.Tuple
+			if obj, ok := info.Defs[fn.Name].(*types.Func); ok {
+				results = obj.Type().(*types.Signature).Results()
+			}
+			if fn.Body != nil {
+				walk(fn.Body, results)
+			}
+		}
+	}
+	return converted
 }
 
 func typeBelongsToScannedFile(typeName *types.TypeName, files []sourceFile, fset *token.FileSet) bool {

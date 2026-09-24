@@ -29,7 +29,7 @@ EXIT CODES
 OPTIONS
     -h, --help           Show this help message
     -v, --version        Show version
-    -n, --count N        Number of benchmark iterations (default: 5)
+    -n, --count N        Number of benchmark iterations (default: 10)
     -b, --baseline FILE  Compare results against this baseline file
     -s, --save FILE      Save benchmark results to this file
     -f, --filter REGEX   Benchmark filter regex (default: ".")
@@ -72,7 +72,7 @@ log() {
     fi
 }
 
-COUNT=5
+COUNT=10
 BASELINE=""
 SAVE=""
 FILTER="."

@@ -9,11 +9,19 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 )
 
-const version = "1.1.0"
+const version = "1.2.0"
+
+// standardMethods implement a standard interface whose documentation covers
+// them; revive exported skips the same set.
+var standardMethods = map[string]bool{
+	"Error": true, "String": true, "Unwrap": true, "ServeHTTP": true,
+	"MarshalJSON": true, "UnmarshalJSON": true, "MarshalText": true, "UnmarshalText": true,
+}
 
 type missingDoc struct {
 	File string `json:"file"`
@@ -93,6 +101,11 @@ func main() {
 			continue
 		}
 		parsed = append(parsed, parsedFile{path: path, file: file})
+	}
+
+	// Nothing imports package main, so outside --strict it has no API to document.
+	if !opts.strict {
+		parsed = slices.DeleteFunc(parsed, func(pf parsedFile) bool { return pf.file.Name.Name == "main" })
 	}
 
 	packages := map[string]*packageInfo{}
@@ -323,6 +336,9 @@ func findMissingDeclDocs(fset *token.FileSet, pf parsedFile, strict bool) []miss
 	for _, decl := range pf.file.Decls {
 		switch d := decl.(type) {
 		case *ast.FuncDecl:
+			if d.Recv != nil && (standardMethods[d.Name.Name] || !strict && !ast.IsExported(receiverName(d.Recv.List[0].Type))) {
+				continue
+			}
 			if ast.IsExported(d.Name.Name) || strict {
 				if d.Doc == nil {
 					kind := "function"
@@ -370,4 +386,20 @@ func findMissingDeclDocs(fset *token.FileSet, pf parsedFile, strict bool) []miss
 		}
 	}
 	return missing
+}
+
+func receiverName(expr ast.Expr) string {
+	if star, ok := expr.(*ast.StarExpr); ok {
+		expr = star.X
+	}
+	switch t := expr.(type) {
+	case *ast.IndexExpr:
+		expr = t.X
+	case *ast.IndexListExpr:
+		expr = t.X
+	}
+	if id, ok := expr.(*ast.Ident); ok {
+		return id.Name
+	}
+	return ""
 }

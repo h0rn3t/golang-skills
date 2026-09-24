@@ -90,8 +90,11 @@ func process(r io.Reader) { ... }
 
 ### Printf-style Function Names
 
-Functions that accept a format string should end in `f` for `go vet` support.
-Declare format strings as `const` when used outside `Printf` calls.
+Functions that accept a format string end in `f`, so the caller knows to pass
+one. `go vet` finds a wrapper that forwards its format to `fmt` whatever its
+name; a function that keeps the format instead is checked only when listed in
+`go vet -printf.funcs=Name`, and only if the name ends in `f`. Declare format
+strings as `const` when used outside `Printf` calls.
 
 Prefer `%q` over `%s` with manual quoting when formatting strings for logging
 or error messages — it safely escapes special characters and wraps in quotes:

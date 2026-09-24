@@ -129,8 +129,9 @@ gopls codeaction -exec -kind=refactor.extract.toNewFile file.go:#start,#end
 A table of data usually beats both shapes. When the cases differ only in
 values — a rate, a prefix, a format string — the switch collapses into a map or
 slice of structs with no interface and no new types at all, which is shorter
-than either the repeated switch or the polymorphic hierarchy. PLAYBOOK §0
-owns that fold and the three checks that say when it is finished.
+than either the repeated switch or the polymorphic hierarchy.
+[Remove Duplication to the End](../SKILL.md#remove-duplication-to-the-end)
+owns that fold and says when it is finished.
 
 ## Hide delegate and remove middle man
 

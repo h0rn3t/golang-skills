@@ -6,12 +6,12 @@ description: Use when choosing or writing Go generics, constraints, type aliases
 # Go Generics and Type Parameters
 
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Generic **methods**
-> and inference in function-type conversions require Go 1.27+; self-referential
-> constraints Go 1.26+; generic type aliases Go 1.24+; generics themselves, Go
-> 1.18+. Neither the compiler nor `stdversion` gates these language features
-> by the `go` directive — code that uses them compiles on a 1.27 toolchain with
-> `go 1.26` in go.mod and fails on a real 1.26 toolchain; verify on the CI
-> toolchain.
+> require Go 1.27+, and the compiler gates them by the `go` directive: at
+> `go 1.26` it rejects one with `generic method requires go1.27 or later`.
+> Inference in function-type conversions (Go 1.27+) and self-referential
+> constraints (Go 1.26+) are not gated — they compile on a 1.27 toolchain at an
+> older directive and fail on the older toolchain itself, so verify them on the
+> CI toolchain. Generic type aliases Go 1.24+; generics themselves, Go 1.18+.
 
 ## Resource Routing
 

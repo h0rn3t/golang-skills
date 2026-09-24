@@ -7,6 +7,50 @@ All notable changes to this repository are documented here.
 - `README.md` and `README.uk.md` gain an "Updating" section: the Claude Code
   plugin update commands, `npx skills update -g` for Codex, and a manual
   replace-not-overwrite refresh.
+- **Behavior change for copies of `skills/go-linting/assets/golangci.yml`:**
+  the edit hook lints with this file when a repository has none, so a finding
+  on an idiom the skills teach became code the skills call slop. Fewer
+  findings now, one linter per line (restore the old file from `v1.22.2`):
+  - `revive` `exported` no longer reports under `internal/` or `cmd/`; code
+    nothing imports needs no `// NewItem creates a new Item.`
+  - `prealloc` is removed: it reported every `var out []T` filled by
+    `append`, and its fix turns a v1 JSON `null` into `[]`.
+  - `perfsprint` sets `string-format: false` and `strconcat: false`;
+    `fmt.Sprintf("project/%s", p)` is no longer reported.
+  - `errcheck` excludes `(*database/sql.Rows).Close`,
+    `(*database/sql.Tx).Rollback`, and `(io.ReadCloser).Close`, the deferred
+    closes in the go-database and go-http examples; `Close` on a written file
+    still reports.
+  - `gocyclo` reports from 30 instead of 15, above a flat chain of error
+    checks.
+  - `gosec` excludes G304, which fired on every `os.ReadFile(path)`; client
+    paths are go-security's `os.Root` rule.
+  - `revive` gains `var-naming`, `receiver-naming`, and `error-strings`, so
+    `userId` is reported again (the explicit rule list had turned revive's
+    defaults off).
+- `check-docs.sh` 1.2.0 skips `package main`, methods of unexported types, and
+  `Error`, `String`, `Unwrap`, `ServeHTTP`, and the JSON/text marshalers, as
+  `revive` does. JSON shape and exit codes are unchanged.
+- `check-interface-compliance.sh` 1.2.0 does not count an interface that a
+  value is already assigned, returned, passed, or converted to, and its text
+  output asks whether a consumer needs the interface instead of suggesting
+  `var _ I = (*T)(nil)`. JSON keys and exit codes are unchanged.
+- `bench-compare.sh` defaults to `--count 10`, the count go-performance asks
+  for.
+- Factual corrections checked against go1.27.1 and golangci-lint 2.13.2:
+  go-generics says the compiler gates generic methods by the `go` directive
+  (self-referential constraints and conversion inference stay ungated);
+  `crypto/rand.Read` is not error-checked; `errors.Is(err, fs.ErrNotExist)`
+  replaces `os.IsNotExist`; `go vet` finds printf wrappers without the `f`
+  suffix and `-printf.funcs` checks only names ending in `f`; `errcheck` does
+  not report `_ =`; the go-linting `nolint` example is one nolintlint accepts;
+  a recovering middleware logs `debug.Stack()`, not `%+v`; `*Context` calls
+  add no request fields under `JSONHandler`; the TLS 1.3 `MinVersion` example
+  is marked as the TLS 1.3-only case; `encoding/xml` expands no DTD entities;
+  the go-testing Resource Routing lines name the files that hold each topic;
+  `CATALOG.md` links the duplication fold to its real owner.
+- `TestBundledLintConfig` runs the bundled config over `evals/fixtures/lint`
+  and pins which findings it reports and which it does not.
 
 ## [1.22.2] - 2026-09-24
 

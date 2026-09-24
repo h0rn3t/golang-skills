@@ -127,6 +127,13 @@ as the minimum, adds `bodyclose`, `gocyclo`, `gosec`, `ineffassign`, and
 comment beside each entry names the rule it enforces. `goimports` runs as a
 formatter under `formatters`, not as a linter.
 
+The edit hook lints with this file when a repository has none, and a finding
+it prints is fixed, so the config reports nothing a skill example shows as
+correct. `errcheck` skips `Close` on `sql.Rows` and `io.ReadCloser` and
+`Tx.Rollback` — closing what was only read — and still reports `Close` on a
+written file; `gocyclo` reports from 30, above a flat chain of error checks;
+`gosec` excludes G304, which fires on every `os.ReadFile(path)`.
+
 ## Linters That Enforce the Skills
 
 The baseline config turns these on so the gate checks what the `go-*` skills
@@ -139,7 +146,7 @@ teach instead of leaving it to review attention:
 | `sloglint` | Static message, key-value attrs, `snake_case` keys | [go-logging](../go-logging/SKILL.md) |
 | `noctx` | Outbound HTTP/SQL calls carry a context | [go-context](../go-context/SKILL.md), [go-http](../go-http/SKILL.md) |
 | `rowserrcheck`, `sqlclosecheck` | `rows.Err()` after the loop; rows and statements closed | [go-database](../go-database/SKILL.md) |
-| `perfsprint`, `prealloc` | `strconv` over `fmt.Sprint`; capacity hints | [go-performance](../go-performance/SKILL.md) |
+| `perfsprint` | `strconv` over `fmt.Sprint` for a lone value; `fmt.Sprintf` formatting and `+` are not reported | [go-performance](../go-performance/SKILL.md) |
 | `usetesting` | `t.Context`, `t.TempDir`, `t.Setenv` over hand-rolled forms | [go-testing](../go-testing/SKILL.md) |
 | `godot` | Doc comments end in a period | [go-documentation](../go-documentation/SKILL.md) |
 | `exhaustive` | `switch` covers every enum member (`default` counts) | [go-style-core](../go-style-core/SKILL.md) |
@@ -148,6 +155,8 @@ teach instead of leaving it to review attention:
 | `gosec` | String-built SQL, `sh -c`, `template.HTML` on input, weak hashes, `InsecureSkipVerify`, `math/rand` for secrets | [go-security](../go-security/SKILL.md) |
 | `modernize` | The `go fix` rewrites as lint findings, so a stale idiom fails the gate even when nobody ran `go fix -diff`; `appendclipped`/`slicesdelete` stay off | [go-style-core](../go-style-core/SKILL.md#write-current-go) |
 | `revive` `early-return`, `indent-error-flow`, `superfluous-else` | No `else` after a branch that exits | [go-style-core](../go-style-core/SKILL.md#reduce-nesting) |
+| `revive` `exported` | A doc comment on exported API outside `internal/`, `cmd/`, and `package main` | [go-documentation](../go-documentation/SKILL.md) |
+| `revive` `var-naming`, `receiver-naming`, `error-strings` | `userID` not `userId`; one receiver name per type; lowercase error strings | [go-naming](../go-naming/SKILL.md) |
 | `iface` (`opaque` only) | A constructor returns its concrete type, not an interface declared for its one implementation | [go-interfaces](../go-interfaces/SKILL.md) |
 | `nilnil` | No `return nil, nil`; a sentinel or an ok bool | [go-error-handling](../go-error-handling/references/ERROR-TYPES.md) |
 | `unparam` | An unexported function whose parameter always receives one value, or whose result is always nil or never read | [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#go-hunt-list) |
@@ -157,6 +166,11 @@ deliberate breaks) and `testifylint` (only in repositories that use testify).
 Left off after a noise check on five codebases: `revive`'s `unused-parameter`,
 which fires on the `w, r` a handler type fixes, and `iface`'s `unused` and
 `identical`, which fire on exported interfaces a library offers its callers.
+Left off because it contradicts a skill: `prealloc`, which reports every
+`var out []T` filled by `append` in a loop, hot path or not, and whose fix
+turns a nil result (`null` under `encoding/json` v1) into an empty one —
+[go-performance](../go-performance/SKILL.md) measures first, and
+[go-data-structures](../go-data-structures/SKILL.md) owns nil against empty.
 
 `govulncheck` is not a golangci-lint linter. Track it as a tool dependency so
 local runs and CI share one pin — `go get -tool golang.org/x/vuln/cmd/govulncheck@vX.Y.Z`,
@@ -186,12 +200,13 @@ golangci-lint run ./pkg/...    # specific paths
 ## Nolint Directives
 
 ```go
-//nolint:errcheck // fire-and-forget logging; error is not actionable
-_ = logger.Sync()
+return rand.N(d) //nolint:gosec // G404: retry jitter, not a secret
 ```
 
-`nolintlint` in the baseline rejects a bare `//nolint` and one without a
-reason; place the comment on the finding's line.
+`nolintlint` in the baseline rejects a bare `//nolint`, one without a reason,
+and one on a line with no finding for that linter; place the comment on the
+finding's line. `_ = f()` needs no directive: `errcheck` does not report an
+explicit discard.
 
 ---
 

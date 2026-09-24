@@ -106,17 +106,20 @@ fmt.Printf(msg, 1, 2)
 
 ## Naming Printf-style Functions
 
-Functions that accept a format string should end in `f`. This lets `go vet`
-check format strings automatically:
+Functions that accept a format string should end in `f`, so a caller knows
+to pass one. `go vet` does not rely on the suffix: it detects a wrapper that
+forwards its format and arguments to a `fmt` function, whatever its name.
 
 ```go
 func Wrapf(err error, format string, args ...any) error
 ```
 
-If using a non-standard name, tell `go vet`:
+A function that keeps the format instead of forwarding it — a recorder, a
+deferred logger — is invisible to that detection. List it for vet, which
+checks a listed name as `Printf`-like only when it ends in `f`:
 
 ```bash
-go vet -printfuncs=wrapf,statusf
+go vet -printf.funcs=Recordf,Statusf
 ```
 
 ---

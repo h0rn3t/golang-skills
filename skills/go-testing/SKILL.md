@@ -16,9 +16,9 @@ allowed-tools: Bash(bash:*)
 - `scripts/gen-table-test.sh` - Run when generating a table-driven test scaffold.
 - `assets/table-test-template.go` - Use as a copyable table-test starting point.
 - `references/TABLE-DRIVEN-TESTS.md` - Read when choosing table tests, subtests, or parallel test patterns.
-- `references/TEST-HELPERS.md` - Read when writing helpers, fixtures, cleanup, or test doubles.
-- `references/TEST-ORGANIZATION.md` - Read when structuring packages, black-box tests, or larger test suites.
-- `references/VALIDATION-APIS.md` - Read when choosing `t.Error`, `t.Fatal`, `cmp.Diff`, or assertion style.
+- `references/TEST-HELPERS.md` - Read when writing helpers, fixtures, or cleanup, or choosing `t.Error`, `t.Fatal`, `cmp.Diff`, or assertion style.
+- `references/TEST-ORGANIZATION.md` - Read when choosing or naming test doubles, structuring packages, black-box tests, or larger test suites.
+- `references/VALIDATION-APIS.md` - Read when designing an exported validation function or a `*test` package that other packages' tests call.
 - `references/INTEGRATION.md` - Read when testing external services, HTTP handlers, databases, or long-running setup.
 - `../go-http/references/JSON-V2.md` - Read when testing JSON v2 defaults, migration compatibility, or golden bytes (Go 1.27+).
 

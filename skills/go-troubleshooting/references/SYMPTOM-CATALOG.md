@@ -42,7 +42,7 @@ pattern alone rarely proves ownership, causality, or a leak.
 | `too many open files` (as an error, then panics downstream) | `resp.Body`, `*os.File`, `sql.Rows` not closed; goroutine-per-connection with no limit | `lsof -p <pid> \| wc -l` over time; `bodyclose`, `sqlclosecheck` linters | [go-defensive](../../go-defensive/SKILL.md) |
 | `fatal error: concurrent map iteration and map write` | `range` over a map another goroutine writes | Race detector | [go-concurrency](../../go-concurrency/SKILL.md) |
 | `fatal error: stack overflow` / `goroutine stack exceeds 1000000000-byte limit` | Unbounded recursion; `String()` calling `Sprintf("%v", x)` on itself; `MarshalJSON` marshaling its own type | Trace shows the same frame thousands of times | [go-functions](../../go-functions/SKILL.md) |
-| Panic inside `net/http` handler, connection closed | Handler panicked; `http.Server` recovers per connection and logs `http: panic serving` | Server error log; wrap with a recovering middleware that logs `%+v` and the request ID | [go-http](../../go-http/SKILL.md) |
+| Panic inside `net/http` handler, connection closed | Handler panicked; `http.Server` recovers per connection and logs `http: panic serving` | Server error log; wrap with a recovering middleware that logs the panic value, `debug.Stack()`, and the request ID — `%+v` on a panic value prints no stack | [go-http](../../go-http/SKILL.md) |
 | Truncated or uninformative trace | Capture/log truncation, hidden runtime frames, or missing matching source | Preserve complete panic output and matching binary/source; use `GOTRACEBACK=all` on an authorized subsequent run | this skill |
 
 ---

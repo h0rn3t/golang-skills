@@ -51,7 +51,7 @@ once — not at every call site downstream, where it is forgotten.
 | Foreign row by ID | `WHERE id = $1 AND org_id = $2` with the caller's tenant as a parameter; a foreign ID is `sql.ErrNoRows` | review |
 | Command injection | `exec.CommandContext(ctx, "gzip", "--keep", "--", name)`: argv, no shell, `--` before input | `gosec` G204 |
 | XSS | `html/template` (contextual escaping) | `gosec` G203 (unsafe `template.HTML`) |
-| Path traversal | `root.Open(name)` on an `os.Root` opened once at startup | `gosec` G304 |
+| Path traversal | `root.Open(name)` on an `os.Root` opened once at startup | review — `gosec` G304 fires on every variable path, so the bundled config excludes it |
 | Upload served inline | `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, a `Content-Type` you derived; or a separate origin | review |
 | SSRF | Hostname allowlist by whole label: `host == d` or `strings.HasSuffix(host, "."+d)`; else resolve and reject `netip.Addr.IsPrivate()`/loopback | review |
 | Open redirect | One leading `/`; reject `//`, `\`, and control characters; or an allowlist of hosts | review |

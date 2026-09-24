@@ -80,7 +80,7 @@ salt) is neither and falls to GPU brute force at billions per second.
 
 ```go
 salt := make([]byte, 16)
-if _, err := rand.Read(salt); err != nil { return nil, err }
+rand.Read(salt)
 // OWASP baseline: 19 MiB memory, 2 iterations, 1 thread, 32-byte tag
 hash := argon2.IDKey([]byte(pw), salt, 2, 19*1024, 1, 32)
 ```
@@ -100,7 +100,7 @@ owns the form; the choice table:
 | Need | Call |
 |---|---|
 | URL-safe secret string (session ID, reset token) | `rand.Text()` (Go 1.24+, 128 bits, base32) |
-| Raw key material | `rand.Read(buf)` — always check the error |
+| Raw key material | `rand.Read(buf)` — it never returns an error and crashes the program if the OS source fails, so there is nothing to check |
 | UUID | stdlib `uuid` on the dependency ladder ([go-packages](../../go-packages/SKILL.md)) |
 | Nonce for AES-GCM | `cipher.NewGCMWithRandomNonce` (Go 1.24+) for new formats; explicit nonces only when the protocol requires them |
 
@@ -152,7 +152,7 @@ must:
 ```go
 srv := &http.Server{
     TLSConfig: &tls.Config{
-        MinVersion: tls.VersionTLS13, // when every client supports it
+        MinVersion: tls.VersionTLS13, // a TLS 1.3-only service; otherwise leave it unset
     },
 }
 ```

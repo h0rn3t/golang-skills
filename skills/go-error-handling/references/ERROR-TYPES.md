@@ -174,8 +174,9 @@ skill carries only the decisions; these are the conventions.
   ```
 
 - **Discard deliberately.** An ignored error carries a comment saying why on
-  the same line (`n, _ := b.Write(p) // never returns a non-nil error`);
-  `errcheck` reports the ones that do not.
+  the same line (`n, _ := b.Write(p) // never returns a non-nil error`).
+  `errcheck` never reports an explicit `_`, so that comment is the only record
+  of the reason.
 
 ---
 

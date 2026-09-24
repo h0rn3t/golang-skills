@@ -15,7 +15,7 @@ at compile time.
 Use `_` to discard unwanted values from multi-value expressions:
 
 ```go
-if _, err := os.Stat(path); os.IsNotExist(err) {
+if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
     fmt.Printf("%s does not exist\n", path)
 }
 ```

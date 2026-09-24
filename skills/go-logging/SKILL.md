@@ -149,8 +149,9 @@ Use that retrieved logger's `InfoContext` method downstream.
 The handle-once rule and its one exception — a handler at the top of the
 chain logs the detail and answers with a status — belong to
 [go-error-handling](../go-error-handling/SKILL.md#error-flow). The logging
-side of that exception is the `*Context` call, so the request's fields reach
-the record:
+side of that exception is one `*Context` call carrying the fields the record
+needs; under `JSONHandler` the context itself adds none
+([Request-Scoped Logging](#request-scoped-logging)):
 
 ```go
 slog.ErrorContext(r.Context(), "checkout failed", "err", err, "user_id", uid)

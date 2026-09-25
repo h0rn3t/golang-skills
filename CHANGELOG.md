@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.22.3] - 2026-09-25
+
 - `README.md` and `README.uk.md` gain an "Updating" section: the Claude Code
   plugin update commands, `npx skills update -g` for Codex, and a manual
   replace-not-overwrite refresh.

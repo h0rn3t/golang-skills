@@ -1429,10 +1429,12 @@ func TestRuleOwnershipMap(t *testing.T) {
 	// Nesting, early returns, and unnecessary else belong to go-style-core;
 	// go-error-handling and go-code-refactor route to it.
 	// The iota enum form belongs to go-style-core; go-defensive routes to it.
+	// The lite/full/ultra levels belong to go-code, which parses the level word.
 	for needle, owners := range map[string][]string{
 		"Reduce Nesting":   {"skills/go-style-core/SKILL.md"},
 		"Unnecessary Else": {"skills/go-style-core/SKILL.md"},
 		"iota + 1":         {"skills/go-style-core/references/IOTA.md"},
+		"## Intensity":     {"skills/go-code/SKILL.md"},
 	} {
 		allowed := map[string]bool{}
 		for _, owner := range owners {

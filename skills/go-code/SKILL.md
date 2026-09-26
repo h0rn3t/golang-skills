@@ -36,7 +36,8 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
 ## Workflow
 
 1. **Resolve invocation.** `$go-code <task>` or `/go-code <task>` selects Go
-   work. A slash command inserts this file and loads nothing else: no sibling
+   work; a leading `lite`, `full`, or `ultra` sets the [Intensity](#intensity),
+   not the task. A slash command inserts this file and loads nothing else: no sibling
    skill comes with it, so steps 2 and 3 make their `Skill` calls exactly as
    they do on any other invocation. As a modifier, e.g.
    `/opsx:apply add-auth /go-code`, remove the modifier before the host parses
@@ -102,6 +103,36 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
    [go-style-core](../go-style-core/SKILL.md#the-edit-hook-record) defines
    it. The report names the test file and its result, not the cases one by
    one.
+
+## Intensity
+
+A level word right after the command — `/go-code lite <task>`,
+`/go-code ultra <task>` — or `lite mode` / `ultra mode` in the prompt sets how
+hard the [restraint ladder](../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder)
+pushes. The word is never part of the task. The level holds for the rest of
+the session, until another level word; `full` is the default and returns to
+it. Where the plugin's hooks run, they print the ladder and the level at
+session start and into each subagent, and `GOLANG_SKILLS_LADDER=lite|ultra`
+sets the level a session starts at (`off` stops the hook). A
+behavior-preserving refactor runs at `full` whatever the word: the
+[delete-first order](../go-code-refactor/SKILL.md#delete-before-you-restructure)
+already fixes its shape.
+
+| Level | What changes |
+|---|---|
+| `lite` | Rungs 1–6 advise on what the request implies: build the shape the request suggests, and where a higher rung would hold, name it in one report line — `lazier: <X>` — for the user to pick. |
+| `full` | The ladder and the [Declaration Budget](#declaration-budget) as written. The default. |
+| `ultra` | Rung 1 for every part the request does not state in words — an option, a config field, a hook, an export, a cache, a goroutine: skip it and report `skipped: <X>, add when <Y>`. Before adding a line, delete what the change leaves dead. A stated requirement a higher rung would cover still ships, with one line: `Need <X>? <Y> covers it.` |
+
+No level changes the gate, the [Contract Table](#contract-table), an explicit
+requirement, or what the ladder never cuts: validation at trust boundaries,
+error handling that prevents data loss, and security controls.
+
+"Make the worker pool size configurable":
+
+- `lite`: a `Config` struct with the pool's knobs, then `lazier: one workers int parameter; no caller sets the rest.`
+- `full`: a `workers int` parameter on `NewPool`, then `skipped: queue depth and backoff options, add when a caller sets them.`
+- `ultra`: the same parameter, then `Need it configurable? If every caller passes runtime.GOMAXPROCS(0), that call covers it.`
 
 ## Writing New Code
 

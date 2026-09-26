@@ -71,7 +71,7 @@ behavior-preserving changes. Skills link to siblings relatively
 (`../go-x/SKILL.md#anchor`) so the same tree works under Codex, Cursor, or
 copied into `~/.claude/skills/`.
 
-`hooks/hooks.json` wires four scripts that make the routing enforceable in
+`hooks/hooks.json` wires five scripts that make the routing enforceable in
 Claude Code:
 
 - `go-code-routing.sh`: PostToolUse on `Skill|Read` records loaded skills;
@@ -85,8 +85,13 @@ Claude Code:
   off. Never blocks.
 - `go-prompt-routing.sh` (UserPromptSubmit) and `go-subagent-routing.sh`
   (SubagentStart) inject one note naming the router; silent otherwise.
+- `go-restraint-ladder.sh`: SessionStart and SubagentStart in a Go directory
+  print the ladder section of `OVER-ENGINEERING.md` plus the session's
+  `lite`/`full`/`ultra` row from go-code's Intensity table, both read at run
+  time; UserPromptSubmit records a level word in `<state>/intensity`.
+  `GOLANG_SKILLS_LADDER=lite|full|ultra|off`.
 
-`evals/hook_test.go` drives all four.
+`evals/hook_test.go` drives all five.
 
 ### Rule ownership
 

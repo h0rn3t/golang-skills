@@ -982,3 +982,129 @@ func TestSubagentRouting(t *testing.T) {
 		}
 	})
 }
+
+// ladderEvent runs the restraint ladder hook with payload on stdin and returns
+// its exit code and stdout, which the host adds to the context.
+func ladderEvent(t *testing.T, state string, payload map[string]any, env ...string) (int, string) {
+	t.Helper()
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	cmd := exec.Command("bash", filepath.Join(repoRoot(t), "hooks", "go-restraint-ladder.sh"))
+	cmd.Stdin = strings.NewReader(string(body))
+	cmd.Env = append(append(os.Environ(), "CLAUDE_PLUGIN_DATA="+state, "GOLANG_SKILLS_LADDER="), env...)
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+	if stderr.Len() > 0 {
+		t.Errorf("ladder hook wrote to stderr:\n%s", stderr.String())
+	}
+	if err == nil {
+		return 0, stdout.String()
+	}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok {
+		t.Fatalf("run ladder hook: %v", err)
+	}
+	return exitErr.ExitCode(), stdout.String()
+}
+
+// TestLadderHook drives the restraint ladder hook: a session or subagent
+// started in a Go project gets the ladder from OVER-ENGINEERING.md and the
+// level line from go-code's Intensity table; a level word in a prompt sets the
+// level for the rest of the session; GOLANG_SKILLS_LADDER sets the starting
+// level or turns the hook off.
+func TestLadderHook(t *testing.T) {
+	t.Parallel()
+	goDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(goDir, "go.mod"), []byte("module scratch\n\ngo 1.27\n"), 0o644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	start := func(session, cwd string) map[string]any {
+		return map[string]any{"hook_event_name": "SessionStart", "source": "startup", "session_id": session, "cwd": cwd}
+	}
+	prompt := func(session, text string) map[string]any {
+		return map[string]any{"hook_event_name": "UserPromptSubmit", "session_id": session, "cwd": goDir, "prompt": text}
+	}
+	subagent := func(session, agent string) map[string]any {
+		return map[string]any{"hook_event_name": "SubagentStart", "session_id": session, "cwd": goDir, "agent_type": agent}
+	}
+
+	t.Run("session start in Go prints the ladder at full", func(t *testing.T) {
+		t.Parallel()
+		code, out := ladderEvent(t, t.TempDir(), start("l1", goDir))
+		if code != 0 {
+			t.Fatalf("exit %d, want 0", code)
+		}
+		owner := filepath.Join(repoRoot(t), "skills", "go-code-refactor", "references", "OVER-ENGINEERING.md")
+		for _, want := range []string{owner, "## The Restraint Ladder", "Does this need to exist at all?", "Can it be one line?", "**Never on the chopping block**", "Restraint level `full`", "as written. The default."} {
+			if !strings.Contains(out, want) {
+				t.Errorf("session start must print %q:\n%s", want, out)
+			}
+		}
+		if strings.Contains(out, "## Reach For What Go Ships") {
+			t.Errorf("only the ladder section is printed, not the rest of the file:\n%s", out)
+		}
+	})
+
+	t.Run("silent outside Go", func(t *testing.T) {
+		t.Parallel()
+		if code, out := ladderEvent(t, t.TempDir(), start("l2", t.TempDir())); code != 0 || out != "" {
+			t.Fatalf("session outside Go: exit %d, stdout %q; want silent 0", code, out)
+		}
+	})
+
+	t.Run("a level word holds for the session", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		_, out := ladderEvent(t, state, prompt("l3", "/golang-skills:go-code ultra ./feed"))
+		if !strings.Contains(out, "restraint level `ultra`") || !strings.Contains(out, "`Need <X>? <Y> covers it.`") {
+			t.Fatalf("/go-code ultra: stdout %q; want the ultra line", out)
+		}
+		if _, out := ladderEvent(t, state, start("l3", goDir)); !strings.Contains(out, "Restraint level `ultra`") {
+			t.Errorf("compact after ultra: stdout %q; want level ultra", out)
+		}
+		if _, out := ladderEvent(t, state, subagent("l3", "general-purpose")); !strings.Contains(out, "Restraint level `ultra`") {
+			t.Errorf("subagent after ultra: stdout %q; want level ultra", out)
+		}
+		if _, out := ladderEvent(t, state, prompt("l3", "Lite mode: add a handler that returns the balance")); !strings.Contains(out, "`lazier: <X>`") {
+			t.Errorf("lite mode: stdout %q; want the lite line", out)
+		}
+		if _, out := ladderEvent(t, state, prompt("l4", "режим ultra, додай хендлер")); !strings.Contains(out, "`ultra`") {
+			t.Errorf("режим ultra: stdout %q; want the ultra line", out)
+		}
+	})
+
+	t.Run("prompts without a level word stay silent", func(t *testing.T) {
+		t.Parallel()
+		// A refactor runs at full, so its command sets no level.
+		for _, p := range []string{"Implement the Go package in ./feed", "/go-code-refactor ultra ./dispatch", "/go-code ./feed"} {
+			if code, out := ladderEvent(t, t.TempDir(), prompt("l5", p)); code != 0 || out != "" {
+				t.Errorf("prompt %q: exit %d, stdout %q; want silent 0", p, code, out)
+			}
+		}
+	})
+
+	t.Run("GOLANG_SKILLS_LADDER sets the start level or turns the hook off", func(t *testing.T) {
+		t.Parallel()
+		if _, out := ladderEvent(t, t.TempDir(), start("l6", goDir), "GOLANG_SKILLS_LADDER=lite"); !strings.Contains(out, "Restraint level `lite`") {
+			t.Errorf("GOLANG_SKILLS_LADDER=lite: stdout %q; want level lite", out)
+		}
+		for _, payload := range []map[string]any{start("l7", goDir), prompt("l7", "/go-code ultra ./feed"), subagent("l7", "general-purpose")} {
+			if code, out := ladderEvent(t, t.TempDir(), payload, "GOLANG_SKILLS_LADDER=off"); code != 0 || out != "" {
+				t.Errorf("GOLANG_SKILLS_LADDER=off, %v: exit %d, stdout %q; want silent 0", payload["hook_event_name"], code, out)
+			}
+		}
+	})
+
+	t.Run("silent for go-verify", func(t *testing.T) {
+		t.Parallel()
+		for _, agent := range []string{"go-verify", "golang-skills:go-verify"} {
+			if code, out := ladderEvent(t, t.TempDir(), subagent("l8", agent)); code != 0 || out != "" {
+				t.Errorf("%s subagent: exit %d, stdout %q; want silent 0", agent, code, out)
+			}
+		}
+	})
+}

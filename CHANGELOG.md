@@ -4,6 +4,27 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-09-27
+
+- `go-code` ports ponytail's intensity levels. `/go-code lite <task>` or
+  `lite mode` names the lazier rung in a `lazier:` line and builds the shape
+  the request suggests; `/go-code ultra <task>` skips every part the request
+  does not state and questions stated ones a higher rung covers
+  (`Need <X>? <Y> covers it.`). No level word means `full`, the current
+  behavior. No level touches the gate, the Contract Table, explicit
+  requirements, or the never-cut list, and a behavior-preserving refactor
+  always runs at `full`. The level holds for the rest of the session.
+  `TestRuleOwnershipMap` pins `## Intensity` to `go-code`. The wording is
+  unmeasured.
+- New `hooks/go-restraint-ladder.sh`, wired like ponytail's ruleset: on
+  `SessionStart` (startup, resume, clear, compact) and `SubagentStart` in a
+  directory holding Go it prints the restraint ladder, read at run time from
+  `OVER-ENGINEERING.md`, and the session's level row from `go-code`; on
+  `UserPromptSubmit` a level word records the level for the session.
+  `GOLANG_SKILLS_LADDER=lite|full|ultra` sets the starting level, `off` turns
+  the hook off. `TestLadderHook` drives it. About 4 KB of context per session
+  start and per subagent.
+
 ## [1.22.4] - 2026-09-26
 
 - `go-code` finds references semantically before changing a used symbol —

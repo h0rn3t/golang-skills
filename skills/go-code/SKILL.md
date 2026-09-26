@@ -49,10 +49,16 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
    trap; its older rows apply at every directive, so a `head` or a `grep`
    over it misses what a Go 1.19 module still gets. Then inspect repository
    instructions, `go.mod` (its `go` directive sets the idiom), neighboring
-   code, tests, and callers. A shell tool (`Bash` in Claude Code) in your
-   tool list means step 6 runs the checks; without one `go-linting` stays
-   unread and the report says so in one line. A new function, package, or
-   stub body makes step 4 apply; a fix or a restructuring skips it.
+   code, tests, and callers. Before changing a symbol that other files use,
+   find its references semantically — gopls MCP (`go_symbol_references`) or
+   the `LSP` tool (`findReferences`), per
+   [GOPLS.md](../go-code-refactor/references/GOPLS.md#three-ways-in); with
+   neither wired, grep and let the step 6 build catch the rest. gopls
+   diagnostics do not replace step 6. Do not install a server for the task.
+   A shell tool (`Bash` in Claude Code) in your tool list means step 6 runs
+   the checks; without one `go-linting` stays unread and the report says so
+   in one line. A new function, package, or stub body makes step 4 apply; a
+   fix or a restructuring skips it.
 3. **Load the owners before the first edit.** Match the task against
    [Route Before The First Edit](#route-before-the-first-edit) and load each
    matched owner plus every `Also load` entry whose condition holds, with the

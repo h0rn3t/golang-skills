@@ -4,6 +4,15 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.22.4] - 2026-09-26
+
+- `go-code` finds references semantically before changing a used symbol —
+  gopls MCP or the Claude Code `LSP` tool when either is already wired, grep
+  otherwise — and routes to `go-code-refactor`'s `GOPLS.md`, whose ownership
+  row now covers reference lookup. gopls diagnostics do not replace the gate.
+- `GOPLS.md`: the `LSP` tool route no longer claims a `rename` operation or
+  needs `ENABLE_LSP_TOOL=1`; rename goes through `go_rename_symbol` or the CLI.
+
 ## [1.22.3] - 2026-09-25
 
 - `README.md` and `README.uk.md` gain an "Updating" section: the Claude Code

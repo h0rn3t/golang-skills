@@ -3,7 +3,7 @@
 > Sources: golang.org/x/tools/gopls docs (`gopls help`, `gopls mcp`); Claude Code LSP tool docs
 > Authority: advisory — the mechanics; behavior preservation rules stay in SKILL.md
 > Minimum Go: gopls v0.20+ on PATH (`go install golang.org/x/tools/gopls@latest`)
-> Last verified: 2026-09-02
+> Last verified: 2026-09-26
 
 `grep` finds text; `gopls` finds meaning. For a refactor that is a promise of
 identical behavior, the difference is the whole job: a textual rename misses
@@ -16,8 +16,8 @@ appear".
 
 | Route | Addressing | Best for |
 |---|---|---|
-| gopls MCP server — `claude mcp add gopls -- gopls mcp` | Symbol names, file paths, fuzzy queries (`go_search`, `go_symbol_references`, `go_diagnostics`, `go_package_api`) | Agent workflows: no cursor position needed |
-| Native `LSP` tool (`ENABLE_LSP_TOOL=1` + gopls wired) | `line:character` (`findReferences`, `goToImplementation`, `rename`, call hierarchy) | Right after a read or grep gave you a location; diagnostics arrive after every edit for free |
+| gopls MCP server — `claude mcp add gopls -- gopls mcp` | Symbol names, file paths, fuzzy queries (`go_search`, `go_symbol_references`, `go_rename_symbol`, `go_diagnostics`, `go_package_api`) | Agent workflows: no cursor position needed |
+| Native `LSP` tool (gopls wired as an LSP server, e.g. the `gopls-lsp` plugin) | `line:character` (`findReferences`, `goToImplementation`, `workspaceSymbol`, call hierarchy); no rename | Right after a read or grep gave you a location; diagnostics arrive after every edit for free |
 | `gopls` CLI — `gopls rename -w file.go:12:6 newName` | `file:line:col` | Nothing else is wired; one-shot scripted checks. Documented as experimental |
 
 Prefer MCP → LSP → CLI. Absent all three, fall back to `go build ./... && go
@@ -38,7 +38,8 @@ found by the compiler, not before the edit.
 
 ## Applying the change
 
-- **Rename**: gopls `rename` updates every reference in the workspace,
+- **Rename**: gopls rename (`go_rename_symbol`, or `gopls rename -w` when
+  only the `LSP` tool is wired) updates every reference in the workspace,
   including test files, doc comments that mention the identifier in backticks,
   and struct-literal field keys. It rejects a rename that would shadow or
   collide. Review the diff anyway — a reject is safe, an accept is merely

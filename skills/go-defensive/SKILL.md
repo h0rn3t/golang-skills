@@ -72,11 +72,13 @@ return u.Clone()                     // *url.URL, Go 1.27+
 return params.Clone()                // url.Values, Go 1.27+ (deep-copies values)
 ```
 
-`Clone` is **shallow**: `[]*T` and `map[K][]V` copies still alias their
-elements. It also keeps nil, which `encoding/json` v1 writes as `null`: a
-field or result that must encode as `[]` or `{}` takes the `append([]T{}, s...)`
-form above, or a `make` filled with `copy` or `maps.Copy`. See
-[BOUNDARY-COPYING.md](references/BOUNDARY-COPYING.md).
+`slices.Clone` and `maps.Clone` are **shallow**: `[]*T` and `map[K][]V` copies
+still alias their elements. A type-specific `Clone` has only the copy depth in
+its documented contract; do not substitute shallow and deep copies as a style
+change. `slices.Clone` and `maps.Clone` also preserve nil, which
+`encoding/json` v1 writes as `null`; for a required `[]` or `{}` output, keep
+the non-nil `append` or `make` copy above. See
+[BOUNDARY-COPYING.md](references/BOUNDARY-COPYING.md#copy-depth-is-part-of-the-contract).
 
 ## Defer to Clean Up
 

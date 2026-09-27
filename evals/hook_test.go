@@ -643,7 +643,8 @@ func promptEvent(t *testing.T, state, session, cwd, prompt string) (int, string)
 }
 
 // TestPromptRouting drives the UserPromptSubmit hook: the two corpus prompts
-// name their router, a prompt without Go or without a work verb stays silent,
+// name their router, a prompt without Go stays silent, read-only Go questions
+// get navigation guidance without an edit workflow,
 // the note is printed once per skill per session, and a session that already
 // loaded the skill is left alone.
 func TestPromptRouting(t *testing.T) {
@@ -715,11 +716,21 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
-	t.Run("silent without a work verb", func(t *testing.T) {
+	t.Run("read-only Go question gets navigation guidance once", func(t *testing.T) {
 		t.Parallel()
-		code, out := promptEvent(t, t.TempDir(), "p5", goRepo(t), "Explain what this Go function does and why it uses a mutex")
-		if code != 0 || out != "" {
-			t.Fatalf("question about Go: exit %d, stdout %q; want silent 0", code, out)
+		state, cwd := t.TempDir(), goRepo(t)
+		code, out := promptEvent(t, state, "p5", cwd, "Explain what this Go function does and why it uses a mutex")
+		if code != 0 || !strings.Contains(out, "go_file_context") || !strings.Contains(out, "go_search") {
+			t.Fatalf("question about Go: exit %d, stdout %q; want navigation guidance", code, out)
+		}
+		if strings.Contains(out, "Before the first edit") || strings.Contains(out, "`go-code`") {
+			t.Fatalf("read-only question must not start the edit workflow:\n%s", out)
+		}
+		if _, out := promptEvent(t, state, "p5", cwd, "Where is CreateUser implemented in Go?"); out != "" {
+			t.Fatalf("second question in the same agent context: stdout %q; want silent", out)
+		}
+		if _, out := promptEvent(t, state, "other", cwd, "Where is CreateUser implemented in Go?"); !strings.Contains(out, "go_search") {
+			t.Fatalf("new agent context: stdout %q; want navigation guidance", out)
 		}
 	})
 
@@ -954,7 +965,7 @@ func TestSubagentRouting(t *testing.T) {
 			if code != 0 {
 				t.Fatalf("subagent %d in a Go directory: exit %d, want 0", i, code)
 			}
-			for _, want := range []string{"go-code", "go-code-refactor", "before the first edit"} {
+			for _, want := range []string{"go-code", "go-code-refactor", "before the first edit", "go_search", "go_file_context"} {
 				if !strings.Contains(out, want) {
 					t.Errorf("subagent %d note must mention %q:\n%s", i, want, out)
 				}

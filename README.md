@@ -30,7 +30,8 @@ the manifests under `.claude-plugin/`. In a Go project the hooks print the
 restraint ladder at session start and into each subagent; `/go-code ultra
 <task>` or `lite mode` changes its level for the session, and
 `GOLANG_SKILLS_LADDER=off` turns it off. For Go navigation, the skills use
-`rg` for discovery, gopls for symbol relationships, then targeted file reads.
+gopls MCP for unknown Go symbols and relationships when available, `rg` for
+literal text, then targeted file reads.
 
 ## Installation
 
@@ -58,9 +59,9 @@ cp -R skills/go-* ~/.claude/skills/
 
 ### gopls (recommended)
 
-The skills use `rg` to find candidate locations, then look up references,
-callers, and implementations through gopls when it is wired. Without gopls,
-they use source inspection and the compiler
+When wired, gopls MCP finds unknown Go symbols and semantic relationships;
+`rg` finds literal text. Without gopls, the skills use source inspection and
+the compiler
 (`skills/go-code-refactor/references/GOPLS.md` maps each question to a tool).
 Install the binary first; every route below runs it from `PATH`:
 

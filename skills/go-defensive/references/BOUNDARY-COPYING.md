@@ -70,19 +70,24 @@ func (q *Queue) Items() []Item { return append(make([]Item, 0, len(q.items)), q.
 The same holds for a map a caller is expected to write into: `maps.Clone` of a
 nil map returns nil, and the first write panics.
 
-## Clone is shallow
+## Copy depth is part of the contract
 
-`Clone` copies one level. If the element type contains a reference, the copy
-still aliases it:
+A shallow copy duplicates the outer value or container and keeps references to
+nested data. A deep copy duplicates nested mutable data to the depth required
+for independent ownership. Go has no general-purpose deep-copy operation.
 
-| Type | `Clone` gives you | What you need |
+`slices.Clone` and `maps.Clone` are shallow: pointer elements and reference
+values such as slices or maps remain shared. Struct assignment is also shallow
+for fields that contain references. The name `Clone` alone does not specify
+copy depth; follow that method's documented contract. For example,
+`url.Values.Clone` (Go 1.27+) copies the map and its `[]string` values.
+
+| Source | Operation | Copy depth |
 |---|---|---|
-| `[]int`, `map[string]int` | A real, independent copy | Nothing more |
-| `[]*Trip` | New slice, **same pointers** | Clone each element too |
-| `map[string][]string` | New map, **same slices** | Clone each value |
-| `url.Values` | — | `v.Clone()` (Go 1.27+), which deep-copies the value slices |
-| `*url.URL` | — | `u.Clone()` (Go 1.27+) |
-| `http.Header` | — | `h.Clone()` |
+| `[]int`, `map[string]int` | `slices.Clone`, `maps.Clone` | Independent outer data; elements/values are scalars |
+| `[]*Trip` | `slices.Clone` | New slice; the `*Trip` values are shared |
+| `map[string][]string` | `maps.Clone` | New map; the `[]string` values are shared |
+| `url.Values` | `v.Clone()` (Go 1.27+) | New map and independent value slices |
 
 ```go
 // Bad: the maps.Clone copy shares every []string with the caller
@@ -92,8 +97,14 @@ params := maps.Clone(userParams)
 params := userParams.Clone() // url.Values.Clone, Go 1.27+
 ```
 
-For a struct with reference fields, write an explicit `Clone` method rather
-than relying on assignment — struct assignment is shallow for the same reason.
+For a struct with reference fields, an explicit `Clone` method must still meet
+the required copy depth; the method name does not make it deep. Copy each
+nested mutable field only when the ownership contract requires it.
+
+Do not replace a shallow copy with a deep copy, or a deep copy with a shallow
+copy, as a style cleanup. They have different aliasing and cost contracts. If
+the required ownership changes, make that semantic change explicit in the API
+contract and its tests.
 
 ## When copies are not needed
 

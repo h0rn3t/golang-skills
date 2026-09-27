@@ -5,29 +5,27 @@
 > Minimum Go: gopls v0.20+ on PATH (`go install golang.org/x/tools/gopls@latest`)
 > Last verified: 2026-09-27
 
-Use `rg` for cheap textual discovery, then gopls to verify Go symbol meaning:
-definitions, references, implementations, symbols, and type information.
-Use `rg -n --column -g '*.go' 'Name'` to get a candidate position for CLI or
-LSP queries, then read files at the locations gopls identifies. Skip `rg`
-when the symbol's position is already known. An `rg` hit is not proof of a reference:
-textual search can miss an interface implementation and can hit an unrelated
-local with the same name. Avoid recursive file reads when gopls can locate
-the relevant symbols.
+When MCP tools are available, start unknown Go symbol searches with `go_search`;
+it accepts a name without a file position. Use `rg` directly for literal text.
+For position-based LSP/CLI operations, `rg -n --column -g '*.go' 'Name'` can
+find a candidate, which gopls must verify. An `rg` hit is not a semantic
+reference: it can miss implementations or hit an unrelated local. Read only
+the files and declarations needed after navigation.
 
 ## Three ways in
 
 | Route | Addressing | Best for |
 |---|---|---|
 | gopls MCP server — `claude mcp add gopls -- gopls mcp` | Symbol names, file paths, fuzzy queries (`go_search`, `go_symbol_references`, `go_rename_symbol`, `go_diagnostics`, `go_package_api`, `go_file_context`) | Agent workflows: no cursor position needed |
-| Native `LSP` tool (gopls wired as an LSP server, e.g. the `gopls-lsp@claude-plugins-official` plugin) | `line:character` (`findReferences`, `goToImplementation`, `workspaceSymbol`, `hover`, `documentSymbol`, call hierarchy); no rename, no code actions | After `rg` gives a location; diagnostics arrive after every edit for free |
+| Native `LSP` tool (gopls wired as an LSP server, e.g. the `gopls-lsp@claude-plugins-official` plugin) | `line:character` (`findReferences`, `goToImplementation`, `workspaceSymbol`, `hover`, `documentSymbol`, call hierarchy); no rename, no code actions | When a position is known or found; diagnostics arrive after every edit for free |
 | `gopls` CLI — `gopls workspace_symbol Name`, `gopls references file.go:12:6`, `gopls rename -w file.go:12:6 newName` | Name or `file:line:col` | Nothing else is wired; one-shot navigation and edits. Documented as experimental |
 
 Which route is wired: an `LSP` tool in your tool list means the LSP route,
 `go_*` tools mean MCP, `command -v gopls` succeeding means the CLI. If one
 route is blocked or fails, try another available gopls route before treating
-text hits as semantic references. The routes stack — the plugin supplies diagnostics and
-positions, MCP supplies rename and name-based lookup — so use each for what it
-does best rather than picking one.
+text hits as semantic references. Use each route for the operation it exposes.
+Do not infer MCP availability from `command -v gopls`, or install or restart
+tooling merely to satisfy navigation instructions.
 Absent all three, fall back to `go build ./... && go vet ./...` after every
 rename and accept that interface satisfaction breaks are found by the compiler,
 not before the edit.
@@ -50,17 +48,38 @@ with `workspaceSymbol`, `go_search`, or `gopls workspace_symbol`. CLI positions
 use 1-based line and column numbers. Navigation tells
 you where to read; it does not replace reading the code the change touches.
 
-`gopls mcp -instructions` tells the agent to run `go_vulncheck` at session
-start; the vulnerability scan belongs to the closing gate
-([go-linting](../../go-linting/SKILL.md)), so run it there, once.
+The MCP server does not automatically deliver its workflow instructions on
+connect; `gopls mcp -instructions` displays them. Its session-start
+`go_vulncheck` instruction does not supersede this repository's
+[verification policy](../../go-linting/SKILL.md): scan for dependency or
+security work, or when the gate requires it.
+
+## MCP call examples
+
+Use the installed tool names and schemas; the host may add a server prefix.
+Paths below stand for real absolute paths. In particular, the current
+`go_symbol_references` schema uses `symbol`, not `name`.
+
+```text
+go_search({"query":"UserService"})
+go_file_context({"file":"/repo/internal/users/service.go"})
+go_symbol_references({"file":"/repo/internal/users/service.go","symbol":"UserService.Create"})
+go_package_api({"packagePaths":["example.com/project/internal/users"]})
+```
+
+`go_file_context` identifies same-package file dependencies; read only the
+relevant declarations. `go_package_api` accepts multiple package paths. There
+is no dedicated MCP implementation search: use native LSP
+`goToImplementation` or CLI `gopls implementation`, or state the limit.
+References are not a full implementation list.
 
 ## Before touching a definition
 
 1. **References, not grep.** `go_symbol_references` / `findReferences` on the
    symbol. The count is the blast radius; read every referencing file that
    needs a matching edit before the first change.
-2. **Implementations both ways.** For a method: `goToImplementation` on the
-   interface it might satisfy; for an interface: every type that implements it.
+2. **Implementations both ways.** When native LSP or CLI is available, query
+   implementations for a method's interface or for an interface itself.
    Renaming `Close` on one type silently un-implements `io.Closer` — gopls's
    rename refuses that; a text replace does not.
 3. **Exported symbol?** References outside the module are invisible to gopls
@@ -68,8 +87,9 @@ start; the vulnerability scan belongs to the closing gate
 
 ## Applying the change
 
-- **Rename**: gopls rename (`go_rename_symbol`, or `gopls rename -w` when
-  only the `LSP` tool is wired) updates every reference in the workspace,
+- **Rename**: `go_rename_symbol` returns edits (currently a unified diff):
+  review, apply, and diagnose them. CLI `gopls rename -w` writes edits when
+  only CLI is available. A successful rename updates workspace references,
   including test files, doc comments that mention the identifier in backticks,
   and struct-literal field keys. It rejects a rename that would shadow or
   collide. Review the diff anyway — a reject is safe, an accept is merely
@@ -84,10 +104,13 @@ start; the vulnerability scan belongs to the closing gate
 - **Generated files** (`// Code generated ... DO NOT EDIT`) receive no code
   actions. Trace and update their source inputs as described in `SKILL.md`.
 
-## After every edit
+## After a coherent edit batch
 
-`go_diagnostics` on each changed file (automatic with the native tool). Fix
-compiler errors before moving to the next transformation; a half-applied
+Call `go_diagnostics` once with all changed Go paths. It checks parse and build
+errors across the workspace; `files` selects active files for extra analysis,
+so per-file calls duplicate work. Native LSP diagnostics may arrive after
+each edit automatically. Fix compiler errors before the next transformation;
+a half-applied
 rename across two files is the state in which `verify-refactor.sh after` lies
 to you — the package that failed to compile ran no tests at all. Re-test the
 affected packages mid-step — the ones you changed plus the consumers of any

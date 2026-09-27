@@ -112,10 +112,10 @@ fold := Fold(combine)      // Go 1.27
 
 ### `url.URL.Clone` / `url.Values.Clone` — Go 1.27
 
-Replaces hand-rolled copying. Same caveat as `wg.Go`: if the old copy was
-shallow (`u2 := *u`, or a `maps.Clone`d `Values` whose slices stay shared), the
-hand-rolled version was a latent bug and the swap is a fix — Tier 3 for that
-call site. See [go-defensive](../../go-defensive/SKILL.md).
+Use only when documented depth matches the contract; `url.Values.Clone` copies
+its value slices, unlike `maps.Clone`. Treat a shallow-to-deep swap as a Tier 3
+semantic fix with a contract test, not a behavior-preserving cleanup. See the
+[go-defensive copy-depth rule](../../go-defensive/references/BOUNDARY-COPYING.md#copy-depth-is-part-of-the-contract).
 
 ### Iterator forms of splitting — Go 1.24
 

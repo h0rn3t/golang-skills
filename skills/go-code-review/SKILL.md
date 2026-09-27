@@ -113,7 +113,8 @@ allowed-tools: Bash(bash:*)
 ## Data Structures
 
 - [ ] **Empty slices**: Prefer `var t []string` (nil) over `t := []string{}` (non-nil zero-length) → [go-data-structures](../go-data-structures/SKILL.md)
-- [ ] **Copying**: a struct holding a pointer, slice, map, or lock is copied only where sharing is meant or through its `Clone`; a value receiver on a type with `*T` methods is a finding → [go-data-structures](../go-data-structures/SKILL.md)
+- [ ] **Copy depth**: check the ownership contract: `slices.Clone`/`maps.Clone` are shallow, and a type's `Clone` follows its documented contract. Flag a copy that violates the contract or an unrequested depth change presented as cleanup; a deeper copy that fixes an existing contract violation is a bug fix → [go-defensive](../go-defensive/references/BOUNDARY-COPYING.md#copy-depth-is-part-of-the-contract)
+- [ ] **Copying values**: do not copy structs containing locks or other synchronization values after use; a value receiver on a type with `*T` methods is a finding → [go-data-structures](../go-data-structures/SKILL.md)
 
 ---
 

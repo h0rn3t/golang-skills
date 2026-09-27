@@ -48,6 +48,6 @@ if has_go_files(d.get("cwd") or ""):
 [[ "$verdict" == "go" ]] || exit 0
 
 cat <<'NOTE'
-golang-skills: this project holds Go code. If your task writes, fixes, or refactors Go, load the `go-code` skill (Skill tool, name `go-code`) before the first edit, or `go-code-refactor` for a behavior-preserving refactor; it loads the owner skills the task needs and closes with the verification gate. Reading, searching, or reviewing only needs no skill. If the task is not Go work, ignore this note.
+golang-skills: this project holds Go code. If your task writes, fixes, or refactors Go, load the `go-code` skill (Skill tool, name `go-code`) before the first edit, or `go-code-refactor` for a behavior-preserving refactor; it loads the owner skills the task needs and closes with the verification gate. Reading, searching, or reviewing only needs no edit skill. When gopls MCP tools are available: use go_workspace once, go_search for unknown Go symbols, go_file_context after reading a relevant Go file, go_package_api for package APIs, and go_symbol_references before changing an existing symbol. After a coherent edit batch, use go_diagnostics. Use rg for literal text, not to reconstruct Go symbol relationships. If the task is not Go work, ignore this note.
 NOTE
 exit 0

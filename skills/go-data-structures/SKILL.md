@@ -47,7 +47,7 @@ Writing the loop instead is a reviewable defect, not a style choice —
 |---|---|
 | Search for a value, or its position | `slices.Contains`, `slices.ContainsFunc`, `slices.Index`, `slices.IndexFunc` |
 | Sort | `slices.Sort`, `slices.SortFunc` (not `sort.Slice`) |
-| Copy, where a nil input may stay nil | `slices.Clone`, `maps.Clone` |
+| Shallow copy, where a nil input may stay nil | `slices.Clone`, `maps.Clone` |
 | Copy that must encode as `[]` or `{}` under `encoding/json` v1 | `dst := make([]T, len(s)); copy(dst, s)` or `append([]T{}, s...)`; `Clone` of nil is nil, which v1 writes as `null` |
 | Merge entries into an existing map | `maps.Copy` |
 | Delete map entries by predicate | `maps.DeleteFunc` |
@@ -72,6 +72,10 @@ copy produces a non-nil container even for nil input. Preserve that allocation
 when JSON, a later map write, or observable capacity requires it — see
 [Declaring Empty Slices](#declaring-empty-slices). Check the contract before
 replacing a loop.
+
+These clones are shallow: references inside elements or map values remain
+shared. Copy depth and type-specific `Clone` contracts belong to
+[go-defensive](../go-defensive/references/BOUNDARY-COPYING.md#copy-depth-is-part-of-the-contract).
 
 Two signatures an older habit gets wrong: `maps.Keys` and `maps.Values`
 return iterators (`iter.Seq`), not the slices the retired

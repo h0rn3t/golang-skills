@@ -12,9 +12,9 @@
 #
 # Go work is a prompt that names Go (the word Go, golang, a .go file, go.mod,
 # goroutines, a go subcommand) or a prompt sent from a directory holding
-# go.mod or *.go files within two levels. A prompt with no work verb — a
-# question, an explanation — is left alone, as is a prompt that names a go-*
-# skill in prose: there the model's own Skill call does the loading.
+# go.mod or *.go files within two levels. A read-only question about Go code
+# gets navigation guidance without loading an edit router. A prompt that
+# names a go-* skill in prose relies on the model's own Skill call.
 #
 # A slash command is the exception. The host expands `/go-code` and
 # `/golang-skills:go-code-refactor` itself: it inserts the router's SKILL.md
@@ -145,34 +145,54 @@ refactor = re.compile(
     r"messy|bloated|over-?engineer\w*|dead code|too long|hard to follow|monolith\w*|modulari[sz]\w*|"
     r"рефактор\w*|спрост\w*|упрост\w*|почист\w*|переструктур\w*|модерніз\w*|модерниз\w*|монол[иі]т\w*|модуляриз\w*)\b",
     re.I)
-# Work verbs only: a noun such as "function" or "handler" appears in questions
-# too, and a question gets no note.
+# Work verbs select an edit router; questions receive only navigation guidance.
 work = re.compile(
     r"\b(?:implement\w*|write|add|create|build|make|fix\w*|bug\w*|stub\w*|not implemented|fill in|"
     r"реаліз\w*|реализ\w*|напиш\w*|напис\w*|дода\w*|добав\w*|виправ\w*|исправ\w*|створ\w*|созда\w*|зроби|сделай|баг\w*)\b",
     re.I)
-if refactor.search(prompt):
+navigate = re.search(
+    r"\b(?:explain|find|locate|where|who calls|how does|show|trace|understand|"
+    r"поясн\w*|объясн\w*|знайд\w*|найд\w*|де\b|где\b|хто виклика\w*|кто вызыва\w*|"
+    r"як працю\w*|как работа\w*)\b", prompt, re.I)
+question = navigate and (prompt.strip().endswith("?") or re.match(
+    r"\s*(?:explain|find|locate|where|who|how|show|trace|understand|"
+    r"поясн\w*|объясн\w*|знайд\w*|найд\w*|де\b|где\b|хто\b|кто\b|як\b|как\b)", prompt, re.I))
+if question:
+    skill, kind = "", "read-only Go code navigation"
+elif refactor.search(prompt):
     skill, kind = "go-code-refactor", "a behavior-preserving refactor"
 elif work.search(prompt):
     skill, kind = "go-code", "Go code to write, implement, or fix"
 else:
-    sys.exit(0)
+    if not navigate:
+        sys.exit(0)
+    skill, kind = "", "read-only Go code navigation"
 print((d.get("session_id") or "default").replace("\n", " "))
 print(skill)
 print(kind)
-print("note")
+print("navigate" if not skill else "note")
 for p in target_files()[:40]:
     print(p)
 ')" || exit 0
 [[ -n "$parsed" ]] || exit 0
 { read -r session; read -r skill; read -r kind; read -r mode; mapfile -t files; } <<< "$parsed"
-[[ -n "$skill" ]] || exit 0
+[[ -n "$skill" || "$mode" == "navigate" ]] || exit 0
 
 state="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/${session:-default}"
 has() { # has <file> <skill>
     [[ -f "$1" ]] && grep -qx -- "$2" "$1"
 }
+navigation_note() {
+    [[ -f "$state/gopls-navigation" ]] && return
+    mkdir -p "$state" && : > "$state/gopls-navigation"
+    printf '%s\n' 'When gopls MCP tools are available: use go_workspace once, go_search for unknown Go symbols, go_file_context after reading a relevant Go file, go_package_api for package APIs, and go_symbol_references before changing an existing symbol. After a coherent edit batch, use go_diagnostics. Use rg for literal text, not to reconstruct Go symbol relationships.'
+}
+if [[ "$mode" == "navigate" ]]; then
+    navigation_note
+    exit 0
+fi
 has "$state/loaded" "$skill" && exit 0
+navigation_note
 if [[ "$mode" == "slash" ]]; then
     # The host inserted the skill file and called no tool, so record the load
     # here: go-code-routing.sh gates an edit only for a session whose `loaded`

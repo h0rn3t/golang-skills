@@ -35,6 +35,26 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
 - `../go-code-refactor/references/GOPLS.md` — Read when locating Go symbols,
   finding references or implementations, or renaming and extracting code.
 
+## Go navigation: MCP first
+
+When gopls MCP tools are available, use them for Go symbols and relationships.
+Use actual host schemas; [GOPLS.md](../go-code-refactor/references/GOPLS.md)
+covers examples, LSP/CLI alternatives, and limits. MCP needs no shell.
+
+1. Call `go_workspace` once per current workspace at the first Go task.
+2. For an unknown Go symbol, call `go_search` before `rg` with its name.
+3. After substantively reading a Go file, call `go_file_context`; read its links.
+4. For another package's API, call `go_package_api` before implementation reads.
+5. Before changing a package symbol, method, or field, call `go_symbol_references`; inspect uses.
+6. For renames, call `go_rename_symbol`; review/apply edits, investigate refusals.
+7. After a coherent edit batch, call `go_diagnostics` with all changed Go paths.
+   Fix new errors; still run the repository verification gate.
+8. Call `go_vulncheck` for dependency/security work or a required gate.
+
+Use `rg` for literals, SQL, configuration, and comments. If MCP fails, use
+LSP/CLI or scoped text search; empty results do not prove no uses. Reuse results;
+avoid unchanged failed calls, tool installs/restarts, and quota-driven calls.
+
 ## Workflow
 
 1. **Resolve invocation.** `$go-code <task>` or `/go-code <task>` selects Go
@@ -52,20 +72,8 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
    trap; its older rows apply at every directive, so a `head` or a `grep`
    over it misses what a Go 1.19 module still gets. Then inspect repository
    instructions, `go.mod` (its `go` directive sets the idiom), neighboring
-   code and tests. For cheap textual discovery, use `rg` (for example,
-   `rg -n --column -g '*.go' 'Name'`); its hits are candidates, not a complete set of
-   Go references. Use an available gopls route for semantic navigation:
-   definitions and symbols (`go_search` or `workspaceSymbol`), references and
-   callers (`go_symbol_references` or `findReferences`), implementations
-   (`goToImplementation`), and type information (`hover` or `go_package_api`).
-   If an MCP or LSP lookup fails, try the CLI (`gopls workspace_symbol`,
-   `gopls references`) when available.
-   [GOPLS.md](../go-code-refactor/references/GOPLS.md#which-tool-answers-which-question)
-   gives the arguments. Pass a candidate's `file:line:column` from `rg` to
-   gopls before reading whole files; then read the locations gopls identifies.
-   Skip discovery when the symbol's position is already known.
-   Do not recursively read files when gopls can identify relevant locations.
-   Do not install a server for the task. gopls diagnostics do not replace step 6.
+   code and tests. Follow [Go navigation: MCP first](#go-navigation-mcp-first)
+   for symbol discovery, relationships, targeted file reads, and diagnostics.
    A shell tool (`Bash` in Claude Code) in your tool list means step 6 runs
    the checks; without one `go-linting` stays unread and the report says so
    in one line. A new function, package, or stub body makes step 4 apply; a

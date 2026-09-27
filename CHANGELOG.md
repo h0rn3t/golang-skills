@@ -4,6 +4,16 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- Go navigation now starts with available gopls MCP tools for unknown symbols,
+  file context, package APIs, and change impact. The prompt hook also gives
+  read-only Go questions a once-per-agent navigation hint; `rg` remains the
+  direct route for literal text. gopls diagnostics run after coherent edit
+  batches, and the reference documents MCP limits and call examples.
+
+- Copy-depth guidance now distinguishes a bug fix that satisfies an existing
+  ownership contract from a style-only change, and conditions `Clone`
+  modernization on preserving observable aliasing.
+
 ## [1.24.0] - 2026-09-27
 
 - Go navigation now uses `rg` for cheap textual discovery, available gopls

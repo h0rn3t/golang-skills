@@ -30,7 +30,6 @@ on:
         default: all
 
 env:
-  AGENTSKILLS_VALIDATE_VERSION: 1.0.1
   GOLANGCI_LINT_VERSION: v2.13.2
 
 jobs:
@@ -38,10 +37,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
 
       - uses: actions/setup-go@v5
         with:
@@ -53,13 +48,7 @@ jobs:
           go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Validate all skills
-        run: |
-          for skill_dir in skills/*/; do
-            echo "Validating ${skill_dir}..."
-            npx --yes "agentskills-validate@${AGENTSKILLS_VALIDATE_VERSION}" "${skill_dir}"
-          done
-
+      # TestStructure includes the Agent Skills frontmatter check.
       - name: Run eval tests
         working-directory: evals
         run: go test -count=1 -race -shuffle=on ./...

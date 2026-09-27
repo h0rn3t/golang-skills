@@ -29,6 +29,8 @@ production-ready коду на Go 1.27. Пакет містить **24 моду�
 `.claude-plugin/`. У Go-проєкті хуки виводять драбину стриманості на старті
 сесії та в кожного сабагента; `/go-code ultra <задача>` або `lite mode`
 змінює її рівень до кінця сесії, а `GOLANG_SKILLS_LADDER=off` вимикає її.
+Для навігації Go-кодом скіли використовують `rg` для пошуку кандидатів,
+gopls для зв’язків між символами, а потім читають потрібні файли.
 
 ## Встановлення
 
@@ -52,6 +54,38 @@ npx skills add h0rn3t/golang-skills --all
 ```bash
 cp -R skills/go-* ~/.claude/skills/
 ```
+
+### gopls (рекомендовано)
+
+Скіли знаходять можливі місця через `rg`, а коли gopls підключено, перевіряють
+посилання, викликачів і реалізації через нього. Без gopls вони читають код і
+перевіряють його компілятором
+(`skills/go-code-refactor/references/GOPLS.md` зіставляє кожне питання з
+інструментом). Спершу встановіть бінарник; усі способи нижче беруть його з `PATH`:
+
+```bash
+go install golang.org/x/tools/gopls@latest
+```
+
+Claude Code, LSP: нативний інструмент `LSP` (`findReferences`,
+`goToImplementation`, ієрархія викликів, `hover`, `workspaceSymbol`) і
+діагностики компілятора після кожного редагування:
+
+```text
+/plugin install gopls-lsp@claude-plugins-official
+```
+
+MCP: пошук за іменем символу і перейменування (`go_search`,
+`go_symbol_references`, `go_rename_symbol`), яких немає в LSP-інструменті.
+Обидва способи працюють разом:
+
+```bash
+claude mcp add gopls -- gopls mcp
+codex mcp add gopls -- gopls mcp
+```
+
+У хмарних сесіях claude.ai жоден із них не працює, і golang-skills від них не
+залежить.
 
 ## Оновлення
 
@@ -95,15 +129,13 @@ rm -rf ~/.claude/skills/go-* && cp -R skills/go-* ~/.claude/skills/
 `evals/` містить структурні Go-тести, fixtures, golden-тести та опційні
 раннери `evalrun`/`abrun`. У конфігурації є **108 eval'ів на тригери** і
 **62 eval'и на якість**. Результати модельних прогонів — локальні тимчасові
-артефакти й не зберігаються в репозиторії.
+артефакти й не зберігаються в репозиторії. Набір також перевіряє кожен
+`SKILL.md` на відповідність специфікації Agent Skills
+(`TestStructure`), тож для перевірок потрібен Go, а Node.js — ні.
 
 Основні перевірки:
 
 ```bash
-for skill_dir in skills/*/; do
-  npx --yes agentskills-validate@1.0.1 "$skill_dir"
-done
-
 (cd evals && go test -count=1 -race -shuffle=on ./...)
 bash -n hooks/*.sh
 golangci-lint config verify --config skills/go-linting/assets/golangci.yml

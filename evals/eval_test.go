@@ -4,14 +4,18 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"go/format"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // versionClaim matches an inline Go version claim such as "Go 1.26+" or
@@ -254,6 +258,135 @@ func parseFrontmatter(content []byte) (name, desc, body string) {
 	}
 
 	return name, desc, body
+}
+
+// agentSkillName is the Agent Skills name shape: lowercase ASCII letters and
+// digits in groups joined by single hyphens.
+var agentSkillName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+// agentSkillsSpecErrors ports the checks of agentskills-validate@1.0.1, which
+// CI ran through npx, onto this repository's frontmatter shape: one
+// `key: value` line per field with a plain YAML scalar. It parses no YAML, so
+// a value that would need quotes or a block scalar is rejected, not read.
+func agentSkillsSpecErrors(dirName string, content []byte) []string {
+	rest, ok := strings.CutPrefix(string(content), "---\n")
+	if !ok {
+		return []string{"SKILL.md does not open with a --- frontmatter line"}
+	}
+	block, _, ok := strings.Cut(rest, "\n---\n")
+	if !ok {
+		return []string{"frontmatter is not closed by a --- line"}
+	}
+
+	var errs []string
+	fields := map[string]string{}
+	for line := range strings.SplitSeq(block, "\n") {
+		key, value, ok := strings.Cut(line, ": ")
+		if !ok || key == "" || strings.TrimSpace(key) != key {
+			errs = append(errs, fmt.Sprintf("frontmatter line %q is not a `key: value` pair at column 0", line))
+			continue
+		}
+		if _, dup := fields[key]; dup {
+			errs = append(errs, fmt.Sprintf("frontmatter key %q appears twice", key))
+		}
+		value = strings.TrimSpace(value)
+		fields[key] = value
+		// Each case is a line a YAML parser reads differently from the text:
+		// an indicator opens a quote, block, flow, or alias; ": " opens a
+		// nested mapping; " #" starts a comment; a bare number or keyword
+		// resolves to a non-string.
+		switch _, numErr := strconv.ParseFloat(value, 64); {
+		case value == "":
+			errs = append(errs, fmt.Sprintf("%s is empty", key))
+		case strings.ContainsRune("-?:,[]{}#&*!|>'\"%@`", rune(value[0])):
+			errs = append(errs, fmt.Sprintf("%s starts with the YAML indicator %q; keep it a plain scalar", key, value[0]))
+		case strings.Contains(value, ": "), strings.HasSuffix(value, ":"):
+			errs = append(errs, fmt.Sprintf("%s contains an unquoted colon that YAML reads as a mapping; use an em-dash", key))
+		case strings.Contains(value, " #"):
+			errs = append(errs, fmt.Sprintf("%s contains \" #\", which YAML reads as a comment", key))
+		case numErr == nil, slices.Contains([]string{"true", "false", "null", "~"}, strings.ToLower(value)):
+			errs = append(errs, fmt.Sprintf("%s value %q is not a YAML string", key, value))
+		}
+	}
+
+	allowed := []string{"name", "description", "license", "allowed-tools", "metadata", "compatibility", "user-invocable"}
+	for _, key := range slices.Sorted(maps.Keys(fields)) {
+		if !slices.Contains(allowed, key) {
+			errs = append(errs, fmt.Sprintf("frontmatter field %q is not in the Agent Skills spec", key))
+		}
+	}
+
+	name, ok := fields["name"]
+	switch {
+	case !ok:
+		errs = append(errs, "frontmatter has no name")
+	case len(name) > 64:
+		errs = append(errs, fmt.Sprintf("name is %d characters (max 64)", len(name)))
+	case !agentSkillName.MatchString(name):
+		errs = append(errs, fmt.Sprintf("name %q is not lowercase letters and digits joined by single hyphens", name))
+	case name != dirName:
+		errs = append(errs, fmt.Sprintf("name %q does not match directory %q", name, dirName))
+	}
+
+	desc, ok := fields["description"]
+	if !ok {
+		errs = append(errs, "frontmatter has no description")
+	} else if n := utf8.RuneCountInString(desc); n > 1024 {
+		errs = append(errs, fmt.Sprintf("description is %d characters (max 1024)", n))
+	}
+
+	if n := utf8.RuneCountInString(fields["compatibility"]); n > 500 {
+		errs = append(errs, fmt.Sprintf("compatibility is %d characters (max 500)", n))
+	}
+	return errs
+}
+
+func TestAgentSkillsSpecErrors(t *testing.T) {
+	t.Parallel()
+	const valid = "---\nname: go-x\ndescription: Use when testing.\n---\nbody\n"
+	tests := []struct {
+		name    string
+		content string
+		want    string // substring of one reported error; "" means valid
+	}{
+		{"valid", valid, ""},
+		{"allowed-tools with a colon inside", "---\nname: go-x\ndescription: Use when testing.\nallowed-tools: Bash(bash:*)\n---\n", ""},
+		{"no opening fence", "name: go-x\n", "does not open"},
+		{"unclosed", "---\nname: go-x\ndescription: d\n", "not closed"},
+		{"indented line", "---\nname: go-x\n  description: d\n---\n", "at column 0"},
+		{"duplicate key", "---\nname: go-x\nname: go-x\ndescription: d\n---\n", "appears twice"},
+		{"empty value", "---\nname: go-x\ndescription: \n---\n", "description is empty"},
+		{"quoted value", "---\nname: go-x\ndescription: \"Use when\"\n---\n", "YAML indicator"},
+		{"block scalar", "---\nname: go-x\ndescription: >\n---\n", "YAML indicator"},
+		{"colon-space", "---\nname: go-x\ndescription: Use when: testing\n---\n", "unquoted colon"},
+		{"comment", "---\nname: go-x\ndescription: Use when #1\n---\n", "comment"},
+		{"numeric name", "---\nname: 123\ndescription: d\n---\n", "not a YAML string"},
+		{"unknown field", "---\nname: go-x\ndescription: d\nversion: 1.0.0\n---\n", "not in the Agent Skills spec"},
+		{"missing name", "---\ndescription: d\n---\n", "has no name"},
+		{"uppercase name", "---\nname: Go-X\ndescription: d\n---\n", "single hyphens"},
+		{"double hyphen", "---\nname: go--x\ndescription: d\n---\n", "single hyphens"},
+		{"trailing hyphen", "---\nname: go-x-\ndescription: d\n---\n", "single hyphens"},
+		{"name too long", "---\nname: " + strings.Repeat("a", 65) + "\ndescription: d\n---\n", "max 64"},
+		{"directory mismatch", "---\nname: go-y\ndescription: d\n---\n", "does not match directory"},
+		{"missing description", "---\nname: go-x\n---\n", "has no description"},
+		{"description too long", "---\nname: go-x\ndescription: " + strings.Repeat("é", 1025) + "\n---\n", "max 1024"},
+		{"compatibility too long", "---\nname: go-x\ndescription: d\ncompatibility: " + strings.Repeat("a", 501) + "\n---\n", "max 500"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := agentSkillsSpecErrors("go-x", []byte(tt.content))
+			if tt.want == "" {
+				if len(got) != 0 {
+					t.Errorf("agentSkillsSpecErrors(%q) = %q, want none", tt.content, got)
+				}
+				return
+			}
+			if !slices.ContainsFunc(got, func(e string) bool { return strings.Contains(e, tt.want) }) {
+				t.Errorf("agentSkillsSpecErrors(%q) = %q, want an error containing %q", tt.content, got, tt.want)
+			}
+		})
+	}
 }
 
 func TestMain(m *testing.M) {
@@ -1111,19 +1244,12 @@ func TestStructure(t *testing.T) {
 				t.Fatalf("read SKILL.md: %v", err)
 			}
 
-			name, desc, body := parseFrontmatter(content)
-
-			if name != dirName {
-				t.Errorf("frontmatter name %q does not match directory %q", name, dirName)
+			for _, e := range agentSkillsSpecErrors(dirName, content) {
+				t.Error(e)
 			}
-			if desc == "" {
-				t.Error("description is empty")
-			}
+			_, desc, body := parseFrontmatter(content)
 			if !strings.HasPrefix(desc, "Use when ") {
 				t.Errorf("description must preserve trigger-oriented 'Use when ...' shape, got %q", desc)
-			}
-			if len(desc) > 1024 {
-				t.Errorf("description is %d chars (max 1024)", len(desc))
 			}
 			// A skill that names a Go version anywhere in its body is
 			// version-sensitive and must route to COMPATIBILITY.md. Deriving

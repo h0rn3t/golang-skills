@@ -15,12 +15,11 @@ Run these from the repository root:
 
 ```bash
 (cd evals && go test -count=1 -race -shuffle=on ./...)
-for skill_dir in skills/*/; do npx --yes agentskills-validate@1.0.1 "$skill_dir"; done
 bash -n hooks/*.sh
 golangci-lint config verify --config skills/go-linting/assets/golangci.yml
 ```
 
-The first command is the CI structural suite; the others validate skill metadata, shell syntax, and the pinned lint configuration. Model-driven runs are opt-in and costly: `cd evals && go run ./cmd/evalrun -set validation -kind all -j 2 -out evals-results.json`.
+The first command is the CI structural suite, including the Agent Skills frontmatter check in `TestStructure`; the others validate shell syntax and the pinned lint configuration. Model-driven runs are opt-in and costly: `cd evals && go run ./cmd/evalrun -set validation -kind all -j 2 -out evals-results.json`.
 
 ## Coding Style & Naming Conventions
 

@@ -4,6 +4,36 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- Go navigation now uses `rg` for cheap textual discovery, available gopls
+  MCP, LSP, or CLI tools for semantic relationships, and targeted file reads
+  for context. The `go-gopls-first.sh` hook and its test were removed because
+  they blocked `rg` discovery before gopls navigation.
+
+- The Agent Skills frontmatter check moved from `npx agentskills-validate@1.0.1`
+  into the Go suite: `agentSkillsSpecErrors` in `evals/eval_test.go` ports
+  its checks (allowed fields, name shape, length, and directory match,
+  description and compatibility length) and runs from `TestStructure` on
+  every skill. It parses no YAML, so it accepts only this repository's shape,
+  one plain scalar per line, and rejects a value YAML would misread: a leading
+  indicator, `: `, ` #`, or a bare number or keyword. `TestAgentSkillsSpecErrors`
+  pins one case per check. The validate job no longer sets up Node.js; the
+  opt-in `evals` job still does, to install Claude Code.
+
+- `go-code-refactor/references/GOPLS.md` now covers navigation, not only
+  rename and extract: a question-to-tool table for the `LSP` tool and the
+  gopls MCP server (references, callers, implementations, declarations,
+  hover, file outline, diagnostics), how to tell which route is wired, and
+  that the routes stack rather than compete. `go-troubleshooting` (callers of
+  the diverging function), `go-code-review` (callers outside the diff), and
+  `go-interfaces` (implementations before a method-set change) route to it in
+  one line each. A gotcha records that the MCP server roots at its start
+  directory, so a repository with `go.mod` in a subdirectory gets "not a Go
+  workspace" and falls back to the `LSP` tool. The READMEs gain a gopls section: the binary, the
+  `gopls-lsp@claude-plugins-official` plugin, and the MCP server for Claude
+  Code and Codex; golang-skills declares no dependency on any of them. The
+  wording is unmeasured: abrun runs with `--restricted` and without the
+  `LSP` tool, so no arm can call gopls yet.
+
 ## [1.23.0] - 2026-09-27
 
 - `go-code` ports ponytail's intensity levels. `/go-code lite <task>` or

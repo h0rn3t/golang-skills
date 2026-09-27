@@ -33,7 +33,7 @@ target project using the resolved absolute script path.
 - `references/STRUCTURAL.md` - Read before moving a type between packages, breaking an import cycle, or changing an exported API: type-alias gradual repair and the deprecation sequence.
 - `references/MODERNIZATION.md` - Read when a hunk adopts a newer API or `go fix -diff` proposes one; sorts Go 1.21–1.27 features into safe, conditional, and report-only.
 - `references/OVER-ENGINEERING.md` - Read when a step adds a helper, type, layer, option, or import (it owns the restraint ladder, the reach-for table, and the ship-then-question write rules), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
-- `references/GOPLS.md` - Read before renaming, extracting, or inlining anything with more than one caller: semantic references and safe rename via gopls instead of grep.
+- `references/GOPLS.md` - Read before renaming, extracting, or inlining anything with more than one caller, or when you need a symbol's callers, implementations, or declaration: `rg` discovery, gopls navigation (`LSP` tool, MCP, CLI), and safe rename.
 - `scripts/verify-refactor.sh` - Run to capture baseline and final check results, and to count production LOC before and after; use focused checks between edits.
 - `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no upgrade path.
 - `assets/refactor-report.md` - Use as the final report structure.

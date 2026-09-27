@@ -41,7 +41,6 @@ cd evals && go test -count=1 -run 'TestRoutingGate|TestPromptRouting|TestVetHook
 cd evals && go test -count=1 ./cmd/abrun/
 
 # The rest of the CI validate job
-for d in skills/*/; do npx --yes agentskills-validate@1.0.1 "$d"; done
 golangci-lint config verify --config skills/go-linting/assets/golangci.yml
 bash -n hooks/*.sh
 ```
@@ -90,7 +89,6 @@ Claude Code:
   `lite`/`full`/`ultra` row from go-code's Intensity table, both read at run
   time; UserPromptSubmit records a level word in `<state>/intensity`.
   `GOLANG_SKILLS_LADDER=lite|full|ultra|off`.
-
 `evals/hook_test.go` drives all five.
 
 ### Rule ownership

@@ -29,7 +29,8 @@ The plugin includes `agents/go-verify.md`, routing hooks under `hooks/`, and
 the manifests under `.claude-plugin/`. In a Go project the hooks print the
 restraint ladder at session start and into each subagent; `/go-code ultra
 <task>` or `lite mode` changes its level for the session, and
-`GOLANG_SKILLS_LADDER=off` turns it off.
+`GOLANG_SKILLS_LADDER=off` turns it off. For Go navigation, the skills use
+`rg` for discovery, gopls for symbol relationships, then targeted file reads.
 
 ## Installation
 
@@ -54,6 +55,37 @@ and `assets/` subdirectories:
 ```bash
 cp -R skills/go-* ~/.claude/skills/
 ```
+
+### gopls (recommended)
+
+The skills use `rg` to find candidate locations, then look up references,
+callers, and implementations through gopls when it is wired. Without gopls,
+they use source inspection and the compiler
+(`skills/go-code-refactor/references/GOPLS.md` maps each question to a tool).
+Install the binary first; every route below runs it from `PATH`:
+
+```bash
+go install golang.org/x/tools/gopls@latest
+```
+
+Claude Code, LSP route: the native `LSP` tool (`findReferences`,
+`goToImplementation`, call hierarchy, `hover`, `workspaceSymbol`) plus
+compiler diagnostics after every edit:
+
+```text
+/plugin install gopls-lsp@claude-plugins-official
+```
+
+MCP route: symbol-name lookup and rename (`go_search`, `go_symbol_references`,
+`go_rename_symbol`), which the LSP tool lacks. The two routes work together:
+
+```bash
+claude mcp add gopls -- gopls mcp
+codex mcp add gopls -- gopls mcp
+```
+
+Neither route runs in claude.ai cloud sessions, and golang-skills does not
+depend on either.
 
 ## Updating
 
@@ -97,15 +129,13 @@ For Codex, use `~/.agents/skills/` as the target directory.
 `evals/` contains the structural Go test suite, fixtures, golden tests, and
 the optional `evalrun`/`abrun` harnesses. It contains **108 trigger evals** and
 **62 quality evals**. Model-driven eval output is local scratch data and is not
-stored in this repository.
+stored in this repository. The suite also checks every `SKILL.md` against
+the Agent Skills specification (`TestStructure`), so the checks
+need Go and no Node.js.
 
 Run the repository checks with:
 
 ```bash
-for skill_dir in skills/*/; do
-  npx --yes agentskills-validate@1.0.1 "$skill_dir"
-done
-
 (cd evals && go test -count=1 -race -shuffle=on ./...)
 bash -n hooks/*.sh
 golangci-lint config verify --config skills/go-linting/assets/golangci.yml

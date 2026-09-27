@@ -1,28 +1,58 @@
-# Rename and Extract with gopls
+# Navigate, Rename, and Extract with gopls
 
-> Sources: golang.org/x/tools/gopls docs (`gopls help`, `gopls mcp`); Claude Code LSP tool docs
+> Sources: golang.org/x/tools/gopls docs (`gopls help`, `gopls mcp -instructions`, the v0.23.0 MCP tool list); Claude Code LSP tool and `gopls-lsp` plugin docs
 > Authority: advisory — the mechanics; behavior preservation rules stay in SKILL.md
 > Minimum Go: gopls v0.20+ on PATH (`go install golang.org/x/tools/gopls@latest`)
-> Last verified: 2026-09-26
+> Last verified: 2026-09-27
 
-`grep` finds text; `gopls` finds meaning. For a refactor that is a promise of
-identical behavior, the difference is the whole job: a textual rename misses
-the method that satisfies an interface in another package and hits the
-unrelated local that happens to share the name. Reach for gopls whenever the
-question is "who depends on this symbol" rather than "where does this string
-appear".
+Use `rg` for cheap textual discovery, then gopls to verify Go symbol meaning:
+definitions, references, implementations, symbols, and type information.
+Use `rg -n --column -g '*.go' 'Name'` to get a candidate position for CLI or
+LSP queries, then read files at the locations gopls identifies. Skip `rg`
+when the symbol's position is already known. An `rg` hit is not proof of a reference:
+textual search can miss an interface implementation and can hit an unrelated
+local with the same name. Avoid recursive file reads when gopls can locate
+the relevant symbols.
 
 ## Three ways in
 
 | Route | Addressing | Best for |
 |---|---|---|
-| gopls MCP server — `claude mcp add gopls -- gopls mcp` | Symbol names, file paths, fuzzy queries (`go_search`, `go_symbol_references`, `go_rename_symbol`, `go_diagnostics`, `go_package_api`) | Agent workflows: no cursor position needed |
-| Native `LSP` tool (gopls wired as an LSP server, e.g. the `gopls-lsp` plugin) | `line:character` (`findReferences`, `goToImplementation`, `workspaceSymbol`, call hierarchy); no rename | Right after a read or grep gave you a location; diagnostics arrive after every edit for free |
-| `gopls` CLI — `gopls rename -w file.go:12:6 newName` | `file:line:col` | Nothing else is wired; one-shot scripted checks. Documented as experimental |
+| gopls MCP server — `claude mcp add gopls -- gopls mcp` | Symbol names, file paths, fuzzy queries (`go_search`, `go_symbol_references`, `go_rename_symbol`, `go_diagnostics`, `go_package_api`, `go_file_context`) | Agent workflows: no cursor position needed |
+| Native `LSP` tool (gopls wired as an LSP server, e.g. the `gopls-lsp@claude-plugins-official` plugin) | `line:character` (`findReferences`, `goToImplementation`, `workspaceSymbol`, `hover`, `documentSymbol`, call hierarchy); no rename, no code actions | After `rg` gives a location; diagnostics arrive after every edit for free |
+| `gopls` CLI — `gopls workspace_symbol Name`, `gopls references file.go:12:6`, `gopls rename -w file.go:12:6 newName` | Name or `file:line:col` | Nothing else is wired; one-shot navigation and edits. Documented as experimental |
 
-Prefer MCP → LSP → CLI. Absent all three, fall back to `go build ./... && go
-vet ./...` after every rename and accept that interface satisfaction breaks are
-found by the compiler, not before the edit.
+Which route is wired: an `LSP` tool in your tool list means the LSP route,
+`go_*` tools mean MCP, `command -v gopls` succeeding means the CLI. If one
+route is blocked or fails, try another available gopls route before treating
+text hits as semantic references. The routes stack — the plugin supplies diagnostics and
+positions, MCP supplies rename and name-based lookup — so use each for what it
+does best rather than picking one.
+Absent all three, fall back to `go build ./... && go vet ./...` after every
+rename and accept that interface satisfaction breaks are found by the compiler,
+not before the edit.
+
+## Which tool answers which question
+
+| Question | `LSP` tool | gopls MCP | gopls CLI |
+|---|---|---|---|
+| Where is `X` declared? | `workspaceSymbol` | `go_search` | `gopls workspace_symbol X` |
+| Who uses this symbol? | `findReferences` | `go_symbol_references` | `gopls references file.go:line:col` |
+| Who calls this function, and what does it call? | `incomingCalls` / `outgoingCalls` (static calls only) | `go_symbol_references` for uses | `gopls call_hierarchy file.go:line:col` |
+| Which types implement this interface? | `goToImplementation` | — | `gopls implementation file.go:line:col` |
+| What is this identifier's type and doc? | `hover` | `go_package_api` for a whole package | — |
+| What does this file declare, and use from its package? | `documentSymbol` | `go_file_context` | `gopls symbols file.go` for declarations |
+| Did the edit compile? | diagnostics pushed after `Edit`/`Write` | `go_diagnostics` | `gopls check file.go` |
+
+`findReferences` and the CLI `references` command need a position. Use a
+candidate's `file:line:column` from `rg --column`, or locate the declaration
+with `workspaceSymbol`, `go_search`, or `gopls workspace_symbol`. CLI positions
+use 1-based line and column numbers. Navigation tells
+you where to read; it does not replace reading the code the change touches.
+
+`gopls mcp -instructions` tells the agent to run `go_vulncheck` at session
+start; the vulnerability scan belongs to the closing gate
+([go-linting](../../go-linting/SKILL.md)), so run it there, once.
 
 ## Before touching a definition
 
@@ -67,6 +97,13 @@ task, under the [go-linting](../../go-linting/SKILL.md) gate that owns this
 scope rule.
 
 ## Gotchas
+
+- The MCP server roots its workspace at the directory it was started in,
+  not at the file you pass: in a repository whose `go.mod` sits in a
+  subdirectory, `go_workspace` answers "not a Go workspace" and the other
+  tools report "no package metadata". Use the `LSP` tool there, which finds
+  the module per file; the fix, a server started from the module directory
+  or a `go.work` at the root, is the user's setup, not the task's.
 
 - References reflect the **build configuration of the queried file**: a query
   from `x_linux.go` does not see `x_windows.go`. Re-run under `GOOS=windows`

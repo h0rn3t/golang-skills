@@ -32,6 +32,8 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
   restraint ladder when a [Declaration Budget](#declaration-budget) entry is
   in doubt; its replacement catalog when seeking a simpler existing API; its
   audit lane only when the requested deliverable is a complexity audit.
+- `../go-code-refactor/references/GOPLS.md` — Read when locating Go symbols,
+  finding references or implementations, or renaming and extracting code.
 
 ## Workflow
 
@@ -50,12 +52,20 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
    trap; its older rows apply at every directive, so a `head` or a `grep`
    over it misses what a Go 1.19 module still gets. Then inspect repository
    instructions, `go.mod` (its `go` directive sets the idiom), neighboring
-   code, tests, and callers. Before changing a symbol that other files use,
-   find its references semantically — gopls MCP (`go_symbol_references`) or
-   the `LSP` tool (`findReferences`), per
-   [GOPLS.md](../go-code-refactor/references/GOPLS.md#three-ways-in); with
-   neither wired, grep and let the step 6 build catch the rest. gopls
-   diagnostics do not replace step 6. Do not install a server for the task.
+   code and tests. For cheap textual discovery, use `rg` (for example,
+   `rg -n --column -g '*.go' 'Name'`); its hits are candidates, not a complete set of
+   Go references. Use an available gopls route for semantic navigation:
+   definitions and symbols (`go_search` or `workspaceSymbol`), references and
+   callers (`go_symbol_references` or `findReferences`), implementations
+   (`goToImplementation`), and type information (`hover` or `go_package_api`).
+   If an MCP or LSP lookup fails, try the CLI (`gopls workspace_symbol`,
+   `gopls references`) when available.
+   [GOPLS.md](../go-code-refactor/references/GOPLS.md#which-tool-answers-which-question)
+   gives the arguments. Pass a candidate's `file:line:column` from `rg` to
+   gopls before reading whole files; then read the locations gopls identifies.
+   Skip discovery when the symbol's position is already known.
+   Do not recursively read files when gopls can identify relevant locations.
+   Do not install a server for the task. gopls diagnostics do not replace step 6.
    A shell tool (`Bash` in Claude Code) in your tool list means step 6 runs
    the checks; without one `go-linting` stays unread and the report says so
    in one line. A new function, package, or stub body makes step 4 apply; a

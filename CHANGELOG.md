@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-09-27
+
 - Go navigation now uses `rg` for cheap textual discovery, available gopls
   MCP, LSP, or CLI tools for semantic relationships, and targeted file reads
   for context. The `go-gopls-first.sh` hook and its test were removed because

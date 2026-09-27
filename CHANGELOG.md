@@ -4,6 +4,12 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.24.2] - 2026-09-27
+
+- Go navigation checks whether gopls MCP tools are present in the current chat,
+  gives a concrete LSP/CLI fallback, and reports the route used. Text search
+  no longer stands in for semantic references, callers, implementations, or
+  renames when gopls is unavailable.
 - The READMEs document installing the skills with bun: `bunx skills add
   h0rn3t/golang-skills --all`, or a one-time `bun add -g skills` and then
   `skills add`. Updating is `bunx skills update` with the same scope flags as

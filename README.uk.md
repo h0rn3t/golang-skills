@@ -40,6 +40,41 @@ production-ready коду на Go 1.27. Пакет містить **24 моду�
 npx skills add h0rn3t/golang-skills --all
 ```
 
+### bun
+
+`bunx` запускає той самий CLI без встановлення, або встановіть його один раз
+глобально (`bun add -g skills` додає `skills` у `PATH`):
+
+```bash
+# запустити без встановлення
+bunx skills add h0rn3t/golang-skills --all
+
+# або встановити CLI один раз і користуватися ним
+bun add -g skills
+skills add h0rn3t/golang-skills --all
+```
+
+Оновлення працює так само: `bunx skills update` (додайте `-g` для глобальної
+області).
+
+### Codex, Copilot і Cursor
+
+Той самий CLI встановлює скіли в кожен агент, який виявить; назвіть цілі
+прапорцем `-a`, якщо встановлено кілька. Усі три читають проєктну директорію
+`.agents/skills/`, а `-g` встановлює для користувача:
+
+```bash
+bunx skills add h0rn3t/golang-skills --all -a codex -a github-copilot -a cursor -g
+```
+
+| Агент | `--agent` | Глобальний шлях |
+| --- | --- | --- |
+| Codex | `codex` | `~/.codex/skills/` |
+| GitHub Copilot | `github-copilot` | `~/.copilot/skills/` |
+| Cursor | `cursor` | `~/.cursor/skills/` |
+
+Після встановлення відкрийте нову сесію агента.
+
 ### Плагін Claude Code
 
 ```text
@@ -100,16 +135,15 @@ claude plugin update golang-skills@golang-skills
 claude plugin list   # показує встановлену версію
 ```
 
-### Codex
+### Codex, Copilot і Cursor
 
-Codex читає скіли, які `npx skills` встановлює в `~/.agents/skills/`. Оновіть
-їх і відкрийте нову сесію Codex:
+Оновіть глобальну інсталяцію і відкрийте нову сесію агента:
 
 ```bash
-npx skills update -g
+bunx skills update -g
 ```
 
-Повторний `npx skills add h0rn3t/golang-skills --all -g` теж працює і додає
+Повторний `bunx skills add h0rn3t/golang-skills --all -g` теж працює і додає
 скіли, що з'явилися після попереднього встановлення.
 
 ### Ручне встановлення

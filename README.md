@@ -41,6 +41,41 @@ literal text, then targeted file reads.
 npx skills add h0rn3t/golang-skills --all
 ```
 
+### bun
+
+`bunx` runs the same CLI without installing it, or install it once globally
+(`bun add -g skills` puts it on `PATH` as `skills`):
+
+```bash
+# run without installing
+bunx skills add h0rn3t/golang-skills --all
+
+# or install the CLI once and reuse it
+bun add -g skills
+skills add h0rn3t/golang-skills --all
+```
+
+Updates work the same way: `bunx skills update` (add `-g` for the global
+scope).
+
+### Codex, Copilot, and Cursor
+
+The same CLI installs into any agent it detects; name the targets with `-a`
+when several are installed. All three read the project's `.agents/skills/`
+directory, and `-g` installs for the user instead:
+
+```bash
+bunx skills add h0rn3t/golang-skills --all -a codex -a github-copilot -a cursor -g
+```
+
+| Agent | `--agent` | Global path |
+| --- | --- | --- |
+| Codex | `codex` | `~/.codex/skills/` |
+| GitHub Copilot | `github-copilot` | `~/.copilot/skills/` |
+| Cursor | `cursor` | `~/.cursor/skills/` |
+
+Start a new session in the agent after installing.
+
 ### Claude Code plugin
 
 ```text
@@ -101,16 +136,15 @@ claude plugin update golang-skills@golang-skills
 claude plugin list   # shows the installed version
 ```
 
-### Codex
+### Codex, Copilot, and Cursor
 
-Codex reads the skills that `npx skills` installs under `~/.agents/skills/`.
-Update them, then start a new Codex session:
+Update the global install, then start a new session in the agent:
 
 ```bash
-npx skills update -g
+bunx skills update -g
 ```
 
-Re-running `npx skills add h0rn3t/golang-skills --all -g` also works and picks
+Re-running `bunx skills add h0rn3t/golang-skills --all -g` also works and picks
 up skills added since the last install.
 
 ### Manual installation

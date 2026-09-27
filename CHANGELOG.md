@@ -4,6 +4,16 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- The READMEs document installing the skills with bun: `bunx skills add
+  h0rn3t/golang-skills --all`, or a one-time `bun add -g skills` and then
+  `skills add`. Updating is `bunx skills update` with the same scope flags as
+  the npx route.
+- The READMEs document installing into Codex, GitHub Copilot, and Cursor with
+  the same CLI: `bunx skills add h0rn3t/golang-skills --all -a codex -a
+  github-copilot -a cursor -g`, with the `--agent` name and global path for
+  each. The Updating section covers all three instead of Codex alone, and its
+  examples use `bunx` too. Both README.md and README.uk.md.
+
 ## [1.24.1] - 2026-09-27
 
 - Go navigation now starts with available gopls MCP tools for unknown symbols,

@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.24.1] - 2026-09-27
+
 - Go navigation now starts with available gopls MCP tools for unknown symbols,
   file context, package APIs, and change impact. The prompt hook also gives
   read-only Go questions a once-per-agent navigation hint; `rg` remains the

@@ -11,10 +11,8 @@ Route Go work to the relevant owners, then close with their verification gate.
 
 ## Resource Routing
 
-Sibling skills resolve relative to this installed directory and their scripts
-run from the target project. A skill is loaded when its `SKILL.md` is in
-context: the `Skill` tool in Claude Code, a read of `../<name>/SKILL.md`
-elsewhere. Report a missing resource and continue with the guidance at hand.
+Sibling skills resolve relative to this installed directory; scripts run from the target project. A skill is loaded when
+its `SKILL.md` is in context: the `Skill` tool in Claude Code, a read of `../<name>/SKILL.md` elsewhere. Report missing resources.
 
 - `../go-style-core/SKILL.md` — Read once per task for house style, fallback
   rules, and communication guidance. Read its references only for a decision
@@ -25,35 +23,37 @@ elsewhere. Report a missing resource and continue with the guidance at hand.
   tool list. Without one nothing in it can run: leave the file unread; the
   edit hook's output is the check record
   ([go-style-core](../go-style-core/SKILL.md#the-edit-hook-record)).
-- `references/NEW-CODE-EXAMPLES.md` — Read when the shape of a Contract Table
-  case, a Plain Code body, or a budgeted helper is in doubt. Ordinary tasks do
-  not require it.
+- `references/NEW-CODE-EXAMPLES.md` — Read when the shape of a Contract Table case, Plain Code body, or budgeted helper is in doubt.
 - `../go-code-refactor/references/OVER-ENGINEERING.md` — Read the detailed
   restraint ladder when a [Declaration Budget](#declaration-budget) entry is
   in doubt; its replacement catalog when seeking a simpler existing API; its
   audit lane only when the requested deliverable is a complexity audit.
-- `../go-code-refactor/references/GOPLS.md` — Read when locating Go symbols,
-  finding references or implementations, or renaming and extracting code.
+- `../go-code-refactor/references/GOPLS.md` — Read for Go symbols, references, callers, implementations, and renames, even without MCP.
 
 ## Go navigation: MCP first
 
-When gopls MCP tools are available, use them for Go symbols and relationships.
-Use actual host schemas; [GOPLS.md](../go-code-refactor/references/GOPLS.md)
-covers examples, LSP/CLI alternatives, and limits. MCP needs no shell.
+At the first Go task, check the actual tool list for `go_workspace` and `go_search` (possibly host-prefixed). A configured
+server or another client's `gopls mcp` process proves nothing about this chat. If both tools exist, use MCP with the host's
+schemas. Otherwise use native LSP if present; with a shell, run `command -v gopls` and use its CLI if installed. In Copilot, report absent MCP tools and suggest reloading the window and starting a new chat, then checking whether its server is enabled.
 
+CLI: `gopls workspace_symbol Name`; `gopls definition file.go:line:col`; `gopls references file.go:line:col`;
+`gopls implementation file.go:line:col`; `gopls call_hierarchy file.go:line:col`; `gopls check file.go`.
+Preview a rename with `gopls rename -d file.go:line:col NewName` before applying with `-w`; positions are 1-based. [GOPLS.md](../go-code-refactor/references/GOPLS.md) covers limits.
+
+Use `rg` for literals or candidate positions. Uses, implementations, callers, and renames require MCP, LSP, or CLI;
+grep hits do not establish relationships. Without a semantic route, report them unverified. Avoid tool installs/restarts.
+
+With MCP:
 1. Call `go_workspace` once per current workspace at the first Go task.
 2. For an unknown Go symbol, call `go_search` before `rg` with its name.
-3. After substantively reading a Go file, call `go_file_context`; read its links.
+3. After reading a Go file, call `go_file_context`; read its relevant links.
 4. For another package's API, call `go_package_api` before implementation reads.
 5. Before changing a package symbol, method, or field, call `go_symbol_references`; inspect uses.
 6. For renames, call `go_rename_symbol`; review/apply edits, investigate refusals.
-7. After a coherent edit batch, call `go_diagnostics` with all changed Go paths.
-   Fix new errors; still run the repository verification gate.
+7. After a coherent edit batch, call `go_diagnostics` with all changed Go paths; fix new errors and run the verification gate.
 8. Call `go_vulncheck` for dependency/security work or a required gate.
 
-Use `rg` for literals, SQL, configuration, and comments. If MCP fails, use
-LSP/CLI or scoped text search; empty results do not prove no uses. Reuse results;
-avoid unchanged failed calls, tool installs/restarts, and quota-driven calls.
+If MCP fails, use LSP/CLI and report the limit. Reuse results; avoid unchanged failed or quota-driven calls.
 
 ## Workflow
 
@@ -111,16 +111,15 @@ avoid unchanged failed calls, tool installs/restarts, and quota-driven calls.
 
    ```text
    <what the change does, in one sentence>
+   navigation: gopls CLI
    checks: gofmt pass · vet pass · test pass · lint skipped (no config)
    added package-level declarations: 1 — parseLimit: handleList, handleSearch
    <one sentence per material gap, or nothing>
    ```
 
-   Without a shell the checks line carries the edit hook's record, check by
-   check — `test pass (hook)`, `lint unavailable (no shell)` — as
-   [go-style-core](../go-style-core/SKILL.md#the-edit-hook-record) defines
-   it. The report names the test file and its result, not the cases one by
-   one.
+   Without a shell, report the [edit hook record](../go-style-core/SKILL.md#the-edit-hook-record) check by check, e.g. `test pass (hook)`.
+   `navigation:` names the route used: `gopls MCP`, `gopls LSP`, `gopls CLI`, or `grep-only`; state unverified relationships.
+   Include it in read-only Go reports too. Name the test file and result, not each case.
 
 ## Intensity
 
@@ -380,6 +379,7 @@ not require `go-naming` or `go-documentation`.
 | `defer` cleanup, boundary copies, mutable globals, nil/aliasing/overflow traps | [go-defensive](../go-defensive/SKILL.md) | — |
 | hot paths, allocations, benchmarks | [go-performance](../go-performance/SKILL.md) | [go-troubleshooting](../go-troubleshooting/SKILL.md) if the cause of slowness is unknown |
 | package layout, imports, dependencies | [go-packages](../go-packages/SKILL.md) | — |
+| reading Go code, locating symbols, references, implementations, or callers | [gopls navigation](../go-code-refactor/references/GOPLS.md) | — |
 | restructuring or deleting existing code | [go-code-refactor](../go-code-refactor/SKILL.md) | — |
 | linter config, CI checks | [go-linting](../go-linting/SKILL.md) | — |
 | HTTP handlers, routing, middleware, servers, clients | [go-http](../go-http/SKILL.md) | [go-error-handling](../go-error-handling/SKILL.md); [go-security](../go-security/SKILL.md) if input reaches a file, shell, URL, or template |

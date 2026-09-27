@@ -18,6 +18,7 @@ code version, and a check that could disprove them.
 
 - `references/TICKET-INVESTIGATION.md` - Read for tickets, regressions, tenant-specific failures, environment differences, or an incomplete report; establish the contract, deployed version, evidence, and investigation status.
 - `references/DATA-FLOW-TRACING.md` - Read for wrong/missing results or a failure crossing layers; follow one input through middleware, domain code, SQL/external calls, and serialization to its first invalid transformation.
+- `../go-code-refactor/references/GOPLS.md` - Read when locating Go declarations, references, implementations, or callers; use its LSP/CLI fallback when MCP tools are absent.
 - `references/DIAGNOSTIC-TOOLS.md` - Read before capturing profiles, stacks, or traces, using `GODEBUG`/`GOTRACEBACK`, or choosing `pprof`, `dlv`, or the race detector.
 - `references/SYMPTOM-CATALOG.md` - Read for unclear runtime/build symptoms or edits that do not affect behavior; check selected files, build tags, GOMOD/GOWORK, and replacements before routing the fix.
 

@@ -21,20 +21,20 @@ the files and declarations needed after navigation.
 | `gopls` CLI — `gopls workspace_symbol Name`, `gopls references file.go:12:6`, `gopls rename -w file.go:12:6 newName` | Name or `file:line:col` | Nothing else is wired; one-shot navigation and edits. Documented as experimental |
 
 Which route is wired: an `LSP` tool in your tool list means the LSP route,
-`go_*` tools mean MCP, `command -v gopls` succeeding means the CLI. If one
+`go_workspace` and `go_search` tools mean MCP, `command -v gopls` succeeding means the CLI. If one
 route is blocked or fails, try another available gopls route before treating
 text hits as semantic references. Use each route for the operation it exposes.
 Do not infer MCP availability from `command -v gopls`, or install or restart
 tooling merely to satisfy navigation instructions.
-Absent all three, fall back to `go build ./... && go vet ./...` after every
-rename and accept that interface satisfaction breaks are found by the compiler,
-not before the edit.
+Absent all three, report uses, implementations, and callers as unverified;
+do not perform a semantic rename from text hits alone. Build and vet can catch
+some errors, but do not establish the complete set of relationships.
 
 ## Which tool answers which question
 
 | Question | `LSP` tool | gopls MCP | gopls CLI |
 |---|---|---|---|
-| Where is `X` declared? | `workspaceSymbol` | `go_search` | `gopls workspace_symbol X` |
+| Where is `X` declared? | `workspaceSymbol` | `go_search` | `gopls workspace_symbol X` / `gopls definition file.go:line:col` |
 | Who uses this symbol? | `findReferences` | `go_symbol_references` | `gopls references file.go:line:col` |
 | Who calls this function, and what does it call? | `incomingCalls` / `outgoingCalls` (static calls only) | `go_symbol_references` for uses | `gopls call_hierarchy file.go:line:col` |
 | Which types implement this interface? | `goToImplementation` | — | `gopls implementation file.go:line:col` |

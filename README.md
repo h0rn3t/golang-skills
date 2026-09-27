@@ -94,9 +94,10 @@ cp -R skills/go-* ~/.claude/skills/
 
 ### gopls (recommended)
 
-When wired, gopls MCP finds unknown Go symbols and semantic relationships;
-`rg` finds literal text. Without gopls, the skills use source inspection and
-the compiler
+When available in the current chat, gopls MCP finds unknown Go symbols and
+semantic relationships. Otherwise the skills use a wired LSP tool or the
+`gopls` CLI. `rg` finds literals and candidate positions; without a semantic
+route, references, implementations, and callers remain unverified
 (`skills/go-code-refactor/references/GOPLS.md` maps each question to a tool).
 Install the binary first; every route below runs it from `PATH`:
 

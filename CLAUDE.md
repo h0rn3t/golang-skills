@@ -56,6 +56,10 @@ cd evals && go run ./cmd/abrun -corpus implement -reference-root ../golang-skill
   -arms reference,baseline -n 5 -j 4 -effort medium -keep -out run.json
 ```
 
+abrun sessions have no shell and no MCP server; `-gopls mcp` (own
+`--mcp-config`) or `-gopls cli` (`Bash(gopls:*)`) gives them a gopls route and
+records `gopls_calls` per result. gopls lives in `~/go/bin`.
+
 ## Architecture
 
 ### Routing model
@@ -74,9 +78,14 @@ copied into `~/.claude/skills/`.
 Claude Code:
 
 - `go-code-routing.sh`: PostToolUse on `Skill|Read` records loaded skills;
-  PreToolUse on `Edit|Write` blocks (exit 2) a `.go` edit in a session that
-  loaded `go-code` until `go-style-core` and the owners are loaded. Each name
-  blocks once per session, so a retry passes. State lives under
+  PreToolUse on `Edit|Write` blocks (exit 2) every `.go` edit until a router
+  (without one, the entry router `prompted` names, else `go-code`),
+  `go-style-core`, the owners, and a whole card Read are in `loaded`.
+  `reminded` is only a log: a retry without loads is blocked again, and the
+  third stalled retry of the same edit returns JSON `continue: false`. A skill
+  with no SKILL.md in the plugin copy is reported, not required;
+  `GOLANG_SKILLS_ROUTING_GATE=off` disables it. Messages use
+  `golang-skills:<name>` when `CLAUDE_PLUGIN_ROOT` is set. State lives under
   `${CLAUDE_PLUGIN_DATA:-$TMPDIR/golang-skills-hooks}/routing/<session>/`.
 - `go-vet-on-edit.sh`: PostToolUse on `Edit|Write` of a `.go` file runs gofmt,
   vet, `go fix -diff`, the package tests, and golangci-lint.

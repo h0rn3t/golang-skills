@@ -35,10 +35,7 @@ its `SKILL.md` is in context: the `Skill` tool in Claude Code, a read of `../<na
 At the first Go task, check the actual tool list for `go_workspace` and `go_search` (possibly host-prefixed). A configured
 server or another client's `gopls mcp` process proves nothing about this chat. If both tools exist, use MCP with the host's
 schemas. Otherwise use native LSP if present; with a shell, run `command -v gopls` and use its CLI if installed. In Copilot, report absent MCP tools and suggest reloading the window and starting a new chat, then checking whether its server is enabled.
-
-CLI: `gopls workspace_symbol Name`; `gopls definition file.go:line:col`; `gopls references file.go:line:col`;
-`gopls implementation file.go:line:col`; `gopls call_hierarchy file.go:line:col`; `gopls check file.go`.
-Preview a rename with `gopls rename -d file.go:line:col NewName` before applying with `-w`; positions are 1-based. [GOPLS.md](../go-code-refactor/references/GOPLS.md) covers limits.
+[GOPLS.md](../go-code-refactor/references/GOPLS.md) maps each question to its LSP and CLI command, owns renames and extractions, and lists the limits.
 
 Use `rg` for literals or candidate positions. Uses, implementations, callers, and renames require MCP, LSP, or CLI;
 grep hits do not establish relationships. Without a semantic route, report them unverified. Avoid tool installs/restarts.
@@ -49,9 +46,8 @@ With MCP:
 3. After reading a Go file, call `go_file_context`; read its relevant links.
 4. For another package's API, call `go_package_api` before implementation reads.
 5. Before changing a package symbol, method, or field, call `go_symbol_references`; inspect uses.
-6. For renames, call `go_rename_symbol`; review/apply edits, investigate refusals.
-7. After a coherent edit batch, call `go_diagnostics` with all changed Go paths; fix new errors and run the verification gate.
-8. Call `go_vulncheck` for dependency/security work or a required gate.
+6. After a coherent edit batch, call `go_diagnostics` with all changed Go paths; fix new errors and run the verification gate.
+7. Call `go_vulncheck` for dependency/security work or a required gate.
 
 If MCP fails, use LSP/CLI and report the limit. Reuse results; avoid unchanged failed or quota-driven calls.
 

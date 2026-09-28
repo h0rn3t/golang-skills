@@ -47,7 +47,13 @@ if has_go_files(d.get("cwd") or ""):
 ')" || exit 0
 [[ "$verdict" == "go" ]] || exit 0
 
-cat <<'NOTE'
-golang-skills: this project holds Go code. If your task writes, fixes, or refactors Go, load the `go-code` skill (Skill tool, name `go-code`) before the first edit, or `go-code-refactor` for a behavior-preserving refactor; it loads the owner skills the task needs and closes with the verification gate. Reading, searching, or reviewing only needs no edit skill. When gopls MCP tools are available: use go_workspace once, go_search for unknown Go symbols, go_file_context after reading a relevant Go file, go_package_api for package APIs, and go_symbol_references before changing an existing symbol. After a coherent edit batch, use go_diagnostics. Use rg for literal text, not to reconstruct Go symbol relationships. If the task is not Go work, ignore this note.
-NOTE
+# Точні імена для Skill, як у go-prompt-routing.sh: <plugin>:<skill> у плагіні.
+ns=""
+manifest="${CLAUDE_PLUGIN_ROOT:-}/.claude-plugin/plugin.json"
+if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" && -f "$manifest" ]]; then
+    ns="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("name") or "")' "$manifest" 2>/dev/null)" || ns=""
+fi
+code="${ns:+$ns:}go-code"
+refactor="${ns:+$ns:}go-code-refactor"
+printf '%s\n' "golang-skills: this project holds Go code. If your task writes, fixes, or refactors Go, load the \`$code\` skill (Skill tool, name \`$code\`) before the first edit, or \`$refactor\` for a behavior-preserving refactor; it loads the owner skills the task needs and closes with the verification gate. Reading, searching, or reviewing only needs no edit skill. When gopls MCP tools are available: use go_workspace once, go_search for unknown Go symbols, go_file_context after reading a relevant Go file, go_package_api for package APIs, and go_symbol_references before changing an existing symbol. After a coherent edit batch, use go_diagnostics. Use rg for literal text, not to reconstruct Go symbol relationships. If the task is not Go work, ignore this note."
 exit 0

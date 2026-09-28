@@ -4,6 +4,58 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- The routing gate holds the first `.go` edit even when no router is loaded
+  and names the entry router: the one the prompt hook picked, else
+  `go-code`. The initial load no longer rests on the model's own decision.
+- A reminder no longer counts as a load: `loaded` records only successful
+  loads, `reminded` only what the gate has named, and a retry without the
+  loads is blocked again. So that an unavailable skill cannot cause endless
+  retries, every block names the `Read <plugin>/skills/<name>/SKILL.md`
+  fallback (Claude Code rejects an unknown Skill name before any hook
+  fires), a skill missing from the plugin copy is reported instead of
+  required, and a third retry of the same edit with nothing loaded in
+  between stops the session with the reason (`continue: false`).
+  `GOLANG_SKILLS_ROUTING_GATE=off` switches the gate off.
+- A prompt that names a router (`use go-code`, `$go-code-refactor`,
+  `/opsx:apply add-auth /go-code`) now selects it and gets the note, where it
+  used to silence the note; a skill path such as `skills/go-code/SKILL.md`
+  is not a mention. Russian work verbs and code nouns (`почини`,
+  `обработчик`, `функция`) join the Ukrainian ones.
+- Hook notes and gate messages name skills the way the plugin registers them,
+  `golang-skills:go-code`; without `CLAUDE_PLUGIN_ROOT` they stay bare. The
+  `name` field in every `SKILL.md` is unchanged.
+- [`docs/PROJECT_INSTRUCTIONS.md`](docs/PROJECT_INSTRUCTIONS.md) is a short
+  template for a work project's `CLAUDE.md` or `AGENTS.md`: router,
+  `go-style-core` and `CURRENT-GO.md`, then only the owners the task needs,
+  with what the hooks add in Claude Code and what clients without them rely on.
+  Opus 5.5 low smoke sessions (implement `feed` n=1, `fetch` n=8) loaded the
+  router, `go-style-core`, and the card before the first applied edit in 9/9,
+  with one to four gate blocks each for an owner loaded late; the no-router
+  block and the stop never fired. No reference-vs-baseline run measures the
+  routing change.
+- The first gate block of a session names the gopls route for the file being
+  edited: `go_workspace` once and `go_file_context` when those tools are in the
+  list, else `command -v gopls` and the CLI. The gate never blocks on gopls,
+  since a hook cannot see whether MCP is in this chat. Opus 5.5 low, implement
+  `fetch`, `-gopls mcp`, n=3 each: `go_workspace` and `go_file_context` before
+  the first applied edit in 3/3 sessions against 0/3 (the reference called only
+  `go_diagnostics`), $0.646 against $0.618 a session. Golden passed 0/3
+  against 2/3, every failure the fixture's empty `resp.Status` (3/5 without
+  the line); raw reports are kept outside the repository.
+- `go-code`'s navigation section keeps the policy (which route, when to call
+  each MCP tool, literal search and fallback) and drops the gopls mechanics
+  that `go-code-refactor/references/GOPLS.md` owns: the CLI command list, the
+  rename preview, and the `go_rename_symbol` step. GOPLS.md gains the
+  `gopls rename -d` preview, the one line it did not already carry. A Sonnet
+  5.5 low refactor A/B (`-gopls mcp`, 4 fixtures, n=2 each) showed no change,
+  8/8 golden in both arms and $0.190 against $0.188 a session, but no session
+  loaded `go-code` or read GOPLS.md, so it does not exercise the edit.
+- `abrun -gopls mcp|cli` gives each claude session a gopls route: the gopls MCP
+  server from abrun's own `--mcp-config` (with `--strict-mcp-config`), or Bash
+  allowed for `gopls` alone. Without it a session has no shell and no MCP
+  server, so `navigation: grep-only` is the only honest report. Each result
+  records the route and its `gopls_calls`.
+
 ## [1.24.2] - 2026-09-27
 
 - Go navigation checks whether gopls MCP tools are present in the current chat,

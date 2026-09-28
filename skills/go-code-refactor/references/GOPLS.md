@@ -88,8 +88,9 @@ References are not a full implementation list.
 ## Applying the change
 
 - **Rename**: `go_rename_symbol` returns edits (currently a unified diff):
-  review, apply, and diagnose them. CLI `gopls rename -w` writes edits when
-  only CLI is available. A successful rename updates workspace references,
+  review, apply, and diagnose them; investigate a refusal rather than work
+  around it. When only CLI is available, preview with
+  `gopls rename -d file.go:line:col NewName`, then write with `-w`. A successful rename updates workspace references,
   including test files, doc comments that mention the identifier in backticks,
   and struct-literal field keys. It rejects a rename that would shadow or
   collide. Review the diff anyway — a reject is safe, an accept is merely

@@ -59,7 +59,7 @@ owner with a short pointer instead of repeating a full explanation.
 | Benchmark discipline (file layout, serial runs, benchstat evidence, perf commits) | `go-performance` | `go-code-review` | Go testing benchmark docs; `benchstat` |
 | Tool directives and dependency audit (`go get -tool`, tidy check) | `go-packages` | `go-linting` | `go help get`; `go help tool` |
 | CI pipeline shape (version matrix, test flags, pinned actions, least-privilege permissions) | `go-linting` | `go-testing` | GitHub Actions docs; `go help testflag` |
-| Owner selection before the first edit: the routing table, the load before the first edit, the prompt note that names the owners and the idiom card's installed path, and the gate that holds the first `.go` edit until the router has loaded `go-style-core` and the owners and the card has been read whole | `go-code` | `go-code-refactor`, `go-code-review` | Project policy; `hooks/go-code-routing.sh`, `hooks/go-prompt-routing.sh`; `evals/hook_test.go` |
+| Owner selection before the first edit: the routing table, the load before the first edit, the prompt note that names the owners and the idiom card's installed path, the gate that holds every `.go` edit until a router (the entry router it names when none is loaded), `go-style-core`, and the owners are loaded and the card has been read whole — a reminder is not a load, and a stalled retry stops the session instead of a third block — and the project instruction template for clients the hooks do not reach | `go-code` | `go-code-refactor`, `go-code-review` | Project policy; `hooks/go-code-routing.sh`, `hooks/go-prompt-routing.sh`; `docs/PROJECT_INSTRUCTIONS.md`; `evals/hook_test.go` |
 
 ## Maintenance Rules
 

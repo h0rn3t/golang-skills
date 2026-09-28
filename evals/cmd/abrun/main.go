@@ -156,6 +156,11 @@ type options struct {
 	judge      bool
 	judgeModel string
 	judgePair  string
+	// gopls дає кожній claude-сесії маршрут до gopls: "mcp" — MCP-сервер
+	// gopls із власного --mcp-config, "cli" — Bash, дозволений лише для
+	// gopls. goplsPath — бінарник, який знаходить run; це не прапорець.
+	gopls     string
+	goplsPath string
 }
 
 func main() {
@@ -170,6 +175,7 @@ func main() {
 	flag.StringVar(&o.runner, "runner", runnerClaude, "agent CLI to drive: claude, opencode, copilot or codex")
 	flag.StringVar(&o.out, "out", "", "write the JSON report to this file")
 	flag.StringVar(&o.referenceRoot, "reference-root", "", "alternate plugin root for a reference arm")
+	flag.StringVar(&o.gopls, "gopls", "", "give each claude session gopls: mcp (the gopls MCP server) or cli (Bash allowed for gopls only); default neither")
 	flag.StringVar(&o.rescore, "rescore", "", "re-score the review results of this saved JSON report against the current keys and print the summary; -out writes the re-scored report")
 	flag.IntVar(&o.reps, "n", 2, "repetitions per fixture per arm")
 	flag.IntVar(&o.parallel, "j", 2, "runs to execute concurrently")
@@ -392,6 +398,10 @@ type result struct {
 	// because the feedback is generated per run: without it the report cannot
 	// say what the session was actually told.
 	RepairFeedback string `json:"repair_feedback,omitempty"`
+	// GoplsRoute — маршрут -gopls цього прогону, GoplsCalls — скільки разів
+	// сесія викликала gopls через MCP або CLI за всі ходи.
+	GoplsRoute string `json:"gopls_route,omitempty"`
+	GoplsCalls int    `json:"gopls_calls,omitempty"`
 	// Commands counts the shell calls across every turn. Only the codex runner
 	// reports it; the claude arms are granted no shell at all.
 	Commands int `json:"commands,omitempty"`
@@ -414,6 +424,7 @@ type report struct {
 	Runner   string    `json:"runner"`
 	Model    string    `json:"model,omitempty"`
 	Effort   string    `json:"effort,omitempty"`
+	Gopls    string    `json:"gopls,omitempty"`
 	Reps     int       `json:"reps"`
 	Seed     int64     `json:"seed"`
 	Arms     []arm     `json:"arms"`
@@ -474,6 +485,11 @@ func run(o options) error {
 	if _, err := exec.LookPath("go"); err != nil {
 		return exitError{2, "go toolchain not found on PATH"}
 	}
+	if o.gopls != "" {
+		if o.goplsPath, err = exec.LookPath("gopls"); err != nil {
+			return exitError{2, "-gopls needs gopls on PATH; install with: go install golang.org/x/tools/gopls@latest"}
+		}
+	}
 	arms, cleanup, err := buildArms(root, o.referenceRoot, o.variants, o.arms)
 	defer cleanup()
 	if err != nil {
@@ -515,7 +531,7 @@ func run(o options) error {
 
 	jobs := buildJobs(arms, tasks, o.reps, o.seed)
 
-	rep := report{Prompt: o.prompt, Corpus: o.corpus, Runner: o.runner, Model: o.model, Effort: o.effort, Reps: o.reps, Seed: o.seed, Arms: arms, Results: make([]result, len(jobs))}
+	rep := report{Prompt: o.prompt, Corpus: o.corpus, Runner: o.runner, Model: o.model, Effort: o.effort, Gopls: o.gopls, Reps: o.reps, Seed: o.seed, Arms: arms, Results: make([]result, len(jobs))}
 	var mu sync.Mutex
 	forEach(o.parallel, len(jobs), func(i int) {
 		res := runOne(o, abDir, jobs[i].arm, jobs[i].task, jobs[i].rep)
@@ -563,6 +579,12 @@ func validateOptions(o options) error {
 	}
 	if o.effort != "" && !slices.Contains(effortRunners, o.runner) {
 		return exitError{2, fmt.Sprintf("-effort is only supported by the %s runners", strings.Join(effortRunners, " and "))}
+	}
+	if o.gopls != "" && o.gopls != goplsMCP && o.gopls != goplsCLI {
+		return exitError{2, fmt.Sprintf("-gopls must be %s or %s", goplsMCP, goplsCLI)}
+	}
+	if o.gopls != "" && o.runner != runnerClaude {
+		return exitError{2, "-gopls is only supported by the " + runnerClaude + " runner"}
 	}
 	if o.reps <= 0 {
 		return exitError{2, "-n must be greater than zero"}
@@ -834,7 +856,7 @@ func splice(path, text string) error {
 // runOne copies one fixture into a scratch module, lets the model refactor it,
 // then measures the result and replays the golden characterization test.
 func runOne(o options, abDir string, a arm, taskName string, rep int) (res result) {
-	res = result{Arm: a.Name, Task: taskName, Rep: rep}
+	res = result{Arm: a.Name, Task: taskName, Rep: rep, GoplsRoute: o.gopls}
 	work, err := os.MkdirTemp("", "abrun-work-")
 	if err != nil {
 		res.Err = err.Error()
@@ -1020,6 +1042,7 @@ type sessionTurn struct {
 	final    string
 	cost     float64
 	commands int
+	gopls    int
 	err      error
 }
 
@@ -1040,6 +1063,7 @@ func runSession(o options, a arm, work, prompt string) sessionTurn {
 	default:
 		t.out, t.err = claudeSession(o, a.dir, work, prompt)
 		t.skills, t.final, t.cost = parseClaudeStream(t.out)
+		t.gopls = goplsCalls(t.out)
 	}
 	return t
 }
@@ -1060,6 +1084,7 @@ func (r *result) merge(t sessionTurn) {
 	sort.Strings(r.Skills)
 	r.Cost += t.cost
 	r.Commands += t.commands
+	r.GoplsCalls += t.gopls
 	if t.final != "" {
 		r.Output = t.final
 	}
@@ -1189,7 +1214,7 @@ func claudeSession(o options, armDir, work, prompt string) ([]byte, error) {
 		}
 		args = append(args, "--plugin-dir", pluginDir)
 	}
-	args = append(args, "--tools", tools, "--allowed-tools", tools)
+	args = append(args, claudeToolArgs(o, tools)...)
 	if o.model != "" {
 		args = append(args, "--model", o.model)
 	}
@@ -1197,6 +1222,68 @@ func claudeSession(o options, armDir, work, prompt string) ([]byte, error) {
 		args = append(args, "--effort", o.effort)
 	}
 	return claude(o.timeout, work, args...)
+}
+
+// Маршрути -gopls.
+const (
+	goplsMCP = "mcp"
+	goplsCLI = "cli"
+)
+
+// claudeToolArgs — --tools і --allowed-tools сесії разом із маршрутом -gopls.
+// MCP-сервер задається власним --mcp-config із --strict-mcp-config, щоб
+// сесія не підхопила сервери оператора; CLI — це Bash у --tools (його
+// --restricted інакше прибирає), дозволений лише для gopls.
+func claudeToolArgs(o options, tools string) []string {
+	allowed := tools
+	var args []string
+	switch o.gopls {
+	case goplsMCP:
+		cfg, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{ // a map of strings always marshals
+			"gopls": map[string]any{"command": o.goplsPath, "args": []string{"mcp"}},
+		}})
+		args = append(args, "--mcp-config", string(cfg), "--strict-mcp-config")
+		allowed += ",mcp__gopls"
+	case goplsCLI:
+		tools += ",Bash"
+		allowed += ",Bash(gopls:*)"
+	}
+	return append(args, "--tools", tools, "--allowed-tools", allowed)
+}
+
+// goplsCommand — команда shell, що запускає gopls: на початку, після ;, &&
+// чи |, або за абсолютним шляхом.
+var goplsCommand = regexp.MustCompile(`(^|[\s;&|/])gopls\s`)
+
+// goplsCalls рахує виклики gopls у stream-json: інструменти mcp__gopls__* і
+// команди Bash, що запускають gopls.
+func goplsCalls(out []byte) int {
+	n := 0
+	for line := range strings.SplitSeq(string(out), "\n") {
+		var msg struct {
+			Message struct {
+				Content []struct {
+					Type  string `json:"type"`
+					Name  string `json:"name"`
+					Input struct {
+						Command string `json:"command"`
+					} `json:"input"`
+				} `json:"content"`
+			} `json:"message"`
+		}
+		if json.Unmarshal([]byte(line), &msg) != nil {
+			continue
+		}
+		for _, c := range msg.Message.Content {
+			if c.Type != "tool_use" {
+				continue
+			}
+			if strings.HasPrefix(c.Name, "mcp__gopls__") || (c.Name == "Bash" && goplsCommand.MatchString(c.Input.Command)) {
+				n++
+			}
+		}
+	}
+	return n
 }
 
 // goldenCollision matches the compiler reporting that the golden overlay and
@@ -1906,6 +1993,9 @@ func printResult(r result, verbose bool) {
 	status := resultStatus(r)
 	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  clos %+d  bcom %+d  exp %+d  branch %+d  build=%v model_tests=%s golden=%v gate=%v skills=%v",
 		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Funcs, r.Delta.Closures, r.Delta.BodyComments, r.Delta.Exported, r.Delta.Branches, r.Build, r.ModelTests, r.Golden, r.LineGatePass, r.Skills)
+	if r.GoplsRoute != "" {
+		fmt.Printf(" gopls(%s)=%d", r.GoplsRoute, r.GoplsCalls)
+	}
 	if r.Err != "" {
 		fmt.Printf("  error: %s", r.Err)
 	}

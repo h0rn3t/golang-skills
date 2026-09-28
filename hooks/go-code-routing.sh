@@ -15,15 +15,27 @@
 #                                     has read the idiom card
 #                                     (go-style-core/references/CURRENT-GO.md)
 #                                     whole.
-#   PreToolUse  (Edit|Write|MultiEdit) before an edit of a .go file in a session
-#                                     that loaded a router, require go-style-core,
-#                                     the owner skills the edit's content points
-#                                     at, and one whole Read of the idiom card.
-#                                     Exit 2 blocks the edit and names what is
-#                                     missing, the card by its installed path.
-#                                     Each name is used at most once per
-#                                     session, so a retry always passes: the
-#                                     gate reminds, it cannot deadlock.
+#   PreToolUse  (Edit|Write|MultiEdit) перед правкою .go-файлу вимагає router
+#                                     (go-code, go-code-refactor або
+#                                     go-code-review; без жодного — той, що
+#                                     назвав go-prompt-routing.sh, інакше
+#                                     go-code), go-style-core, owner-навички, на
+#                                     які вказує вміст правки, і одне повне
+#                                     Read idiom card. Exit 2 блокує правку й
+#                                     називає, чого бракує, точними іменами
+#                                     Skill (golang-skills:go-code у плагіні).
+#
+# loaded і reminded розділені: loaded — лише успішне завантаження (Skill,
+# повне Read SKILL.md, slash-команда), reminded — лише журнал того, що gate
+# уже назвав. Нагадування не є завантаженням, тож повтор тієї самої правки без
+# завантаження блокується знову. Щоб недоступна навичка не давала нескінченних
+# повторів: (1) навичка без SKILL.md у цій копії плагіна не вимагається і
+# називається в повідомленні як відсутня; (2) кожен блок дає запасний шлях —
+# Read <root>/skills/<name>/SKILL.md, бо Skill з невідомим іменем Claude Code
+# відхиляє ще у validateInput, і жоден хук цього не бачить; (3) третя поспіль
+# спроба тієї самої правки без жодного нового завантаження не блокується
+# втретє, а зупиняє сесію (continue: false) з поясненням для користувача.
+# GOLANG_SKILLS_ROUTING_GATE=off вимикає gate.
 #
 # The card is a gate item because no wording of go-code or go-style-core made
 # Sonnet 5 medium read it: 0/24 sessions on 2026-09-18 under three wordings
@@ -46,14 +58,59 @@
 # skills/go-code/SKILL.md ("Route Before The First Edit") is authoritative: it
 # covers owners no regex can see (collections, naming, documentation,
 # functions, performance, refactor, linting, troubleshooting) and its
-# "Also load" conditions; this gate only reminds.
+# "Also load" conditions; this gate only enforces the part it can see.
 #
-# Sessions that loaded no router are never touched. A refactor prompt reaches
-# go-code-refactor alone (go-prompt-routing.sh), and in the 2026-09-10 and
-# 2026-09-13 refactor runs such sessions loaded go-style-core in 2/20 and
+# Сесія без router теж блокується на першій .go-правці: раніше вона проходила
+# мовчки, і пропуск завантаження залежав лише від рішення моделі (Opus 5 не
+# завантажив жодної навички в 5 із 18 сесій 2026-09-11). A refactor prompt
+# reaches go-code-refactor alone (go-prompt-routing.sh), and in the 2026-09-10
+# and 2026-09-13 refactor runs such sessions loaded go-style-core in 2/20 and
 # 6/20; a gate keyed on go-code alone stayed silent for them. State lives under
 # CLAUDE_PLUGIN_DATA when the host provides it, else under TMPDIR.
 set -u
+
+# Корінь цієї копії плагіна: skills/ лежить поруч із hooks/.
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)"
+
+# available <skill> — чи є SKILL.md навички в цій копії плагіна.
+available() {
+    [[ -f "$root/skills/$1/SKILL.md" ]]
+}
+
+# Імена для виклику Skill. Плагін Claude Code реєструє навички як
+# <plugin>:<skill>; CLAUDE_PLUGIN_ROOT хост задає лише хукам плагіна, тож без
+# нього (ручне підключення) ім'я лишається голим. init_ns читає plugin.json
+# один раз і лише там, де gate щось друкує.
+skill_ns=""
+init_ns() {
+    local manifest="${CLAUDE_PLUGIN_ROOT:-}/.claude-plugin/plugin.json"
+    [[ -n "${CLAUDE_PLUGIN_ROOT:-}" && -f "$manifest" ]] || return 0
+    skill_ns="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("name") or "")' \
+        "$manifest" 2>/dev/null)" || skill_ns=""
+}
+# names <skill>... — `plugin:skill`, `plugin:skill2` для повідомлення.
+names() {
+    local out="" s
+    for s in "$@"; do out+="\`${skill_ns:+$skill_ns:}$s\`, "; done
+    printf '%s' "${out%, }"
+}
+
+# emit_json stop|notice <text> — JSON-відповідь PreToolUse з exit 0. stop
+# відхиляє правку й зупиняє сесію (continue: false), щоб модель не повторювала
+# правку, яку gate не пропустить; notice лише показує текст користувачу.
+emit_json() {
+    python3 -c '
+import json, sys
+kind, text = sys.argv[1], sys.argv[2]
+out = {"systemMessage": text}
+if kind == "stop":
+    out = {"continue": False, "stopReason": text,
+           "hookSpecificOutput": {"hookEventName": "PreToolUse",
+                                  "permissionDecision": "deny",
+                                  "permissionDecisionReason": text}}
+print(json.dumps(out))
+' "$1" "$2"
+}
 
 # owner_hints_py is the one owner table, as python: hints(path, text) names
 # the owner skills the decision-bearing forms in text point at. The gate runs
@@ -109,7 +166,12 @@ for p in sys.argv[1:]:
         if h not in seen:
             seen.append(h)
 print(" ".join(seen))
-' "$@"
+' "$@" | while read -r -a owners; do
+        # Навичку, якої немає в цій копії, не називаємо: gate її не вимагає.
+        out=()
+        for o in "${owners[@]}"; do available "$o" && out+=("$o"); done
+        printf '%s\n' "${out[*]}"
+    done
     exit 0
 fi
 
@@ -120,7 +182,7 @@ command -v python3 >/dev/null 2>&1 || exit 0
 # inferred from the edited content. Fields are newline-separated; the hint
 # list is the last line and may be empty.
 parsed="$(printf '%s' "$input" | python3 -c "$owner_hints_py"'
-import json, sys
+import hashlib, json, sys
 try:
     d = json.load(sys.stdin)
 except Exception:
@@ -147,12 +209,15 @@ if path.endswith("/go-style-core/references/CURRENT-GO.md"):
                     card = "partial"
     except (OSError, TypeError, ValueError):
         card = "partial"
+# Ключ правки: повтор тієї самої правки після блоку має той самий ключ, а
+# паралельні правки різних файлів в одному повідомленні — різні.
+key = hashlib.sha1((path + "\0" + text).encode("utf-8", "replace")).hexdigest()[:16]
 for v in (d.get("hook_event_name") or "", d.get("session_id") or "",
-          d.get("tool_name") or "", skill, path, " ".join(owners), card):
+          d.get("tool_name") or "", skill, path, " ".join(owners), card, key):
     print(v.replace("\n", " "))
 ')" || exit 0
 [[ -n "$parsed" ]] || exit 0
-{ read -r event; read -r session; read -r tool; read -r skill; read -r path; read -r hints; read -r card; } <<< "$parsed"
+{ read -r event; read -r session; read -r tool; read -r skill; read -r path; read -r hints; read -r card; read -r key; } <<< "$parsed"
 
 state="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/${session:-default}"
 loaded="$state/loaded"
@@ -187,56 +252,126 @@ PostToolUse)
     ;;
 PreToolUse)
     case "$path" in *.go) ;; *) exit 0 ;; esac
+    [[ "${GOLANG_SKILLS_ROUTING_GATE:-}" == off ]] && exit 0
     routers=""
     for r in go-code go-code-refactor go-code-review; do
         has "$loaded" "$r" && routers+="$r "
     done
-    [[ -n "$routers" ]] || exit 0
-    missing=""
-    for want in go-style-core $hints; do
-        has "$loaded" "$want" && continue
-        has "$reminded" "$want" && continue
-        missing+="$want "
-    done
-    # The card, by the path this plugin copy carries it at; the hook runs as
-    # bash "${CLAUDE_PLUGIN_ROOT}/hooks/go-code-routing.sh".
-    card_path="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)/skills/go-style-core/references/CURRENT-GO.md"
-    need_card=""
-    if [[ -f "$card_path" && ! -f "$state/card" ]] && ! has "$reminded" current-go-card; then
-        need_card="$card_path"
+    # Без router gate вимагає вхідну навичку: ту, яку останньою назвав
+    # go-prompt-routing.sh (файл prompted), інакше go-code.
+    entry=""
+    if [[ -z "$routers" ]]; then
+        entry="$(grep -x -E 'go-code|go-code-refactor|go-code-review' "$state/prompted" 2>/dev/null | tail -n 1)"
+        entry="${entry:-go-code}"
     fi
-    [[ -n "$missing" || -n "$need_card" ]] || exit 0
+    # Лише loaded знімає вимогу: reminded — журнал нагадувань, не завантажень.
+    missing="" absent=""
+    for want in $entry go-style-core $hints; do
+        has "$loaded" "$want" && continue
+        if available "$want"; then missing+="$want "; else absent+="$want "; fi
+    done
+    card_path="$root/skills/go-style-core/references/CURRENT-GO.md"
+    need_card=""
+    [[ -f "$card_path" && ! -f "$state/card" ]] && need_card="$card_path"
+    fresh_absent=""
+    for a in $absent; do has "$state/absent" "$a" || fresh_absent+="$a "; done
+    [[ -n "$missing" || -n "$need_card" || -n "$fresh_absent" ]] || exit 0
     mkdir -p "$state"
-    [[ -z "$missing" ]] || printf '%s\n' $missing >> "$reminded"
-    [[ -z "$need_card" ]] || printf 'current-go-card\n' >> "$reminded"
+    [[ -z "$fresh_absent" ]] || printf '%s\n' $fresh_absent >> "$state/absent"
+    init_ns
+    absent_note=""
+    [[ -z "$fresh_absent" ]] || absent_note="Not installed in this plugin copy, so not required: $(names $fresh_absent) (no SKILL.md under $root/skills). Reinstall the plugin to restore them."
+    if [[ -z "$missing" && -z "$need_card" ]]; then
+        # Завантажувати нічого; про відсутню навичку користувач дізнається
+        # один раз, правка проходить.
+        emit_json notice "golang-skills routing gate: $absent_note"
+        exit 0
+    fi
+
+    # Спроба тієї самої правки без прогресу (нового завантаження або повного
+    # Read card) з минулого блоку рахується; прогрес скидає лічильник.
+    sig="$( (wc -l < "$loaded") 2>/dev/null | tr -d ' ')"
+    sig="${sig:-0}:$([[ -f "$state/card" ]] && echo 1 || echo 0)"
+    attempt=1
+    prev="$(grep -m1 "^$key " "$state/blocked" 2>/dev/null)"
+    if [[ -n "$prev" ]]; then
+        read -r _ prev_sig prev_attempt <<< "$prev"
+        [[ "$prev_sig" == "$sig" ]] && attempt=$((prev_attempt + 1))
+    fi
+    { grep -v "^$key " "$state/blocked" 2>/dev/null; printf '%s %s %s\n' "$key" "$sig" "$attempt"; } > "$state/blocked.$$" &&
+        mv "$state/blocked.$$" "$state/blocked"
+    fresh=""
+    for m in $missing; do has "$reminded" "$m" || fresh+="$m "; done
+    [[ -z "$fresh" ]] || printf '%s\n' $fresh >> "$reminded"
+    [[ -z "$need_card" ]] || has "$reminded" current-go-card || printf 'current-go-card\n' >> "$reminded"
+
+    list="$(names $missing)"
+    what="$list"
+    [[ -z "$need_card" ]] || what+="${what:+, }the idiom card"
+    if (( attempt >= 3 )); then
+        emit_json stop "golang-skills routing gate: the same Go edit was blocked twice and no skill load was recorded in between (still missing: $what). Stopping instead of blocking it a third time: the skills look unavailable in this session, because the Skill call fails or neither Skill nor Read reaches $root/skills. Check the install with \`claude plugin list\`, or set GOLANG_SKILLS_ROUTING_GATE=off to switch the gate off."
+        exit 0
+    fi
     {
-        opening="golang-skills routing gate: this session loaded ${routers% }"
-        if [[ -n "$missing" && -n "$need_card" ]]; then
-            printf '%s but not: %s, and has not read the idiom card.\n' "$opening" "${missing% }"
-            printf 'This edit was not applied and the file is unchanged. Load them (in Claude Code,\n'
-            printf 'one Skill call per name) and Read the card whole, no offset or limit, all in\n'
-            printf 'one message, then retry the same edit against the unchanged file. The card:\n%s\n' "$need_card"
+        if (( attempt == 2 )); then
+            printf 'golang-skills routing gate: this edit was blocked before, and no load has been\n'
+            printf 'recorded since. Still missing: %s.\n' "$what"
+            printf 'A reminder is not a load: a retry without the loads is blocked again, and a\n'
+            printf 'third stalled retry of this edit stops the session.\n'
+        elif [[ -n "$entry" && " $missing " == *" $entry "* ]]; then
+            printf 'golang-skills routing gate: this session loaded no router skill, and a .go edit\n'
+            printf 'needs one first. Missing: %s' "$list"
+            [[ -z "$need_card" ]] || printf ', and the idiom card is unread'
+            printf '.\n'
+            if [[ "$entry" == go-code ]] && available go-code-refactor; then
+                printf 'For a behavior-preserving refactor, load %s instead of %s.\n' "$(names go-code-refactor)" "$(names go-code)"
+            fi
         elif [[ -n "$missing" ]]; then
-            printf '%s but not: %s\n' "$opening" "${missing% }"
-            printf 'This edit was not applied and the file is unchanged. Load them (in Claude Code,\n'
-            printf 'one Skill call per name, all in one message), then retry the same edit\n'
-            printf 'against the unchanged file.\n'
+            printf 'golang-skills routing gate: this session loaded %s but not: %s' "${routers% }" "$list"
+            [[ -z "$need_card" ]] || printf ', and has not read the idiom card'
+            printf '.\n'
         else
-            printf '%s but has not read the idiom card.\n' "$opening"
+            printf 'golang-skills routing gate: this session loaded %s but has not read the idiom card.\n' "${routers% }"
+        fi
+        if [[ -n "$missing" && -n "$need_card" ]]; then
+            printf 'This edit was not applied and the file is unchanged. Load them (one Skill call\n'
+            printf 'per name) and Read the card whole, no offset or limit, all in one message, then\n'
+            printf 'retry the same edit against the unchanged file. The card:\n%s\n' "$need_card"
+        elif [[ -n "$missing" ]]; then
+            printf 'This edit was not applied and the file is unchanged. Load them (one Skill call\n'
+            printf 'per name, all in one message), then retry the same edit against the unchanged file.\n'
+        else
             printf 'This edit was not applied and the file is unchanged. Read the card whole, no\n'
             printf 'offset or limit, then retry the same edit against the unchanged file. The card:\n%s\n' "$need_card"
         fi
         if [[ -n "$missing" ]]; then
+            printf 'If the Skill tool is missing or answers "Unknown skill", Read\n'
+            printf '%s/skills/<name>/SKILL.md whole for each name instead; the gate counts that Read.\n' "$root"
+        fi
+        [[ -z "$absent_note" ]] || printf '%s\n' "$absent_note"
+        # gopls: хук не бачить, чи є MCP саме в цьому чаті, тож через gopls не
+        # блокує, а один раз за сесію називає маршрут у першому блоці, коли
+        # модель уже планує завантаження. 2026-09-28, Opus 5.5 low, fetch: 0
+        # викликів gopls у 2/2 сесіях за доступного MCP або CLI («the files were
+        # small enough to read directly»).
+        if [[ ! -f "$state/gopls-hint" ]]; then
+            : > "$state/gopls-hint"
+            printf 'gopls: if go_workspace and go_file_context are in your tool list (a gopls MCP\n'
+            printf 'server, often mcp__gopls__*), call go_workspace once and go_file_context on\n'
+            printf '%s in the same message as the loads; a small package is not an exception.\n' "$path"
+            printf 'Without them but with a shell: command -v gopls, then gopls check or gopls references.\n'
+        fi
+        if (( attempt == 1 )) && [[ -n "$fresh" ]]; then
             cat <<'EOF'
 The gate reads the edited text and recognizes some owners only: tests, error
 wrapping, goroutines, context creation, SQL, slog, exec and templates, defer,
 type parameters, interfaces, main, retries, HTTP. The routing table in
-go-code/SKILL.md decides, including the owners the gate cannot see; each name
-is used once per session, and the gate's silence is not a passing result.
+go-code/SKILL.md decides, including the owners the gate cannot see, and the
+gate's silence is not a passing result.
 EOF
-        else
-            printf 'Its older rows apply at every go directive. The card is named once per session,\n'
-            printf 'and the gate'"'"'s silence is not a passing result.\n'
+        elif (( attempt == 1 )) && [[ -z "$missing" ]]; then
+            printf 'Its older rows apply at every go directive, and the gate'"'"'s silence is not a\n'
+            printf 'passing result.\n'
         fi
     } >&2
     exit 2

@@ -13,8 +13,17 @@
 # Go work is a prompt that names Go (the word Go, golang, a .go file, go.mod,
 # goroutines, a go subcommand) or a prompt sent from a directory holding
 # go.mod or *.go files within two levels. A read-only question about Go code
-# gets navigation guidance without loading an edit router. A prompt that
-# names a go-* skill in prose relies on the model's own Skill call.
+# gets navigation guidance without loading an edit router.
+#
+# Запит, що називає router у тексті (`use go-code`, `$go-code-refactor`,
+# `/opsx:apply add-auth /go-code`), обирає саме цей router, а не вимикає
+# нагадування: згадка нічого не завантажує, і раніше такий запит лишав
+# завантаження на рішення моделі. Шлях на кшталт skills/go-code/SKILL.md
+# згадкою не вважається. Вибраний router записується в prompted — з нього
+# go-code-routing.sh бере вхідну навичку для сесії без router.
+#
+# Імена навичок у нотатці точні для Skill: у плагіні Claude Code це
+# <plugin>:<skill> (golang-skills:go-code), без CLAUDE_PLUGIN_ROOT — голі.
 #
 # A slash command is the exception. The host expands `/go-code` and
 # `/golang-skills:go-code-refactor` itself: it inserts the router's SKILL.md
@@ -67,9 +76,11 @@ if not isinstance(prompt, str) or not prompt.strip():
 # A slash command raises this event and no other: the host expands it, inserts
 # the router SKILL.md, and calls no tool, so nothing else records the load.
 slash = re.match(r"\s*/(?:[A-Za-z0-9_.-]+:)?(go-code-refactor|go-code-review|go-code)\b", prompt)
-# A go-* skill named in prose is the model to invoke; the matcher has fired.
-if not slash and re.search(r"(^|[\s/$:])go-(code|code-refactor|code-review)\b", prompt):
-    sys.exit(0)
+# Router, названий у тексті, обирається: слово на межі (пробіл, $, лапки,
+# дужка), можливо з / чи namespace, і не частина шляху чи довшого імені.
+mention = None if slash else re.search(
+    r"(?:^|(?<=[\s`\x27\"(\[$]))/?(?:[A-Za-z0-9_.-]+:)?(go-code-refactor|go-code-review|go-code)(?![\w/-]|\.\w)",
+    prompt)
 
 def names_go(text):
     return re.search(
@@ -128,6 +139,14 @@ if slash:
     for p in target_files()[:40]:
         print(p)
     sys.exit(0)
+if mention:
+    print((d.get("session_id") or "default").replace("\n", " "))
+    print(mention.group(1))
+    print("")
+    print("mention")
+    for p in target_files()[:40]:
+        print(p)
+    sys.exit(0)
 
 # A prompt that does not name Go counts as Go work only when the working
 # directory holds Go and the prompt names a code element; "add a line to the
@@ -135,7 +154,7 @@ if slash:
 code_noun = re.compile(
     r"\b(?:function\w?|func|method\w?|package\w?|handler\w?|endpoint\w?|struct\w?|interface\w?|type\w?|"
     r"test\w*|stub\w?|bug\w?|panic|бод[иі]\w*|функці\w*|метод\w*|пакет\w*|хендлер\w*|обробник\w*|"
-    r"структур\w*|інтерфейс\w*|тест\w*|заглушк\w*|баг\w*)\b", re.I)
+    r"структур\w*|інтерфейс\w*|тест\w*|заглушк\w*|баг\w*|функци\w*|обработчик\w*|эндпоинт\w*)\b", re.I)
 if not names_go(prompt):
     if not (has_go_files(d.get("cwd") or "") and code_noun.search(prompt)):
         sys.exit(0)
@@ -148,15 +167,16 @@ refactor = re.compile(
 # Work verbs select an edit router; questions receive only navigation guidance.
 work = re.compile(
     r"\b(?:implement\w*|write|add|create|build|make|fix\w*|bug\w*|stub\w*|not implemented|fill in|"
-    r"реаліз\w*|реализ\w*|напиш\w*|напис\w*|дода\w*|добав\w*|виправ\w*|исправ\w*|створ\w*|созда\w*|зроби|сделай|баг\w*)\b",
+    r"реаліз\w*|реализ\w*|напиш\w*|напис\w*|дода\w*|добав\w*|виправ\w*|исправ\w*|створ\w*|созда\w*|зроби|сделай|баг\w*|"
+    r"почин\w*|поправ\w*|допиш\w*|заполн\w*)\b",
     re.I)
 navigate = re.search(
     r"\b(?:explain|find|locate|where|who calls|how does|show|trace|understand|"
-    r"поясн\w*|объясн\w*|знайд\w*|найд\w*|де\b|где\b|хто виклика\w*|кто вызыва\w*|"
+    r"поясн\w*|объясн\w*|знайд\w*|найд\w*|покаж\w*|де\b|где\b|хто виклика\w*|кто вызыва\w*|"
     r"як працю\w*|как работа\w*)\b", prompt, re.I)
 question = navigate and (prompt.strip().endswith("?") or re.match(
     r"\s*(?:explain|find|locate|where|who|how|show|trace|understand|"
-    r"поясн\w*|объясн\w*|знайд\w*|найд\w*|де\b|где\b|хто\b|кто\b|як\b|как\b)", prompt, re.I))
+    r"поясн\w*|объясн\w*|знайд\w*|найд\w*|покаж\w*|де\b|где\b|хто\b|кто\b|як\b|как\b)", prompt, re.I))
 if question:
     skill, kind = "", "read-only Go code navigation"
 elif refactor.search(prompt):
@@ -206,21 +226,31 @@ fi
 case "$skill" in
 go-code-refactor)
     what="it records a baseline, deletes before it restructures, and verifies that behavior held" ;;
+go-code-review)
+    what="it routes each finding to the owner skill behind it" ;;
 *)
     what="it loads the owner skills the task needs and closes with the verification gate" ;;
 esac
+# Точні імена для Skill: плагін реєструє навички як <plugin>:<skill>, а
+# CLAUDE_PLUGIN_ROOT хост задає лише хукам плагіна.
+ns=""
+manifest="${CLAUDE_PLUGIN_ROOT:-}/.claude-plugin/plugin.json"
+if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" && -f "$manifest" ]]; then
+    ns="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("name") or "")' "$manifest" 2>/dev/null)" || ns=""
+fi
+q() { printf '%s%s' "${ns:+$ns:}" "$1"; }
 owners=""
 if (( ${#files[@]} > 0 )); then
     owners="$(bash "$(dirname "${BASH_SOURCE[0]}")/go-code-routing.sh" --hints "${files[@]}" 2>/dev/null)" || owners=""
 fi
 if [[ "$mode" == "slash" ]]; then
-    line='Load `go-style-core`'
+    line="Load \`$(q go-style-core)\`"
 else
-    line='Load `go-style-core` with it'
+    line="Load \`$(q go-style-core)\` with it"
 fi
 if [[ -n "$owners" ]]; then
     list=""
-    for o in $owners; do list+="\`$o\`, "; done
+    for o in $owners; do list+="\`$(q "$o")\`, "; done
     line+=", and the owners its code points at: ${list%, }"
 fi
 # The idiom card, at the path this plugin copy carries it; the edit gate
@@ -235,7 +265,7 @@ fi
 # ("in the same message as the go-style-core load"), the card pulled
 # go-style-core off the owners' turn and cost 3.22 Skill turns a session
 # against 2.44 (2026-09-18, Sonnet 5 medium, n=3).
-line+='; `go-testing` if you write or edit a test'
+line+="; \`$(q go-testing)\` if you write or edit a test"
 [[ -z "$card" ]] || line+="; and Read the idiom card whole (no offset or limit): $card"
 line+='. All of them in one message, before the first edit.'
 if [[ "$mode" == "slash" ]]; then
@@ -244,8 +274,12 @@ if [[ "$mode" == "slash" ]]; then
     exit 0
 fi
 
-printf 'golang-skills: this prompt looks like %s.\n' "$kind"
-printf 'Before the first edit, load the `%s` skill (Skill tool, name `%s`); %s.\n' "$skill" "$skill" "$what"
+if [[ "$mode" == "mention" ]]; then
+    printf 'golang-skills: this prompt names the `%s` skill; naming a skill does not load it.\n' "$(q "$skill")"
+else
+    printf 'golang-skills: this prompt looks like %s.\n' "$kind"
+fi
+printf 'Before the first edit, load the `%s` skill (Skill tool, name `%s`); %s.\n' "$(q "$skill")" "$(q "$skill")" "$what"
 printf '%s\n' "$line"
-printf 'If the task is not Go work, ignore this note.\n'
+[[ "$mode" == "mention" ]] || printf 'If the task is not Go work, ignore this note.\n'
 exit 0

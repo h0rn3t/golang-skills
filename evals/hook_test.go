@@ -14,24 +14,35 @@ import (
 // which the routing hook uses to remember what a session has loaded.
 func hookEvent(t *testing.T, script, state string, payload map[string]any) (int, string) {
 	t.Helper()
+	code, _, stderr := hookOutput(t, script, state, payload)
+	return code, stderr
+}
+
+// hookOutput запускає хук так, як хост запускає хук плагіна: CLAUDE_PLUGIN_ROOT
+// указує на checkout, CLAUDE_PLUGIN_DATA — на state, env додається останнім і
+// перекриває обидва. Повертає exit code, stdout і stderr: зупинку сесії gate
+// повідомляє JSON-ом у stdout.
+func hookOutput(t *testing.T, script, state string, payload map[string]any, env ...string) (int, string, string) {
+	t.Helper()
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
 	}
 	cmd := exec.Command("bash", script)
 	cmd.Stdin = strings.NewReader(string(body))
-	cmd.Env = append(os.Environ(), "CLAUDE_PLUGIN_DATA="+state)
-	var stderr strings.Builder
+	cmd.Env = append(append(os.Environ(), "CLAUDE_PLUGIN_ROOT="+repoRoot(t), "CLAUDE_PLUGIN_DATA="+state), env...)
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err = cmd.Run()
 	if err == nil {
-		return 0, stderr.String()
+		return 0, stdout.String(), stderr.String()
 	}
 	exitErr, ok := err.(*exec.ExitError)
 	if !ok {
 		t.Fatalf("run %s: %v", script, err)
 	}
-	return exitErr.ExitCode(), stderr.String()
+	return exitErr.ExitCode(), stdout.String(), stderr.String()
 }
 
 func routingPayload(event, session, tool string, input map[string]any) map[string]any {
@@ -89,22 +100,203 @@ func TestHookScriptsSyntax(t *testing.T) {
 	}
 }
 
-// TestRoutingGate drives the routing hook through one session: no gate
-// without a router, a block that names exactly the missing owners after any
-// of the three routers, a pass once they are loaded, and a pass on retry even
-// when they are not.
+// TestRoutingGate drives the routing hook through one session: a block without
+// a router that names the entry skill, a block that names exactly the missing
+// owners after any of the three routers, a pass once they are loaded, a block
+// again on a retry that loaded nothing, and a JSON stop instead of a third
+// block.
 func TestRoutingGate(t *testing.T) {
 	t.Parallel()
 	script := filepath.Join(repoRoot(t), "hooks", "go-code-routing.sh")
 	handler := "package api\n\nfunc (s *Server) handle(w http.ResponseWriter, r *http.Request) {\n\tif err := s.store.Save(r.Context(), u); err != nil {\n\t\thttp.Error(w, fmt.Errorf(\"save: %w\", err).Error(), 500)\n\t}\n}\n"
 
-	t.Run("silent without a router", func(t *testing.T) {
+	// Сесія без router раніше проходила мовчки, і завантаження залежало лише від
+	// рішення моделі. Тепер перша .go-правка блокується й називає вхідну
+	// навичку, go-style-core, owners і card точними іменами плагіна.
+	t.Run("blocks without a router and names the entry skill", func(t *testing.T) {
 		t.Parallel()
 		state := t.TempDir()
 		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "s1", "Write",
 			map[string]any{"file_path": "/repo/api/handler.go", "content": handler}))
+		if code != 2 {
+			t.Fatalf("edit without a router loaded: exit %d, stderr %q; want 2", code, msg)
+		}
+		cardPath := filepath.Join(repoRoot(t), "skills", "go-style-core", "references", "CURRENT-GO.md")
+		for _, want := range []string{"loaded no router skill", "`golang-skills:go-code`", "`golang-skills:go-code-refactor`",
+			"`golang-skills:go-style-core`", "`golang-skills:go-http`", "`golang-skills:go-error-handling`", cardPath,
+			filepath.Join(repoRoot(t), "skills") + "/<name>/SKILL.md"} {
+			if !strings.Contains(msg, want) {
+				t.Errorf("block without a router must name %s:\n%s", want, msg)
+			}
+		}
+	})
+
+	// Вхідна навичка — та, яку обрав prompt-хук: refactor-запит веде до
+	// go-code-refactor, а не до go-code.
+	t.Run("entry skill is the router the prompt picked", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		if _, out := promptEvent(t, state, "s13", t.TempDir(), "Refactor the Go package in ./dispatch so it reads better."); !strings.Contains(out, "go-code-refactor") {
+			t.Fatalf("refactor prompt: stdout %q; want go-code-refactor", out)
+		}
+		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "s13", "Write",
+			map[string]any{"file_path": "/repo/dispatch/run.go", "content": "package dispatch\n"}))
+		if code != 2 || !strings.Contains(msg, "`golang-skills:go-code-refactor`") {
+			t.Fatalf("edit after a refactor prompt: exit %d, stderr %q; want 2 naming go-code-refactor", code, msg)
+		}
+		if strings.Contains(msg, "`golang-skills:go-code`") {
+			t.Errorf("the prompt picked go-code-refactor; the block must not ask for go-code:\n%s", msg)
+		}
+	})
+
+	// Нагадування не є завантаженням: reminded лише журнал. Повтор без
+	// завантаження блокується знову, третій — зупиняє сесію JSON-ом замість
+	// нескінченних блоків, а після завантаження правка проходить.
+	t.Run("a retry without loading is blocked, then the session stops", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		edit := routingPayload("PreToolUse", "s14", "Write",
+			map[string]any{"file_path": "/repo/api/handler.go", "content": handler})
+		if code, msg := hookEvent(t, script, state, edit); code != 2 {
+			t.Fatalf("first edit: exit %d, stderr %q; want 2", code, msg)
+		}
+		reminded, err := os.ReadFile(filepath.Join(state, "routing", "s14", "reminded"))
+		if err != nil || !strings.Contains(string(reminded), "go-style-core") {
+			t.Fatalf("reminded after the first block = %q, %v; want go-style-core in it", reminded, err)
+		}
+		if _, err := os.Stat(filepath.Join(state, "routing", "s14", "loaded")); !os.IsNotExist(err) {
+			t.Fatalf("a block must not write loaded: stat error = %v, want not exist", err)
+		}
+
+		code, msg := hookEvent(t, script, state, edit)
+		if code != 2 || !strings.Contains(msg, "A reminder is not a load") || !strings.Contains(msg, "`golang-skills:go-code`") {
+			t.Fatalf("retry without loading: exit %d, stderr %q; want 2 naming what is still missing", code, msg)
+		}
+
+		code, out, msg := hookOutput(t, script, state, edit)
 		if code != 0 || msg != "" {
-			t.Fatalf("edit without a router loaded: exit %d, stderr %q; want silent 0", code, msg)
+			t.Fatalf("third stalled retry: exit %d, stderr %q; want 0 with a JSON stop", code, msg)
+		}
+		var stop struct {
+			Continue   *bool  `json:"continue"`
+			StopReason string `json:"stopReason"`
+			Hook       struct {
+				Decision string `json:"permissionDecision"`
+			} `json:"hookSpecificOutput"`
+		}
+		if err := json.Unmarshal([]byte(out), &stop); err != nil {
+			t.Fatalf("third stalled retry: stdout %q is not JSON: %v", out, err)
+		}
+		if stop.Continue == nil || *stop.Continue || stop.Hook.Decision != "deny" ||
+			!strings.Contains(stop.StopReason, "GOLANG_SKILLS_ROUTING_GATE=off") || !strings.Contains(stop.StopReason, "golang-skills:go-code") {
+			t.Fatalf("third stalled retry = %+v; want continue false, deny, and a reason naming the skills and the off switch", stop)
+		}
+
+		for _, skill := range []string{"golang-skills:go-code", "golang-skills:go-style-core", "golang-skills:go-http", "golang-skills:go-error-handling"} {
+			hookEvent(t, script, state, routingPayload("PostToolUse", "s14", "Skill", map[string]any{"skill": skill}))
+		}
+		hookEvent(t, script, state, routingPayload("PostToolUse", "s14", "Read",
+			map[string]any{"file_path": filepath.Join(repoRoot(t), "skills", "go-style-core", "references", "CURRENT-GO.md")}))
+		if code, out, msg := hookOutput(t, script, state, edit); code != 0 || out != "" || msg != "" {
+			t.Fatalf("edit after the loads: exit %d, stdout %q, stderr %q; want silent 0", code, out, msg)
+		}
+	})
+
+	// Прогрес — будь-яке нове завантаження — скидає лічильник, а паралельні
+	// правки різних файлів в одному повідомленні не є повторами.
+	t.Run("progress and parallel edits do not count as stalled retries", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		edit := func(path string) map[string]any {
+			return routingPayload("PreToolUse", "s15", "Write", map[string]any{"file_path": path, "content": handler})
+		}
+		for _, path := range []string{"/repo/api/a.go", "/repo/api/b.go", "/repo/api/c.go"} {
+			if code, msg := hookEvent(t, script, state, edit(path)); code != 2 {
+				t.Fatalf("parallel edit %s: exit %d, stderr %q; want 2", path, code, msg)
+			}
+		}
+		hookEvent(t, script, state, edit("/repo/api/a.go"))
+		hookEvent(t, script, state, routingPayload("PostToolUse", "s15", "Skill", map[string]any{"skill": "golang-skills:go-code"}))
+		code, out, msg := hookOutput(t, script, state, edit("/repo/api/a.go"))
+		if code != 2 || out != "" || strings.Contains(msg, "`golang-skills:go-code`,") {
+			t.Fatalf("retry after loading go-code: exit %d, stdout %q, stderr %q; want 2, no stop, go-code no longer missing", code, out, msg)
+		}
+	})
+
+	// Навичка, якої немає в цій копії плагіна, не вимагається: gate називає її
+	// відсутньою замість блоків, яких модель не може задовольнити.
+	t.Run("a skill missing from the plugin copy is reported, not required", func(t *testing.T) {
+		t.Parallel()
+		root := t.TempDir()
+		src := repoRoot(t)
+		for _, rel := range []string{"hooks/go-code-routing.sh", "skills/go-code/SKILL.md", "skills/go-style-core/SKILL.md",
+			"skills/go-style-core/references/CURRENT-GO.md", "skills/go-error-handling/SKILL.md"} {
+			data, err := os.ReadFile(filepath.Join(src, rel))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(filepath.Dir(filepath.Join(root, rel)), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(root, rel), data, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		copied := filepath.Join(root, "hooks", "go-code-routing.sh")
+		state := t.TempDir()
+		edit := routingPayload("PreToolUse", "s16", "Write",
+			map[string]any{"file_path": "/repo/api/handler.go", "content": handler})
+		code, msg := hookEvent(t, copied, state, edit)
+		if code != 2 || !strings.Contains(msg, "Not installed in this plugin copy, so not required: `golang-skills:go-http`") {
+			t.Fatalf("edit with go-http missing from the copy: exit %d, stderr %q; want 2 reporting go-http as not installed", code, msg)
+		}
+		if strings.Contains(msg, "but not: `golang-skills:go-http`") || strings.Contains(msg, "Missing: `golang-skills:go-code`, `golang-skills:go-style-core`, `golang-skills:go-http`") {
+			t.Errorf("go-http is not installed and must not be required:\n%s", msg)
+		}
+		for _, skill := range []string{"go-code", "go-style-core", "go-error-handling"} {
+			hookEvent(t, copied, state, routingPayload("PostToolUse", "s16", "Skill", map[string]any{"skill": skill}))
+		}
+		hookEvent(t, copied, state, routingPayload("PostToolUse", "s16", "Read",
+			map[string]any{"file_path": filepath.Join(root, "skills", "go-style-core", "references", "CURRENT-GO.md")}))
+		if code, out, msg := hookOutput(t, copied, state, edit); code != 0 || out != "" || msg != "" {
+			t.Fatalf("edit with every installed skill loaded: exit %d, stdout %q, stderr %q; want silent 0", code, out, msg)
+		}
+	})
+
+	// gopls gate не вимагає (хук не бачить, чи є MCP у чаті), але перший блок
+	// сесії називає маршрут для файлу, який модель правитиме; далі — тиша.
+	t.Run("the first block names the gopls route once", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "s19", "Write",
+			map[string]any{"file_path": "/repo/api/handler.go", "content": handler}))
+		if code != 2 || !strings.Contains(msg, "call go_workspace once and go_file_context on\n/repo/api/handler.go") || !strings.Contains(msg, "command -v gopls") {
+			t.Fatalf("first block: exit %d, stderr %q; want 2 naming go_workspace, go_file_context for the file, and the CLI", code, msg)
+		}
+		code, msg = hookEvent(t, script, state, routingPayload("PreToolUse", "s19", "Write",
+			map[string]any{"file_path": "/repo/api/other.go", "content": handler}))
+		if code != 2 || strings.Contains(msg, "go_workspace") {
+			t.Fatalf("second block in the session: exit %d, stderr %q; want 2 without the gopls line", code, msg)
+		}
+	})
+
+	t.Run("GOLANG_SKILLS_ROUTING_GATE=off turns the gate off", func(t *testing.T) {
+		t.Parallel()
+		code, msg := hookEventEnv(t, script, t.TempDir(), routingPayload("PreToolUse", "s17", "Write",
+			map[string]any{"file_path": "/repo/api/handler.go", "content": handler}), "GOLANG_SKILLS_ROUTING_GATE=off")
+		if code != 0 || msg != "" {
+			t.Fatalf("gate off: exit %d, stderr %q; want silent 0", code, msg)
+		}
+	})
+
+	// Без CLAUDE_PLUGIN_ROOT хук підключено не як плагін: навички зареєстровані
+	// під голими іменами, і gate називає їх так само.
+	t.Run("bare names outside a plugin", func(t *testing.T) {
+		t.Parallel()
+		code, msg := hookEventEnv(t, script, t.TempDir(), routingPayload("PreToolUse", "s18", "Write",
+			map[string]any{"file_path": "/repo/api/handler.go", "content": handler}), "CLAUDE_PLUGIN_ROOT=")
+		if code != 2 || !strings.Contains(msg, "`go-code`") || strings.Contains(msg, "golang-skills:go-") {
+			t.Fatalf("gate outside a plugin: exit %d, stderr %q; want 2 naming `go-code` without a namespace", code, msg)
 		}
 	})
 
@@ -129,13 +321,13 @@ func TestRoutingGate(t *testing.T) {
 					t.Errorf("block after %s must name %s:\n%s", router, want, msg)
 				}
 			}
-			if code, msg := hookEvent(t, script, state, edit); code != 0 {
-				t.Fatalf("retry after the %s reminder: exit %d, stderr %q; want 0", router, code, msg)
+			if code, msg := hookEvent(t, script, state, edit); code != 2 {
+				t.Fatalf("retry after the %s reminder without loading: exit %d, stderr %q; want 2", router, code, msg)
 			}
 		}
 	})
 
-	t.Run("blocks once then passes", func(t *testing.T) {
+	t.Run("blocks until loaded", func(t *testing.T) {
 		t.Parallel()
 		state := t.TempDir()
 		edit := routingPayload("PreToolUse", "s2", "Write",
@@ -155,7 +347,7 @@ func TestRoutingGate(t *testing.T) {
 		// The card is named by the path this checkout carries it at, so the
 		// model can Read it in the same message as the loads.
 		cardPath := filepath.Join(repoRoot(t), "skills", "go-style-core", "references", "CURRENT-GO.md")
-		for _, want := range []string{"go-style-core", "go-http", "go-error-handling", "and has not read the idiom card", cardPath} {
+		for _, want := range []string{"`golang-skills:go-style-core`", "`golang-skills:go-http`", "`golang-skills:go-error-handling`", "and has not read the idiom card", cardPath} {
 			if !strings.Contains(msg, want) {
 				t.Errorf("block message must name %s:\n%s", want, msg)
 			}
@@ -168,9 +360,9 @@ func TestRoutingGate(t *testing.T) {
 			}
 		}
 
-		// The retry passes without loading anything: the gate reminds once.
-		if code, msg := hookEvent(t, script, state, edit); code != 0 {
-			t.Fatalf("retry after one reminder: exit %d, stderr %q; want 0 (no deadlock)", code, msg)
+		// Нагадування не є завантаженням: повтор без завантаження блокується.
+		if code, msg := hookEvent(t, script, state, edit); code != 2 {
+			t.Fatalf("retry after one reminder without loading: exit %d, stderr %q; want 2", code, msg)
 		}
 	})
 
@@ -243,8 +435,8 @@ func TestRoutingGate(t *testing.T) {
 		if strings.Contains(msg, "but not:") || strings.Contains(msg, "Skill call") {
 			t.Errorf("every skill is loaded; the block must ask for the card only:\n%s", msg)
 		}
-		if code, msg := hookEvent(t, script, state, edit("c1")); code != 0 {
-			t.Fatalf("retry after the card reminder: exit %d, stderr %q; want 0 (no deadlock)", code, msg)
+		if code, msg := hookEvent(t, script, state, edit("c1")); code != 2 || !strings.Contains(msg, "the idiom card") {
+			t.Fatalf("retry after the card reminder without a Read: exit %d, stderr %q; want 2 naming the card", code, msg)
 		}
 
 		// A Read with an offset is not the whole card.
@@ -313,7 +505,7 @@ func TestRoutingGate(t *testing.T) {
 		}
 	})
 
-	t.Run("ignores non-Go files and other sessions", func(t *testing.T) {
+	t.Run("ignores non-Go files; sessions are separate", func(t *testing.T) {
 		t.Parallel()
 		state := t.TempDir()
 		hookEvent(t, script, state, routingPayload("PostToolUse", "s5", "Skill", map[string]any{"skill": "go-code"}))
@@ -321,9 +513,10 @@ func TestRoutingGate(t *testing.T) {
 			map[string]any{"file_path": "/repo/README.md", "content": "http."})); code != 0 || msg != "" {
 			t.Fatalf("Markdown edit: exit %d, stderr %q; want silent 0", code, msg)
 		}
+		// Інша сесія не успадковує go-code з s5: для неї router не завантажено.
 		if code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "other", "Write",
-			map[string]any{"file_path": "/repo/main.go", "content": "package main"})); code != 0 || msg != "" {
-			t.Fatalf("another session's Go edit: exit %d, stderr %q; want silent 0", code, msg)
+			map[string]any{"file_path": "/repo/main.go", "content": "package main"})); code != 2 || !strings.Contains(msg, "loaded no router skill") {
+			t.Fatalf("another session's Go edit: exit %d, stderr %q; want 2 without a router", code, msg)
 		}
 	})
 
@@ -589,29 +782,14 @@ func TestVetHook(t *testing.T) {
 // hookEventEnv is hookEvent with extra environment variables for the hook.
 func hookEventEnv(t *testing.T, script, state string, payload map[string]any, env ...string) (int, string) {
 	t.Helper()
-	body, err := json.Marshal(payload)
-	if err != nil {
-		t.Fatalf("marshal payload: %v", err)
-	}
-	cmd := exec.Command("bash", script)
-	cmd.Stdin = strings.NewReader(string(body))
-	cmd.Env = append(append(os.Environ(), "CLAUDE_PLUGIN_DATA="+state), env...)
-	var stderr strings.Builder
-	cmd.Stderr = &stderr
-	err = cmd.Run()
-	if err == nil {
-		return 0, stderr.String()
-	}
-	exitErr, ok := err.(*exec.ExitError)
-	if !ok {
-		t.Fatalf("run %s: %v", script, err)
-	}
-	return exitErr.ExitCode(), stderr.String()
+	code, _, stderr := hookOutput(t, script, state, payload, env...)
+	return code, stderr
 }
 
 // promptEvent runs the UserPromptSubmit hook and returns its exit code and
-// stdout, which is what the host adds to the model's context.
-func promptEvent(t *testing.T, state, session, cwd, prompt string) (int, string) {
+// stdout, which is what the host adds to the model's context. Like hookOutput
+// it sets CLAUDE_PLUGIN_ROOT to the checkout; env comes last.
+func promptEvent(t *testing.T, state, session, cwd, prompt string, env ...string) (int, string) {
 	t.Helper()
 	body, err := json.Marshal(map[string]any{
 		"hook_event_name": "UserPromptSubmit",
@@ -624,7 +802,7 @@ func promptEvent(t *testing.T, state, session, cwd, prompt string) (int, string)
 	}
 	cmd := exec.Command("bash", filepath.Join(repoRoot(t), "hooks", "go-prompt-routing.sh"))
 	cmd.Stdin = strings.NewReader(string(body))
-	cmd.Env = append(os.Environ(), "CLAUDE_PLUGIN_DATA="+state)
+	cmd.Env = append(append(os.Environ(), "CLAUDE_PLUGIN_ROOT="+repoRoot(t), "CLAUDE_PLUGIN_DATA="+state), env...)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -644,9 +822,11 @@ func promptEvent(t *testing.T, state, session, cwd, prompt string) (int, string)
 
 // TestPromptRouting drives the UserPromptSubmit hook: the two corpus prompts
 // name their router, a prompt without Go stays silent, read-only Go questions
-// get navigation guidance without an edit workflow,
-// the note is printed once per skill per session, and a session that already
-// loaded the skill is left alone.
+// get navigation guidance without an edit workflow, a router named in the
+// prompt is selected rather than silenced, Ukrainian and Russian wording
+// route like English, the note is printed once per skill per session with
+// the plugin's exact skill names, and a session that already loaded the skill
+// is left alone.
 func TestPromptRouting(t *testing.T) {
 	t.Parallel()
 	const implement = "Implement the Go package in ./feed. Every exported declaration is already there with its documentation; write the bodies so the package does what the documentation says. Do not change the exported signatures. Apply the changes to the files."
@@ -670,7 +850,7 @@ func TestPromptRouting(t *testing.T) {
 	t.Run("implement prompt names go-code", func(t *testing.T) {
 		t.Parallel()
 		code, out := promptEvent(t, t.TempDir(), "p1", t.TempDir(), implement)
-		if code != 0 || !strings.Contains(out, "`go-code`") {
+		if code != 0 || !strings.Contains(out, "`golang-skills:go-code`") {
 			t.Fatalf("implement prompt: exit %d, stdout %q; want 0 naming go-code", code, out)
 		}
 		if strings.Contains(out, "go-code-refactor") {
@@ -687,7 +867,7 @@ func TestPromptRouting(t *testing.T) {
 	t.Run("refactor prompt names go-code-refactor", func(t *testing.T) {
 		t.Parallel()
 		code, out := promptEvent(t, t.TempDir(), "p2", t.TempDir(), refactor)
-		if code != 0 || !strings.Contains(out, "`go-code-refactor`") {
+		if code != 0 || !strings.Contains(out, "`golang-skills:go-code-refactor`") {
 			t.Fatalf("refactor prompt: exit %d, stdout %q; want 0 naming go-code-refactor", code, out)
 		}
 	})
@@ -695,7 +875,7 @@ func TestPromptRouting(t *testing.T) {
 	t.Run("clean-up wording is a refactor", func(t *testing.T) {
 		t.Parallel()
 		_, out := promptEvent(t, t.TempDir(), "p3", t.TempDir(), "This Go file is messy, clean it up")
-		if !strings.Contains(out, "`go-code-refactor`") {
+		if !strings.Contains(out, "`golang-skills:go-code-refactor`") {
 			t.Fatalf("messy/clean up: stdout %q; want go-code-refactor", out)
 		}
 	})
@@ -703,7 +883,7 @@ func TestPromptRouting(t *testing.T) {
 	t.Run("monolith wording is a refactor", func(t *testing.T) {
 		t.Parallel()
 		_, out := promptEvent(t, t.TempDir(), "p13", t.TempDir(), "Our Go monolith has one models package that every other package imports — propose how to modularize it")
-		if !strings.Contains(out, "`go-code-refactor`") {
+		if !strings.Contains(out, "`golang-skills:go-code-refactor`") {
 			t.Fatalf("monolith/modularize: stdout %q; want go-code-refactor", out)
 		}
 	})
@@ -723,7 +903,7 @@ func TestPromptRouting(t *testing.T) {
 		if code != 0 || !strings.Contains(out, "go_file_context") || !strings.Contains(out, "go_search") {
 			t.Fatalf("question about Go: exit %d, stdout %q; want navigation guidance", code, out)
 		}
-		if strings.Contains(out, "Before the first edit") || strings.Contains(out, "`go-code`") {
+		if strings.Contains(out, "Before the first edit") || strings.Contains(out, "`golang-skills:go-code`") {
 			t.Fatalf("read-only question must not start the edit workflow:\n%s", out)
 		}
 		if _, out := promptEvent(t, state, "p5", cwd, "Where is CreateUser implemented in Go?"); out != "" {
@@ -737,7 +917,7 @@ func TestPromptRouting(t *testing.T) {
 	t.Run("directory with Go and a code noun fires", func(t *testing.T) {
 		t.Parallel()
 		_, out := promptEvent(t, t.TempDir(), "p6", goRepo(t), "Add a handler that returns the account balance as JSON")
-		if !strings.Contains(out, "`go-code`") {
+		if !strings.Contains(out, "`golang-skills:go-code`") {
 			t.Fatalf("handler in a Go directory: stdout %q; want go-code", out)
 		}
 	})
@@ -750,14 +930,36 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
-	t.Run("silent when the prompt names the skill in prose", func(t *testing.T) {
+	// Згадка router у тексті обирає його: раніше такий запит вимикав нотатку,
+	// і завантаження лишалося на рішення моделі. Модифікатор у команді хоста
+	// (/opsx:apply add-auth /go-code) теж сам нічого не завантажує.
+	t.Run("a router named in the prompt is selected, not silenced", func(t *testing.T) {
 		t.Parallel()
-		// The model invokes these itself, and a modifier deep in a host command
-		// (/opsx:apply add-auth /go-code) loads nothing on its own either.
-		for _, p := range []string{"$go-code-refactor " + refactor, "use the go-code skill: " + implement, "/opsx:apply add-auth /go-code"} {
-			if code, out := promptEvent(t, t.TempDir(), "p8", t.TempDir(), p); code != 0 || out != "" {
-				t.Fatalf("prompt %q names a skill in prose: exit %d, stdout %q; want silent 0", p, code, out)
+		for _, tc := range []struct{ prompt, want string }{
+			{"$go-code-refactor " + refactor, "`golang-skills:go-code-refactor`"},
+			{"use the go-code skill: " + implement, "`golang-skills:go-code`"},
+			{"/opsx:apply add-auth /go-code", "`golang-skills:go-code`"},
+			{"Используй golang-skills:go-code-refactor для пакета dispatch", "`golang-skills:go-code-refactor`"},
+		} {
+			code, out := promptEvent(t, t.TempDir(), "p8", t.TempDir(), tc.prompt)
+			if code != 0 || !strings.Contains(out, "names the "+tc.want+" skill") || !strings.Contains(out, "Skill tool, name "+tc.want) {
+				t.Errorf("prompt %q: exit %d, stdout %q; want a note selecting %s", tc.prompt, code, out, tc.want)
 			}
+		}
+		// Шлях до файлу навички — не згадка: запит про Markdown лишається тихим.
+		if code, out := promptEvent(t, t.TempDir(), "p8", t.TempDir(), "Fix the routing table in skills/go-code/SKILL.md"); code != 0 || out != "" {
+			t.Errorf("a skill path in the prompt: exit %d, stdout %q; want silent 0", code, out)
+		}
+
+		// Сама згадка не завантажує: gate блокує першу правку й просить саме
+		// названий router.
+		state := t.TempDir()
+		promptEvent(t, state, "p17", t.TempDir(), "$go-code-refactor "+refactor)
+		gate := filepath.Join(repoRoot(t), "hooks", "go-code-routing.sh")
+		code, msg := hookEvent(t, gate, state, routingPayload("PreToolUse", "p17", "Write",
+			map[string]any{"file_path": "/repo/dispatch/run.go", "content": "package dispatch\n"}))
+		if code != 2 || !strings.Contains(msg, "`golang-skills:go-code-refactor`") {
+			t.Fatalf("edit after a prompt that only names the router: exit %d, stderr %q; want 2 naming go-code-refactor", code, msg)
 		}
 	})
 
@@ -783,7 +985,7 @@ func TestPromptRouting(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("slash invocation: exit %d; want 0", code)
 		}
-		for _, want := range []string{"`/go-code`", "`go-style-core`", "`go-context`", "`go-error-handling`", "in one message", "CURRENT-GO.md"} {
+		for _, want := range []string{"`/go-code`", "`golang-skills:go-style-core`", "`golang-skills:go-context`", "`golang-skills:go-error-handling`", "in one message", "CURRENT-GO.md"} {
 			if !strings.Contains(out, want) {
 				t.Errorf("slash note must name %s:\n%s", want, out)
 			}
@@ -814,7 +1016,7 @@ func TestPromptRouting(t *testing.T) {
 		for _, router := range []string{"go-code-refactor", "go-code-review"} {
 			state := t.TempDir()
 			_, out := promptEvent(t, state, router, t.TempDir(), "/"+router+" ./dispatch")
-			if !strings.Contains(out, "`/"+router+"`") || !strings.Contains(out, "`go-style-core`") {
+			if !strings.Contains(out, "`/"+router+"`") || !strings.Contains(out, "`golang-skills:go-style-core`") {
 				t.Fatalf("slash %s: stdout %q; want the note naming the command and go-style-core", router, out)
 			}
 			// A review writes nothing, so its note names no card; a refactor does.
@@ -840,7 +1042,7 @@ func TestPromptRouting(t *testing.T) {
 			t.Fatalf("second prompt in the same session: stdout %q; want silent", out)
 		}
 		// A refactor later in the same session still gets its own note once.
-		if _, out := promptEvent(t, state, "p9", t.TempDir(), refactor); !strings.Contains(out, "`go-code-refactor`") {
+		if _, out := promptEvent(t, state, "p9", t.TempDir(), refactor); !strings.Contains(out, "`golang-skills:go-code-refactor`") {
 			t.Fatalf("refactor after implement: stdout %q; want go-code-refactor", out)
 		}
 		if _, out := promptEvent(t, state, "other", t.TempDir(), implement); out == "" {
@@ -878,16 +1080,16 @@ func TestPromptRouting(t *testing.T) {
 			t.Fatal(err)
 		}
 		_, out := promptEvent(t, t.TempDir(), "p13", cwd, refactor)
-		for _, want := range []string{"`go-code-refactor`", "`go-style-core`", "`go-error-handling`", "`go-context`", "`go-defensive`", "before the first edit"} {
+		for _, want := range []string{"`golang-skills:go-code-refactor`", "`golang-skills:go-style-core`", "`golang-skills:go-error-handling`", "`golang-skills:go-context`", "`golang-skills:go-defensive`", "before the first edit"} {
 			if !strings.Contains(out, want) {
 				t.Errorf("note must name %s:\n%s", want, out)
 			}
 		}
-		if strings.Contains(out, "`go-http`") {
+		if strings.Contains(out, "`golang-skills:go-http`") {
 			t.Errorf("a test file's imports must not name an owner:\n%s", out)
 		}
 		// A bare package name in the prompt resolves against cwd too.
-		if _, out := promptEvent(t, t.TempDir(), "p14", cwd, "Спрости Go-пакет dispatch, не змінюючи поведінки"); !strings.Contains(out, "`go-context`") {
+		if _, out := promptEvent(t, t.TempDir(), "p14", cwd, "Спрости Go-пакет dispatch, не змінюючи поведінки"); !strings.Contains(out, "`golang-skills:go-context`") {
 			t.Errorf("bare package name: stdout %q; want go-context", out)
 		}
 		plain := filepath.Join(cwd, "plain")
@@ -898,18 +1100,52 @@ func TestPromptRouting(t *testing.T) {
 			t.Fatal(err)
 		}
 		_, out = promptEvent(t, t.TempDir(), "p15", cwd, "Refactor the Go package in ./plain so it reads better.")
-		if strings.Contains(out, "owners its code points at") || !strings.Contains(out, "`go-style-core`") {
+		if strings.Contains(out, "owners its code points at") || !strings.Contains(out, "`golang-skills:go-style-core`") {
 			t.Errorf("routine code must name go-style-core and no owner:\n%s", out)
 		}
 	})
 
 	t.Run("ukrainian wording", func(t *testing.T) {
 		t.Parallel()
-		if _, out := promptEvent(t, t.TempDir(), "p11", t.TempDir(), "Реалізуй Go-пакет у ./catalog за документацією"); !strings.Contains(out, "`go-code`") {
+		if _, out := promptEvent(t, t.TempDir(), "p11", t.TempDir(), "Реалізуй Go-пакет у ./catalog за документацією"); !strings.Contains(out, "`golang-skills:go-code`") {
 			t.Fatalf("Ukrainian implement: stdout %q; want go-code", out)
 		}
-		if _, out := promptEvent(t, t.TempDir(), "p12", t.TempDir(), "Спрости цей Go-пакет, не змінюючи поведінки"); !strings.Contains(out, "`go-code-refactor`") {
+		if _, out := promptEvent(t, t.TempDir(), "p12", t.TempDir(), "Спрости цей Go-пакет, не змінюючи поведінки"); !strings.Contains(out, "`golang-skills:go-code-refactor`") {
 			t.Fatalf("Ukrainian simplify: stdout %q; want go-code-refactor", out)
+		}
+	})
+
+	t.Run("russian wording", func(t *testing.T) {
+		t.Parallel()
+		cases := []struct {
+			prompt, cwd, want string
+		}{
+			{"Реализуй пакет на Go в ./catalog по документации", t.TempDir(), "`golang-skills:go-code`"},
+			{"Упрости этот Go-пакет, не меняя поведения", t.TempDir(), "`golang-skills:go-code-refactor`"},
+			{"Используй go-code и почини обработчик заказов", t.TempDir(), "`golang-skills:go-code`"},
+			// Без слова Go: каталог із Go-кодом і російський іменник коду.
+			{"Добавь обработчик, который возвращает баланс счёта в JSON", goRepo(t), "`golang-skills:go-code`"},
+			{"Почини баг в функции ParseConfig", goRepo(t), "`golang-skills:go-code`"},
+		}
+		for _, tc := range cases {
+			if _, out := promptEvent(t, t.TempDir(), "p18", tc.cwd, tc.prompt); !strings.Contains(out, tc.want) {
+				t.Errorf("Russian prompt %q: stdout %q; want %s", tc.prompt, out, tc.want)
+			}
+		}
+		// Питання лишається навігацією й не запускає edit-router.
+		_, out := promptEvent(t, t.TempDir(), "p19", goRepo(t), "Объясни, как работает эта функция на Go?")
+		if !strings.Contains(out, "go_search") || strings.Contains(out, "Before the first edit") {
+			t.Errorf("Russian question: stdout %q; want navigation guidance only", out)
+		}
+	})
+
+	// Без CLAUDE_PLUGIN_ROOT хук підключено не як плагін, і нотатка називає
+	// навички голими іменами, як їх реєструє такий хост.
+	t.Run("bare names outside a plugin", func(t *testing.T) {
+		t.Parallel()
+		_, out := promptEvent(t, t.TempDir(), "p20", t.TempDir(), implement, "CLAUDE_PLUGIN_ROOT=")
+		if !strings.Contains(out, "Skill tool, name `go-code`") || strings.Contains(out, "golang-skills:go-") {
+			t.Fatalf("note outside a plugin: stdout %q; want bare `go-code`", out)
 		}
 	})
 }
@@ -930,6 +1166,7 @@ func subagentEvent(t *testing.T, cwd, agentType string) (int, string) {
 	}
 	cmd := exec.Command("bash", filepath.Join(repoRoot(t), "hooks", "go-subagent-routing.sh"))
 	cmd.Stdin = strings.NewReader(string(body))
+	cmd.Env = append(os.Environ(), "CLAUDE_PLUGIN_ROOT="+repoRoot(t))
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -965,7 +1202,7 @@ func TestSubagentRouting(t *testing.T) {
 			if code != 0 {
 				t.Fatalf("subagent %d in a Go directory: exit %d, want 0", i, code)
 			}
-			for _, want := range []string{"go-code", "go-code-refactor", "before the first edit", "go_search", "go_file_context"} {
+			for _, want := range []string{"name `golang-skills:go-code`", "`golang-skills:go-code-refactor`", "before the first edit", "go_search", "go_file_context"} {
 				if !strings.Contains(out, want) {
 					t.Errorf("subagent %d note must mention %q:\n%s", i, want, out)
 				}

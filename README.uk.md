@@ -160,6 +160,17 @@ rm -rf ~/.claude/skills/go-* && cp -R skills/go-* ~/.claude/skills/
 
 Для Codex цільова директорія — `~/.agents/skills/`.
 
+## Інструкції для проєкту
+
+Скіл завантажується, коли його обирає matcher хоста або модель. Для робочого
+проєкту, де кожна правка Go має починатися з router, вставте короткий блок із
+[`docs/PROJECT_INSTRUCTIONS.md`](docs/PROJECT_INSTRUCTIONS.md) у його
+`CLAUDE.md` або `AGENTS.md`: спершу router, потім `go-style-core` і його
+`CURRENT-GO.md`, потім лише ті owner-скіли, які потрібні задачі. У плагіні
+Claude Code routing gate до того ж тримає кожну правку `.go`, доки ці
+завантаження не зафіксовано (`GOLANG_SKILLS_ROUTING_GATE=off` його вимикає);
+Codex, Copilot і Cursor хуків не запускають, тож там працює лише інструкція.
+
 ## Перевірка
 
 `evals/` містить структурні Go-тести, fixtures, golden-тести та опційні

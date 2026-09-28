@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-09-28
+
 - The routing gate holds the first `.go` edit even when no router is loaded
   and names the entry router: the one the prompt hook picked, else
   `go-code`. The initial load no longer rests on the model's own decision.

@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.25.2] - 2026-09-29
+
 - The prompt hook recognizes a review. A prompt that asks for a review or
   audit gets a note naming `go-code-review` alone, to load before the first
   finding; the review corpus prompt ("what is wrong, and the fix") used to

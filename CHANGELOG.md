@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.25.1] - 2026-09-29
+
 A content review of all 24 skills, every claim checked against go1.27.1
 (go1.26.x where a claim is version-sensitive), `$GOROOT/api`, golangci-lint
 2.13.2 with the bundled config, gopls v0.23.0, and runs of the examples and

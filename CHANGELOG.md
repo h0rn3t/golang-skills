@@ -4,6 +4,20 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- The prompt hook recognizes a review. A prompt that asks for a review or
+  audit gets a note naming `go-code-review` alone, to load before the first
+  finding; the review corpus prompt ("what is wrong, and the fix") used to
+  match the work verb `fix` and got "before the first edit, load `go-code`",
+  a condition a review never reaches. The note lists no owners and no card:
+  a variant that listed them made Opus 5.5 medium load up to nine skills at
+  +37% session cost (n=6). Measured on the review corpus, n=1, against 1.25.1:
+  Sonnet 5.5 medium and Opus 5.5 medium loaded `go-code-review` 6/6 in both
+  arms, recall 0.93/0.92 and 0.95/0.97, must-fix 30/31 and 31/31 in both,
+  cost equal. Opus 5.5 low skips the skill on a review whatever the note
+  says (0/12 with the hook silent, 3/12 with the new note), with recall
+  about 0.90 either way. `TestPromptRouting` covers a plain review prompt.
+- Code comments in the hooks and the eval suite are in English.
+
 ## [1.25.1] - 2026-09-29
 
 A content review of all 24 skills, every claim checked against go1.27.1

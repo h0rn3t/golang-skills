@@ -47,7 +47,7 @@ if has_go_files(d.get("cwd") or ""):
 ')" || exit 0
 [[ "$verdict" == "go" ]] || exit 0
 
-# Точні імена для Skill, як у go-prompt-routing.sh: <plugin>:<skill> у плагіні.
+# Exact Skill names, as in go-prompt-routing.sh: <plugin>:<skill> in a plugin.
 ns=""
 manifest="${CLAUDE_PLUGIN_ROOT:-}/.claude-plugin/plugin.json"
 if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" && -f "$manifest" ]]; then

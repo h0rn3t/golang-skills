@@ -7,6 +7,7 @@
 # go-code-refactor in 1 of 4 refactor sessions. This hook sees the prompt
 # itself, so it does not depend on the matcher.
 #
+#   review wording    -> go-code-review    (review, audit, ...)
 #   refactor wording  -> go-code-refactor  (refactor, clean up, simplify, ...)
 #   other Go work     -> go-code           (implement, write, add, fix, ...)
 #
@@ -15,15 +16,15 @@
 # go.mod or *.go files within two levels. A read-only question about Go code
 # gets navigation guidance without loading an edit router.
 #
-# Запит, що називає router у тексті (`use go-code`, `$go-code-refactor`,
-# `/opsx:apply add-auth /go-code`), обирає саме цей router, а не вимикає
-# нагадування: згадка нічого не завантажує, і раніше такий запит лишав
-# завантаження на рішення моделі. Шлях на кшталт skills/go-code/SKILL.md
-# згадкою не вважається. Вибраний router записується в prompted — з нього
-# go-code-routing.sh бере вхідну навичку для сесії без router.
+# A prompt naming a router in its text (`use go-code`, `$go-code-refactor`,
+# `/opsx:apply add-auth /go-code`) selects that router instead of silencing
+# the reminder: a mention loads nothing, and such a prompt used to leave the
+# loads to the model's choice. A path such as skills/go-code/SKILL.md does not
+# count as a mention. The selected router is written to prompted, from which
+# go-code-routing.sh takes the entry skill for a session without a router.
 #
-# Імена навичок у нотатці точні для Skill: у плагіні Claude Code це
-# <plugin>:<skill> (golang-skills:go-code), без CLAUDE_PLUGIN_ROOT — голі.
+# Skill names in the note are exact for Skill: in a Claude Code plugin they are
+# <plugin>:<skill> (golang-skills:go-code), without CLAUDE_PLUGIN_ROOT bare.
 #
 # A slash command is the exception. The host expands `/go-code` and
 # `/golang-skills:go-code-refactor` itself: it inserts the router's SKILL.md
@@ -76,8 +77,9 @@ if not isinstance(prompt, str) or not prompt.strip():
 # A slash command raises this event and no other: the host expands it, inserts
 # the router SKILL.md, and calls no tool, so nothing else records the load.
 slash = re.match(r"\s*/(?:[A-Za-z0-9_.-]+:)?(go-code-refactor|go-code-review|go-code)\b", prompt)
-# Router, названий у тексті, обирається: слово на межі (пробіл, $, лапки,
-# дужка), можливо з / чи namespace, і не частина шляху чи довшого імені.
+# A router named in the text is selected: a word at a boundary (space, $,
+# quote, bracket), possibly with / or a namespace, and not part of a path or
+# of a longer name.
 mention = None if slash else re.search(
     r"(?:^|(?<=[\s`\x27\"(\[$]))/?(?:[A-Za-z0-9_.-]+:)?(go-code-refactor|go-code-review|go-code)(?![\w/-]|\.\w)",
     prompt)
@@ -177,8 +179,14 @@ navigate = re.search(
 question = navigate and (prompt.strip().endswith("?") or re.match(
     r"\s*(?:explain|find|locate|where|who|how|show|trace|understand|"
     r"поясн\w*|объясн\w*|знайд\w*|найд\w*|покаж\w*|де\b|где\b|хто\b|кто\b|як\b|как\b)", prompt, re.I))
+# Review is checked before the work verbs: the review corpus prompt says
+# "what is wrong, and the fix", and `fix` used to send it to go-code with the
+# condition "before the first edit", which a review never reaches.
+review = re.compile(r"\b(?:review\w*|audit\w*|рев[ьи]ю\w*|ревью\w*)\b", re.I)
 if question:
     skill, kind = "", "read-only Go code navigation"
+elif review.search(prompt):
+    skill, kind = "go-code-review", "a Go code review"
 elif refactor.search(prompt):
     skill, kind = "go-code-refactor", "a behavior-preserving refactor"
 elif work.search(prompt):
@@ -231,14 +239,29 @@ go-code-review)
 *)
     what="it loads the owner skills the task needs and closes with the verification gate" ;;
 esac
-# Точні імена для Skill: плагін реєструє навички як <plugin>:<skill>, а
-# CLAUDE_PLUGIN_ROOT хост задає лише хукам плагіна.
+# Exact names for Skill: the plugin registers skills as <plugin>:<skill>, and
+# the host sets CLAUDE_PLUGIN_ROOT only for plugin hooks.
 ns=""
 manifest="${CLAUDE_PLUGIN_ROOT:-}/.claude-plugin/plugin.json"
 if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" && -f "$manifest" ]]; then
     ns="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("name") or "")' "$manifest" 2>/dev/null)" || ns=""
 fi
 q() { printf '%s%s' "${ns:+$ns:}" "$1"; }
+# A review writes nothing: the note names go-code-review alone and sets the
+# boundary "before the first finding"; the review picks the owners behind its
+# findings itself. An owner list in this note pulled Opus 5.5 medium up to 9
+# skills and +37% session cost (2026-09-29, n=6); without it the cost did not
+# change.
+if [[ "$skill" == "go-code-review" && "$mode" != "slash" ]]; then
+    if [[ "$mode" == "mention" ]]; then
+        printf 'golang-skills: this prompt names the `%s` skill; naming a skill does not load it.\n' "$(q "$skill")"
+    else
+        printf 'golang-skills: this prompt looks like %s.\n' "$kind"
+    fi
+    printf 'Before the first finding, load the `%s` skill (Skill tool, name `%s`); %s.\n' "$(q "$skill")" "$(q "$skill")" "$what"
+    [[ "$mode" == "mention" ]] || printf 'If the task is not Go work, ignore this note.\n'
+    exit 0
+fi
 owners=""
 if (( ${#files[@]} > 0 )); then
     owners="$(bash "$(dirname "${BASH_SOURCE[0]}")/go-code-routing.sh" --hints "${files[@]}" 2>/dev/null)" || owners=""

@@ -178,8 +178,9 @@ func TestRefactorTruncation(t *testing.T) {
 		if full < 3 {
 			t.Fatalf("%s: фікстура дає %d рядків, замало щоб перевірити межу", mode, full)
 		}
-		// Рівно на межі скорочення немає: інакше повний блоб повідомляється
-		// як урізаний, і виклик шукає вивід, якого не бракує.
+		// Exactly at the limit there is no truncation: otherwise a full blob is
+		// reported as truncated, and the caller looks for output that is not
+		// missing.
 		for _, limit := range []int{1, full - 1, full, full + 1} {
 			t.Run(fmt.Sprintf("%s/%d", mode, limit), func(t *testing.T) {
 				gotTruncated, gotLines := run(t, mode, strconv.Itoa(limit))
@@ -193,9 +194,10 @@ func TestRefactorTruncation(t *testing.T) {
 	}
 }
 
-// TestRefactorApplyLimitCounting перевіряє лічильник рядків самої apply_limit,
-// витягнутої з відвантажуваного скрипта. Через режими цей дефект недосяжний:
-// усі троє передають їй результат `$(...)`, який зрізає кінцевий "\n".
+// TestRefactorApplyLimitCounting checks the line counter of apply_limit
+// itself, extracted from the shipped script. Through the modes this defect is
+// unreachable: all three pass it the result of `$(...)`, which strips the
+// trailing "\n".
 func TestRefactorApplyLimitCounting(t *testing.T) {
 	script := filepath.Join(repoRoot(t), "skills/go-code-refactor/scripts/verify-refactor.sh")
 	const harness = `set -uo pipefail
@@ -210,7 +212,7 @@ printf '%s' "$TRUNCATED"`
 	}{
 		{`a\nb`, "2", false},
 		{`a\nb`, "1", true},
-		{`a\nb\n`, "2", false}, // кінцевий "\n" не є зайвим рядком
+		{`a\nb\n`, "2", false}, // a trailing "\n" is not an extra line
 		{`a\nb\n`, "1", true},
 		{`a\n`, "1", false},
 		{`a\nb\nc\n`, "2", true},
@@ -224,7 +226,8 @@ printf '%s' "$TRUNCATED"`
 	}
 }
 
-// refactorToolFixture ізолює статуси зовнішніх інструментів для тестів shell-контракту.
+// refactorToolFixture isolates the statuses of external tools for the
+// shell-contract tests.
 func refactorToolFixture(t *testing.T, lintScript string) string {
 	t.Helper()
 	dir := t.TempDir()

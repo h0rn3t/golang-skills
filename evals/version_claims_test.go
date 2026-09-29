@@ -38,8 +38,9 @@ func apiIndex(t *testing.T) map[string]string {
 	if err != nil {
 		t.Fatalf("glob api files: %v", err)
 	}
-	// go1.txt, базовий набір 1.0, у glob не потрапляє; без нього символ 1.0
-	// (`time.Since`) лишається нерозпізнаним, і завищений маркер не видно.
+	// go1.txt, the 1.0 base set, does not match the glob; without it a 1.0
+	// symbol (`time.Since`) stays unrecognized, and an inflated marker goes
+	// unseen.
 	files = append(files, filepath.Join(goroot(t), "api", "go1.txt"))
 
 	// pkg <path>, <kind> <rest>
@@ -145,9 +146,10 @@ func symbolKey(token, carried string) (key, qualifies string) {
 		return "?" + symbol, ""
 	}
 	pkg := parts[0]
-	// `t.TempDir`, `b.Loop`: у прозі скілів `t` і `b` — це *testing.T і
-	// *testing.B, тож метод датується за пакетом testing. Будь-яка інша
-	// однолітерна змінна не є пакетом, і вигаданий з неї пакет нічого не дасть.
+	// `t.TempDir`, `b.Loop`: in skill prose `t` and `b` are *testing.T and
+	// *testing.B, so the method is dated by the testing package. Any other
+	// one-letter variable is not a package, and a package made up from it
+	// yields nothing.
 	if pkg == "t" || pkg == "b" {
 		return "testing." + symbol, ""
 	}
@@ -341,14 +343,15 @@ func TestAnalyzerToolAttribution(t *testing.T) {
 	}
 }
 
-// TestIdiomCardDatesEachSymbol тримає CURRENT-GO.md строгіше за решту пакета.
-// Картка каже читачеві, що рядок, новіший за директиву `go` модуля, не
-// застосовується, тож маркер там відсікає кожен символ, який датує: старіший
-// символ у групі під новішим маркером приховано від модулів, яким він доступний
-// (`t.TempDir` стояв під "(Go 1.24)" поруч із `t.Chdir`, а він з Go 1.15). У
-// клітинці таблиці маркер датує символи в зворотних лапках від попереднього
-// маркера або `;`, і кожен розпізнаний має з'явитися саме в цьому релізі. `;`
-// розділяє символи різних релізів, кома тримає їх в одній групі.
+// TestIdiomCardDatesEachSymbol holds CURRENT-GO.md to a stricter rule than the
+// rest of the pack. The card tells the reader that a row newer than the
+// module's `go` directive does not apply, so a marker there cuts off every
+// symbol it dates: an older symbol grouped under a newer marker is hidden from
+// modules that have it (`t.TempDir` sat under "(Go 1.24)" next to `t.Chdir`,
+// though it dates from Go 1.15). In a table cell a marker dates the backquoted
+// symbols back to the previous marker or `;`, and each recognized one must
+// have appeared in exactly that release. `;` separates symbols of different
+// releases, a comma keeps them in one group.
 func TestIdiomCardDatesEachSymbol(t *testing.T) {
 	t.Parallel()
 	root := repoRoot(t)

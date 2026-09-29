@@ -151,7 +151,7 @@ func TestOpenTestDB(t *testing.T) {
 // accountDriver is a database/sql driver whose UPDATE ... RETURNING finds every
 // account except missingID; both transaction examples run against it.
 const accountDriver = `
-// Перевірка реакції Go-коду на EOF від драйвера; SQL виконується лише в інтеграційних тестах.
+// Checks how Go code reacts to EOF from the driver; SQL runs only in integration tests.
 type testConn struct {
  beginErr, commitErr, rollbackErr error
  commits, rollbacks int

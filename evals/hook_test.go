@@ -18,10 +18,10 @@ func hookEvent(t *testing.T, script, state string, payload map[string]any) (int,
 	return code, stderr
 }
 
-// hookOutput запускає хук так, як хост запускає хук плагіна: CLAUDE_PLUGIN_ROOT
-// указує на checkout, CLAUDE_PLUGIN_DATA — на state, env додається останнім і
-// перекриває обидва. Повертає exit code, stdout і stderr: зупинку сесії gate
-// повідомляє JSON-ом у stdout.
+// hookOutput runs a hook the way the host runs a plugin hook:
+// CLAUDE_PLUGIN_ROOT points at the checkout, CLAUDE_PLUGIN_DATA at state, and
+// env is appended last and overrides both. It returns the exit code, stdout,
+// and stderr: the gate reports a session stop as JSON on stdout.
 func hookOutput(t *testing.T, script, state string, payload map[string]any, env ...string) (int, string, string) {
 	t.Helper()
 	body, err := json.Marshal(payload)
@@ -110,9 +110,10 @@ func TestRoutingGate(t *testing.T) {
 	script := filepath.Join(repoRoot(t), "hooks", "go-code-routing.sh")
 	handler := "package api\n\nfunc (s *Server) handle(w http.ResponseWriter, r *http.Request) {\n\tif err := s.store.Save(r.Context(), u); err != nil {\n\t\thttp.Error(w, fmt.Errorf(\"save: %w\", err).Error(), 500)\n\t}\n}\n"
 
-	// Сесія без router раніше проходила мовчки, і завантаження залежало лише від
-	// рішення моделі. Тепер перша .go-правка блокується й називає вхідну
-	// навичку, go-style-core, owners і card точними іменами плагіна.
+	// A session without a router used to pass silently, and the loads depended
+	// on the model's choice alone. Now the first .go edit is blocked and names
+	// the entry skill, go-style-core, the owners, and the card by their exact
+	// plugin names.
 	t.Run("blocks without a router and names the entry skill", func(t *testing.T) {
 		t.Parallel()
 		state := t.TempDir()
@@ -131,8 +132,8 @@ func TestRoutingGate(t *testing.T) {
 		}
 	})
 
-	// Вхідна навичка — та, яку обрав prompt-хук: refactor-запит веде до
-	// go-code-refactor, а не до go-code.
+	// The entry skill is the one the prompt hook picked: a refactor prompt leads
+	// to go-code-refactor, not to go-code.
 	t.Run("entry skill is the router the prompt picked", func(t *testing.T) {
 		t.Parallel()
 		state := t.TempDir()
@@ -149,9 +150,9 @@ func TestRoutingGate(t *testing.T) {
 		}
 	})
 
-	// Нагадування не є завантаженням: reminded лише журнал. Повтор без
-	// завантаження блокується знову, третій — зупиняє сесію JSON-ом замість
-	// нескінченних блоків, а після завантаження правка проходить.
+	// A reminder is not a load: reminded is only a log. A retry without a load
+	// is blocked again, the third one stops the session with JSON instead of
+	// endless blocks, and after the loads the edit passes.
 	t.Run("a retry without loading is blocked, then the session stops", func(t *testing.T) {
 		t.Parallel()
 		state := t.TempDir()
@@ -202,8 +203,8 @@ func TestRoutingGate(t *testing.T) {
 		}
 	})
 
-	// Прогрес — будь-яке нове завантаження — скидає лічильник, а паралельні
-	// правки різних файлів в одному повідомленні не є повторами.
+	// Progress (any new load) resets the counter, and parallel edits of
+	// different files in one message are not retries.
 	t.Run("progress and parallel edits do not count as stalled retries", func(t *testing.T) {
 		t.Parallel()
 		state := t.TempDir()
@@ -223,8 +224,8 @@ func TestRoutingGate(t *testing.T) {
 		}
 	})
 
-	// Навичка, якої немає в цій копії плагіна, не вимагається: gate називає її
-	// відсутньою замість блоків, яких модель не може задовольнити.
+	// A skill missing from this copy of the plugin is not required: the gate
+	// names it as missing instead of raising blocks the model cannot satisfy.
 	t.Run("a skill missing from the plugin copy is reported, not required", func(t *testing.T) {
 		t.Parallel()
 		root := t.TempDir()
@@ -263,8 +264,9 @@ func TestRoutingGate(t *testing.T) {
 		}
 	})
 
-	// gopls gate не вимагає (хук не бачить, чи є MCP у чаті), але перший блок
-	// сесії називає маршрут для файлу, який модель правитиме; далі — тиша.
+	// The gate does not require gopls (the hook cannot see whether the chat has
+	// MCP), but the first block of a session names the route for the file the
+	// model is about to edit; after that it stays silent.
 	t.Run("the first block names the gopls route once", func(t *testing.T) {
 		t.Parallel()
 		state := t.TempDir()
@@ -289,8 +291,8 @@ func TestRoutingGate(t *testing.T) {
 		}
 	})
 
-	// Без CLAUDE_PLUGIN_ROOT хук підключено не як плагін: навички зареєстровані
-	// під голими іменами, і gate називає їх так само.
+	// Without CLAUDE_PLUGIN_ROOT the hook is not wired as a plugin: the skills
+	// are registered under bare names, and the gate names them the same way.
 	t.Run("bare names outside a plugin", func(t *testing.T) {
 		t.Parallel()
 		code, msg := hookEventEnv(t, script, t.TempDir(), routingPayload("PreToolUse", "s18", "Write",
@@ -360,7 +362,7 @@ func TestRoutingGate(t *testing.T) {
 			}
 		}
 
-		// Нагадування не є завантаженням: повтор без завантаження блокується.
+		// A reminder is not a load: a retry without a load is blocked.
 		if code, msg := hookEvent(t, script, state, edit); code != 2 {
 			t.Fatalf("retry after one reminder without loading: exit %d, stderr %q; want 2", code, msg)
 		}
@@ -525,7 +527,7 @@ func TestRoutingGate(t *testing.T) {
 			map[string]any{"file_path": "/repo/README.md", "content": "http."})); code != 0 || msg != "" {
 			t.Fatalf("Markdown edit: exit %d, stderr %q; want silent 0", code, msg)
 		}
-		// Інша сесія не успадковує go-code з s5: для неї router не завантажено.
+		// Another session does not inherit go-code from s5: it has no router loaded.
 		if code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "other", "Write",
 			map[string]any{"file_path": "/repo/main.go", "content": "package main"})); code != 2 || !strings.Contains(msg, "loaded no router skill") {
 			t.Fatalf("another session's Go edit: exit %d, stderr %q; want 2 without a router", code, msg)
@@ -884,6 +886,25 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
+	// The review corpus prompt says "what is wrong, and the fix": `fix` used to
+	// send it to go-code with the condition "before the first edit", which a
+	// review never reaches. The review note names go-code-review alone, with no
+	// card and no owner list.
+	t.Run("review prompt names go-code-review alone", func(t *testing.T) {
+		t.Parallel()
+		prompt := "Review the Go package in ./orders as a pull request reviewer would. Report every defect you find " +
+			"with its file and line, its severity, what is wrong, and the fix. Do not modify any file."
+		code, out := promptEvent(t, t.TempDir(), "p20", t.TempDir(), prompt)
+		if code != 0 || !strings.Contains(out, "`golang-skills:go-code-review`") || !strings.Contains(out, "Before the first finding") {
+			t.Fatalf("review prompt: exit %d, stdout %q; want 0 naming go-code-review before the first finding", code, out)
+		}
+		for _, unwanted := range []string{"`golang-skills:go-code`", "before the first edit", "CURRENT-GO.md", "go-style-core"} {
+			if strings.Contains(out, unwanted) {
+				t.Errorf("review note names %q:\n%s", unwanted, out)
+			}
+		}
+	})
+
 	t.Run("clean-up wording is a refactor", func(t *testing.T) {
 		t.Parallel()
 		_, out := promptEvent(t, t.TempDir(), "p3", t.TempDir(), "This Go file is messy, clean it up")
@@ -942,9 +963,9 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
-	// Згадка router у тексті обирає його: раніше такий запит вимикав нотатку,
-	// і завантаження лишалося на рішення моделі. Модифікатор у команді хоста
-	// (/opsx:apply add-auth /go-code) теж сам нічого не завантажує.
+	// A router named in the text is selected: such a prompt used to turn the
+	// note off, and the loads were left to the model's choice. A modifier in a
+	// host command (/opsx:apply add-auth /go-code) loads nothing by itself either.
 	t.Run("a router named in the prompt is selected, not silenced", func(t *testing.T) {
 		t.Parallel()
 		for _, tc := range []struct{ prompt, want string }{
@@ -958,13 +979,14 @@ func TestPromptRouting(t *testing.T) {
 				t.Errorf("prompt %q: exit %d, stdout %q; want a note selecting %s", tc.prompt, code, out, tc.want)
 			}
 		}
-		// Шлях до файлу навички — не згадка: запит про Markdown лишається тихим.
+		// A path to a skill file is not a mention: a prompt about Markdown
+		// stays silent.
 		if code, out := promptEvent(t, t.TempDir(), "p8", t.TempDir(), "Fix the routing table in skills/go-code/SKILL.md"); code != 0 || out != "" {
 			t.Errorf("a skill path in the prompt: exit %d, stdout %q; want silent 0", code, out)
 		}
 
-		// Сама згадка не завантажує: gate блокує першу правку й просить саме
-		// названий router.
+		// A mention alone loads nothing: the gate blocks the first edit and asks
+		// for exactly the named router.
 		state := t.TempDir()
 		promptEvent(t, state, "p17", t.TempDir(), "$go-code-refactor "+refactor)
 		gate := filepath.Join(repoRoot(t), "hooks", "go-code-routing.sh")
@@ -1135,7 +1157,7 @@ func TestPromptRouting(t *testing.T) {
 			{"Реализуй пакет на Go в ./catalog по документации", t.TempDir(), "`golang-skills:go-code`"},
 			{"Упрости этот Go-пакет, не меняя поведения", t.TempDir(), "`golang-skills:go-code-refactor`"},
 			{"Используй go-code и почини обработчик заказов", t.TempDir(), "`golang-skills:go-code`"},
-			// Без слова Go: каталог із Go-кодом і російський іменник коду.
+			// Without the word Go: a directory of Go code and a Russian code noun.
 			{"Добавь обработчик, который возвращает баланс счёта в JSON", goRepo(t), "`golang-skills:go-code`"},
 			{"Почини баг в функции ParseConfig", goRepo(t), "`golang-skills:go-code`"},
 		}
@@ -1144,15 +1166,15 @@ func TestPromptRouting(t *testing.T) {
 				t.Errorf("Russian prompt %q: stdout %q; want %s", tc.prompt, out, tc.want)
 			}
 		}
-		// Питання лишається навігацією й не запускає edit-router.
+		// A question stays navigation and does not start the edit router.
 		_, out := promptEvent(t, t.TempDir(), "p19", goRepo(t), "Объясни, как работает эта функция на Go?")
 		if !strings.Contains(out, "go_search") || strings.Contains(out, "Before the first edit") {
 			t.Errorf("Russian question: stdout %q; want navigation guidance only", out)
 		}
 	})
 
-	// Без CLAUDE_PLUGIN_ROOT хук підключено не як плагін, і нотатка називає
-	// навички голими іменами, як їх реєструє такий хост.
+	// Without CLAUDE_PLUGIN_ROOT the hook is not wired as a plugin, and the note
+	// names the skills by bare names, as such a host registers them.
 	t.Run("bare names outside a plugin", func(t *testing.T) {
 		t.Parallel()
 		_, out := promptEvent(t, t.TempDir(), "p20", t.TempDir(), implement, "CLAUDE_PLUGIN_ROOT=")

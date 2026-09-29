@@ -1348,9 +1348,9 @@ func TestScriptFunctional(t *testing.T) {
 			}
 		}
 
-		// `go fix -diff` виходить з 1, коли diff непорожній: очікувана модернізація
-		// має дати кількість рядків, а не "n/a". Код виходу baseline тут не
-		// перевіряється: -race залежить від середовища.
+		// `go fix -diff` exits 1 when the diff is non-empty: a pending
+		// modernization must yield a line count, not "n/a". The baseline exit
+		// code is not checked here: -race depends on the environment.
 		cmd := exec.Command("bash", script, "--json", "baseline", ".")
 		cmd.Dir = dir
 		out, _ := cmd.Output()
@@ -1364,8 +1364,8 @@ func TestScriptFunctional(t *testing.T) {
 			t.Errorf("fix_pending_lines = %q, want a positive count for a pending rangeint rewrite", baseline.FixPending)
 		}
 
-		// loc-diff іншого каталогу, ніж записав loc-baseline, — помилка
-		// використання (2), а не PASS порівняння з чужим записом.
+		// A loc-diff of a different directory than loc-baseline recorded is a
+		// usage error (2), not a PASS of a comparison with another record.
 		runCommandInDir(t, dir, 0, "bash", script, "loc-baseline", "./...")
 		runCommandInDir(t, dir, 2, "bash", script, "loc-diff", "./gateway")
 		runCommandInDir(t, dir, 0, "bash", script, "loc-diff", "./...")

@@ -28,8 +28,8 @@ func TestClaudeToolArgs(t *testing.T) {
 }
 
 func TestGoplsCalls(t *testing.T) {
-	// Два виклики MCP, два CLI (один після cd, один за абсолютним шляхом);
-	// rg із gopls у шаблоні, Read і текст відповіді не рахуються.
+	// Two MCP calls and two CLI calls (one after cd, one by absolute path); rg
+	// with gopls in its pattern, a Read, and answer text do not count.
 	stream := strings.Join([]string{
 		`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"mcp__gopls__go_workspace","input":{}},{"type":"tool_use","name":"mcp__gopls__go_search","input":{"query":"Render"}}]}}`,
 		`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"cd feed && gopls references feed.go:12:6"}}]}}`,

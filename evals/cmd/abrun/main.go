@@ -156,9 +156,9 @@ type options struct {
 	judge      bool
 	judgeModel string
 	judgePair  string
-	// gopls дає кожній claude-сесії маршрут до gopls: "mcp" — MCP-сервер
-	// gopls із власного --mcp-config, "cli" — Bash, дозволений лише для
-	// gopls. goplsPath — бінарник, який знаходить run; це не прапорець.
+	// gopls gives every claude session a route to gopls: "mcp" is a gopls MCP
+	// server from its own --mcp-config, "cli" is Bash allowed for gopls only.
+	// goplsPath is the binary that run finds; it is not a flag.
 	gopls     string
 	goplsPath string
 }
@@ -398,8 +398,8 @@ type result struct {
 	// because the feedback is generated per run: without it the report cannot
 	// say what the session was actually told.
 	RepairFeedback string `json:"repair_feedback,omitempty"`
-	// GoplsRoute — маршрут -gopls цього прогону, GoplsCalls — скільки разів
-	// сесія викликала gopls через MCP або CLI за всі ходи.
+	// GoplsRoute is the -gopls route of this run; GoplsCalls is how many times
+	// the session called gopls through MCP or CLI across all turns.
 	GoplsRoute string `json:"gopls_route,omitempty"`
 	GoplsCalls int    `json:"gopls_calls,omitempty"`
 	// Commands counts the shell calls across every turn. Only the codex runner
@@ -1224,16 +1224,17 @@ func claudeSession(o options, armDir, work, prompt string) ([]byte, error) {
 	return claude(o.timeout, work, args...)
 }
 
-// Маршрути -gopls.
+// Routes for -gopls.
 const (
 	goplsMCP = "mcp"
 	goplsCLI = "cli"
 )
 
-// claudeToolArgs — --tools і --allowed-tools сесії разом із маршрутом -gopls.
-// MCP-сервер задається власним --mcp-config із --strict-mcp-config, щоб
-// сесія не підхопила сервери оператора; CLI — це Bash у --tools (його
-// --restricted інакше прибирає), дозволений лише для gopls.
+// claudeToolArgs returns the session's --tools and --allowed-tools together
+// with the -gopls route. The MCP server comes from its own --mcp-config with
+// --strict-mcp-config, so the session does not pick up the operator's
+// servers; CLI is Bash in --tools (which --restricted otherwise removes),
+// allowed for gopls only.
 func claudeToolArgs(o options, tools string) []string {
 	allowed := tools
 	var args []string
@@ -1251,12 +1252,12 @@ func claudeToolArgs(o options, tools string) []string {
 	return append(args, "--tools", tools, "--allowed-tools", allowed)
 }
 
-// goplsCommand — команда shell, що запускає gopls: на початку, після ;, &&
-// чи |, або за абсолютним шляхом.
+// goplsCommand matches a shell command that runs gopls: at the start, after
+// ;, &&, or |, or by absolute path.
 var goplsCommand = regexp.MustCompile(`(^|[\s;&|/])gopls\s`)
 
-// goplsCalls рахує виклики gopls у stream-json: інструменти mcp__gopls__* і
-// команди Bash, що запускають gopls.
+// goplsCalls counts gopls calls in stream-json: mcp__gopls__* tools and Bash
+// commands that run gopls.
 func goplsCalls(out []byte) int {
 	n := 0
 	for line := range strings.SplitSeq(string(out), "\n") {

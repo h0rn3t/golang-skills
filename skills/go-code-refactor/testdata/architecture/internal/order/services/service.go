@@ -16,7 +16,7 @@ import (
 // action by contract: either both rows are stored or neither is.
 type Store interface {
 	CreateWithAudit(ctx context.Context, o models.Order, audit string) error
-	Find(ctx context.Context, id string) (models.Order, error)
+	Summary(ctx context.Context, id string) (order.Summary, error)
 }
 
 // Clock is the time source, so tests can pin it.
@@ -46,11 +46,8 @@ func (s *Service) Place(ctx context.Context, actor string, o models.Order) error
 	return nil
 }
 
-// Summary returns the cross-module view of an order.
+// Summary returns the cross-module view of an order, with the total stored
+// when it was placed.
 func (s *Service) Summary(ctx context.Context, id string) (order.Summary, error) {
-	o, err := s.store.Find(ctx, id)
-	if err != nil {
-		return order.Summary{}, err
-	}
-	return order.Summary{ID: o.ID, TotalCents: o.Total()}, nil
+	return s.store.Summary(ctx, id)
 }

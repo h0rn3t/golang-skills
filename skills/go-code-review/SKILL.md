@@ -13,7 +13,7 @@ allowed-tools: Bash(bash:*)
 
 - `../go-style-core/SKILL.md` - Load on every review before the first finding (Review Procedure step 2); its convention files fix the report language.
 - `assets/review-template.md` - Use when formatting review output with Must Fix, Should Fix, and Nits sections.
-- `scripts/pre-review.sh` - Run before manual review to collect gofmt, go vet, and golangci-lint results; a missing linter is reported as `unavailable`, `--strict` makes it an error.
+- `scripts/pre-review.sh` - Run before manual review to collect gofmt, go vet, and golangci-lint results; a missing linter, or one that cannot run, is reported as `unavailable`, `--strict` makes it an error.
 
 ## Review Procedure
 
@@ -33,18 +33,24 @@ allowed-tools: Bash(bash:*)
    every rule here — except the idiom: an older form kept for consistency with
    the package is a finding ([Write Current Go](../go-style-core/SKILL.md#write-current-go)).
 3. From the project, run `bash <installed-skill-dir>/scripts/pre-review.sh ./...` plus
-   `go fix -diff <packages in the diff>`. Fix or report what the tools find
+   `go fix -diff <packages in the diff>`; a project with no golangci-lint
+   config is linted with the go-linting baseline. Report what the tools find
    before the checklist; never spend review attention on what a tool reports.
-   The rows below carry no line for what `gofmt`, `go vet`, `revive`,
+   Fix only when the request asks for fixes, and then follow
+   [go-code](../go-code/SKILL.md#workflow) steps 2–3 before the first edit:
+   `go-style-core` with its idiom card read whole, and the owners the edit
+   needs. The rows below carry no line for what `gofmt`, `go vet`, `revive`,
    `godot`, `staticcheck`, `gosec`, and `modernize` report — doc-comment
    form, error-string case, naming case, `interface{}`, `math/rand`, import
-   order — so an `unavailable` linter leaves those unreviewed, and the report
-   says so.
+   order — so a category whose linter is `unavailable`, or not enabled in the
+   config that ran, is reviewed by hand or listed under Not Reviewed.
 4. **Subtract first**: before any style row, ask of each added block what could
    stop existing — the Less Code section below. Unneeded growth is a Should Fix.
 5. Read the scope file-by-file; for each file, check the categories below in order
 6. Report every finding, at every severity — one you could not prove is
-   `plausible`, never dropped; filtering is the reader's pass, not yours
+   `plausible`, never dropped; filtering is the reader's pass, not yours —
+   unless the request names a severity: then report that severity, plus one
+   line counting the findings at the others
 7. Report through `assets/review-template.md`, grouped by severity; findings
    carry the information, prose stays short ([go-style-core](../go-style-core/SKILL.md#how-much-to-say))
 
@@ -113,6 +119,7 @@ allowed-tools: Bash(bash:*)
 ## Data Structures
 
 - [ ] **Empty slices**: Prefer `var t []string` (nil) over `t := []string{}` (non-nil zero-length) → [go-data-structures](../go-data-structures/SKILL.md)
+- [ ] **Empty list on a v1 wire**: in a package on `encoding/json` v1, a list the contract writes as `[]` keeps `out := make([]T, 0, n)`, since v1 writes nil as `null`; a change to `var out []T` there is a finding → [go-data-structures](../go-data-structures/SKILL.md#declaring-empty-slices)
 - [ ] **Copy depth**: check the ownership contract: `slices.Clone`/`maps.Clone` are shallow, and a type's `Clone` follows its documented contract. Flag a copy that violates the contract or an unrequested depth change presented as cleanup; a deeper copy that fixes an existing contract violation is a bug fix → [go-defensive](../go-defensive/references/BOUNDARY-COPYING.md#copy-depth-is-part-of-the-contract)
 - [ ] **Copying values**: do not copy structs containing locks or other synchronization values after use; a value receiver on a type with `*T` methods is a finding → [go-data-structures](../go-data-structures/SKILL.md)
 
@@ -199,7 +206,7 @@ allowed-tools: Bash(bash:*)
 - [ ] **Examples**: Include runnable `Example` functions or tests demonstrating usage → [go-documentation](../go-documentation/SKILL.md)
 - [ ] **Useful test failures**: Messages include what was wrong, inputs, got, and want; order is `got != want` → [go-testing](../go-testing/SKILL.md)
 - [ ] **TestMain**: Use only when all tests need common setup with teardown; prefer scoped helpers first → [go-testing](../go-testing/SKILL.md)
-- [ ] **Real transports**: Prefer `httptest.NewTestServer(t, h)` + real client over mocking HTTP → [go-testing](../go-testing/SKILL.md)
+- [ ] **Real transports**: Prefer `httptest.NewTestServer(t, h)` (Go 1.27+) + real client over mocking HTTP; at a 1.26 directive, `httptest.NewServer(h)` plus `t.Cleanup(srv.Close)` → [go-testing](../go-testing/SKILL.md)
 - [ ] **Test context**: Tests use `t.Context()`, not `context.Background()` → [go-testing](../go-testing/SKILL.md)
 - [ ] **No sleep-based waits**: Timing tests use `synctest`, not `time.Sleep` → [go-testing](../go-testing/SKILL.md)
 
@@ -215,5 +222,6 @@ Gate result per [go-linting](../go-linting/SKILL.md#verification-gate)
 ## Related Skills
 
 - [go-style-core](../go-style-core/SKILL.md): style priority and how much to say; [go-linting](../go-linting/SKILL.md): golangci-lint and CI configuration.
+- [go-code](../go-code/SKILL.md): the loads before a fix the request asks for.
 - [go-code-refactor](../go-code-refactor/SKILL.md): when the review becomes a restructure; its [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md) for what to delete.
 - [go-http](../go-http/SKILL.md) and [WEB-SERVER.md](../go-http/references/WEB-SERVER.md): handlers, middleware, servers, clients; [go-database](../go-database/SKILL.md): repositories, queries, transactions, migrations.

@@ -59,6 +59,7 @@ the complete-buffer approach in [go-http](../SKILL.md#bounded-response-bodies).
 | Duplicate names and invalid UTF-8 | Rejected | Preserve legacy acceptance only when required by the existing contract |
 | Map order | Unspecified | `Deterministic(true)` for sorted keys |
 | `omitempty` | Omits empty JSON values, not Go zero numbers/bools | Review tags; use `omitzero` when Go zero values are intended |
+| `time.Duration` | No default representation: marshal and unmarshal fail with a `SemanticError` | `jsonv1.FormatDurationAsNano(true)` restores v1 nanoseconds; a new field takes a wire form from [go-defensive](../../go-defensive/references/TIME-ENUMS-TAGS.md#json-fields) |
 
 For staged migration, import `jsonv1 "encoding/json"` and
 `json "encoding/json/v2"`:

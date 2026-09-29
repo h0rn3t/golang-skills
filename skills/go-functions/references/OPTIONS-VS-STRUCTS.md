@@ -100,7 +100,7 @@ type Config struct {
 | **Extensibility** | Add `With*`; preserve existing defaults and behavior | Adding fields preserves keyed literals; unkeyed callers can break |
 | **Backward compat** | Preserve required parameters and option semantics | Preserve zero-value meaning and constructor semantics |
 | **Defaults** | Built into constructor | Zero values or `DefaultConfig()` |
-| **Validation** | In `apply` or constructor loop | In constructor after struct received |
+| **Validation** | In constructor, after every option is applied | In constructor after struct received |
 | **Discoverability** | `With*` functions appear in godoc | All fields visible in one struct |
 | **Testability** | Assert configured behavior; compare only known comparable values | Assert fields/behavior; slices and maps also prevent `==` |
 | **Caller experience** | Only specify what differs from defaults | Keyed literals can omit fields and be shared as data |
@@ -127,7 +127,6 @@ srv := NewServer(Config{
 - **Public/library APIs** — callers shouldn't track internal config evolution
 - **Several settings** that are independently optional at call sites
 - **Complex defaults** — default computation depends on other options
-- **Validation per option** — reject bad values at apply time
 - **Options may grow** — new `With*` functions are purely additive
 
 ```go

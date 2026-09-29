@@ -1,6 +1,6 @@
 # Import Organization
 
-> Sources: source/golang-wiki/CodeReviewComments.md (Imports, Import Blank, Import Dot); source/uber-go-style/style.md (Import Group Ordering)
+> Sources: source/golang-wiki/CodeReviewComments.md (Imports, Import Blank, Import Dot); source/google-go-styleguide/decisions.md (Import "blank"); source/uber-go-style/style.md (Import Group Ordering)
 > Authority: advisory
 > Last verified: 2026-09-10
 
@@ -82,6 +82,20 @@ import (
     _ "time/tzdata"
     _ "image/jpeg"
 )
+```
+
+The one blank import a library file carries is `embed`, in a file whose
+`//go:embed` fills a `string` or `[]byte`; without it the build fails with
+`go:embed requires import "embed"`:
+
+```go
+// Good: a library file embedding into a string
+package schema
+
+import _ "embed"
+
+//go:embed schema.sql
+var DDL string
 ```
 
 ## Dot Imports (`import .`)

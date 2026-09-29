@@ -3,7 +3,7 @@
 > Sources: Go release notes 1.13–1.27; `$GOROOT/api/go1.*.txt`; `go tool fix help`; `go doc encoding/json/v2`; JetBrains go-modern-guidelines `guidelines.json` at `155dc7c` (54 items with frequency ranks, cross-checked one by one 2026-09-13)
 > Authority: normative — the forms [Write Current Go](../SKILL.md#write-current-go) requires at the module's `go` directive; project policy for the grouping and order
 > Minimum Go: each row names its own; a row newer than the module's `go` directive does not apply
-> Last verified: 2026-09-19
+> Last verified: 2026-09-29
 
 One line per idiom: the form an older habit produces, the form the directive
 allows, and the trap on the same line. Read the whole card before the first
@@ -70,13 +70,13 @@ empty for every collection row.
 | Habit | Write at the directive |
 |---|---|
 | `wg.Add(1)` and `go func() { defer wg.Done() }()` | `wg.Go(f)` (Go 1.25) |
-| a goroutine parked on `ctx.Done()` to run cleanup | `context.AfterFunc(ctx, f)` (Go 1.21) — returns a stop function |
+| a goroutine parked on `ctx.Done()` to run cleanup | `stop := context.AfterFunc(ctx, f)` and `defer stop()` (Go 1.21) — without `stop`, each registration on a long-lived context stays live until the context ends |
 | `cancel()` that loses the reason | `context.WithCancelCause`, `context.Cause` (Go 1.20); `context.WithTimeoutCause`, `context.WithDeadlineCause` (Go 1.21) |
 | `sync.Once` plus a result field and a getter | `sync.OnceFunc`, `sync.OnceValue`, `sync.OnceValues` (Go 1.21) |
-| an `int32` flag with `atomic.LoadInt32`; `unsafe.Pointer` with `atomic.StorePointer` | `atomic.Bool`, `atomic.Int64`, `atomic.Pointer[T]` (Go 1.19) — in an existing struct, swapping the field type changes its size and layout; `atomic.Value` differs from `atomic.Pointer[T]` in nil handling |
+| an `int32` flag with `atomic.LoadInt32`; `unsafe.Pointer` with `atomic.StorePointer` | `atomic.Bool`, `atomic.Int64`, `atomic.Pointer[T]` (Go 1.19) — in an existing struct, the new field makes every by-value copy of that struct a `go vet` copylocks finding; `atomic.Value` differs from `atomic.Pointer[T]` in nil handling |
 | a mutex around one counter or flag | `atomic.Int64`, `atomic.Bool` (Go 1.19) — only with no compound invariant |
-| `time.Now().Sub(start)`, `deadline.Sub(time.Now())` | `time.Since(start)`, `time.Until(deadline)` (Go 1.8) |
-| `time.NewTicker` with `defer t.Stop()` in a loop that runs for the life of the process | `for range time.Tick(d)` (Go 1.23) — an unreferenced ticker is collected since 1.23, so the old warning against `time.Tick` is over; `time.NewTicker` stays where `Stop` or `Reset` is called |
+| `time.Now().Sub(start)`, `deadline.Sub(time.Now())` | `time.Since(start)`; `time.Until(deadline)` (Go 1.8) |
+| `time.NewTicker` with `defer t.Stop()` in the process's own main loop, run by `main` itself | `for range time.Tick(d)` (Go 1.23) — an unreferenced ticker is collected since 1.23, so the old warning against `time.Tick` is over there; a spawned goroutine keeps `time.NewTicker` plus `select` on its stop channel or `ctx.Done()`, as does a loop that calls `Stop` or `Reset` |
 
 ## Types, HTTP, JSON
 
@@ -84,9 +84,9 @@ empty for every collection row.
 |---|---|
 | `reflect.TypeOf((*T)(nil)).Elem()` | `reflect.TypeFor[T]()` (Go 1.22) |
 | a package-level generic helper that belongs to one type | a generic method on the type (Go 1.27) — it cannot satisfy an interface |
-| a router module; `strings.TrimPrefix(r.URL.Path, "/users/")` | `mux.HandleFunc("GET /users/{id}", h)` and `r.PathValue("id")` (Go 1.22) |
+| a new router dependency; `strings.TrimPrefix(r.URL.Path, "/users/")` | `mux.HandleFunc("GET /users/{id}", h)` and `r.PathValue("id")` (Go 1.22) — a package already on a router module keeps it |
 | `omitempty` on a struct, bool, number or `time.Time` field | `omitzero` (Go 1.24) — `omitempty` stays for strings, slices and maps; on an existing field the wire changes |
-| a UUID module for creating and parsing | the standard `uuid` package (Go 1.27) |
+| a new UUID dependency for creating and parsing | the standard `uuid` package (Go 1.27) — a package already on a UUID module keeps it until a migration is asked for |
 | `*u` copied by hand; `url.Values` copied in a loop | `u.Clone()`, `v.Clone()` (Go 1.27) — only when the old copy's depth matches; shallow-to-deep is a semantic fix, not a refactor ([MODERNIZATION.md](../../go-code-refactor/references/MODERNIZATION.md#urlurlclone--urlvaluesclone--go-127)) |
 | `encoding/json` in a package with no JSON yet; `json.NewEncoder(w).Encode(v)` | `import json "encoding/json/v2"` (Go 1.27): `json.Marshal`, `json.MarshalWrite(w, v)`, `json.UnmarshalRead(r, &v)` — nil slices encode as `[]` and nil maps as `{}`, so no `make` for the wire; duplicate names are rejected; `MarshalWrite` adds no newline; a package already on `encoding/json` stays on it until a migration is asked for |
 
@@ -94,9 +94,9 @@ empty for every collection row.
 
 | Habit | Write at the directive |
 |---|---|
-| `context.Background()` in a test | `t.Context()` (Go 1.24) — cancelled when the test returns, before `t.Cleanup` runs; cleanup that needs a live context makes its own |
+| `context.Background()` in a test | `t.Context()` (Go 1.24) — cancelled when the test returns, before `t.Cleanup` runs; cleanup that needs a live context uses `context.WithoutCancel(t.Context())` (`usetesting` reports `context.Background()` there) |
 | `for i := 0; i < b.N; i++` | `for b.Loop()` (Go 1.24) — `b.N` is unknown until the loop ends, so a fixture sized by `b.N` is restructured, not translated |
-| `os.Chdir` with a restore in cleanup; a hand-made temp dir | `t.Chdir`, `t.TempDir` (Go 1.24) |
+| `os.Chdir` with a restore in cleanup; a hand-made temp dir | `t.Chdir` (Go 1.24); `t.TempDir` (Go 1.15) |
 | `time.Sleep` to let goroutines settle | `synctest.Test` and `synctest.Wait` (Go 1.25) |
 | `httptest.NewServer` with `defer srv.Close()` | `httptest.NewTestServer(t, h)` (Go 1.27) — an in-memory server reached only through `srv.Client()` |
 

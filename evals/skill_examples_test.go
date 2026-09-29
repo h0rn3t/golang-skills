@@ -32,12 +32,13 @@ func buildExampleModule(t *testing.T, files map[string]string) {
 
 // The SSRF defenses are the security reference most likely to be copied
 // verbatim: the allowlist must match whole labels, and the client must refuse
-// the literal addresses an attacker reaches for before it connects.
+// the literal addresses an attacker reaches for before it connects, including
+// the CGNAT and NAT64 ranges netip's Is* methods do not cover.
 func TestSecurityExampleSSRFTarget(t *testing.T) {
 	allow := exampleBlock(t, "skills/go-security/references/INJECTION.md", "## Outbound URLs (SSRF)")
 	client := exampleBlock(t, "skills/go-security/references/INJECTION.md", "### Arbitrary public destinations")
 	runExampleTest(t, `package example
-import ("fmt"; "net"; "net/http"; "net/http/httptest"; "net/netip"; "strings"; "syscall"; "testing"; "time")
+import ("fmt"; "net"; "net/http"; "net/http/httptest"; "net/netip"; "slices"; "strings"; "syscall"; "testing"; "time")
 `+allow+client+`
 func TestAllowedHost(t *testing.T) {
 	for host, want := range map[string]bool{"partner.example": true, "api.partner.example": true, "evilpartner.example": false, "partner.example.evil": false} {
@@ -50,7 +51,12 @@ func TestPublicClient(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	defer srv.Close()
 	c := publicClient()
-	for _, raw := range []string{srv.URL, "http://169.254.169.254/latest", "http://[::1]:1/", "http://10.0.0.8:1/", "http://0.0.0.0:1/"} {
+	for _, raw := range []string{
+		srv.URL, "http://169.254.169.254/latest", "http://[::1]:1/", "http://10.0.0.8:1/", "http://0.0.0.0:1/",
+		"http://100.100.100.200/latest/meta-data/", // CGNAT: Alibaba Cloud metadata
+		"http://[64:ff9b::a9fe:a9fe]/latest",       // NAT64 form of 169.254.169.254
+		"http://[64:ff9b::a9fe:a9fe%25lo]/latest",  // the same with a zone
+	} {
 		resp, err := c.Get(raw)
 		if err == nil {
 			resp.Body.Close()
@@ -66,17 +72,17 @@ func TestPublicClient(t *testing.T) {
 }
 
 // The TLS snippet must stay a valid tls.Config with only the field the
-// reference says to set.
+// reference says to set; the http.Server around it is go-http's.
 func TestSecurityExampleTLSConfig(t *testing.T) {
 	code := exampleBlock(t, "skills/go-security/references/SECRETS-AND-CRYPTO.md", "## TLS")
 	runExampleTest(t, `package example
-import ("crypto/tls"; "net/http"; "testing")
-func server() *http.Server {
+import ("crypto/tls"; "testing")
+func config() *tls.Config {
 `+code+`
-	return srv
+	return cfg
 }
 func TestMinVersion(t *testing.T) {
-	if got := server().TLSConfig.MinVersion; got != tls.VersionTLS13 {
+	if got := config().MinVersion; got != tls.VersionTLS13 {
 		t.Fatalf("MinVersion = %d, want %d", got, tls.VersionTLS13)
 	}
 }
@@ -85,11 +91,12 @@ func TestMinVersion(t *testing.T) {
 
 // go-resilience's only code: the retry loop stops on success, on a
 // non-retryable error, when the budget is spent, and when ctx ends; a
-// server-requested delay is a floor.
+// server-requested delay is a floor, a wait past the deadline stops at once,
+// and zero attempts is an error, not a success.
 func TestResilienceExampleRetry(t *testing.T) {
 	code := exampleBlock(t, "skills/go-resilience/SKILL.md", "## Retry Invariants")
 	runExampleTest(t, `package example
-import ("context"; "errors"; "math/rand/v2"; "testing"; "time")
+import ("context"; "errors"; "math/rand/v2"; "testing"; "testing/synctest"; "time")
 `+code+`
 func TestRetry(t *testing.T) {
 	ctx := t.Context()
@@ -129,6 +136,25 @@ func TestRetry(t *testing.T) {
 		return 40 * time.Millisecond, true, transient
 	})
 	if d := time.Since(start); d < 40*time.Millisecond { t.Fatalf("Retry-After floor: waited %v, want >= 40ms", d) }
+
+	synctest.Test(t, func(t *testing.T) {
+		short, cancel := context.WithTimeout(t.Context(), 250*time.Millisecond)
+		defer cancel()
+		start := time.Now()
+		calls := 0
+		err := retry(short, 3, time.Millisecond, time.Second, func(context.Context) (time.Duration, bool, error) {
+			calls++; return 60 * time.Second, true, transient
+		})
+		if d := time.Since(start); d != 0 || calls != 1 || !errors.Is(err, transient) || errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("Retry-After past the deadline: waited %v, calls=%d, err=%v; want no wait, 1 call, the attempt error", d, calls, err)
+		}
+	})
+
+	calls = 0
+	err = retry(ctx, 0, time.Millisecond, time.Millisecond, func(context.Context) (time.Duration, bool, error) {
+		calls++; return 0, false, nil
+	})
+	if err == nil || calls != 0 { t.Fatalf("zero attempts: err=%v calls=%d, want an error and no call", err, calls) }
 	_ = rand.N[int]
 }
 `)
@@ -216,22 +242,107 @@ func TestTags(t *testing.T) {
 `)
 }
 
+// The root is opened once and held on the server; a name inside it reads,
+// and a parent path, an absolute path, and a symlink out of it all fail.
 func TestDefensiveExampleOpenRoot(t *testing.T) {
 	code := exampleBlock(t, "skills/go-defensive/SKILL.md", "## Confine Filesystem Access")
 	runExampleTest(t, `package example
-import ("os"; "testing")
-func open(userSuppliedName string) error {
+import ("os"; "path/filepath"; "testing")
 `+code+`
-	if err != nil {
-		return err
-	}
-	return f.Close()
-}
 func TestOpenOutsideRoot(t *testing.T) {
-	// /srv/uploads does not exist here; the point is that the code compiles
-	// and never opens an escaping name.
-	if err := open("../../etc/passwd"); err == nil {
-		t.Fatal("open(../../etc/passwd) succeeded, want an error")
+	dir := t.TempDir()
+	uploads := filepath.Join(dir, "uploads")
+	secret := filepath.Join(dir, "secret")
+	if err := os.Mkdir(uploads, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{secret: "secret", filepath.Join(uploads, "ok.txt"): "ok"} {
+		if err := os.WriteFile(name, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(secret, filepath.Join(uploads, "link")); err != nil {
+		t.Fatal(err)
+	}
+	s, err := newServer(uploads)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.upload("ok.txt"); err != nil || string(got) != "ok" {
+		t.Fatalf("upload(ok.txt) = %q, %v; want ok", got, err)
+	}
+	for _, name := range []string{"../secret", secret, "link"} {
+		if got, err := s.upload(name); err == nil {
+			t.Errorf("upload(%q) = %q, want an error", name, got)
+		}
+	}
+}
+`)
+}
+
+// The archive loop writes nested entries through the root and refuses the
+// entries that escape it: parent and absolute names, links, and an archive
+// over the size cap.
+func TestDefensiveExampleExtractTar(t *testing.T) {
+	code := exampleBlock(t, "skills/go-defensive/SKILL.md", "### Archive Entries")
+	runExampleTest(t, `package example
+import ("archive/tar"; "bytes"; "errors"; "fmt"; "io"; "os"; "path"; "path/filepath"; "strings"; "testing")
+`+code+`
+func archive(t *testing.T, hdrs ...*tar.Header) *tar.Reader {
+	t.Helper()
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	for _, h := range hdrs {
+		if err := tw.WriteHeader(h); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write([]byte(strings.Repeat("x", int(h.Size)))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return tar.NewReader(&buf)
+}
+func TestExtract(t *testing.T) {
+	parent := t.TempDir()
+	dest := filepath.Join(parent, "dest")
+	if err := os.Mkdir(dest, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	err = extract(root, archive(t,
+		&tar.Header{Name: "top.txt", Typeflag: tar.TypeReg, Size: 1, Mode: 0o600},
+		&tar.Header{Name: "dir/", Typeflag: tar.TypeDir, Mode: 0o750},
+		&tar.Header{Name: "a/b/c.txt", Typeflag: tar.TypeReg, Size: 2, Mode: 0o600},
+	), 10)
+	if err != nil {
+		t.Fatalf("extract: %v", err)
+	}
+	if got, err := os.ReadFile(filepath.Join(dest, "a", "b", "c.txt")); err != nil || string(got) != "xx" {
+		t.Fatalf("a/b/c.txt = %q, %v; want xx", got, err)
+	}
+	for _, hdr := range []*tar.Header{
+		{Name: "../evil.txt", Typeflag: tar.TypeReg, Size: 1},
+		{Name: "a/../../evil.txt", Typeflag: tar.TypeReg, Size: 1},
+		{Name: filepath.Join(parent, "evil.txt"), Typeflag: tar.TypeReg, Size: 1},
+		{Name: "link", Typeflag: tar.TypeSymlink, Linkname: parent},
+		{Name: "hard", Typeflag: tar.TypeLink, Linkname: "top.txt"},
+		{Name: "big.txt", Typeflag: tar.TypeReg, Size: 11},
+	} {
+		if err := extract(root, archive(t, hdr), 10); err == nil {
+			t.Errorf("extract(%q) succeeded, want an error", hdr.Name)
+		}
+	}
+	for _, name := range []string{filepath.Join(parent, "evil.txt"), filepath.Join(dest, "link"), filepath.Join(dest, "big.txt")} {
+		if _, err := os.Lstat(name); err == nil {
+			t.Errorf("%s exists after a refused entry", name)
+		}
 	}
 }
 `)
@@ -295,26 +406,34 @@ func TestDocumentationAssetTemplate(t *testing.T) {
 }
 
 // The subcommand example returns a usage error on empty input instead of
-// indexing os.Args, and returns a failed Parse instead of exiting.
+// indexing os.Args, and returns a failed Parse instead of exiting. A usage
+// error (already printed by Parse) stays distinguishable from a runtime error,
+// so main prints each once and exits 2 only for usage.
 func TestPackagesExampleSubcommands(t *testing.T) {
 	code := exampleBlock(t, "skills/go-packages/references/PACKAGE-SIZE.md", "### Subcommands")
 	runExampleTest(t, `package example
 import ("errors"; "flag"; "fmt"; "os"; "testing")
 var served, dry = 0, false
-func serve(port int) error { served = port; return nil }
+var errBind = errors.New("bind: permission denied")
+func serve(port int) error { if port == 1 { return errBind }; served = port; return nil }
 func migrate(d bool) error { dry = d; return nil }
 `+code+`
 func TestRun(t *testing.T) {
- for _, tt := range []struct { args []string; wantErr bool }{
-  {nil, true},
-  {[]string{"deploy"}, true},
-  {[]string{"serve", "-port", "x"}, true},
-  {[]string{"serve", "-port", "9090"}, false},
-  {[]string{"migrate", "-dry_run"}, false},
+ for _, tt := range []struct { args []string; want error }{
+  {nil, errUsage},
+  {[]string{"deploy"}, errUsage},
+  {[]string{"serve", "-port", "x"}, errUsage},
+  {[]string{"serve", "-h"}, flag.ErrHelp},
+  {[]string{"serve", "-port", "1"}, errBind},
+  {[]string{"serve", "-port", "9090"}, nil},
+  {[]string{"migrate", "-dry_run"}, nil},
  } {
-  if err := run(tt.args); (err != nil) != tt.wantErr {
-   t.Errorf("run(%q) = %v, want error %t", tt.args, err, tt.wantErr)
+  if err := run(tt.args); !errors.Is(err, tt.want) {
+   t.Errorf("run(%q) = %v, want %v", tt.args, err, tt.want)
   }
+ }
+ if err := run([]string{"serve", "-port", "1"}); errors.Is(err, errUsage) {
+  t.Errorf("a runtime error from serve is reported as a usage error: %v", err)
  }
  if served != 9090 || !dry {
   t.Errorf("serve got %d, migrate got %t; want 9090 and true", served, dry)

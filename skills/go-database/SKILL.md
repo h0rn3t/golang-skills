@@ -101,11 +101,23 @@ if err != nil {
 }
 defer tx.Rollback() // no-op after Commit; the ErrTxDone it returns is expected
 
-if _, err := tx.ExecContext(ctx, debit, from, amount); err != nil {
-    return fmt.Errorf("debit %s: %w", from, err)
+// RETURNING turns a missing account into sql.ErrNoRows; a bare ExecContext
+// succeeds on zero rows and would commit the debit alone.
+const move = `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2 RETURNING id`
+var id int64
+err = tx.QueryRowContext(ctx, move, -amount, from).Scan(&id)
+if errors.Is(err, sql.ErrNoRows) {
+    return fmt.Errorf("debit %d: %w", from, ErrNotFound)
 }
-if _, err := tx.ExecContext(ctx, credit, to, amount); err != nil {
-    return fmt.Errorf("credit %s: %w", to, err)
+if err != nil {
+    return fmt.Errorf("debit %d: %w", from, err)
+}
+err = tx.QueryRowContext(ctx, move, amount, to).Scan(&id)
+if errors.Is(err, sql.ErrNoRows) {
+    return fmt.Errorf("credit %d: %w", to, ErrNotFound)
+}
+if err != nil {
+    return fmt.Errorf("credit %d: %w", to, err)
 }
 if err := tx.Commit(); err != nil {
     return fmt.Errorf("commit transfer: %w", err)
@@ -117,11 +129,6 @@ return nil
   `Commit` error — it is where serialization failures surface.
 - Everything inside uses `tx`, never `db`: a `db` call inside a transaction
   takes a second connection and deadlocks the pool at its limit.
-- If a write requires an existing row, check `RowsAffected` or use
-  `RETURNING` with `Scan`. An `ExecContext` success can mean zero rows changed;
-  the transfer example in `references/SQL-PATTERNS.md` rolls back on a missing
-  account and maps the resulting `sql.ErrNoRows` to `ErrNotFound` like any
-  other lookup.
 - Keep transactions short: no network calls, no user waits, no logging that
   blocks. Lock order is part of the contract — same order everywhere.
 - A `withTx(ctx, db, func(tx *sql.Tx) error)` helper removes the boilerplate;
@@ -172,12 +179,12 @@ database decides whether an index or a rewrite is the fix.
 Integration tests run against a real database (a container or a CI service),
 not a mocked driver — a mock proves the code calls the mock. Unit-test only the
 row-to-struct mapping. [go-testing](../go-testing/SKILL.md) owns the
-integration harness in
-[`go-testing/references/INTEGRATION.md`](../go-testing/references/INTEGRATION.md).
+integration harness — build tag, DSN from the environment, skip when unset —
+in [`go-testing/references/INTEGRATION.md`](../go-testing/references/INTEGRATION.md#real-databases).
 
 > **Validation**: `golangci-lint run` with `rowserrcheck`, `sqlclosecheck`,
 > `noctx`, and `gosec` from the [go-linting](../go-linting/SKILL.md) baseline,
-> then `go test -race ./...` with the integration tag. Report a skipped
+> then `go test -tags integration -race ./...`. Report a skipped
 > integration run as skipped.
 
 ---

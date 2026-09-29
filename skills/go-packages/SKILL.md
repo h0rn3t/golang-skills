@@ -59,11 +59,12 @@ not have (v1, v3, v5, custom sources).
 ## Adding and Auditing Dependencies
 
 - **After `go mod init`**, inspect the generated `go` directive against the
-  local and CI toolchains: a 1.27.x toolchain writes its own patch level
-  (`go 1.27.1`), which makes a 1.27.0 CI toolchain download 1.27.1; a 1.26.x
-  toolchain writes `go 1.25.0`. For a new module targeting Go 1.27, set
-  `go mod edit -go=1.27.0`; do not infer the directive from the installed
-  version or bump an existing module as an incidental cleanup.
+  local and CI toolchains: a toolchain writes its own patch level — 1.27.1
+  writes `go 1.27.1`, which makes a 1.27.0 CI toolchain download 1.27.1, and
+  1.26.4 writes `go 1.26.4` (only 1.26.0 wrote `go 1.25.0`). For a new module
+  targeting Go 1.27, set `go mod edit -go=1.27.0`; do not infer the directive
+  from the installed version or bump an existing module as an incidental
+  cleanup.
   `go test ./...` includes `stdversion` in Go 1.27 and rejects standard-library
   APIs newer than the effective file version. `go fix` also gates replacements
   by supported version, so an empty preview alone does not prove a 1.27 target.
@@ -148,6 +149,7 @@ import (
 | Grouping | stdlib first, then external. Extended: stdlib → other → protos → side-effects |
 | Renaming | Avoid unless collision. Rename the most local import. Proto packages get `pb` suffix |
 | Blank imports (`import _`) | Only in `main` packages or tests |
+| `import _ "embed"` | Any package, in the file whose `//go:embed` fills a `string` or `[]byte` — the compiler requires it |
 | Dot imports (`import .`) | Never use, except for circular-dependency test files |
 
 ---
@@ -194,8 +196,9 @@ func main() {
   `snake_case` (`--output_dir`) when none exists.
 - Libraries should accept configuration as parameters, not read flags directly —
   this keeps them testable and reusable
-- Prefer the standard `flag` package; use `pflag` only when POSIX conventions
-  (double-dash, single-char shortcuts) are required
+- Prefer the standard `flag` package, which already accepts `-v` and `--v` as
+  the same flag; use `pflag` only when POSIX/GNU conventions are required —
+  grouped single-letter flags (`-xvf`) or short/long pairs (`-v`/`--verbose`)
 
 ```go
 // Good: Flag in main, passed as parameter to library

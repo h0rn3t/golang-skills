@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const version = "1.2.0"
+const version = "1.4.0"
 
 type finding struct {
 	File    string `json:"file"`
@@ -147,8 +147,6 @@ func analyzeFile(path string, checkBareReturn bool) ([]finding, error) {
 	}
 
 	var findings []finding
-	var logLines []int
-	var errReturnLines []int
 
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch node := n.(type) {
@@ -163,14 +161,14 @@ func analyzeFile(path string, checkBareReturn bool) ([]finding, error) {
 					File:    path,
 					Line:    line,
 					Rule:    "string-error-compare",
-					Message: "comparing err.Error() to string; use errors.Is() or errors.As() instead",
+					Message: "comparing err.Error() to string; use errors.Is or errors.AsType instead",
 				})
 			case isStringLiteral(node.X) && isErrorCall(node.Y):
 				findings = append(findings, finding{
 					File:    path,
 					Line:    line,
 					Rule:    "string-error-compare",
-					Message: "comparing string to err.Error(); use errors.Is() or errors.As() instead",
+					Message: "comparing string to err.Error(); use errors.Is or errors.AsType instead",
 				})
 			}
 		case *ast.CallExpr:
@@ -180,17 +178,17 @@ func analyzeFile(path string, checkBareReturn bool) ([]finding, error) {
 					File:    path,
 					Line:    line,
 					Rule:    "string-error-compare",
-					Message: "using strings.Contains on err.Error(); use errors.Is() or errors.As() instead",
+					Message: "using strings.Contains on err.Error(); use errors.Is or errors.AsType instead",
 				})
 			}
-			if isLogCallWithErr(node) {
-				logLines = append(logLines, line)
-			}
+		case *ast.BlockStmt:
+			findings = append(findings, logAndReturn(fset, path, node.List)...)
+		case *ast.CaseClause:
+			findings = append(findings, logAndReturn(fset, path, node.Body)...)
+		case *ast.CommClause:
+			findings = append(findings, logAndReturn(fset, path, node.Body)...)
 		case *ast.ReturnStmt:
 			line := fset.Position(node.Return).Line
-			if returnsErr(node) || returnsWrappedErr(node) {
-				errReturnLines = append(errReturnLines, line)
-			}
 			if checkBareReturn && returnsErr(node) {
 				findings = append(findings, finding{
 					File:    path,
@@ -203,26 +201,49 @@ func analyzeFile(path string, checkBareReturn bool) ([]finding, error) {
 		return true
 	})
 
-	for _, retLine := range errReturnLines {
-		for i := len(logLines) - 1; i >= 0; i-- {
-			logLine := logLines[i]
-			if logLine >= retLine {
-				continue
+	return findings, nil
+}
+
+// logAndReturn reports a log call carrying err that is followed, in the same
+// statement list, by a return of that err, bare or wrapped: typically the body
+// of an `if err != nil`. A log in one block and a return in another never pair,
+// so a "log and degrade" branch followed by an unrelated return, or a log that
+// ends one function next to a return that starts the next, is not a finding.
+// An assignment to err between the two makes the returned error a new one.
+func logAndReturn(fset *token.FileSet, path string, stmts []ast.Stmt) []finding {
+	var findings []finding
+	logLine := 0
+	for _, stmt := range stmts {
+		switch s := stmt.(type) {
+		case *ast.ExprStmt:
+			if call, ok := s.X.(*ast.CallExpr); ok && isLogCallWithErr(call) {
+				logLine = fset.Position(call.Pos()).Line
 			}
-			if retLine-logLine > 5 {
-				break
+		case *ast.AssignStmt:
+			if assignsIdent(s, "err") {
+				logLine = 0
 			}
-			findings = append(findings, finding{
-				File:    path,
-				Line:    logLine,
-				Rule:    "log-and-return",
-				Message: fmt.Sprintf("error is both logged (line %d) and returned (line %d); handle errors once", logLine, retLine),
-			})
-			break
+		case *ast.ReturnStmt:
+			if logLine != 0 && (returnsErr(s) || returnsWrappedErr(s)) {
+				retLine := fset.Position(s.Return).Line
+				findings = append(findings, finding{
+					File:    path,
+					Line:    logLine,
+					Rule:    "log-and-return",
+					Message: fmt.Sprintf("error is both logged (line %d) and returned (line %d); handle errors once", logLine, retLine),
+				})
+			}
+			logLine = 0
 		}
 	}
+	return findings
+}
 
-	return findings, nil
+func assignsIdent(stmt *ast.AssignStmt, name string) bool {
+	return slices.ContainsFunc(stmt.Lhs, func(lhs ast.Expr) bool {
+		ident, ok := lhs.(*ast.Ident)
+		return ok && ident.Name == name
+	})
 }
 
 func isErrorCall(expr ast.Expr) bool {

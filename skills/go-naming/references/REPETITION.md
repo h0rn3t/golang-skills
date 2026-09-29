@@ -39,11 +39,11 @@ func Load() error                  // db.Load()
 
 ```go
 // Bad
-func (c *Config) WriteConfigTo(w io.Writer) error
+func (c *Config) WriteConfigTo(w io.Writer) (int64, error)
 func (p *Project) ProjectName() string
 
 // Good
-func (c *Config) WriteTo(w io.Writer) error
+func (c *Config) WriteTo(w io.Writer) (int64, error)
 func (p *Project) Name() string
 ```
 

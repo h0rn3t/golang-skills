@@ -54,9 +54,14 @@ any restructuring: it shrinks the problem, and none of it needs a design
 decision from you.
 
 ```go
-// Dead branch — the type system already guarantees it
-if items == nil { // range over nil is fine; this check does nothing
-    return
+// Dead branch — range over nil runs zero times, and nothing follows the loop
+func notifyAll(items []Item) {
+    if items == nil { // live once a statement such as flush() follows the loop
+        return
+    }
+    for _, it := range items {
+        notify(it)
+    }
 }
 
 // Redundant else after return
@@ -72,19 +77,15 @@ func doWork(x int) int { return compute(x) }
 
 Also usually deletable: unused parameters and struct fields; unreachable
 returns after a panic or exhaustive switch; commented-out code; `err != nil`
-handling for a function that cannot fail; `len(s) > 0` before a `range`;
-`if b == true`; string conversions of strings.
+handling for a function that cannot fail; `len(s) > 0` around a `range` that
+nothing follows; `if b == true`; string conversions of strings.
 
 The line to hold: **provably** unreachable. "Nothing calls this" needs `go vet`,
 a linter with `unused`, or a repo-wide grep including tests, generated code,
 and reflection-based dispatch — an exported symbol may have callers outside the
 module. When you cannot prove it, it is a finding, not a deletion. Deletions
-belong at the top of the report; reviewers approve them at a glance.
-
-### Duplication that differs only in values
-
-[POLICY-TABLES.md](POLICY-TABLES.md) shows the complete before/after example
-and the conditions for sharing a policy table without changing errors or order.
+belong at the top of the report; reviewers approve them at a glance. Duplication
+that differs only in values folds instead: [POLICY-TABLES.md](POLICY-TABLES.md).
 
 ## 1. Flatten with early returns
 
@@ -134,43 +135,43 @@ scope `err` into the `if` when it is not used later
 
 Apply the [helper rule](../SKILL.md#delete-before-you-restructure): function
 length alone does not justify extraction; mixed abstraction levels can.
-Decoding a body — size cap, strict decode, client-safe error — is byte
-handling beside the handler's order rule, so it is the one step named here,
-even with one call site. The price lookup, the order, and the error mapping
-are the handler's own decision and stay inline.
+Assembling SQL — clauses, placeholders, argument order — is string work beside
+the overdue rule, so it is the one step named here, even with one call site.
+The cutoff, the scan, and the error wrapping stay inline. Request decoding is
+not such a step: [go-http](../../go-http/SKILL.md) keeps it in the handler.
 
 ```go
-func (s *Server) HandleOrder(w http.ResponseWriter, r *http.Request) {
-    req, err := decodeOrderRequest(w, r)
+func (s *Service) Overdue(ctx context.Context, now time.Time, region string) ([]Invoice, error) {
+    cutoff := now.AddDate(0, 0, -s.graceDays) // past due once the grace period ends
+    query, args := overdueQuery(cutoff, region)
+    rows, err := s.db.QueryContext(ctx, query, args...)
     if err != nil {
-        http.Error(w, err.Error(), http.StatusBadRequest)
-        return
+        return nil, fmt.Errorf("overdue invoices: %w", err)
     }
-    price, ok := s.prices[req.SKU]
-    if !ok {
-        http.Error(w, "unknown sku", http.StatusUnprocessableEntity)
-        return
+    defer rows.Close()
+    var out []Invoice
+    for rows.Next() {
+        var inv Invoice
+        if err := rows.Scan(&inv.ID, &inv.DueAt); err != nil {
+            return nil, fmt.Errorf("scan invoice: %w", err)
+        }
+        out = append(out, inv)
     }
-    order := Order{SKU: req.SKU, Quantity: req.Quantity, Total: price * int64(req.Quantity)}
-    if err := s.orders.Save(r.Context(), order); err != nil {
-        slog.ErrorContext(r.Context(), "save order", "sku", req.SKU, "err", err)
-        http.Error(w, "internal error", http.StatusInternalServerError)
-        return
+    if err := rows.Err(); err != nil {
+        return nil, fmt.Errorf("overdue invoices: %w", err)
     }
-    w.Header().Set("Content-Type", "application/json")
-    _ = json.MarshalWrite(w, order) // headers are sent; a failed write is the client's disconnect
+    return out, nil
 }
 
-// decodeOrderRequest's error text goes to the client, so it omits the decoder's detail.
-func decodeOrderRequest(w http.ResponseWriter, r *http.Request) (orderRequest, error) {
-    var req orderRequest
-    if err := json.UnmarshalRead(http.MaxBytesReader(w, r.Body, 1<<20), &req, json.RejectUnknownMembers(true)); err != nil {
-        return orderRequest{}, errors.New("invalid JSON body")
+// overdueQuery builds the statement; an empty region selects every region.
+func overdueQuery(cutoff time.Time, region string) (string, []any) {
+    query := "SELECT id, due_at FROM invoices WHERE paid_at IS NULL AND due_at < $1"
+    args := []any{cutoff}
+    if region != "" {
+        query += " AND region = $2"
+        args = append(args, region)
     }
-    if req.SKU == "" || req.Quantity <= 0 {
-        return orderRequest{}, errors.New("sku and a positive quantity are required")
-    }
-    return req, nil
+    return query + " ORDER BY due_at", args
 }
 ```
 
@@ -188,7 +189,8 @@ Extraction notes:
 ## 3. Rename for the reader
 
 [go-naming](../../go-naming/SKILL.md) owns the rules; what matters here is
-scope. Renaming unexported identifiers is free. Renaming an **exported**
+scope. Renaming an unexported identifier is free when no reflection, template,
+`go:linkname`, or string-based use names it. Renaming an **exported**
 identifier or a **struct tag key** is an API or wire-format change — findings
 list, not the diff.
 
@@ -216,7 +218,7 @@ logs, tests assert on it, alerts match it.
 | Change | Verdict |
 |---|---|
 | Scope `err` into the `if`; drop `else` after an error return | Free |
-| `if err == X \|\| err == Y` → `errors.Is` | Free |
+| `if err == X \|\| err == Y` → `errors.Is` | Findings list — `Is` also matches a wrapped `X` and an error whose `Is` method claims `X`; equivalent only when every producer returns `X` unwrapped and no error in the chain has an `Is` method |
 | `errors.As` → `errors.AsType[T]` | Free (Go 1.26+) |
 | Rewording an existing message | Findings list |
 | `%v` ↔ `%w` | Findings list — changes what `errors.Is`/`AsType` see |
@@ -235,8 +237,7 @@ use rather than at the top of the function; scope to the smallest block
 (`if v, err := f(); err != nil`); inline variables used once unless the name
 does explanatory work; eliminate accidental shadowing — two `err`s at different
 depths is a reliable source of confusion; group related package-level
-declarations into one block. See
-[go-style-core](../../go-style-core/SKILL.md).
+declarations into one block. See [go-style-core](../../go-style-core/SKILL.md).
 
 ## 7. Comments that earn their place
 
@@ -262,8 +263,7 @@ Things that feel like improvement and are not. The common thread: each one
 
 - **Interfaces with one implementation**, added "for testability". They move
   the definition away from the usage and force readers to chase.
-- **Generics where a concrete type worked.** Below roughly three call sites,
-  type parameters cost more than the duplication they remove.
+- **Generics where a concrete type worked.** [go-generics](../../go-generics/SKILL.md#when-to-use-generics) owns the threshold.
 - **Merging similar-looking code that means different things.** Two rhyming
   10-line blocks are cheaper than one 15-line function with a mode flag.
 - **Splitting so far that following one request means opening eight

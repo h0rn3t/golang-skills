@@ -23,23 +23,18 @@ func mustLoadTestData(t *testing.T, filename string) []byte {
     }
     return data
 }
-
-func setupTestDB(t *testing.T) *sql.DB {
-    t.Helper()
-    db, err := sql.Open("sqlite3", ":memory:")
-    if err != nil {
-        t.Fatalf("sql.Open(%q) error = %v", ":memory:", err)
-    }
-    t.Cleanup(func() { db.Close() })
-    return db
-}
 ```
+
+A helper that opens a database — the DSN from the environment, a skip when it
+is unset, the `Close` error checked in `t.Cleanup` — is in
+[INTEGRATION.md](INTEGRATION.md#real-databases).
 
 **Key rules:**
 - Call `t.Helper()` as the first statement to attribute failures to the caller
 - Use `t.Fatal` for setup failures (don't return errors from helpers)
-- Use `t.Cleanup()` for teardown instead of defer — it runs even if the test
-  calls `t.FailNow`
+- Use `t.Cleanup()` for teardown in a helper, not `defer`: a `defer` runs when
+  the helper returns, before the test has used what it built; `t.Cleanup` runs
+  when the test and its subtests finish
 
 ---
 
@@ -48,8 +43,9 @@ func setupTestDB(t *testing.T) *sql.DB {
 Follow [the assertion policy](../SKILL.md#assertions-match-the-repository):
 `testify/assert` and `testify/require` are allowed in existing and new projects.
 Honor the user's choice and repository conventions; without either, use
-standard comparisons and `cmp.Diff`. Do not rewrite working tests just to
-switch assertion libraries.
+standard comparisons, and `cmp.Diff` when the module already requires
+`github.com/google/go-cmp`. Do not rewrite working tests just to switch
+assertion libraries.
 
 With testify, use `require` when the next operation depends on success and
 `assert` for independent checks. `require` calls `FailNow`, so it belongs only
@@ -82,8 +78,10 @@ if diff := cmp.Diff(want, got); diff != "" {
 
 ## Comparisons and Diffs
 
-Prefer `cmp.Equal` and `cmp.Diff` for complex types. Always include the
-direction key `(-want +got)` in diff messages.
+When the module already requires `github.com/google/go-cmp`, prefer
+`cmp.Equal` and `cmp.Diff` for complex types; otherwise `reflect.DeepEqual`,
+`slices.Equal`, or `maps.Equal`. Always include the direction key
+`(-want +got)` in diff messages.
 
 ```go
 // Struct comparison

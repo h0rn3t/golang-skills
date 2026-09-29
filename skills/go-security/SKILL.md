@@ -51,9 +51,9 @@ once — not at every call site downstream, where it is forgotten.
 | Foreign row by ID | `WHERE id = $1 AND org_id = $2` with the caller's tenant as a parameter; a foreign ID is `sql.ErrNoRows` | review |
 | Command injection | `exec.CommandContext(ctx, "gzip", "--keep", "--", name)`: argv, no shell, `--` before input | `gosec` G204 |
 | XSS | `html/template` (contextual escaping) | `gosec` G203 (unsafe `template.HTML`) |
-| Path traversal | `root.Open(name)` on an `os.Root` opened once at startup | review — `gosec` G304 fires on every variable path, so the bundled config excludes it |
+| Path traversal | `root.Open(name)` on an `os.Root` opened once at startup ([go-defensive](../go-defensive/SKILL.md#confine-filesystem-access) owns the form) | review — `gosec` G304 fires on every variable path, so the bundled config excludes it |
 | Upload served inline | `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, a `Content-Type` you derived; or a separate origin | review |
-| SSRF | Hostname allowlist by whole label: `host == d` or `strings.HasSuffix(host, "."+d)`; else a `net.Dialer.Control` that rejects `netip.Addr.IsPrivate()`/loopback on the dialed address | review |
+| SSRF | Hostname allowlist by whole label: `host == d` or `strings.HasSuffix(host, "."+d)`; else a `net.Dialer.Control` that rejects, on the dialed address, `netip.Addr.IsPrivate()`/loopback and the CGNAT and NAT64 prefixes those methods miss ([INJECTION.md](references/INJECTION.md#arbitrary-public-destinations)) | review |
 | Open redirect | One leading `/`; reject `//`, `\`, and control characters; or an allowlist of hosts | review |
 | Predictable tokens | `crypto/rand.Text()` / `rand.Read` | `gosec` G404 |
 | Timing leak on compare | `subtle.ConstantTimeCompare(a, b) == 1` | review |
@@ -170,8 +170,8 @@ the reader decides whether it stays. Inside a
 skill's template with its `verified`/`plausible` marker; blast radius orders
 the Must Fix list, it does not replace the sections.
 
-> **Validation**: `golangci-lint run --enable-only gosec ./...` for the
-> mechanical findings, `govulncheck ./...` for dependencies, and `go test
+> **Validation**: `gosec` and `govulncheck` run in the
+> [go-linting gate](../go-linting/SKILL.md#verification-gate); add `go test
 > -fuzz=^FuzzDecode$ -fuzztime=30s` on any hand-written parser at a boundary,
 > with that parser's fuzz target in place of `FuzzDecode`. Report a skipped
 > check as skipped.

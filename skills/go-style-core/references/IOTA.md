@@ -81,25 +81,32 @@ const (
 
 ## String Representation
 
-Always implement `String()` for enum types to aid debugging:
+An enum whose values reach logs or `%v` output gets a generated `String()`.
+`stringer` comes from `golang.org/x/tools`, tracked by a `tool` directive
+(`go get -tool golang.org/x/tools/cmd/stringer`, Go 1.24) rather than a
+`tools.go` of blank imports; `go generate ./...` writes `operation_string.go`:
+
+```go
+//go:generate go tool stringer -type=Operation
+type Operation int
+```
+
+Write the switch by hand only when the text differs from the constant names:
 
 ```go
 func (o Operation) String() string {
     switch o {
     case Add:
-        return "Add"
+        return "+"
     case Subtract:
-        return "Subtract"
+        return "-"
     case Multiply:
-        return "Multiply"
+        return "*"
     default:
         return fmt.Sprintf("Operation(%d)", o)
     }
 }
 ```
-
-Consider using `go generate` with `stringer` for automatic string methods on
-large enums.
 
 ---
 

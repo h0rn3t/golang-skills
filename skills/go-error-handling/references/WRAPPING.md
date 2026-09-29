@@ -3,7 +3,7 @@
 > Sources: source/uber-go-style/style.md (Error Wrapping); https://go.dev/blog/go1.13-errors; https://pkg.go.dev/errors#AsType
 > Authority: advisory
 > Minimum Go: `errors.AsType` 1.26
-> Last verified: 2026-09-10
+> Last verified: 2026-09-29
 
 This reference covers error wrapping with `%v` vs `%w`, placement conventions,
 adding context to errors, and logging best practices.
@@ -108,21 +108,19 @@ information the underlying error already provides:
 
 ```go
 // Good: Adds meaningful context
-f, err := os.Open("settings.txt")
+settings, err := os.ReadFile("settings.txt")
 if err != nil {
     return fmt.Errorf("launch codes unavailable: %w", err)
 }
-defer f.Close()
 // Output: launch codes unavailable: open settings.txt: no such file or directory
 ```
 
 ```go
 // Bad: Duplicates the filename
-f, err := os.Open("settings.txt")
+settings, err := os.ReadFile("settings.txt")
 if err != nil {
     return fmt.Errorf("could not open settings.txt: %v", err)
 }
-defer f.Close()
 // Output: could not open settings.txt: open settings.txt: no such file or directory
 ```
 

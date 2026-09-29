@@ -15,12 +15,15 @@ import (
 	"strings"
 )
 
-const version = "1.2.0"
+const version = "1.3.0"
 
 type ifaceInfo struct {
 	Name string `json:"name"`
 	File string `json:"file"`
 	Line int    `json:"line"`
+	// ReturnedBy names the exported function that returns the interface from
+	// its own package; empty when the finding is an unconverted interface.
+	ReturnedBy string `json:"returned_by,omitempty"`
 
 	key string
 	obj *types.TypeName
@@ -58,7 +61,7 @@ type options struct {
 }
 
 func usage() {
-	fmt.Fprintf(os.Stdout, `check-interface-compliance.sh v%s - List exported interfaces implemented beside their declaration that nothing converts to
+	fmt.Fprintf(os.Stdout, `check-interface-compliance.sh v%s - List exported interfaces implemented beside their declaration that nothing converts to or that an exported function returns
 
 USAGE
     bash check-interface-compliance.sh [options] [path]
@@ -132,9 +135,10 @@ func main() {
 	assertions := map[string]map[string]bool{}
 	var interfaces []ifaceInfo
 	localImpl := map[string]map[string]bool{}
+	returned := map[string]map[string]string{}
 
 	for _, group := range groups {
-		groupAssertions, groupInterfaces, groupImpls, err := analyzePackage(group)
+		groupAssertions, groupInterfaces, groupImpls, groupReturned, err := analyzePackage(group)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(2)
@@ -142,6 +146,7 @@ func main() {
 		assertions[group.key] = groupAssertions
 		interfaces = append(interfaces, groupInterfaces...)
 		localImpl[group.key] = groupImpls
+		returned[group.key] = groupReturned
 	}
 
 	sort.Slice(interfaces, func(i, j int) bool {
@@ -156,7 +161,11 @@ func main() {
 
 	missing := []ifaceInfo{}
 	for _, iface := range interfaces {
-		if localImpl[iface.key][iface.Name] && !assertions[iface.key][iface.Name] {
+		if !localImpl[iface.key][iface.Name] {
+			continue
+		}
+		iface.ReturnedBy = returned[iface.key][iface.Name]
+		if iface.ReturnedBy != "" || !assertions[iface.key][iface.Name] {
 			missing = append(missing, iface)
 		}
 	}
@@ -213,13 +222,17 @@ func emit(out result, jsonOutput bool) {
 
 	fmt.Printf("Exported interfaces found: %d\n\n", out.CountInterface)
 	if out.CountMissing == 0 {
-		fmt.Println("No interface is implemented only beside its declaration without a static conversion.")
+		fmt.Println("No interface implemented beside its declaration lacks a static conversion or is returned by an exported function.")
 		return
 	}
 
-	fmt.Println("Interfaces implemented beside their declaration, with nothing converting to them:")
+	fmt.Println("Interfaces implemented beside their declaration that nothing converts to or that an exported function returns:")
 	fmt.Println()
 	for _, item := range out.Missing {
+		if item.ReturnedBy != "" {
+			fmt.Printf("  %s:%d  does a consumer need interface '%s', or should %s return the concrete type?\n", item.File, item.Line, item.Name, item.ReturnedBy)
+			continue
+		}
 		fmt.Printf("  %s:%d  does a consumer need interface '%s', or is the concrete type enough?\n", item.File, item.Line, item.Name)
 	}
 	if out.Truncated {
@@ -231,14 +244,14 @@ func emit(out result, jsonOutput bool) {
 	fmt.Printf("Total: %d interface(s) to question\n", out.CountMissing)
 }
 
-func analyzePackage(group packageGroup) (map[string]bool, []ifaceInfo, map[string]bool, error) {
+func analyzePackage(group packageGroup) (map[string]bool, []ifaceInfo, map[string]bool, map[string]string, error) {
 	fset := token.NewFileSet()
 	parsed := make([]*ast.File, 0, len(group.files))
 	fileByAST := map[*ast.File]sourceFile{}
 	for _, sf := range group.files {
 		file, err := parser.ParseFile(fset, sf.path, nil, 0)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("parse %s: %w", sf.path, err)
+			return nil, nil, nil, nil, fmt.Errorf("parse %s: %w", sf.path, err)
 		}
 		parsed = append(parsed, file)
 		fileByAST[file] = sf
@@ -246,6 +259,7 @@ func analyzePackage(group packageGroup) (map[string]bool, []ifaceInfo, map[strin
 
 	info := &types.Info{
 		Defs:  map[*ast.Ident]types.Object{},
+		Uses:  map[*ast.Ident]types.Object{},
 		Types: map[ast.Expr]types.TypeAndValue{},
 	}
 	conf := types.Config{
@@ -340,12 +354,17 @@ func analyzePackage(group packageGroup) (map[string]bool, []ifaceInfo, map[strin
 	for name := range staticConversions(parsed, info, interfaces) {
 		assertions[name] = true
 	}
-	return assertions, interfaces, impls, nil
+	scanned := map[*ast.File]bool{}
+	for file, sf := range fileByAST {
+		scanned[file] = sf.includeInScan
+	}
+	return assertions, interfaces, impls, returnedInterfaces(parsed, scanned, info, interfaces), nil
 }
 
 // staticConversions returns the interfaces that a concrete value is assigned,
-// returned, passed, or converted to somewhere in the package. The compiler
-// already checks those pairs, so they need no assertion.
+// returned, passed, sent, converted to, or placed in a composite literal as
+// somewhere in the package. The compiler already checks those pairs, so they
+// need no assertion.
 func staticConversions(files []*ast.File, info *types.Info, interfaces []ifaceInfo) map[string]bool {
 	converted := map[string]bool{}
 	note := func(target types.Type, value ast.Expr) {
@@ -388,6 +407,12 @@ func staticConversions(files []*ast.File, info *types.Info, interfaces []ifaceIn
 						note(results.At(i).Type(), v)
 					}
 				}
+			case *ast.SendStmt:
+				if ch, ok := underlying(typeOf(n.Chan)).(*types.Chan); ok {
+					note(ch.Elem(), n.Value)
+				}
+			case *ast.CompositeLit:
+				noteElements(n, info, note)
 			case *ast.CallExpr:
 				fun := info.Types[n.Fun]
 				if fun.IsType() && len(n.Args) == 1 {
@@ -429,6 +454,110 @@ func staticConversions(files []*ast.File, info *types.Info, interfaces []ifaceIn
 		}
 	}
 	return converted
+}
+
+// noteElements passes each element of a composite literal to note with the
+// type it is assigned to: a struct field, a slice or array element, or a map
+// key and value.
+func noteElements(lit *ast.CompositeLit, info *types.Info, note func(types.Type, ast.Expr)) {
+	litType := underlying(info.Types[lit].Type)
+	if ptr, ok := litType.(*types.Pointer); ok {
+		litType = underlying(ptr.Elem()) // elided &T in an outer literal
+	}
+	for i, elt := range lit.Elts {
+		var key ast.Expr
+		value := elt
+		if kv, ok := elt.(*ast.KeyValueExpr); ok {
+			key, value = kv.Key, kv.Value
+		}
+		switch t := litType.(type) {
+		case *types.Struct:
+			if ident, ok := key.(*ast.Ident); ok {
+				if field, ok := info.Uses[ident].(*types.Var); ok {
+					note(field.Type(), value)
+				}
+			} else if key == nil && i < t.NumFields() {
+				note(t.Field(i).Type(), value)
+			}
+		case *types.Slice:
+			note(t.Elem(), value)
+		case *types.Array:
+			note(t.Elem(), value)
+		case *types.Map:
+			if key != nil {
+				note(t.Key(), key)
+			}
+			note(t.Elem(), value)
+		}
+	}
+}
+
+func underlying(t types.Type) types.Type {
+	if t == nil {
+		return nil
+	}
+	return t.Underlying()
+}
+
+// returnedInterfaces maps each exported interface that an exported function
+// returns to the first such function, the producer-owned interface that
+// go-interfaces calls the Bad case. An interface the package also takes as a
+// parameter is consumed there, as http.Handler is by its middleware, and is
+// left out.
+func returnedInterfaces(files []*ast.File, scanned map[*ast.File]bool, info *types.Info, interfaces []ifaceInfo) map[string]string {
+	match := func(t types.Type) string {
+		for _, iface := range interfaces {
+			if types.Identical(t, iface.obj.Type()) {
+				return iface.Name
+			}
+		}
+		return ""
+	}
+	type exportedFunc struct {
+		name string
+		sig  *types.Signature
+	}
+	consumed := map[string]bool{}
+	var exported []exportedFunc
+	for _, file := range files {
+		if !scanned[file] {
+			continue
+		}
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok {
+				continue
+			}
+			obj, ok := info.Defs[fn.Name].(*types.Func)
+			if !ok {
+				continue
+			}
+			sig := obj.Type().(*types.Signature)
+			for i := range sig.Params().Len() {
+				param := sig.Params().At(i).Type()
+				if slice, ok := param.(*types.Slice); ok && sig.Variadic() && i == sig.Params().Len()-1 {
+					param = slice.Elem()
+				}
+				if name := match(param); name != "" {
+					consumed[name] = true
+				}
+			}
+			if fn.Recv == nil && fn.Name.IsExported() {
+				exported = append(exported, exportedFunc{name: fn.Name.Name, sig: sig})
+			}
+		}
+	}
+	returned := map[string]string{}
+	for _, fn := range exported {
+		for result := range fn.sig.Results().Variables() {
+			name := match(result.Type())
+			if name == "" || consumed[name] || returned[name] != "" {
+				continue
+			}
+			returned[name] = fn.name
+		}
+	}
+	return returned
 }
 
 func typeBelongsToScannedFile(typeName *types.TypeName, files []sourceFile, fset *token.FileSet) bool {

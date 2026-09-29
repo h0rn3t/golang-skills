@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="2.0.0"
+VERSION="2.1.0"
 
 for arg in "$@"; do
     case "$arg" in
@@ -14,13 +14,20 @@ USAGE
     bash check-naming.sh [options] [path]
 
 DESCRIPTION
-    Parses Go source files (go/ast) and reports:
+    Parses Go source files and reports naming violations from the Go style
+    guides:
       - SCREAMING_SNAKE_CASE constants (should be MixedCaps)
-      - Get-prefixed getter methods (should omit Get)
-      - Packages named util/helper/common/misc
+      - Get-prefixed methods with no parameters (simple accessors; omit Get)
+      - Packages named util, utils, helper, helpers, common, misc, shared,
+        base, or lib
       - Receivers named "this" or "self"
 
-    Exits 0 if no violations found, 1 if violations found, 2 on error.
+    Skips _test.go files and, as go ./... does, vendor and testdata
+    directories and directories or files whose names begin with "." or "_".
+
+    Exits 0 if no violations found, 1 if violations found, 2 on a usage error
+    or when a file does not parse. The other files are still checked; --json
+    then adds "status":"parse_error" and a "parse_errors" list.
 
 OPTIONS
     -h, --help       Show this help message

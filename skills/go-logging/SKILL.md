@@ -7,7 +7,7 @@ description: Use when choosing a logging approach, configuring slog, writing str
 
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
 > `slog.NewMultiHandler` requires Go 1.26+; `slog.GroupAttrs` Go 1.25+;
-> `log/slog` itself Go 1.21+.
+> `slog.DiscardHandler` Go 1.24+; `log/slog` itself Go 1.21+.
 
 ## Resource Routing
 
@@ -91,6 +91,8 @@ logger := slog.New(slog.NewMultiHandler(
 ```
 
 Each handler keeps its own level and format; `Enabled` is true if any child is.
+A test or caller that ignores logs passes `slog.New(slog.DiscardHandler)`
+(Go 1.24+), never a hand-written no-op handler.
 
 ---
 
@@ -194,6 +196,17 @@ A feature in a service is not done until an operator can see it fail:
 - Full credit card numbers, SSNs
 - Request/response bodies that may contain user data
 - Entire slices or maps of unbounded size
+
+A secret gets its own type that implements `slog.LogValuer`, so every
+attribute that carries it prints `[REDACTED]` whichever handler writes the
+record — `slog.Info("login", "token", tok)` logs the token as `[REDACTED]`:
+
+```go
+// Token is a credential; LogValue keeps it out of every log record.
+type Token string
+
+func (Token) LogValue() slog.Value { return slog.StringValue("[REDACTED]") }
+```
 
 ---
 

@@ -124,7 +124,8 @@ detects this mistake; test a cause matching the second branch, including wrappin
 - **Use `%v`**: For display or annotation that deliberately omits the error chain
 - **Use `%w`**: When the underlying cause is part of the caller-facing contract
 
-**Key rules**: Place `%w` at the end. Add context callers don't have. If
+**Key rules**: Place `%w` at the end (two causes of one failure take two `%w`
+verbs in one `fmt.Errorf`). Add context callers don't have. If
 annotation adds nothing, return `err` directly. One error often serves two
 audiences — the operator reading a log line and the caller matching with
 `errors.Is` — and `fmt.Errorf("resolve %q: %w", sku, err)` serves both where

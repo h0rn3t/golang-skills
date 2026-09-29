@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="1.2.0"
+VERSION="1.3.0"
 
 for arg in "$@"; do
     case "$arg" in
@@ -13,11 +13,24 @@ check-docs.sh v$VERSION - Check for missing doc comments on exported Go symbols
 USAGE
     bash check-docs.sh [options] [path]
 
+DESCRIPTION
+    Reports exported packages, types, functions, methods, constants, and
+    variables without a doc comment. Like revive's exported rule, it skips
+    package main, _test.go files, methods of unexported types, and the methods
+    Error, Read, ServeHTTP, String, Write, and Unwrap. Unlike the go-linting
+    gate, whose revive excludes internal/ and cmd/, it reports those too.
+    As go ./... does, it skips vendor and testdata directories and directories
+    or files whose names begin with "." or "_".
+
+    Exits 0 if everything is documented, 1 if symbols lack docs, 2 on a usage
+    error or when a file does not parse. The other files are still checked;
+    --json then adds "status":"parse_error" and a "parse_errors" list.
+
 OPTIONS
     -h, --help       Show this help message
     -v, --version    Show version
     --json           Output results as JSON
-    --strict         Also check unexported types/functions
+    --strict         Also check unexported names and package main
     --limit N        Show at most N results (default: all)
 EOF
             exit 0

@@ -1,9 +1,9 @@
 # Diagnostic Tools Reference
 
-> Sources: `go doc runtime`, `go doc runtime/pprof`, `go doc runtime/trace`, `go doc testing`; go.dev/doc/diagnostics; github.com/go-delve/delve docs
+> Sources: `go doc runtime`, `go doc runtime/pprof`, `go doc runtime/trace`, `go doc testing`; `$GOROOT/doc/godebug.md`; go.dev/doc/diagnostics; go.dev/doc/articles/race_detector; github.com/go-delve/delve docs
 > Authority: normative for flags and env vars; advisory for the workflows
 > Minimum Go: 1.27 baseline; per-item versions inline
-> Last verified: 2026-09-02; signal, profiling-cost, and memory-limit notes rechecked 2026-09-05; bisect and shuffle notes added 2026-09-18
+> Last verified: 2026-09-02; signal, profiling-cost, and memory-limit notes rechecked 2026-09-05; bisect and shuffle notes added 2026-09-18, rechecked with the race, GODEBUG, and vendor notes 2026-09-29
 
 Commands to run, grouped by what they capture. Every example assumes
 an existing, access-controlled `net/http/pprof` listener on `127.0.0.1:6060`
@@ -46,9 +46,11 @@ The [Go GC guide](https://go.dev/doc/gc-guide#Memory_limit) defines which memory
 the soft limit covers. Changing the limit does not establish why memory grows.
 
 `GODEBUG` accepts a comma-separated list. The Go-version-compat settings
-(`GODEBUG=panicnil=1`, `httpmuxgo121=1`, ...) are documented under `go doc
-runtime` → "godebug"; a stale one in a Dockerfile is a finding for
-[go-security](../../go-security/SKILL.md).
+(`GODEBUG=panicnil=1`, `httpmuxgo121=1`, ...) and the release that changed
+each default are in `$(go env GOROOT)/doc/godebug.md`; the defaults a build
+carries show in `go version -m <binary>` (`build DefaultGODEBUG=…`) or
+`go list -f '{{.DefaultGODEBUG}}' ./cmd/app`. A stale one in a Dockerfile is a
+finding for [go-security](../../go-security/SKILL.md).
 
 ---
 
@@ -184,16 +186,18 @@ where goroutines waited. Regions and tasks (`trace.WithRegion`,
 
 ```bash
 go test -race ./...
-go build -race -o app . && ./app         # production-shaped binary; 5–10× slower, ~10× memory
+go build -race -o app . && ./app         # production-shaped binary; 2–20× slower, 5–10× memory
 GORACE="halt_on_error=1 log_path=/tmp/race" ./app   # stop at first race; write reports to files
 ```
 
 Report anatomy: two stacks (`Write at` / `Previous read at`), each with the
 goroutine that did it and, below, where that goroutine was **created**. The
-fix is the synchronization between those two creation sites —
+creation stacks only identify the goroutines; the fix is a happens-before edge
+(mutex, channel, atomic) between the two racing accesses —
 [go-concurrency](../../go-concurrency/SKILL.md) owns it. The detector only
-sees executed paths: a race in an untested branch stays hidden, so
-`-count=N -shuffle=on` widens coverage.
+sees executed paths: a race in an untested branch stays hidden until a test
+executes that branch; `-count=N` repeats the same paths and only varies their
+interleaving.
 
 ---
 
@@ -203,7 +207,7 @@ sees executed paths: a race in an untested branch stays hidden, so
 go install github.com/go-delve/delve/cmd/dlv@latest
 
 dlv debug ./cmd/app -- --flag value      # build and run under the debugger
-dlv test ./pkg -- -test.run 'TestName$'  # a single test
+dlv test ./pkg -- -test.run '^TestName$' # a single test
 dlv attach <pid>                         # a running process (pauses it)
 dlv core ./app core.1234                 # post-mortem from GOTRACEBACK=crash
 dlv exec ./app                           # a prebuilt binary (build with -gcflags=all=-N\ -l)
@@ -254,31 +258,39 @@ debug.ReadBuildInfo()                    // module path, VCS revision, -race, se
 ## Test flags for debugging
 
 ```bash
-go test -run 'TestName$' -v ./pkg                # exact match; -v for t.Log output
-go test -count=100 -failfast -run 'TestName$'    # reproduction rate
-go test -shuffle=on -v ./pkg                      # order dependence; prints the seed and the order
+go test -run '^TestName$' -v ./pkg               # exact match; -v for t.Log output
+go test -count=100 -run '^TestName$' ./pkg | grep -c '^--- FAIL'   # reproduction rate; -failfast would stop at 1
+for i in 1 2 3 4 5; do go test -count=1 -shuffle=on -v ./pkg || break; done   # order dependence: a new seed per run
 go test -shuffle=1712345678 -v ./pkg              # replay that seed; narrow with -run, re-read the order
 go test -race -count=20 ./pkg
 go test -timeout 30s ./pkg                        # hang → goroutine dump
 go test -cpu 1,2,8 ./pkg                          # GOMAXPROCS sweep
-go test -run TestName -args -my.flag=1            # flags to the test binary
-go test -c -o pkg.test ./pkg && ./pkg.test -test.run TestName   # run the binary directly / under dlv
+go test -run '^TestName$' ./pkg -args -my.flag=1  # flags to the test binary
+go test -c -o pkg.test ./pkg && ./pkg.test -test.run '^TestName$'   # run the binary directly / under dlv
 go test -json ./... | go run gotest.tools/gotestsum@latest --raw-command -- cat   # structured output
-GOFLAGS=-mod=mod go test ./...                    # rule out vendor drift
+go build ./...                                    # vendor drift: fails "inconsistent vendoring" under the default -mod=vendor
 ```
+
+`-count=N` with `-shuffle=on` runs one shuffled order N times: the order is
+drawn once per invocation, so vary it across invocations as above. The vendor
+check needs `vendor/` and no `-mod` in `go env GOFLAGS`. A module-mode
+comparison (`GOFLAGS=-mod=mod`) rewrites `go.mod` and `go.sum`; run it only in
+an isolated worktree (`git worktree add ../cmp HEAD`), never in the tree under
+investigation.
 
 `-shuffle` only reorders top-level tests and benchmarks; with `-run` matching a
 single test it changes nothing. For a regression with a known good revision:
 
 ```bash
 git bisect start <bad> <good>
-git bisect run go test -count=1 -run 'TestName$' ./pkg   # exit 0 = good, nonzero = bad
+git bisect run sh -c 'go build ./pkg || exit 125; go test -list "^TestName$" ./pkg | grep -qx TestName || exit 125; go test -count=1 -run "^TestName$" ./pkg'
 git bisect reset
 go version -m ./app-good | diff - <(go version -m ./app-bad)   # dependency versions actually built in
 ```
 
-Wrap the test in a script that exits 125 when the package does not build, so
-bisect skips that revision instead of marking it bad.
+Exit 125 skips a revision that does not build or lacks the test. Bare
+`go test -run` marks a build failure bad (exit 1) and a revision without the
+test good (`[no tests to run]`, exit 0), and bisect then names the wrong commit.
 
 `t.Context()` (Go 1.24+) is canceled when the test ends — a goroutine still
 running after that is what `-race` and goroutine-leak checks catch.

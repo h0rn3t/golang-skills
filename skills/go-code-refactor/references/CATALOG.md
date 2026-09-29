@@ -41,10 +41,14 @@ a type or a layer, and adding one needs a reason the report can carry.
   explicit, and a callee body containing `defer` is wrapped in an immediately
   invoked function literal so the deferred call still fires at the same point.
   It cannot inline through a dynamic dispatch (interface method, function value)
-  or inline a generic function.
-- **Tool**: `gopls codeaction -exec -kind=refactor.inline.call file.go:#offset`
-- **Risk**: low. With rename, one of the two gopls actions that is behavior
-  preserving by construction — it refuses rather than emit a wrong inline.
+  or a generic call whose type arguments are inferred: `Ident[int](2)` inlines,
+  `Ident(2)` is refused.
+- **Tool**: `gopls codeaction -exec -w -kind=refactor.inline.call file.go:#offset`;
+  without `-w` the CLI prints the edited file and changes nothing, and `-d` in
+  its place previews the diff.
+- **Risk**: low. The one gopls action that preserves behavior or refuses rather
+  than emit a wrong inline; rename guards compilation only
+  ([GOPLS.md](GOPLS.md#gotchas)).
 
 ## Change function declaration
 
@@ -60,8 +64,8 @@ a type or a layer, and adding one needs a reason the report can carry.
 - **Tool**:
 
 ```bash
-gopls codeaction -exec -kind=refactor.rewrite.removeUnusedParam file.go:#offset
-gopls codeaction -exec -kind=refactor.rewrite.moveParamLeft     file.go:#offset
+gopls codeaction -exec -w -kind=refactor.rewrite.removeUnusedParam file.go:#offset
+gopls codeaction -exec -w -kind=refactor.rewrite.moveParamLeft     file.go:#offset
 eg -t template.go -w ./...   # staged migration for an added parameter
 ```
 
@@ -93,7 +97,7 @@ eg -t template.go -w ./...   # staged migration for an added parameter
 - **Tool**:
 
 ```bash
-gopls codeaction -exec -kind=refactor.extract.toNewFile file.go:#start,#end
+gopls codeaction -exec -w -kind=refactor.extract.toNewFile file.go:#start-#end   # -d cannot preview a file not yet created
 ```
 
 - **Risk**: high across packages; low for a same-package file split.
@@ -108,7 +112,9 @@ gopls codeaction -exec -kind=refactor.extract.toNewFile file.go:#start,#end
   action at all — move the declarations and break the resulting cycle with a
   consumer-side interface ([STRUCTURAL.md](STRUCTURAL.md)) before reaching for
   anything larger.
-- **Tool**: `gopls codeaction -exec -kind=source.splitPackage file.go`
+- **Tool**: `source.splitPackage`, an interactive browser page opened from an
+  editor attached to gopls; the CLI form only prints a URL for a server that
+  exits with the command.
 - **Risk**: high. Target layout belongs to
   [go-packages](../../go-packages/SKILL.md).
 

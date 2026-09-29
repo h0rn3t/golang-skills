@@ -14,13 +14,13 @@ import (
 	"strings"
 )
 
-const version = "1.2.0"
+const version = "1.3.0"
 
 // standardMethods implement a standard interface whose documentation covers
-// them; revive exported skips the same set.
+// them. It is revive exported's commonMethods (v1.15.0); revive also skips
+// Len, Less, and Swap on a sort.Interface type, which this check reports.
 var standardMethods = map[string]bool{
-	"Error": true, "String": true, "Unwrap": true, "ServeHTTP": true,
-	"MarshalJSON": true, "UnmarshalJSON": true, "MarshalText": true, "UnmarshalText": true,
+	"Error": true, "Read": true, "ServeHTTP": true, "String": true, "Write": true, "Unwrap": true,
 }
 
 type missingDoc struct {
@@ -53,11 +53,24 @@ func usage() {
 USAGE
     bash check-docs.sh [options] [path]
 
+DESCRIPTION
+    Reports exported packages, types, functions, methods, constants, and
+    variables without a doc comment. Like revive's exported rule, it skips
+    package main, _test.go files, methods of unexported types, and the methods
+    Error, Read, ServeHTTP, String, Write, and Unwrap. Unlike the go-linting
+    gate, whose revive excludes internal/ and cmd/, it reports those too.
+    As go ./... does, it skips vendor and testdata directories and directories
+    or files whose names begin with "." or "_".
+
+    Exits 0 if everything is documented, 1 if symbols lack docs, 2 on a usage
+    error or when a file does not parse. The other files are still checked;
+    --json then adds "status":"parse_error" and a "parse_errors" list.
+
 OPTIONS
     -h, --help       Show this help message
     -v, --version    Show version
     --json           Output results as JSON
-    --strict         Also check unexported types/functions
+    --strict         Also check unexported names and package main
     --limit N        Show at most N results (default: all)
 `, version)
 }
@@ -311,11 +324,15 @@ func walkGoFiles(root string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() {
-			switch d.Name() {
-			case ".git", "vendor":
+		// Skip what go ./... skips (go help packages), but never the root.
+		if name := d.Name(); path != root && (name == "vendor" || name == "testdata" ||
+			strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")) {
+			if d.IsDir() {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if d.IsDir() {
 			return nil
 		}
 		if strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {

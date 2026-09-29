@@ -65,7 +65,8 @@ Guidelines:
 - If a line feels too long, **refactor** rather than just wrap
 - Don't split before indentation changes (function declarations, conditionals)
 - Don't split long strings (URLs) into multiple lines
-- When splitting, put all arguments on their own lines
+- Wrapping a signature or its arguments is
+  [go-functions](../../go-functions/SKILL.md#function-signatures)'s rule
 - If it's already as short as practical, let it remain long
 
 **Break by semantics, not length**:
@@ -81,18 +82,6 @@ helps more than wrapping lines.
 This advice applies equally to function length—there's no rule "never have a
 function more than N lines", but there is such a thing as too long. The solution
 is to change where function boundaries are, not to count lines.
-
-```go
-// Bad: Arbitrary mid-line break
-func (s *Store) GetUser(ctx context.Context,
-    id string) (*User, error) {
-
-// Good: All arguments on own lines
-func (s *Store) GetUser(
-    ctx context.Context,
-    id string,
-) (*User, error) {
-```
 
 ---
 

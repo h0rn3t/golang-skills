@@ -2,7 +2,7 @@
 
 > Sources: https://pkg.go.dev/context; source/golang-wiki/CodeReviewComments.md (Contexts)
 > Authority: advisory; `context` API semantics follow the package documentation
-> Last verified: 2026-09-10
+> Last verified: 2026-09-29
 
 Common patterns for deriving, checking, and propagating `context.Context`.
 
@@ -101,8 +101,12 @@ defer cancel()
 ctx = context.WithValue(ctx, requestIDKey, reqID)
 ```
 
-**Always `defer cancel()`** immediately after creating a derived context. This
-ensures resources are released even if the function returns early.
+`defer cancel()` immediately after creating a derived context. This ensures
+resources are released even if the function returns early. A context derived
+inside a loop is the exception: call `cancel()` at the end of each iteration
+(the [loop form](../SKILL.md#deriving-contexts)) or move the iteration into its
+own function with the `defer`, since a deferred call waits for the function to
+return.
 
 ### Nested Derivation
 
@@ -256,6 +260,7 @@ place to change the implementation.
 | Sharing context | Safe — contexts are immutable |
 | `context.Background()` | Only for non-request-specific code |
 | Default | Pass context even if you think you don't need it |
-| `defer cancel()` | Always defer immediately after `WithTimeout`/`WithCancel`/`WithDeadline` |
+| `defer cancel()` | Defer immediately after `WithTimeout`/`WithCancel`/`WithDeadline` outside a loop |
+| Derived context in a loop | Call its cancel at the end of each iteration, or the iteration in its own function with `defer cancel()` |
 | Value keys | Use unexported struct types, provide accessor functions |
 | Cancellation check | `ctx.Err()` before expensive ops; `select` on `ctx.Done()` in loops |

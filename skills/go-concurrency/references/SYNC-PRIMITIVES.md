@@ -3,7 +3,7 @@
 > Sources: source/uber-go-style/style.md (Zero-value Mutexes are Valid, Do not embed mutexes, Atomic); https://pkg.go.dev/sync/atomic
 > Authority: advisory
 > Minimum Go: typed atomics (`atomic.Int64`) 1.19; `sync.OnceFunc`/`OnceValue`/`OnceValues` 1.21
-> Last verified: 2026-09-13
+> Last verified: 2026-09-29
 
 Detailed patterns for mutexes and atomic operations — covering mutex embedding
 pitfalls and type-safe atomic access.
@@ -96,10 +96,12 @@ Preserve an existing `go.uber.org/atomic` convention or use it for a required
 operation the standard library does not provide.
 
 Prefer them in new code. In an existing struct, swapping a raw `int64` or
-`unsafe.Pointer` field for `atomic.Int64` or `atomic.Pointer[T]` changes the
-struct's size and layout, and `atomic.Value` differs from `atomic.Pointer[T]`
-(`Value` panics on a nil store and on a change of dynamic type): migrate a
-type as one change, not call by call.
+`unsafe.Pointer` field for `atomic.Int64` or `atomic.Pointer[T]` makes the
+struct no-copy: every by-value copy of it then fails `go vet` (`passes lock by
+value: … contains sync/atomic.noCopy`), and `go fix -atomictypes ./...` makes
+the swap without rewriting those copies. `atomic.Value` differs from
+`atomic.Pointer[T]` (`Value` panics on a nil store and on a change of dynamic
+type): migrate a type as one change, not call by call.
 
 ---
 

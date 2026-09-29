@@ -30,8 +30,9 @@ the rest. The compiler gates most **language** features by the directive as
 well: `for i := range n` in a `go 1.21` module, `new(expr)` below 1.26, and a
 promoted field in a keyed literal or a generic method below 1.27 all fail with
 `requires go1.NN or later (-lang was set to go1.MM; check go.mod)` (verified
-with go1.27.1). Two are not gated: function-type inference in a conversion
-(1.27) and self-referential constraints (1.26) compile at an older directive
+with go1.27.1). Two are not gated: function-type inference in a conversion or
+a composite-literal element (1.27) and self-referential constraints (1.26)
+compile at an older directive
 on a 1.27 toolchain and fail only on a real older toolchain, so verify code
 that depends on them on the CI toolchain.
 
@@ -54,9 +55,9 @@ write-time list of forms per version is
 |---|---|---|
 | Generic methods (`func (s *S) Get[T any](...)`) | 1.27 | Methods may declare their own type parameters |
 | Promoted fields in keyed struct literals | 1.27 | Direct initialization through embedded value fields; `go fix` analyzer `embedlit`; pointer embedding and overlapping enclosing/promoted fields are excluded |
-| Function type inference in all assignments and conversions | 1.27 | Typed-variable assignment already supported inference in 1.21 |
+| Function type inference in all assignments, conversions, and composite-literal elements | 1.27 | Typed-variable assignment already supported inference in 1.21; conversions and composite-literal elements (`S{f: id}`) are not gated by the `go` directive — go1.26.0 rejects them with `cannot use generic function id without instantiation` |
 | Trailing comma in type parameter lists | 1.18 | `[T any,]`; part of the original generics syntax |
-| `new(expr)` — allocate and initialize in one expression | 1.26 | `p := new(compute())`; `go fix` analyzer `newexpr` |
+| `new(expr)` — allocate and initialize in one expression | 1.26 | `p := new(compute())`; `go fix` analyzer `newexpr` rewrites `&v` pointer helpers and their calls |
 | Generic type aliases | 1.24 | `type Set[T comparable] = map[T]struct{}` |
 | `tool` directive in `go.mod`, run with `go tool <name>` | 1.24 | Tracked tool dependencies; replaces a `tools.go` of blank imports |
 | Per-iteration loop variables | 1.22 | The `x := x` capture line is dead code; `go fix` analyzer `forvar` removes it |
@@ -91,7 +92,7 @@ scope for this repository.
 
 | API | Replaces |
 |---|---|
-| `errors.AsType[T](err) (T, bool)` | `errors.As` with a declared target variable; `go fix` analyzer `errorsastype` |
+| `errors.AsType[T](err) (T, bool)` | `errors.As` with a declared target variable; the `go fix` analyzer `errorsastype` ships with the 1.27 toolchain, not 1.26 |
 | `slog.NewMultiHandler(handlers...)` | Hand-written fan-out handlers |
 | `testing.TB.ArtifactDir()` | Ad-hoc temp dirs for test output that must survive the run |
 | `bytes.Buffer.Peek` | Read-then-unread dances |
@@ -104,7 +105,7 @@ scope for this repository.
 | `testing/synctest.Test`, `synctest.Wait` | Sleep-based waits in concurrency tests |
 | `slog.GroupAttrs(key, attrs...)` | `slog.Group` with `any` varargs |
 | `http.NewCrossOriginProtection()` | Hand-rolled CSRF origin checks |
-| `runtime.SetDefaultGOMAXPROCS()` | Manual `GOMAXPROCS` math; 1.25 makes the default cgroup-aware |
+| `runtime.SetDefaultGOMAXPROCS()` | Manual `GOMAXPROCS` math; 1.25 makes the default cgroup-aware when the main module's `go` directive is 1.25+ (an older directive builds with `containermaxprocs=0`) |
 | `testing.TB.Output()`, `TB.Attr()` | `fmt.Println` in tests, untyped metadata in failure text |
 
 ### Go 1.24

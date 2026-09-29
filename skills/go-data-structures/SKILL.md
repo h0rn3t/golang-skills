@@ -21,11 +21,11 @@ What do you need?
 ├─ Ordered collection of items
 │  ├─ Fixed size known at compile time → Array [N]T
 │  └─ Dynamic size → Slice []T
-│     ├─ Know approximate size? → make([]T, 0, capacity)
+│     ├─ Final size known at the call site? → make([]T, 0, n)
 │     └─ Unknown size → var s []T (nil); allocate when the contract needs [] under encoding/json v1
 ├─ Key-value lookup
 │  └─ Map map[K]V
-│     ├─ Know approximate size? → make(map[K]V, capacity)
+│     ├─ Final size known at the call site? → make(map[K]V, n)
 │     └─ Need a set? → map[T]struct{} (zero-size values)
 └─ Need to pass to a function?
    └─ Copy at the boundary if the caller might mutate it

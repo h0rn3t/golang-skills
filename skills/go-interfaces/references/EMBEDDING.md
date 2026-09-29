@@ -2,7 +2,7 @@
 
 > Sources: source/effective-go/effective_go.html (Embedding); source/uber-go-style/style.md (Avoid Embedding Types in Public Structs)
 > Authority: advisory
-> Last verified: 2026-09-10
+> Last verified: 2026-09-29
 
 Go uses embedding for composition instead of inheritance. Embedding promotes
 the inner type's methods to the outer type, satisfying interfaces automatically.
@@ -18,8 +18,8 @@ type ReadWriter interface {
 }
 ```
 
-A `ReadWriter` can do what a `Reader` does *and* what a `Writer` does. Only
-interfaces can be embedded within interfaces.
+A `ReadWriter` can do what a `Reader` does *and* what a `Writer` does. Outside
+constraints, only interfaces can be embedded within interfaces.
 
 ## Struct Embedding
 
@@ -34,7 +34,9 @@ type ReadWriter struct {
 ```
 
 With embedding, `bufio.ReadWriter` satisfies `io.Reader`, `io.Writer`, and
-`io.ReadWriter` automatically.
+`io.ReadWriter` automatically. Publishing both method sets is the standard
+library's choice for `bufio`, not this pack's default for an exported struct
+([Don't Embed in Public Structs](#dont-embed-in-public-structs)).
 
 Mix embedded and named fields:
 
@@ -57,14 +59,14 @@ The type is unexported: in an exported `Job`, the embed would publish every
 Define a method on the outer type to override the promoted method:
 
 ```go
-func (job *Job) Printf(format string, args ...any) {
-    job.Logger.Printf("%q: %s", job.Command, fmt.Sprintf(format, args...))
+func (j *job) Printf(format string, args ...any) {
+    j.Logger.Printf("%q: %s", j.command, fmt.Sprintf(format, args...))
 }
 ```
 
-The outer method takes precedence — calls to `job.Printf(...)` invoke the
+The outer method takes precedence — calls to `j.Printf(...)` invoke the
 outer method, while the embedded method is still accessible via
-`job.Logger.Printf(...)`.
+`j.Logger.Printf(...)`.
 
 ## Embedding vs Subclassing
 

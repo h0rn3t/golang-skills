@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -49,7 +50,7 @@ func open(t *testing.T, failOn string) (*OrderStore, *recorder) {
 	t.Helper()
 	rec := &recorder{failOn: failOn}
 	registered++
-	name := "recorder" + string(rune('a'+registered))
+	name := "recorder" + strconv.Itoa(registered)
 	sql.Register(name, rec)
 	db, err := sql.Open(name, "")
 	if err != nil {

@@ -21,7 +21,7 @@ DESCRIPTION
     A marker that names no Ceiling and no Fix is tagged no-trigger — those are
     the ones that rot. Test files are scanned too; vendor/ is not.
 
-    Exits 0 when every marker names an upgrade path, 1 when at least one is
+    Exits 0 when every marker names a Ceiling or a Fix, 1 when at least one is
     no-trigger, 2 on usage or environment error.
 
 OPTIONS
@@ -212,7 +212,7 @@ else
         echo "  ... and $((TOTAL - LIMIT)) more (use --limit to adjust)"
     fi
     echo ""
-    echo "Total: $TOTAL marker(s), $NO_TRIGGER with no upgrade path"
+    echo "Total: $TOTAL marker(s), $NO_TRIGGER with no ceiling and no fix"
 fi
 
 if [[ $NO_TRIGGER -gt 0 ]]; then

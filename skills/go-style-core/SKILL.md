@@ -38,8 +38,9 @@ and repository instructions take precedence over these skill defaults. Read
 configuration, and neighboring code before editing. Skills do not authorize
 extra work or require renewed approval for work the user already authorized.
 
-- Assertion style, error-wrapping style, logger, test layout, and the `_`
-  global prefix follow the nearest existing code.
+- Assertion style, error-wrapping style, logger, and test layout follow the
+  nearest existing code. The `_` global prefix is
+  [go-naming](../go-naming/SKILL.md#where-review-sends-names-back)'s rule.
 - Introduce a *convention* the guide prefers only in new code with no neighbor
   to match, or as a whole-package migration the user asked for. An older Go
   idiom in the neighbor is not a convention:

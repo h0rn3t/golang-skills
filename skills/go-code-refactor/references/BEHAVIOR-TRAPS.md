@@ -30,10 +30,10 @@ These are why a Go refactor needs verification rather than confidence.
 ## nil vs empty slices and maps
 
 `var s []string` and `s := []string{}` behave identically for `len`, `append`,
-and `range` — but not on the wire:
+and `range` — but not on the wire under `encoding/json` v1:
 
 ```go
-json.Marshal(struct{ Items []string }{nil})        // {"Items":null}
+json.Marshal(struct{ Items []string }{nil})        // v1 {"Items":null}; encoding/json/v2 {"Items":[]}
 json.Marshal(struct{ Items []string }{[]string{}}) // {"Items":[]}
 ```
 
@@ -213,7 +213,7 @@ bite most often:
 | `omitempty` → `omitzero` | Changes which fields appear in JSON |
 | `fmt.Sprintf("%s:%d", host, port)` → `net.JoinHostPort` | Differs for IPv6 — a bug fix, not a swap |
 | `os.Open` → `os.Root` | Starts rejecting paths that escape the directory |
-| `strings.Split` → `strings.SplitSeq` | Equivalent |
+| `strings.Split` → `strings.SplitSeq` | Equivalent only when the slice is ranged once as `for _, v := range` and never indexed or kept; `for i := range` binds `i` to the element |
 | `strings.Split` → `strings.Lines` | **Not** — `Lines` keeps the trailing newline |
 | `sort.Slice` → `slices.SortFunc` | Keeps instability |
 | `sort.Slice` → `slices.SortStableFunc` | Changes order of equal keys |

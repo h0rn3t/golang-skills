@@ -145,8 +145,9 @@ def hints(path, text):
     if path.endswith("_test.go"):
         return ["go-testing"]
     out = [owner for owner, pat in OWNER_PATTERNS if re.search(pat, text, re.M)]
-    # Mirror the go-code HTTP row: handlers always load go-error-handling too.
-    if "go-http" in out and "go-error-handling" not in out:
+    # Mirror the go-code HTTP and SQL rows: handlers and queries always load
+    # go-error-handling too.
+    if ("go-http" in out or "go-database" in out) and "go-error-handling" not in out:
         out.append("go-error-handling")
     return out
 '

@@ -84,9 +84,10 @@ Consider these options in order of preference:
 Context values are appropriate for:
 - Request IDs and trace IDs
 - Authentication/authorization info that flows with requests
-- Deadlines and cancellation signals
 
 Context values are **not** appropriate for:
+- Deadlines and cancellation signals — derive them with `WithTimeout`,
+  `WithDeadline`, or `WithCancel`, never `WithValue`
 - Optional function parameters
 - Data that could be passed explicitly
 - Configuration that doesn't vary per-request
@@ -97,11 +98,23 @@ Context values are **not** appropriate for:
 
 ### Deriving Contexts
 
-Always `defer cancel()` immediately after creating a derived context:
+`defer cancel()` immediately after creating a derived context. Inside a loop a
+`defer` waits for the function to return, so every iteration's context stays
+live until then: cancel at the end of each iteration, or move the iteration
+into its own function that defers `cancel()`.
 
 ```go
 ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 defer cancel()
+
+for _, item := range items {
+    itemCtx, cancelItem := context.WithTimeout(ctx, time.Second)
+    err := send(itemCtx, item)
+    cancelItem() // per iteration, not deferred
+    if err != nil {
+        return err
+    }
+}
 ```
 
 ### Checking Cancellation
@@ -144,6 +157,16 @@ one.
 
 `context.AfterFunc(ctx, f)` runs `f` once `ctx` is done — the replacement for
 a goroutine that only waits on `ctx.Done()` to close or unblock something.
+`f` stays registered on `ctx` until `ctx` ends or `stop` is called, so call
+`stop` when the work ends first:
+
+```go
+stop := context.AfterFunc(ctx, func() { conn.Close() })
+defer stop()
+```
+
+Omit `stop` only when `ctx` ends with this work and `f` should run then.
+
 `context.WithoutCancel(ctx)` keeps the values but drops cancellation; use it
 for work that must outlive the request (audit log, cleanup) and give that work
 its own timeout.

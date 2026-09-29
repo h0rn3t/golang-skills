@@ -6,8 +6,9 @@ description: Use when hardening Go API boundaries or checking slice/map copies, 
 # Go Defensive Programming Patterns
 
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `url.URL.Clone` and
-> `url.Values.Clone` require Go 1.27+; `crypto/rand.Text` and `os.Root` Go
-> 1.24+; `slices.Clone`/`maps.Clone` Go 1.21+.
+> `url.Values.Clone` require Go 1.27+; `Root.ReadFile` and `Root.MkdirAll` Go
+> 1.25+; `crypto/rand.Text` and `os.Root` Go 1.24+; `slices.Clone`/`maps.Clone`
+> Go 1.21+.
 
 ## Resource Routing
 
@@ -24,12 +25,12 @@ When hardening code at API boundaries, check in this order:
 
 ```
 Reviewing an API boundary?
-├─ 1. Error handling     → Return errors; don't panic (see go-error-handling)
+├─ 1. Error handling     → Return errors; panic only on a programming error (below)
 ├─ 2. Input validation   → Copy slices/maps received from callers
 ├─ 3. Output safety      → Copy slices/maps before returning to callers
 ├─ 4. Resource cleanup   → Use defer for Close/Unlock/Cancel
 ├─ 5. Interface checks   → Route compile-time assertions to go-interfaces
-├─ 6. Time correctness   → Use time.Time and time.Duration, not int/float
+├─ 6. Time correctness   → time.Time/time.Duration in process; wire spans name a unit
 ├─ 7. Enum safety        → Zero value must mean unset (see go-style-core)
 ├─ 8. Crypto safety      → crypto/rand for keys, never math/rand
 └─ 9. Path safety        → os.Root for caller-supplied paths
@@ -95,10 +96,25 @@ p.count++
 return p.count
 ```
 
-Defer overhead is negligible. Place `defer f.Close()` immediately after
-`os.Open` for clarity. Arguments to deferred functions are evaluated when
-`defer` executes, not when the function runs. Multiple defers execute in
-LIFO order.
+`Close` on a written file can report a write that failed late, so its error
+joins the function's result through a named `err`:
+
+```go
+func save(name string, r io.Reader) (err error) {
+    f, err := os.Create(name)
+    if err != nil {
+        return err
+    }
+    defer func() { err = errors.Join(err, f.Close()) }()
+    _, err = io.Copy(f, r)
+    return err
+}
+```
+
+A file that is only read takes `os.ReadFile` or `root.ReadFile` when its whole
+content fits in memory, and the same deferred `errors.Join` when it is
+streamed. Arguments to deferred functions are evaluated when `defer`
+executes, not when the function runs. Multiple defers execute in LIFO order.
 
 ## Struct Field Tags
 
@@ -126,9 +142,12 @@ owns the `iota` form and the exception where zero is the sensible default.
 
 ## Time and Embedding
 
-Use `time.Time` and `time.Duration` for instants and spans, never raw
-integers ([TIME-ENUMS-TAGS.md](references/TIME-ENUMS-TAGS.md)). Embedding a
-type in a public struct exports its whole method set —
+Use `time.Time` and `time.Duration` for instants and spans in process, never
+raw integers. On the wire, `encoding/json/v2` (Go 1.27+) has no default
+representation for `time.Duration` and fails to marshal it, so a wire field is
+an integer with the unit in its name or a string parsed with
+`time.ParseDuration` ([TIME-ENUMS-TAGS.md](references/TIME-ENUMS-TAGS.md#json-fields)).
+Embedding a type in a public struct exports its whole method set —
 [go-interfaces](../go-interfaces/SKILL.md#embedding) owns that rule.
 
 ## Avoid Mutable Globals
@@ -158,48 +177,121 @@ token := rand.Text() // crypto/rand: at least 128 bits, base32
 ```
 
 For text output, use `crypto/rand.Text` directly, or encode random bytes
-with `encoding/hex` or `encoding/base64`.
+with `encoding/hex` or `encoding/base64`. For raw key material,
+`rand.Read(buf)` has no error to check: it never returns one, and it crashes
+the program if the OS source fails.
 
 ## Confine Filesystem Access
 
-When a path comes from a caller, request, or config file, open it through
-`os.Root` (Go 1.24+) instead of `filepath.Join` + `os.Open`. `Root` resolves
-every component inside the directory, so `../../etc/passwd` and a symlink
-pointing out of the tree both fail instead of escaping.
+When a path comes from a caller, request, config file, or archive entry,
+open it through `os.Root` (Go 1.24+) instead of `filepath.Join` + `os.Open`.
+`Root` resolves every component inside the directory, so `../../etc/passwd`
+and a symlink pointing out of the tree both fail instead of escaping. A
+server opens the root once at startup and keeps it on the struct that serves
+requests:
 
 ```go
-root, err := os.OpenRoot("/srv/uploads")
-if err != nil { return err }
-defer root.Close()
+type server struct {
+    uploads *os.Root // opened once, held for the server's lifetime
+}
 
-f, err := root.Open(userSuppliedName) // cannot escape /srv/uploads
+func newServer(dir string) (*server, error) {
+    uploads, err := os.OpenRoot(dir)
+    if err != nil {
+        return nil, err
+    }
+    return &server{uploads: uploads}, nil
+}
+
+func (s *server) upload(name string) ([]byte, error) {
+    return s.uploads.ReadFile(name) // cannot escape dir
+}
 ```
 
-`filepath.Clean` is **not** a substitute — it does not resolve symlinks.
+`filepath.Clean` is **not** a substitute: it keeps a leading `..`, so
+`filepath.Join(dir, filepath.Clean("../../etc/passwd"))` is `/etc/passwd`. A
+name that is stored or compared but never opened — an object-store key, a
+manifest entry — is checked with `filepath.IsLocal(name)`, which is lexical:
+a name that is opened still goes through the root.
+
+A subprocess is outside the root, because it resolves a name itself. Open the
+file through the root and hand the child the open file (`cmd.Stdin`,
+`cmd.ExtraFiles`), kept open until the child exits; a program that needs a
+path needs a trusted staging directory or OS isolation, and `cmd.Dir`
+confines nothing.
+
+### Archive Entries
+
+An entry's name, type, and size are all input. Create parents with
+`root.MkdirAll`, never `os.MkdirAll(filepath.Join(dest, dir))`, which runs
+outside the root; create no link an entry names; and cap the total size:
+
+```go
+func extract(root *os.Root, tr *tar.Reader, limit int64) error {
+    for {
+        hdr, err := tr.Next()
+        if errors.Is(err, io.EOF) {
+            return nil
+        }
+        if err != nil {
+            return err
+        }
+        switch hdr.Typeflag {
+        case tar.TypeReg: // extracted below
+        case tar.TypeSymlink, tar.TypeLink:
+            return fmt.Errorf("tar entry %q: links are not extracted", hdr.Name)
+        default:
+            continue // directories come from MkdirAll; devices and pax headers are skipped
+        }
+        if limit -= hdr.Size; limit < 0 {
+            return errors.New("archive exceeds the size limit")
+        }
+        if err := root.MkdirAll(path.Dir(hdr.Name), 0o750); err != nil {
+            return err // "../x" and "/x" escape the root and fail here
+        }
+        f, err := root.Create(hdr.Name)
+        if err != nil {
+            return err
+        }
+        _, err = io.Copy(f, tr)
+        if err = errors.Join(err, f.Close()); err != nil {
+            return err
+        }
+    }
+}
+```
+
+An `archive/zip` entry takes the same three checks: `f.Mode().IsRegular()`,
+`f.UncompressedSize64` against the cap, and the name through the root.
 
 ---
 
 ## Panic and Recover
 
-Use `panic` only for truly unrecoverable situations; library functions avoid
-it. Never expose a panic across a package boundary — convert it to an error;
-panicking in `init()` is acceptable only when a library cannot set itself up;
-recover isolates panics in server goroutines, and `net/http` already does it
-per connection. The package-internal recover and its traps are in
+An error caused by input or the environment — a malformed request, a missing
+file, a refused connection — never crosses a package boundary as a panic:
+return it. A programming error may cross as one: an argument the API's
+documentation forbids, a `MustX` call at initialization, the unreachable
+`default` of a switch over a closed enum. A panic a package raises for its own
+control flow is recovered at its boundary and returned as an error.
+`net/http` recovers only the goroutine running the handler, so a goroutine you
+start recovers in its own deferred function or its panic ends the process.
+The patterns and their traps are in
 [PANIC-RECOVER.md](references/PANIC-RECOVER.md).
 
 ## Must Functions
 
-`Must` functions panic on error — use them **only** during program
-initialization (`regexp.MustCompile`, `template.Must` on package-level values)
-where failure means the program cannot run; never on request-time input.
+`Must` functions panic on error — use them **only** at program
+initialization on a value fixed when the program is built (`regexp.MustCompile`
+on a pattern literal, `template.Must` on an embedded template), so a failure is
+a bug; never on a file read at run time, the environment, or request-time input.
 [MUST-FUNCTIONS.md](references/MUST-FUNCTIONS.md) has the shape and the exceptions.
 
 ---
 
 ## Related Skills
 
-- [go-error-handling](../go-error-handling/SKILL.md): return versus panic, wrapping at boundaries.
+- [go-error-handling](../go-error-handling/SKILL.md): wrapping, sentinels, and typed errors at boundaries; this skill owns panic versus return.
 - [go-concurrency](../go-concurrency/SKILL.md): shared state under mutexes, atomics, channels.
 - [go-interfaces](../go-interfaces/SKILL.md): compile-time interface assertions.
 - [go-data-structures](../go-data-structures/SKILL.md): slice and map internals, pointer aliasing.

@@ -46,9 +46,16 @@ code version, and a check that could disprove them.
    is not evidence of deployed code. Compare a working case with the same input.
    For a regression, name the last working revision or deployment and diff
    what changed up to the first failing one: source, `go.mod`, effective
-   config, schema. When the diff is too wide to read, bisect it
-   (`git bisect run go test -count=1 -run '^TestName$' ./pkg`); compare
-   dependency versions with `go version -m` on both binaries, not on the checkout.
+   config, schema. When the diff is too wide to read, bisect it; exit 125
+   skips a revision that does not build or lacks the test, which a bare
+   `go test` would call bad or good:
+
+   ```bash
+   git bisect run sh -c 'go build ./pkg || exit 125; go test -list "^TestName$" ./pkg | grep -qx TestName || exit 125; go test -count=1 -run "^TestName$" ./pkg'
+   ```
+
+   Compare dependency versions with `go version -m` on both binaries, not on
+   the checkout.
 3. **Locate the first divergence.** Follow the relevant execution/data path or
    capture the artifact below. Inspect values at boundaries before changing code.
    If no reproduction exists, use historical evidence or propose the smallest
@@ -179,7 +186,7 @@ Start with the affected package/test and preserve the failing seed and environme
 
 ```bash
 go test -count=20 -failfast -run '^TestName$' ./pkg   # focused repeat
-go test -count=5 -shuffle=on -v ./pkg                  # order dependence; prints the seed
+for i in 1 2 3 4 5; do go test -count=1 -shuffle=on -v ./pkg || break; done   # order dependence; a new seed per run
 ```
 
 `-shuffle` reorders top-level tests, so it does nothing when `-run` matches one.

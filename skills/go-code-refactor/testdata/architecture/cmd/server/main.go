@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -21,7 +22,7 @@ func main() {
 	}
 }
 
-func run(ctx context.Context, args []string) error {
+func run(ctx context.Context, args []string) (err error) {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
 	dsn := "postgres://localhost/shop?sslmode=disable"
@@ -32,7 +33,7 @@ func run(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer db.Close()
+	defer func() { err = errors.Join(err, db.Close()) }()
 	srv := &http.Server{
 		Addr:              ":8080",
 		Handler:           app.New(db).Handler(),
@@ -41,14 +42,14 @@ func run(ctx context.Context, args []string) error {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	go func() {
-		<-ctx.Done()
-		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = srv.Shutdown(shutdown)
-	}()
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	errCh := make(chan error, 1) // buffered: the goroutine exits even after run returns
+	go func() { errCh <- srv.ListenAndServe() }()
+	select {
+	case err := <-errCh:
 		return err
+	case <-ctx.Done():
 	}
-	return nil
+	shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return srv.Shutdown(shutdown)
 }

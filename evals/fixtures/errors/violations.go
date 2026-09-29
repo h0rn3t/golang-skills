@@ -44,3 +44,12 @@ func FetchName() (string, error) {
 func readFile(_ string) error { return nil }
 func check(_ string) error    { return errors.New("not found") }
 func fetch(_ int) error       { return nil }
+
+func SyncRecord(id int) error {
+	switch err := fetch(id); {
+	case err != nil:
+		log.Printf("sync record %d: %v", id, err)
+		return err
+	}
+	return nil
+}

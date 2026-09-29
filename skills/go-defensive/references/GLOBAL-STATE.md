@@ -2,7 +2,7 @@
 
 > Sources: source/google-go-styleguide/best-practices.md (Global state); source/effective-go/effective_go.html (Initialization)
 > Authority: advisory
-> Last verified: 2026-09-10
+> Last verified: 2026-09-29
 
 Global state makes programs harder to test, reason about, and maintain.
 Dependency injection is the preferred alternative, but some global state
@@ -13,7 +13,7 @@ is acceptable when used carefully.
 Not all package-level variables are harmful. Global state is appropriate when
 it is **truly process-wide** and **not worth injecting**:
 
-- **Default instances** — `http.DefaultClient`, `log.Default()`, `flag.CommandLine`
+- **Default instances** — `slog.Default()`, `log.Default()`, `flag.CommandLine`
 - **Compiled-once values** — `regexp.MustCompile(...)` at package level
 - **Registries** — `database/sql.Register`, `image.RegisterFormat`
 - **Singleton infrastructure** — a process-wide metric collector or trace exporter
@@ -73,7 +73,7 @@ logger.Info("test message")
 
 Standard library examples of this pattern:
 - `log.New()` + `log.Default()` + `log.Println()`
-- `http.NewServeMux()` + `http.DefaultServeMux`
+- `slog.New()` + `slog.Default()` + `slog.Info()`
 - `flag.NewFlagSet()` + `flag.CommandLine`
 
 ## Dependency Injection as the Preferred Alternative
@@ -159,5 +159,5 @@ runs inside `synctest.Test`, whose fake clock starts at midnight UTC
 | Compiled-once regex or template | Package-level `var` with `MustCompile` |
 | Registry (database drivers, codecs) | Package-level `Register()` function |
 | Configurable behavior | Dependency injection via constructor |
-| Time-dependent logic | Inject `func() time.Time` |
+| Time-dependent logic | Pass `now time.Time`; sleeping code → `synctest.Test` |
 | Anything tests need to vary | Do not use global state |

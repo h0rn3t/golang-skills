@@ -108,7 +108,7 @@ If MCP fails, use LSP/CLI and report the limit. Reuse results; avoid unchanged f
    ```text
    <what the change does, in one sentence>
    navigation: gopls CLI
-   checks: gofmt pass · vet pass · test pass · lint skipped (no config)
+   checks: gofmt pass · vet pass · test -race pass · lint pass
    added package-level declarations: 1 — parseLimit: handleList, handleSearch
    <one sentence per material gap, or nothing>
    ```
@@ -167,8 +167,8 @@ a request with no body — not from an empty literal: `[]T{}` already has the
 shape the case is meant to prove, and `slices.Clone` of nil is nil. A case
 for a list that may come back empty compares the body text with `[]`
 (`strings.TrimSpace(rec.Body.String())`), never a decoded value:
-`json.Unmarshal` reads `null` into an empty slice, and the case passes on the
-one body the contract forbids. A clause written as a class — "any other method", "any other value", "nothing else" —
+`json.Unmarshal` decodes `null` to a nil slice and `[]` to an empty one, both
+of length zero, and the case passes on the one body the contract forbids. A clause written as a class — "any other method", "any other value", "nothing else" —
 takes its case from the member a library default treats unlike the rest,
 because that member is where the class leaks. For "any method other than
 `GET`" that member is `HEAD`, and the case is one `HEAD` request per `GET`
@@ -220,14 +220,9 @@ This applies to the entry point, anything it calls, and the contract test.
   acceptable. [Reach For What Go Ships](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships)
   lists replacements; [go-data-structures](../go-data-structures/SKILL.md)
   owns collection semantics.
-- **New JSON is `encoding/json/v2`.** A package with no `encoding/json`
-  import writes `import json "encoding/json/v2"` (Go 1.27): `json.Marshal(doc)`
-  and `json.MarshalWrite(w, doc)` encode a nil slice as `[]` and a nil map
-  as `{}`, so the body carries no `make([]T, 0, n)`, `[]T{}`, or
-  `slices.AppendSeq` for the wire, and the empty case built from nil passes
-  as written. A package already decoding with v1 keeps v1, where nil is
-  `null` and `[]` is `make([]T, 0, n)`;
-  [JSON-V2.md](../go-http/references/JSON-V2.md#choose-the-io-api) owns the API.
+- **New JSON is `encoding/json/v2`.** A package with no `encoding/json` import writes
+  `import json "encoding/json/v2"` (Go 1.27) and no `make([]T, 0, n)` for the wire; one on v1 keeps v1.
+  [JSON-V2.md](../go-http/references/JSON-V2.md#defaults-that-can-change-the-contract) owns what each writes for nil.
 - **Neighbors set the register.** Where the package has code, match its
   naming and comment density ([House Style](../go-style-core/SKILL.md#house-style-wins)).
   Not its Go version: the current form at the module's `go` directive is
@@ -250,9 +245,9 @@ line a reviewer sends back:
   stays.
 - A field, header, or option set to what the library uses when it is
   absent: `MaxHeaderBytes: 1 << 20` is `http.DefaultMaxHeaderBytes`,
-  `Content-Type: text/plain` before `w.Write([]byte("ok"))` is what the
-  writer sniffs, and `false`, `0`, `nil`, or `""` in a keyed literal is the
-  zero value. The line says nothing its absence does not.
+  `Content-Type: text/plain; charset=utf-8` before `w.Write([]byte("ok"))` is
+  what the writer sniffs, and `false`, `0`, `nil`, or `""` in a keyed literal
+  is the zero value. The line says nothing its absence does not.
 - A failure branch, or a `fmt.Errorf` wrap, on a call that cannot fail for a
   value the function built itself — `json.Marshal` of its own document. The
   error is returned as it is (`return json.Marshal(doc)`). A write whose
@@ -296,10 +291,10 @@ written:
    call site says more than its body would, and the body left behind reads
    top to bottom without it.
 4. It is a step at another level of abstraction than the rest of the
-   function — decoding a request body beside the business decision, building
-   SQL beside the domain rule — even with one call site; the report names its
-   caller and this rule. A helper whose name only restates two or three lines
-   of its body is not such a step: those lines stay inline.
+   function — building SQL beside the domain rule — even with one call site;
+   the report names its caller and this rule. A helper whose name only
+   restates two or three lines of its body is not such a step: those lines
+   stay inline.
 
 A function literal bound to a name — `writeJSON := func(w http.ResponseWriter,
 v any) {...}` — that captures nothing from the function around it is a
@@ -383,7 +378,7 @@ not require `go-naming` or `go-documentation`.
 | untrusted input, secrets, tokens, TLS, cookies | [go-security](../go-security/SKILL.md) | [go-defensive](../go-defensive/SKILL.md) |
 | retries, idempotency, circuit breakers, overload, backpressure, fallback | [go-resilience](../go-resilience/SKILL.md) | the HTTP, SQL, context, or concurrency owner when its mechanics change |
 | ticket, wrong result, environment regression, panic, hang, leak, flaky test; cause unknown | [go-troubleshooting](../go-troubleshooting/SKILL.md) | the owner of the mechanism once found |
-| JSON and other wire formats, struct tags | [go-defensive](../go-defensive/SKILL.md) (tags) | [go-packages](../go-packages/SKILL.md) (`json/v2` on the ladder) |
+| JSON and other wire formats, struct tags | [go-http](../go-http/SKILL.md) ([JSON-V2.md](../go-http/references/JSON-V2.md)) | [go-defensive](../go-defensive/SKILL.md) (tags) |
 | CLI entry point, flags, `main`/`run` | [go-packages](../go-packages/SKILL.md) | — |
 | a list of findings from a review or audit | the rows the findings name | per area, not per task |
 

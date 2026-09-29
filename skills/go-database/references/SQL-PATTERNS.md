@@ -30,7 +30,8 @@ func openDB(ctx context.Context, dsn string) (*sql.DB, error) {
 ```
 
 `sql.Open` validates the DSN and returns; the first real connection happens on
-`PingContext`. Close the pool from `run()` with `defer db.Close()`.
+`PingContext`. Close the pool from `run()`, whose named `err` result takes the
+close error: `defer func() { err = errors.Join(err, db.Close()) }()`.
 
 ## The repository boundary
 

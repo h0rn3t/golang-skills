@@ -6,6 +6,7 @@ package app
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/http"
 
 	billingsvc "example.com/shop/internal/billing/services"
@@ -49,7 +50,7 @@ func (r orderReader) Summary(ctx context.Context, id string) (billingsvc.OrderSu
 }
 
 func mapNotFound(err error) error {
-	if err == order.ErrNotFound {
+	if errors.Is(err, order.ErrNotFound) {
 		return billingsvc.ErrOrderUnknown
 	}
 	return err

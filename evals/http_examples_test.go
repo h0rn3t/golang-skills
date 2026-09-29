@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -59,6 +60,25 @@ func TestStoreErrors(t *testing.T) {
   }
  }
 }
+func TestClientGone(t *testing.T) {
+ ctx, cancel := context.WithCancel(t.Context())
+ cancel()
+ s := &Server{store: &store{err: context.Canceled}}
+ w := httptest.NewRecorder()
+ s.handleCreateUser(w, httptest.NewRequestWithContext(ctx, "POST", "/users", strings.NewReader("{\"name\":\"ok\"}")))
+ if w.Body.Len() != 0 || w.Header().Get("Content-Type") != "" {
+  t.Errorf("handler after client disconnect wrote status=%d body=%q, want nothing", w.Code, w.Body.String())
+ }
+ dctx, dcancel := context.WithTimeout(t.Context(), 0)
+ defer dcancel()
+ <-dctx.Done()
+ s = &Server{store: &store{err: context.DeadlineExceeded}}
+ w = httptest.NewRecorder()
+ s.handleCreateUser(w, httptest.NewRequestWithContext(dctx, "POST", "/users", strings.NewReader("{\"name\":\"ok\"}")))
+ if w.Code != 500 || w.Body.Len() == 0 {
+  t.Errorf("handler under an expired request deadline: status=%d body=%q, want a written 500", w.Code, w.Body.String())
+ }
+}
 func TestBody(t *testing.T) {
  for _, tt := range []struct { body string; status, calls int }{
   {"{\"name\":\"ok\"}", 201, 1},
@@ -82,6 +102,50 @@ func TestBody(t *testing.T) {
     t.Errorf("handler: status=%d calls=%d, want %d and %d", w.Code, s.store.calls, tt.status, tt.calls)
    }
   })
+ }
+}
+`)
+}
+
+// The HEAD-as-405 recipe runs on the routes the Routing example registers:
+// every method a path does not serve is a 405 whose Allow lists what it does
+// serve, HEAD included, and the served methods still reach their handlers.
+func TestHTTPExampleHeadNotAllowed(t *testing.T) {
+	routing := exampleBlock(t, "skills/go-http/SKILL.md", "## Routing (Go 1.22+)")
+	recipe := exampleBlock(t, "skills/go-http/SKILL.md", "Only when the contract makes `HEAD` a 405")
+	handler := regexp.MustCompile(`s\.handle\w+`)
+	var routes []string
+	for _, line := range strings.Split(routing, "\n") {
+		if strings.HasPrefix(line, "mux.HandleFunc(") {
+			routes = append(routes, handler.ReplaceAllString(line, "served"))
+		}
+	}
+	decl, registrations, ok := strings.Cut(recipe, "\nmux.HandleFunc(")
+	if !ok || len(routes) == 0 {
+		t.Fatalf("routing example registers %d routes; HEAD recipe registrations found: %t", len(routes), ok)
+	}
+	runExampleTest(t, `package example
+import ("net/http"; "net/http/httptest"; "testing")
+`+decl+`
+func served(http.ResponseWriter, *http.Request) {}
+func newMux() *http.ServeMux {
+ mux := http.NewServeMux()
+`+strings.Join(routes, "\n")+`
+mux.HandleFunc(`+registrations+`
+ return mux
+}
+func TestMethods(t *testing.T) {
+ mux := newMux()
+ for _, tt := range []struct { method, path, allow string; code int }{
+  {"GET", "/users/1", "", 200}, {"HEAD", "/users/1", "GET", 405}, {"POST", "/users/1", "GET", 405}, {"DELETE", "/users/1", "GET", 405},
+  {"GET", "/users", "", 200}, {"POST", "/users", "", 200}, {"HEAD", "/users", "GET, POST", 405}, {"DELETE", "/users", "GET, POST", 405},
+  {"GET", "/", "", 200}, {"HEAD", "/", "GET", 405}, {"POST", "/", "GET", 405},
+ } {
+  rec := httptest.NewRecorder()
+  mux.ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
+  if rec.Code != tt.code || rec.Header().Get("Allow") != tt.allow {
+   t.Errorf("%s %s = %d Allow=%q, want %d Allow=%q", tt.method, tt.path, rec.Code, rec.Header().Get("Allow"), tt.code, tt.allow)
+  }
  }
 }
 `)
@@ -156,6 +220,29 @@ func TestFanOut(t *testing.T) {
  }
  if got := stderr.String(); strings.Count(got, "\n") != 1 || !strings.Contains(got, "level=ERROR") || !strings.Contains(got, "service=orders") || !strings.Contains(got, "request.id=2") {
   t.Errorf("stderr=%q, want only error with shared fields", got)
+ }
+}
+`)
+}
+
+// The redaction type in go-logging's What NOT to Log is the form go-security
+// routes to: no stdlib handler, attribute form, or group may print the secret.
+func TestLoggingExampleRedaction(t *testing.T) {
+	code := exampleBlock(t, "skills/go-logging/SKILL.md", "## What NOT to Log")
+	runExampleTest(t, `package example
+import ("bytes"; "log/slog"; "strings"; "testing")
+`+code+`
+func TestRedacted(t *testing.T) {
+ tok := Token("s3cr3t")
+ var buf bytes.Buffer
+ for _, h := range []slog.Handler{slog.NewJSONHandler(&buf, nil), slog.NewTextHandler(&buf, nil)} {
+  logger := slog.New(h)
+  logger.Info("login", "token", tok)
+  logger.With("token", tok).Info("with")
+  logger.Info("group", slog.Group("auth", "token", tok))
+ }
+ if got := buf.String(); strings.Contains(got, "s3cr3t") || strings.Count(got, "[REDACTED]") != 6 {
+  t.Errorf("log output leaks the token or misses a redaction:\n%s", got)
  }
 }
 `)

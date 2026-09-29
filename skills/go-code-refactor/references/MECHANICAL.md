@@ -22,11 +22,12 @@ Single-symbol work — rename, extract, inline, references — is
 ## `gofmt -r` — syntactic, one expression
 
 Purely syntactic and type-unaware: it matches expression shape, not the types
-involved. Wildcards are single lowercase identifiers matching any subexpression.
+involved. Wildcards are single-character lowercase identifiers (`a`, `x`)
+matching any subexpression; a longer name such as `ab` matches only itself.
 
 ```bash
-gofmt -r 'bytes.Compare(a, b) == 0 -> bytes.Equal(a, b)' -w .
-gofmt -d file.go     # diff without writing — read it before -w
+gofmt -r 'bytes.Compare(a, b) == 0 -> bytes.Equal(a, b)' -d cache.go store.go   # read the diff first
+gofmt -r 'bytes.Compare(a, b) == 0 -> bytes.Equal(a, b)' -w cache.go store.go
 ```
 
 Because it cannot see types, it cannot distinguish a call on the type you meant
@@ -43,6 +44,11 @@ than passing `./...` as a path or sweeping generated/vendor trees.
 ```go
 // template.go
 package template
+
+import (
+    "errors"
+    "fmt"
+)
 
 func before(s string) error { return fmt.Errorf("%s", s) }
 func after(s string) error  { return errors.New(s) }

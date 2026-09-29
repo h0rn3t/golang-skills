@@ -2,7 +2,8 @@
 
 Keep the prose short: the findings carry the information, and a paragraph
 restating them is noise. No section is padded to look complete — an empty
-severity is one line saying it is empty.
+severity is one line saying it is empty, and a severity the request filtered
+out is one line counting its findings.
 
 ## Summary
 [Brief description of the changes]

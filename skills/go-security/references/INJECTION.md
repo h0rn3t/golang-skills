@@ -3,7 +3,7 @@
 > Sources: `os/exec`, `html/template`, `net/netip`, `net/url` package docs; OWASP Go-SCP
 > Authority: normative for the stdlib defenses; advisory for the allowlist shapes
 > Minimum Go: 1.24 for `os.Root`; everything else long-standing
-> Last verified: 2026-09-19
+> Last verified: 2026-09-29
 
 Every section is the same story: untrusted bytes reach an interpreter (SQL,
 shell, HTML, the filesystem, a URL fetcher) as **code** instead of **data**.
@@ -88,13 +88,11 @@ and allow-list the extension before the call.
 Also:
 
 - Set `cmd.Dir` explicitly; inherit nothing from the request.
-- `os.Root` confines operations performed through that root, not a subprocess.
-  Checking a path and then passing its name to another program leaves a
-  symlink-swap race when the directory is attacker-writable. Open through the
-  root and pass the open file as `cmd.Stdin` or an inherited descriptor when
-  supported; retain it until the child exits. Programs requiring paths need
-  a trusted staging directory or appropriate OS isolation. `cmd.Dir` alone
-  does not confine filesystem access.
+- A path passed to a subprocess escapes `os.Root`: the child resolves the name
+  itself, so in an attacker-writable directory a symlink can be swapped in
+  between your check and its open.
+  [go-defensive](../../go-defensive/SKILL.md#confine-filesystem-access) has
+  the form that hands the child the open file instead.
 - Use `CommandContext` so a hung child dies with the request.
 
 ---
@@ -139,18 +137,21 @@ w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[str
 
 ## File paths
 
-[go-defensive](../../go-defensive/SKILL.md) owns the `os.Root` form. The
-threat-model half: `filepath.Clean`, `strings.Contains(p, "..")`, and
-`filepath.Join(base, p)` all fail against symlinks that point outside `base`,
-against `..` after a symlink, and against absolute paths on Windows.
+[go-defensive](../../go-defensive/SKILL.md#confine-filesystem-access) owns
+the `os.Root` form, the archive loop, and `filepath.IsLocal`. The threat-model
+half: a lexical check does not confine a path. `filepath.Clean` keeps a
+leading `..`, so `filepath.Join(base, filepath.Clean("../../etc/passwd"))` is
+`/etc/passwd`, and no lexical check (`strings.Contains(p, "..")`,
+`filepath.IsLocal`) sees a symlink inside `base` that points outside it.
 `os.OpenRoot` resolves every component inside the directory, so those cases
 return an error instead of a file.
 
-Two more sinks the root does not cover:
+Two more sinks:
 
-- **Archive extraction** (`archive/zip`, `archive/tar`): entry names are
-  attacker-controlled. Open the destination through `root.Create(hdr.Name)`
-  and cap the total decompressed size — a 1 KB zip can expand to gigabytes.
+- **Archive extraction** (`archive/zip`, `archive/tar`): the entry name, type,
+  and size are attacker-controlled — `../` and absolute names, a symlink entry
+  that a later entry writes through, and a 1 KB zip that expands to
+  gigabytes. go-defensive's archive loop checks all three.
 - **Temp files**: `os.CreateTemp(dir, pattern)` — never build the name
   yourself; a predictable name in a shared `/tmp` is a symlink race.
 
@@ -184,6 +185,18 @@ before the connect, for every connection the client opens, so a rebinding
 answer and a redirect to `127.0.0.1` fail the same check:
 
 ```go
+// blockedPrefixes are the special-purpose ranges the netip.Addr methods below
+// miss; the NAT64 and 6to4 prefixes embed an IPv4 address, metadata included.
+var blockedPrefixes = []netip.Prefix{
+    netip.MustParsePrefix("0.0.0.0/8"),
+    netip.MustParsePrefix("100.64.0.0/10"), // CGNAT; 100.100.100.200 is Alibaba Cloud metadata
+    netip.MustParsePrefix("192.0.0.0/24"),
+    netip.MustParsePrefix("198.18.0.0/15"),
+    netip.MustParsePrefix("64:ff9b::/96"),
+    netip.MustParsePrefix("64:ff9b:1::/48"),
+    netip.MustParsePrefix("2002::/16"),
+}
+
 func publicClient() *http.Client {
     dialer := &net.Dialer{
         Timeout: 5 * time.Second,
@@ -192,8 +205,9 @@ func publicClient() *http.Client {
             if err != nil {
                 return err
             }
-            a := ap.Addr().Unmap()
-            if a.IsPrivate() || a.IsLoopback() || a.IsLinkLocalUnicast() || a.IsUnspecified() || a.IsMulticast() {
+            a := ap.Addr().Unmap().WithZone("") // Prefix.Contains never matches a zoned address
+            if a.IsPrivate() || a.IsLoopback() || a.IsLinkLocalUnicast() || a.IsUnspecified() || a.IsMulticast() ||
+                slices.ContainsFunc(blockedPrefixes, func(p netip.Prefix) bool { return p.Contains(a) }) {
                 return fmt.Errorf("dial %s: blocked address range", address)
             }
             return nil

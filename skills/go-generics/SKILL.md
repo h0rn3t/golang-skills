@@ -8,10 +8,11 @@ description: Use when choosing or writing Go generics, constraints, type aliases
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Generic **methods**
 > require Go 1.27+, and the compiler gates them by the `go` directive: at
 > `go 1.26` it rejects one with `generic method requires go1.27 or later`.
-> Inference in function-type conversions (Go 1.27+) and self-referential
-> constraints (Go 1.26+) are not gated — they compile on a 1.27 toolchain at an
-> older directive and fail on the older toolchain itself, so verify them on the
-> CI toolchain. Generic type aliases Go 1.24+; generics themselves, Go 1.18+.
+> Inference in function-type conversions and composite-literal elements
+> (Go 1.27+) and self-referential constraints (Go 1.26+) are not gated — they
+> compile on a 1.27 toolchain at an older directive and fail on the older
+> toolchain itself, so verify them on the CI toolchain. Generic type aliases
+> Go 1.24+; generics themselves, Go 1.18+.
 
 ## Resource Routing
 
@@ -75,7 +76,8 @@ Constraints:
   actually appears, not in anticipation.
 
 Go 1.27 extends function type inference to all assignments and conversions to
-matching function types. Assignment to a typed variable already supported
+matching function types, composite-literal elements included (`S{f: id}`,
+`[]func(int) int{id}`). Assignment to a typed variable already supported
 inference in Go 1.21. Prefer inference when the call site remains clear.
 
 ---
@@ -185,7 +187,7 @@ seen := map[string]struct{}{}
 ```
 
 **Don't use generics for interface satisfaction.** If `T` is only used to
-satisfy an interface, accept the interface:
+satisfy an interface, accept the interface — unless `T` is a slice element:
 
 ```go
 // Bad
@@ -193,6 +195,9 @@ func Process[T io.Reader](r T) error
 
 // Good
 func Process(r io.Reader) error
+
+// Good: a []*os.File is not a []io.Reader, so the slice keeps T
+func ProcessAll[T io.Reader](rs []T) error
 ```
 
 **Don't over-constrain.** `comparable` beats `interface{ ~int | ~string }` when

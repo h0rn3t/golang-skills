@@ -69,8 +69,10 @@ cfg.Limit = new(computeLimit())
 
 This is useful when nil means unset and an explicit zero has a different
 meaning. Check the module's language version before using it; retain the
-temporary on older targets. `go fix -diff -newexpr ./...` previews the rewrite
-through the [shared gate](../../go-linting/SKILL.md).
+temporary on older targets. The temporary-then-address form above is a hand
+edit: `go fix -diff -newexpr ./...` rewrites only a pointer helper such as
+`func intPtr(v int) *int { return &v }` and its calls (`intPtr(4)` becomes
+`new(4)`), previewed through the [shared gate](../../go-linting/SKILL.md).
 
 ## Maps
 

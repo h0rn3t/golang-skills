@@ -4,6 +4,96 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+A content review of all 24 skills, every claim checked against go1.27.1
+(go1.26.x where a claim is version-sensitive), `$GOROOT/api`, golangci-lint
+2.13.2 with the bundled config, gopls v0.23.0, and runs of the examples and
+scripts. The fixes below correct facts and examples. A reference (1.25.0)
+versus baseline `abrun` run on all 17 fixtures, n=2, found no regression on
+Sonnet 5.5 low or Opus 5.5 low: implement golden 14/14 against 14/14 on Sonnet
+and 12/14 against 13/14 on Opus, the gap being `fetch`, which rerun at n=5 gave
+1/5 in both arms (every failure the fixture's empty `resp.Status`); refactor
+8/8 in every arm at the same line deltas; review recall 0.94 against 0.92 on
+Sonnet and 0.90 against 0.91 on Opus, 61/62 must-fix defects in all four;
+lint, `go fix` hunks, and session cost within noise. Opus 5.5 low loaded
+`go-code-review` in about one review session in ten in either arm, so the
+review corpus there barely exercises the skill. Raw reports are kept outside
+the repository.
+
+- The bundled `golangci.yml` enables what its comments claimed: `sloglint`
+  `static-msg`, and `usetesting` `context-background`/`context-todo`, each
+  pinned by a probe in `TestBundledLintConfig`. `depguard` no longer denies
+  `google/uuid`, `zap`, or `logrus`, which go-packages and go-style-core keep
+  where a package already uses them; the edit hook applied that deny list to
+  every repository without a config. `pre-review.sh` lints with the baseline
+  when the project has none, so go-code-review no longer counts categories as
+  covered that nothing checked. It and `setup-lint.sh` count only
+  golangci-lint exit 1 as findings; any other exit is `unavailable`, or exit 2
+  in setup-lint, which checks for the binary before writing `.golangci.yml`.
+- Examples no longer fail the pack's own lint config: a written file's `Close`
+  joins into a named `err` through a deferred `errors.Join` and a file only
+  read uses `os.ReadFile` (go-defensive owns the form), tests check `Close` in
+  `t.Cleanup`, go-security's TLS example is a bare `tls.Config` (the server
+  around it had no `ReadHeaderTimeout`), and the architecture fixture in
+  go-code-refactor lints clean and reads the stored total it used to drop.
+- Examples that taught a wrong result show the right form in code: the
+  go-database transfer uses `UPDATE … RETURNING` and rolls back on a missing
+  account instead of committing one side; the go-resilience `retry` stops when
+  the wait outlasts the deadline and errors on fewer than one attempt; the
+  go-http handler writes nothing for a client that has gone, and the HEAD-as-405
+  recipe also registers a method-less pattern so every refused method gets the
+  path's own `Allow`; `context.AfterFunc` keeps its `stop`; derived contexts in
+  a loop are cancelled per iteration; pooled buffers over 64 KiB are dropped;
+  `for range time.Tick` is limited to `main`'s own loop; the SSRF dialer also
+  refuses CGNAT (`100.64.0.0/10`, Alibaba Cloud metadata), NAT64, and 6to4;
+  archive extraction makes parents with `root.MkdirAll` and refuses link
+  entries; benchmarks keep results in a package-level sink and make them
+  escape; go-testing's `:memory:` sqlite helper, which gave each pool
+  connection an empty database, becomes a real-database harness under an
+  `integration` tag (`INTEGRATION.md#real-databases`).
+- JSON v2 gaps: `time.Duration` has no default v2 representation, so
+  go-defensive scopes `time.Duration` to in-process values and shows integer-
+  with-unit and `time.ParseDuration` wire forms, and JSON-V2.md lists it among
+  the defaults; a `MarshalWrite` error after the headers is an encode error as
+  well as a disconnect, so unvalidated values are marshalled first; nil→`null`
+  claims are scoped to v1.
+- Facts corrected: `t.TempDir` is Go 1.15 and `time.Since` 1.0 on the idiom
+  card; `errorsastype` ships with the 1.27 toolchain; `go mod init` on 1.26.x
+  after 1.26.0 writes its own version; `newexpr` rewrites only `&v` pointer
+  helpers; a default `go fix` applies Tier 2 `hostport` hunks; `unsafefuncs`
+  targets `unsafe.Add`; `go fix` `omitzero` only drops `omitempty`;
+  `errors.Is` over `==` is a finding, not free; gopls CLI commands need `-w`
+  and `#start-#end` spans; the eg template imports what it uses; `WriteTo`
+  keeps `(int64, error)`; old-style doc headings still render as headings;
+  a library embedding into a string needs `import _ "embed"`; cgroup-aware
+  `GOMAXPROCS` needs a 1.25+ directive; function-type inference in
+  composite-literal elements is ungated like conversions; troubleshooting
+  commands anchor `-run`, loop `-shuffle` across invocations, skip unbuildable
+  bisect steps with exit 125, and check vendor drift without writing `go.mod`.
+- Ownership: go-defensive is the single owner of panic versus error (input and
+  environment errors never cross a package boundary as a panic; programming
+  errors may) and holds the `os.Root` and `crypto/rand` forms go-security
+  carried; go-logging carries the `slog.LogValuer` redaction form and
+  `slog.DiscardHandler` that other skills route to; go-functions owns
+  signature wrapping and value-versus-pointer parameters; go-code routes JSON
+  to go-http; request decoding stays in the handler, not a one-call-site
+  helper under Declaration Budget rule 4; go-naming settles the `_` global
+  prefix and plural layer package names. `docs/RULE_OWNERSHIP.md` records each.
+- Scripts: `verify-refactor.sh` 1.3.0 counts pending modernizations (it
+  reported `"n/a"` exactly when some existed) and `loc-diff` exits 2 on a path
+  other than the recorded baseline's; `check-errors.sh` 1.4.0 pairs a log with
+  a return only in the same statement list; `check-interface-compliance.sh`
+  1.3.0 reports go-interfaces' own Bad case (`returned_by`), treats
+  composite-literal elements and sends as conversions, and exits 2 on a build
+  failure; `check-naming.sh` 2.1.0 and `check-docs.sh` 1.3.0 skip what `./...`
+  skips and report an unparsable file as `parse_error` with exit 2;
+  `get-prefix` flags only parameterless `Get` methods; check-docs skips revive
+  `exported`'s method set; `bench-compare.sh` 1.3.0 applies `--limit` to text
+  output. `docs/SCRIPT_JSON_CONTRACTS.md` documents each shape.
+- `TestIdiomCardDatesEachSymbol` requires every symbol a `(Go 1.NN)` marker
+  dates in a CURRENT-GO.md cell to have arrived in that release (`;` separates
+  releases), since the card withholds a row newer than the directive; the api
+  index now covers `go1.txt` and resolves `t.`/`b.` methods through `testing`.
+
 ## [1.25.0] - 2026-09-28
 
 - The routing gate holds the first `.go` edit even when no router is loaded

@@ -23,17 +23,17 @@ and the required contract rather than refactor equivalence.
 ## Start with `go fix`
 
 Since Go 1.26, `go fix` hosts modernizers that rewrite code to current idioms.
-Preview their output and verify the relevant behavior contracts.
+Preview their output and verify the relevant behavior contracts. A default run
+includes `hostport`, whose hunks are Tier 2: keep them only where IPv6 cannot
+reach the code, or leave them out with `-hostport=false`.
 
 Use the package scope and apply conditions in
-[Scope mechanical modernization](../SKILL.md#3-scope-mechanical-modernization).
-Preview before applying; a scoped refactor does not authorize unrelated
-modernization. Within scope, an older form in the neighboring code is not a
-reason to keep it: the module's `go` directive sets the idiom
-([Write Current Go](../../go-style-core/SKILL.md#write-current-go)). Keep
-mechanical changes distinguishable from hand edits.
-
-`go tool fix help` is authoritative; [go-linting](../../go-linting/SKILL.md#modernization-go-fix)
+[Scope mechanical modernization](../SKILL.md#3-scope-mechanical-modernization);
+a scoped refactor does not authorize unrelated modernization. Within scope, an
+older form in the neighboring code is not a reason to keep it: the module's `go`
+directive sets the idiom ([Write Current Go](../../go-style-core/SKILL.md#write-current-go)).
+Keep mechanical changes distinguishable from hand edits. `go tool fix help` is
+authoritative; [go-linting](../../go-linting/SKILL.md#modernization-go-fix)
 catalogues the current analyzers and each release's renames and removals.
 Report incorrect fixes; do not silently discard them.
 
@@ -50,8 +50,7 @@ p := Person{Name: name, Age: &age}
 p := Person{Name: name, Age: new(yearsSince(born))}
 ```
 
-Useful for JSON/protobuf optional fields such as `*int`/`*bool`; `new(30)` is `*int`, so a `*time.Duration` field takes `new(30 * time.Second)`.
-Preview with `go fix -newexpr -diff`.
+Useful for JSON/protobuf optional fields such as `*int`/`*bool`; `new(30)` is `*int`, so a `*time.Duration` field takes `new(30 * time.Second)`. The temp-then-address form is a hand edit, and only where the temp has no other use; `go fix -newexpr` rewrites only `func ptr(x T) *T { return &x }` helpers and their calls.
 
 ### `errors.AsType[T]` — Go 1.26
 
@@ -114,8 +113,9 @@ fold := Fold(combine)      // Go 1.27
 
 Use only when documented depth matches the contract; `url.Values.Clone` copies
 its value slices, unlike `maps.Clone`. Treat a shallow-to-deep swap as a Tier 3
-semantic fix with a contract test, not a behavior-preserving cleanup. See the
-[go-defensive copy-depth rule](../../go-defensive/references/BOUNDARY-COPYING.md#copy-depth-is-part-of-the-contract).
+semantic fix with a contract test, not a behavior-preserving cleanup. `Clone`
+returns nil for nil, where a copy loop over `make` returned a writable map:
+`out := v.Clone(); if out == nil { out = url.Values{} }` keeps that. See the [go-defensive copy-depth rule](../../go-defensive/references/BOUNDARY-COPYING.md#copy-depth-is-part-of-the-contract).
 
 ### Iterator forms of splitting — Go 1.24
 
@@ -148,9 +148,9 @@ slices.Sort(keys)
 
 `slices.Sorted(maps.Keys(m))` is the swap worth making — one line for three —
 but it returns nil for an empty map where the loop returned a non-nil empty
-slice, turning JSON `[]` into `null`. When that is observable, append into the
-allocation with `slices.AppendSeq` (Go 1.23+). Check nilness and capacity
-before replacing any collection loop or copy.
+slice, which `encoding/json` v1 writes as `null`, not `[]`. When that is
+observable, append into the allocation with `slices.AppendSeq` (Go 1.23+).
+Check nilness and capacity before replacing any collection loop or copy.
 
 Likewise `slices.Contains`, `Index`, `Reverse`, `Collect`, `Max`/`Min`,
 `Clone`. **Watch the sort**: `sort.Slice` is unstable, `slices.SortFunc` is
@@ -200,8 +200,8 @@ default, with no listener for anything else to dial. See
   Apply only when all observable error behavior is preserved; otherwise Tier 3.
 - **`net.JoinHostPort` over `fmt.Sprintf("%s:%d", host, port)`.** Identical for
   IPv4 and hostnames; for IPv6 the old form produced an unusable address, so if
-  IPv6 can reach this code the swap is a **bug fix** — Tier 3. `go vet`'s
-  `hostport` analyzer flags these.
+  IPv6 can reach this code the swap is a **bug fix** — Tier 3. `go vet` flags
+  these, and a default `go fix` rewrites them (`hostport`).
 - **`os.Root` over `os.Open` with path joining.** `os.Root` refuses paths that
   escape the directory, including via symlinks. That is the point, and it is a
   behavior change wherever an escaping path currently succeeds.

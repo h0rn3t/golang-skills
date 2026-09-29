@@ -74,7 +74,7 @@ func ExampleConfig_WriteTo() {
     cfg := &Config{
         Name: "example",
     }
-    if err := cfg.WriteTo(os.Stdout); err != nil {
+    if _, err := cfg.WriteTo(os.Stdout); err != nil {
         fmt.Println("write config:", err)
         return
     }
@@ -101,7 +101,7 @@ Examples appear in Godoc attached to the documented element.
 - Use `// Output:` comments to make examples testable and verifiable by `go test`
 - Keep examples focused on demonstrating one concept
 - Use realistic but minimal data
-- For complex setup, use a `testMain` or helper to keep the example body clean
+- For complex setup, move it into an unexported helper in the test file to keep the example body clean
 - Multiple examples for the same symbol use a lowercase `_suffix`:
 
 ```go

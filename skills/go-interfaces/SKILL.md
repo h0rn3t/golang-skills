@@ -11,7 +11,7 @@ allowed-tools: Bash(bash:*)
 
 ## Resource Routing
 
-- `scripts/check-interface-compliance.sh` - Run as a heuristic to list exported interfaces implemented beside their declaration that nothing in the package converts to; each is a question whether the interface is needed.
+- `scripts/check-interface-compliance.sh` - Run as a heuristic to list exported interfaces implemented beside their declaration that nothing in the package converts to, or that an exported function returns while nothing in the package takes them as a parameter; each is a question whether the interface is needed.
 - `scripts/check-interface-compliance.go` - Implementation helper invoked by `check-interface-compliance.sh`; patch this when changing method-set analysis.
 - `references/EMBEDDING.md` - Read when embedding interfaces or structs in public APIs.
 - `references/RECEIVER-TYPE.md` - Read when pointer/value receivers affect interface satisfaction.
@@ -157,9 +157,12 @@ at run time, and nothing fails to compile.
 
 > **Validation**: Use `scripts/check-interface-compliance.sh` when a heuristic
 > scan would help. It lists an exported interface implemented in its own
-> package when no assignment, return, argument, or conversion already checks
-> the pair; ask first whether a consumer needs the interface, then review the
-> conditions above. A finding is not a requirement to add an assertion.
+> package when no assignment, return, argument, composite-literal element,
+> send, or conversion already checks the pair, and one an exported function
+> returns while no function in the package takes it as a parameter (the Bad
+> case above; `returned_by` in `--json`). Ask first whether a consumer needs
+> the interface, then review the conditions above. A finding is not a
+> requirement to add an assertion.
 
 ---
 

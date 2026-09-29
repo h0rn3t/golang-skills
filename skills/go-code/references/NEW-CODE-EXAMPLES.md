@@ -105,7 +105,10 @@ declaration; the budget counts it in either position, and the package-level
 form is the one a reviewer accepts.
 
 A single caller can also justify a helper when it separates substantial work
-at another level of abstraction. A handler may call `decodeOrderRequest(r)`
-once when that function owns size limits, JSON decoding, and field rules and
-the handler makes the business decision. A helper that only forwards one
-`json.Unmarshal` call adds a name to follow without hiding meaningful detail.
+at another level of abstraction. A repository method may call
+`listQuery(filter)` once when that function assembles the SQL text, the
+allow-listed sort column, and the placeholder arguments, and the method keeps
+the domain rule. Request decoding is not such a step: bound, decode, and
+validate stay in the handler, as [go-http](../../go-http/SKILL.md#handler-shape)
+writes them. A helper that only forwards one call adds a name to follow
+without hiding meaningful detail.

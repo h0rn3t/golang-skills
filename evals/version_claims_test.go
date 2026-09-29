@@ -38,6 +38,9 @@ func apiIndex(t *testing.T) map[string]string {
 	if err != nil {
 		t.Fatalf("glob api files: %v", err)
 	}
+	// go1.txt, базовий набір 1.0, у glob не потрапляє; без нього символ 1.0
+	// (`time.Since`) лишається нерозпізнаним, і завищений маркер не видно.
+	files = append(files, filepath.Join(goroot(t), "api", "go1.txt"))
 
 	// pkg <path>, <kind> <rest>
 	line := regexp.MustCompile(`^pkg ([^,]+), (?:func|type|const|var|method \([^)]*\)) (\w+)`)
@@ -53,9 +56,11 @@ func apiIndex(t *testing.T) map[string]string {
 		}
 	}
 	for _, f := range files {
-		m := version.FindStringSubmatch(filepath.Base(f))
-		if m == nil {
-			continue // go1.txt, the 1.0 baseline
+		minor := "0" // go1.txt, the 1.0 baseline
+		if m := version.FindStringSubmatch(filepath.Base(f)); m != nil {
+			minor = m[1]
+		} else if filepath.Base(f) != "go1.txt" {
+			continue
 		}
 		content, err := os.ReadFile(f)
 		if err != nil {
@@ -63,11 +68,11 @@ func apiIndex(t *testing.T) map[string]string {
 		}
 		for _, l := range strings.Split(string(content), "\n") {
 			if g := field.FindStringSubmatch(l); g != nil {
-				record(g[1], g[2], m[1])
+				record(g[1], g[2], minor)
 				continue
 			}
 			if g := line.FindStringSubmatch(l); g != nil {
-				record(g[1], g[2], m[1])
+				record(g[1], g[2], minor)
 			}
 		}
 	}
@@ -140,8 +145,12 @@ func symbolKey(token, carried string) (key, qualifies string) {
 		return "?" + symbol, ""
 	}
 	pkg := parts[0]
-	// `t.Context`, `b.Loop`: a single-letter receiver is a variable, not a
-	// package, and inventing a package from it would resolve to nothing.
+	// `t.TempDir`, `b.Loop`: у прозі скілів `t` і `b` — це *testing.T і
+	// *testing.B, тож метод датується за пакетом testing. Будь-яка інша
+	// однолітерна змінна не є пакетом, і вигаданий з неї пакет нічого не дасть.
+	if pkg == "t" || pkg == "b" {
+		return "testing." + symbol, ""
+	}
 	if len(pkg) < 2 {
 		return "", ""
 	}
@@ -329,5 +338,51 @@ func TestAnalyzerToolAttribution(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("walk skills: %v", err)
+	}
+}
+
+// TestIdiomCardDatesEachSymbol тримає CURRENT-GO.md строгіше за решту пакета.
+// Картка каже читачеві, що рядок, новіший за директиву `go` модуля, не
+// застосовується, тож маркер там відсікає кожен символ, який датує: старіший
+// символ у групі під новішим маркером приховано від модулів, яким він доступний
+// (`t.TempDir` стояв під "(Go 1.24)" поруч із `t.Chdir`, а він з Go 1.15). У
+// клітинці таблиці маркер датує символи в зворотних лапках від попереднього
+// маркера або `;`, і кожен розпізнаний має з'явитися саме в цьому релізі. `;`
+// розділяє символи різних релізів, кома тримає їх в одній групі.
+func TestIdiomCardDatesEachSymbol(t *testing.T) {
+	t.Parallel()
+	root := repoRoot(t)
+	index := apiIndex(t)
+	const card = "skills/go-style-core/references/CURRENT-GO.md"
+
+	marker := regexp.MustCompile(`\(Go 1\.(\d+)\+?\)`)
+	backticked := regexp.MustCompile("`([^`]+)`")
+	for n, line := range strings.Split(readFile(t, filepath.Join(root, filepath.FromSlash(card))), "\n") {
+		if !strings.HasPrefix(line, "|") {
+			continue
+		}
+		for cell := range strings.SplitSeq(line, "|") {
+			prev, pkg := 0, ""
+			for _, m := range marker.FindAllStringSubmatchIndex(cell, -1) {
+				claimed := cell[m[2]:m[3]]
+				group := cell[prev:m[0]]
+				prev = m[1]
+				if i := strings.LastIndex(group, ";"); i >= 0 {
+					group = group[i+1:]
+				}
+				for _, tok := range backticked.FindAllStringSubmatch(group, -1) {
+					key, qualified := symbolKey(tok[1], pkg)
+					if qualified != "" {
+						pkg = qualified
+					}
+					actual, ok := index[key]
+					if key == "" || !ok || actual == claimed {
+						continue
+					}
+					t.Errorf("%s:%d dates `%s` (Go 1.%s), but it arrived in Go 1.%s; give it its own group after a `;`",
+						card, n+1, tok[1], claimed, actual)
+				}
+			}
+		}
 	}
 }

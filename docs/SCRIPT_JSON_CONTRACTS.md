@@ -3,7 +3,8 @@
 Shell scripts keep their current command-line UX and emit stable JSON when
 called with `--json`. Exit codes are part of the contract: `0` means no
 findings or successful generation, `1` means findings or tool-reported issues,
-and `2` means usage/environment errors.
+and `2` means usage/environment errors or, for `check-naming.sh` and
+`check-docs.sh`, a file that does not parse.
 
 ## Findings Scripts
 
@@ -36,8 +37,16 @@ finding:
 `go-interfaces/scripts/check-interface-compliance.sh`:
 
 ```json
-{"interfaces":[{"name":"Reader","file":"path","line":1}],"missing":[{"name":"Reader","file":"path","line":1}],"count_interfaces":1,"count_missing":1,"truncated":false}
+{"interfaces":[{"name":"Reader","file":"path","line":1},{"name":"Store","file":"path","line":9}],"missing":[{"name":"Reader","file":"path","line":1},{"name":"Store","file":"path","line":9,"returned_by":"NewStore"}],"count_interfaces":2,"count_missing":2,"truncated":false}
 ```
+
+A `missing` entry is an exported interface implemented in its own package that
+nothing there converts to (assignment, return, argument, composite-literal
+element, send, or conversion). An entry with `returned_by` is one that the
+named exported function of the same package returns while no function or
+method there takes it as a parameter. Its `file` and `line` are the
+interface's. The script exits 1 when `missing` is non-empty, and 2 when its
+helper does not build.
 
 `go-code-refactor/scripts/check-architecture.sh` — exit 1 on any violation,
 including `stale`, `duplicate`, and `unexplained` entries in the `known` list
@@ -63,19 +72,37 @@ No-Go-file targets are successful empty scans and include a status marker:
 {"interfaces":[],"missing":[],"count_interfaces":0,"count_missing":0,"truncated":false,"status":"no_go_files"}
 ```
 
+A file that does not parse does not stop `check-naming.sh` or `check-docs.sh`:
+the other files are still checked and their findings reported, the JSON adds
+`"status":"parse_error"` and a `parse_errors` list, and the run exits `2`:
+
+```json
+{"violations":[{"file":"path","line":1,"rule":"rule-id","message":"text"}],"total":1,"truncated":false,"status":"parse_error","parse_errors":[{"file":"path","message":"path:3:14: expected ')', found '{'"}]}
+{"missing":[{"file":"path","line":1,"kind":"type","name":"Name"}],"total":1,"truncated":false,"status":"parse_error","parse_errors":[{"file":"path","message":"path:3:14: expected ')', found '{'"}]}
+```
+
 ## Tool Scripts
 
 `go-code-review/scripts/pre-review.sh`:
 
 ```json
-{"gofmt":{"status":"pass","files":[]},"govet":{"status":"pass","output":""},"golangci_lint":{"status":"skip","output":""},"passed":true}
+{"gofmt":{"status":"pass","files":[]},"govet":{"status":"pass","output":""},"golangci_lint":{"status":"pass","output":""},"passed":true}
 ```
+
+`golangci_lint.status` is `pass`, `fail` (golangci-lint exit 1), or
+`unavailable` (not installed, or any other non-zero exit; `output` carries its
+message). Without a project golangci-lint config the script lints with
+`go-linting/assets/golangci.yml`. `--strict` turns `unavailable` into exit 2.
 
 `go-linting/scripts/setup-lint.sh`:
 
 ```json
 {"config_path":".golangci.yml","local_prefix":"","created":true,"lint_issues":false,"lint_output":""}
 ```
+
+It exits 2 with no JSON when golangci-lint is missing (checked before the
+config is written) or `golangci-lint run` exits with anything but 0 or 1, for
+example 5 for no Go files; a config written by then stays.
 
 `go-performance/scripts/bench-compare.sh`:
 
@@ -87,12 +114,19 @@ No-Go-file targets are successful empty scans and include a status marker:
 matched the filter; the script exits 1), or `error` (go test failed; exit 1).
 `exit_code` is the script's own exit code, the one the process returns;
 `go_exit_code` is go test's, which is 0 in the `no_benchmarks` case.
+`benchmarks_found` counts `Benchmark` result lines in the go test output: one
+per benchmark per `--count` run, so two benchmarks at `-n 3` give 6.
+`--limit N` keeps the first N of those lines in `output` and in the human
+output, and sets `truncated` when it cut any.
 
 `go-testing/scripts/gen-table-test.sh`:
 
 ```json
 {"func":"ParseConfig","package":"config","output_file":"","parallel":false,"written":false}
 ```
+
+With `--json` and no `--output`, stdout carries only this object and the
+scaffold goes to stderr; `written` is `false` and `output_file` is empty.
 
 `go-code-refactor/scripts/verify-refactor.sh` — one shape per mode.
 `baseline` and `after`:
@@ -112,7 +146,23 @@ matched the filter; the script exits 1), or `error` (go test failed; exit 1).
 fail, and 2 for usage/environment errors. `truncated` reports whether `--limit`
 actually shortened the `diff` or `output` field.
 
-`fix_pending_lines` is `"n/a"` when its check cannot run. Lint metadata:
+`loc-baseline` and `loc-diff` print indented JSON. Each count object is
+`{"root":"/abs/dir","physical":9,"code":8,"files":2,"test_files":0,"scan_errors":0,"detail":[{"path":"sum.go","physical":8,"code":7,"sha256":"…"}]}`:
+
+```json
+{"mode":"loc-baseline","counts":{…},"record":"/abs/.refactor-verify/loc.baseline.json","convention":"physical: …\ncode: …"}
+{"mode":"loc-diff","root":"/abs/dir","before":{…},"after":{…},"delta":{"physical":2,"code":0,"files":0},"added":null,"removed":null,"gate_pass":false,"convention":"physical: …\ncode: …"}
+```
+
+`loc-diff` exits 0 when `gate_pass` is true and 1 when a count grew. It exits 2,
+with an error on stderr and no JSON, when no record exists or the record's
+`root` is not this run's directory. `added` and `removed` list production files
+by relative path, or are `null` when none changed.
+
+`fix_pending_lines` is the line count of the `go fix -diff` output, which exits
+1 when that diff is non-empty; it is `"n/a"` when a package fails to load or
+the tool fails (anything on stderr beyond package headers and
+skipped-alternative-fix notices). Lint metadata:
 
 - `lint_status`: `pass` after exit 0, `fail` after exit 1 with parsed findings,
   otherwise `unavailable`; failures without usable diagnostics are not clean.

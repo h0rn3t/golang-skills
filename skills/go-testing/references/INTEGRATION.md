@@ -4,7 +4,8 @@
 > Authority: advisory
 > Last verified: 2026-09-10
 
-Detailed reference for TestMain, acceptance testing, and real transport testing.
+Detailed reference for TestMain, acceptance testing, real transport testing,
+and tests against a real database.
 
 ---
 
@@ -27,7 +28,11 @@ func TestMain(m *testing.M) {
     if err != nil {
         log.Fatal(err)
     }
-    defer d.Close()
+    defer func() {
+        if err := d.Close(); err != nil {
+            log.Fatalf("close database: %v", err)
+        }
+    }()
     db = d
     m.Run()
 }
@@ -119,6 +124,53 @@ server's URL is `http://example.com`, so a constructor that builds its own
 client from the URL alone reaches the real example.com and never the handler.
 Take an `*http.Client` as a parameter — the design this section is arguing for
 anyway — or stay on `httptest.NewServer`, which listens on loopback.
+
+---
+
+## Real Databases
+
+A test that needs a database runs against a real one — a container or a CI
+service — in a file behind the `integration` build tag, and skips when no
+database is configured:
+
+```go
+//go:build integration
+
+package store_test
+
+import (
+    "database/sql"
+    "os"
+    "testing"
+)
+
+// openTestDB opens the database named by TEST_DATABASE_URL and skips the test
+// when it is unset.
+func openTestDB(t *testing.T) *sql.DB {
+    t.Helper()
+    dsn := os.Getenv("TEST_DATABASE_URL")
+    if dsn == "" {
+        t.Skip("TEST_DATABASE_URL is not set")
+    }
+    db, err := sql.Open("pgx", dsn) // the driver the module already imports
+    if err != nil {
+        t.Fatalf("sql.Open: %v", err)
+    }
+    t.Cleanup(func() {
+        if err := db.Close(); err != nil {
+            t.Errorf("close: %v", err)
+        }
+    })
+    if err := db.PingContext(t.Context()); err != nil {
+        t.Fatalf("ping the test database: %v", err)
+    }
+    return db
+}
+```
+
+Run it with `go test -tags integration -race ./...`. A skip is not a pass:
+`go test -v` prints `--- SKIP` with the reason, and a run whose database tests
+skipped is reported as skipped.
 
 ---
 

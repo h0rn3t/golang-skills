@@ -9,3 +9,8 @@ type Store struct {
 func (s *Store) Name() string {
 	return s.name
 }
+
+// A Get method that takes parameters is a lookup, not a simple accessor.
+func (s *Store) GetEntry(key string) string {
+	return key
+}

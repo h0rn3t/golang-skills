@@ -23,7 +23,8 @@ OPTIONS
     --output FILE        Write to FILE instead of stdout
     --force              Allow --output to overwrite an existing file
     --parallel           Include t.Parallel() in generated test
-    --json               Output structured JSON metadata to stdout
+    --json               Output structured JSON metadata to stdout; without
+                         --output the scaffold itself goes to stderr
 
 ARGUMENTS
     FuncName             Name of the function to test (must be exported/uppercase)

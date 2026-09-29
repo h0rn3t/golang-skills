@@ -56,12 +56,12 @@ Prefer explicit functions over `init()`:
 
 ```go
 // Bad: init() with I/O and environment dependencies
-var _config Config
+var config Config
 
 func init() {
     cwd, _ := os.Getwd()
     raw, _ := os.ReadFile(path.Join(cwd, "config.yaml"))
-    yaml.Unmarshal(raw, &_config)
+    yaml.Unmarshal(raw, &config)
 }
 ```
 
@@ -151,9 +151,7 @@ func run() error {
     if err != nil {
         return err
     }
-
-    // Process b...
-    return nil
+    return process(b)
 }
 ```
 
@@ -185,37 +183,49 @@ flag.String("output-dir", ".", "")   // hyphens beside snake_case flags
 
 For complex CLIs with subcommands, use `flag.NewFlagSet` per subcommand with
 `flag.ContinueOnError`, so `run` returns the parse error and `main` stays the
-only exit:
+only exit. `Parse` has already printed that error and the usage when it
+returns, so `main` prints only the other errors, and exits 2 only for a usage
+error:
 
 ```go
+// errUsage marks a usage error already printed to stderr with the usage text.
+var errUsage = errors.New("usage error")
+
 func main() {
-    if err := run(os.Args[1:]); err != nil && !errors.Is(err, flag.ErrHelp) {
-        fmt.Fprintln(os.Stderr, err)
+    err := run(os.Args[1:])
+    switch {
+    case err == nil, errors.Is(err, flag.ErrHelp):
+    case errors.Is(err, errUsage):
         os.Exit(2)
+    default:
+        fmt.Fprintln(os.Stderr, err)
+        os.Exit(1)
     }
 }
 
 func run(args []string) error {
     if len(args) == 0 {
-        return errors.New("usage: tool serve|migrate [flags]")
+        fmt.Fprintln(os.Stderr, "usage: tool serve|migrate [flags]")
+        return errUsage
     }
     switch args[0] {
     case "serve":
         fs := flag.NewFlagSet("serve", flag.ContinueOnError)
         port := fs.Int("port", 8080, "listen port")
         if err := fs.Parse(args[1:]); err != nil {
-            return err
+            return fmt.Errorf("%w: %w", errUsage, err)
         }
         return serve(*port)
     case "migrate":
         fs := flag.NewFlagSet("migrate", flag.ContinueOnError)
         dryRun := fs.Bool("dry_run", false, "print changes without applying them")
         if err := fs.Parse(args[1:]); err != nil {
-            return err
+            return fmt.Errorf("%w: %w", errUsage, err)
         }
         return migrate(*dryRun)
     default:
-        return fmt.Errorf("unknown command %q; usage: tool serve|migrate [flags]", args[0])
+        fmt.Fprintf(os.Stderr, "unknown command %q\nusage: tool serve|migrate [flags]\n", args[0])
+        return errUsage
     }
 }
 ```

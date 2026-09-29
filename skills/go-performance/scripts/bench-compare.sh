@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="1.2.0"
+VERSION="1.3.0"
 SCRIPT_NAME="$(basename "$0")"
 
 usage() {
@@ -25,6 +25,7 @@ EXIT CODES
 
     With --json the object carries "status" (ok | no_benchmarks | error) and
     "exit_code", this script's exit code; "go_exit_code" is go test's own.
+    "benchmarks_found" counts result lines: one per benchmark per --count run.
 
 OPTIONS
     -h, --help           Show this help message
@@ -61,6 +62,12 @@ json_escape() {
     s="${s//$'\r'/}"
     s="${s//$'\n'/\\n}"
     printf '%s' "$s"
+}
+
+# Pass go test output through with at most LIMIT benchmark result lines
+# (0 = all); every other line passes unchanged.
+limit_results() {
+    awk -v limit="$LIMIT" '/^Benchmark/ { if (limit > 0 && ++seen > limit) next } { print; fflush() }'
 }
 
 # Print human-readable output: stdout in text mode, stderr in JSON mode.
@@ -146,9 +153,9 @@ log ""
 
 GO_EXIT=0
 if $JSON_OUTPUT; then
-    go test "${BENCH_ARGS[@]}" "$PACKAGE" 2>&1 | tee "$TMPFILE" >&2 || GO_EXIT=$?
+    go test "${BENCH_ARGS[@]}" "$PACKAGE" 2>&1 | tee "$TMPFILE" | limit_results >&2 || GO_EXIT=$?
 else
-    go test "${BENCH_ARGS[@]}" "$PACKAGE" 2>&1 | tee "$TMPFILE" || GO_EXIT=$?
+    go test "${BENCH_ARGS[@]}" "$PACKAGE" 2>&1 | tee "$TMPFILE" | limit_results || GO_EXIT=$?
 fi
 
 BENCH_COUNT=$(grep -cE '^Benchmark' "$TMPFILE" || true)
@@ -158,9 +165,9 @@ if [[ $LIMIT -gt 0 && $BENCH_COUNT -gt $LIMIT ]]; then
     TRUNCATED=true
 fi
 
-if ! $JSON_OUTPUT && $TRUNCATED; then
+if $TRUNCATED; then
     log ""
-    log "Note: $BENCH_COUNT benchmark results found, showing first $LIMIT (--limit $LIMIT)"
+    log "Note: $BENCH_COUNT benchmark result lines found, showing the first $LIMIT (--limit $LIMIT)"
 fi
 
 if [[ -n "$SAVE" ]]; then
@@ -185,16 +192,16 @@ if [[ -n "$BASELINE" ]]; then
         log ""
         log "--- Baseline ---"
         if $JSON_OUTPUT; then
-            grep -E '^Benchmark' "$BASELINE" >&2 || true
+            grep -E '^Benchmark' "$BASELINE" | limit_results >&2 || true
         else
-            grep -E '^Benchmark' "$BASELINE" || true
+            grep -E '^Benchmark' "$BASELINE" | limit_results || true
         fi
         log ""
         log "--- Current ---"
         if $JSON_OUTPUT; then
-            grep -E '^Benchmark' "$TMPFILE" >&2 || true
+            grep -E '^Benchmark' "$TMPFILE" | limit_results >&2 || true
         else
-            grep -E '^Benchmark' "$TMPFILE" || true
+            grep -E '^Benchmark' "$TMPFILE" | limit_results || true
         fi
     fi
 fi
@@ -221,22 +228,7 @@ elif [[ $BENCH_COUNT -eq 0 ]]; then
 fi
 
 if $JSON_OUTPUT; then
-    BENCH_OUTPUT=$(<"$TMPFILE")
-    if $TRUNCATED; then
-        limited=""
-        bench_seen=0
-        while IFS= read -r line; do
-            if [[ "$line" =~ ^Benchmark ]]; then
-                bench_seen=$((bench_seen + 1))
-                if [[ $bench_seen -le $LIMIT ]]; then
-                    limited+="$line"$'\n'
-                fi
-            else
-                limited+="$line"$'\n'
-            fi
-        done < "$TMPFILE"
-        BENCH_OUTPUT="$limited"
-    fi
+    BENCH_OUTPUT=$(limit_results < "$TMPFILE")
 
     escaped_package=$(json_escape "$PACKAGE")
     escaped_filter=$(json_escape "$FILTER")

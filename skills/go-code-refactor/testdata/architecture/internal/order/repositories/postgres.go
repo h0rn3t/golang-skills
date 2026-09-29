@@ -43,16 +43,16 @@ func (s *OrderStore) CreateWithAudit(ctx context.Context, o models.Order, audit 
 	return nil
 }
 
-// Find loads one order; a missing row is order.ErrNotFound, the module's
-// contract, not sql.ErrNoRows.
-func (s *OrderStore) Find(ctx context.Context, id string) (models.Order, error) {
-	var o models.Order
-	err := s.db.QueryRowContext(ctx, `SELECT id, customer FROM orders WHERE id = $1`, id).Scan(&o.ID, &o.Customer)
+// Summary loads one order's id and the total stored with it; a missing row is
+// order.ErrNotFound, the module's contract, not sql.ErrNoRows.
+func (s *OrderStore) Summary(ctx context.Context, id string) (order.Summary, error) {
+	var sum order.Summary
+	err := s.db.QueryRowContext(ctx, `SELECT id, total_cents FROM orders WHERE id = $1`, id).Scan(&sum.ID, &sum.TotalCents)
 	if errors.Is(err, sql.ErrNoRows) {
-		return models.Order{}, order.ErrNotFound
+		return order.Summary{}, order.ErrNotFound
 	}
 	if err != nil {
-		return models.Order{}, fmt.Errorf("find order %q: %w", id, err)
+		return order.Summary{}, fmt.Errorf("find order %q: %w", id, err)
 	}
-	return o, nil
+	return sum, nil
 }

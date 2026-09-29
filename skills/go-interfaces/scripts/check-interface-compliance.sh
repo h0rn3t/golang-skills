@@ -2,13 +2,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="1.2.0"
+VERSION="1.3.0"
 
 for arg in "$@"; do
     case "$arg" in
         -h|--help)
             cat <<EOF
-check-interface-compliance.sh v$VERSION - Find likely missing compile-time interface compliance verifications
+check-interface-compliance.sh v$VERSION - List exported interfaces implemented beside their declaration that nothing converts to or that an exported function returns
 
 USAGE
     bash check-interface-compliance.sh [options] [path]
@@ -45,7 +45,10 @@ STAMP="$(cksum "$SRC" | awk '{print $1 "-" $2}')"
 BIN="$CACHE_ROOT/check-interface-compliance-$STAMP"
 
 if [[ ! -x "$BIN" ]]; then
-    GOCACHE="${GOCACHE:-$CACHE_ROOT/go-build}" go build -o "$BIN" "$SRC"
+    if ! GOCACHE="${GOCACHE:-$CACHE_ROOT/go-build}" go build -o "$BIN" "$SRC"; then
+        echo "error: could not build $SRC" >&2
+        exit 2
+    fi
 fi
 
 exec "$BIN" "$@"

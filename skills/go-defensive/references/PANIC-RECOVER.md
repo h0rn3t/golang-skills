@@ -2,46 +2,53 @@
 
 > Sources: source/effective-go/effective_go.html (Panic, Recover); source/uber-go-style/style.md (Do not Panic)
 > Authority: advisory
-> Last verified: 2026-09-10
+> Last verified: 2026-09-29
 
 ## Panic Guidelines
 
-`panic` creates a run-time error that stops the program. Use it only for truly
-unrecoverable situations.
+`panic` creates a run-time error that stops the program. An error caused by
+input or the environment is returned, never panicked; a panic marks a
+programming error.
 
 ### When to Panic
 
 Real library functions should **avoid panic**. If the problem can be masked or
 worked around, let things continue rather than taking down the whole program.
+A case no input can reach is the exception. This fragment switches over an
+unexported enum whose every value is a constant of the same package, so the
+`default` is a bug here, never caller input:
 
 ```go
-// Acceptable: Truly impossible situation
-func CubeRoot(x float64) float64 {
-    z := x/3
-    for i := 0; i < 1e6; i++ {
-        prevz := z
-        z -= (z*z*z-x) / (3*z*z)
-        if veryClose(z, prevz) {
-            return z
-        }
+func eval(c opcode, a, b int) int {
+    switch c {
+    case opAdd:
+        return a + b
+    case opSub:
+        return a - b
+    default:
+        panic(fmt.Sprintf("eval: unknown opcode %d", c))
     }
-    // A million iterations has not converged; something is wrong.
-    panic(fmt.Sprintf("CubeRoot(%g) did not converge", x))
 }
 ```
 
 ### Panic in Initialization
 
-Exception: If a library truly cannot set itself up during `init()`, it may be
-reasonable to panic:
+`init()` may panic when a package cannot set itself up from its own constants
+and embedded files — a bug the first test run reports. A value from the
+environment is not that case: read it in `main` and return the error.
 
 ```go
-var user = os.Getenv("USER")
-
+// Bad: a missing variable is the environment, not a bug in this package
 func init() {
-    if user == "" {
+    if os.Getenv("USER") == "" {
         panic("no value for $USER")
     }
+}
+
+// Good: run, called from main, returns it and main exits non-zero
+user := os.Getenv("USER")
+if user == "" {
+    return errors.New("USER is not set")
 }
 ```
 
@@ -124,7 +131,7 @@ func Compile(str string) (regexp *Regexp, err error) {
 
 - Deferred functions can modify named return values
 - Type assertion `e.(Error)` re-panics on unexpected error types
-- Never expose panics to clients—always convert at API boundary
+- A panic raised for the package's own control flow never reaches a caller—convert it at the API boundary
 
 ---
 
@@ -137,6 +144,6 @@ func Compile(str string) (regexp *Regexp, err error) {
 
 ## When to Use
 
-- **Panic**: Only for truly unrecoverable situations or init failures
-- **Recover**: Server handlers, package-internal error simplification
-- **Never**: Expose panics across package boundaries—always convert to errors
+- **Panic**: A programming error — API misuse, an unreachable case, a `MustX` failure at init
+- **Recover**: Goroutines you start, because `net/http` recovers only its handler goroutine; package-internal error simplification
+- **Never**: Let an input or environment error cross a package boundary as a panic—return it

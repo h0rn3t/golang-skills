@@ -22,7 +22,10 @@ allowed-tools: Bash(bash:*)
 
 ## Doc Comments
 
-> **Normative**: All top-level exported names must have doc comments.
+> **Normative**: Every top-level exported name has a doc comment, in every
+> package except `package main` and those under `internal/` or `cmd/` — the
+> API other modules import, which is the set revive `exported` checks in the
+> gate.
 
 ### Basic Rules
 
@@ -38,9 +41,10 @@ type Request struct { ...
 func Encode(w io.Writer, req *Request) { ...
 ```
 
-Unexported types/functions with unobvious behavior should also have doc comments.
+Unexported names, and exported names under `internal/` or `cmd/`, get a doc
+comment when their behavior is not obvious from the signature.
 
-> **Validation**: `scripts/check-docs.sh` lists exported symbols without a doc comment, outside `package main` and skipping methods of unexported types and standard methods such as `Error` and `ServeHTTP`, as `revive` does; it runs with the [go-linting](../go-linting/SKILL.md) gate, once, at the end of the task.
+> **Validation**: `scripts/check-docs.sh` lists exported names without a doc comment outside `package main`, skipping methods of unexported types and the methods revive skips (`Error`, `Read`, `ServeHTTP`, `String`, `Write`, `Unwrap`). Unlike the gate it also reports `internal/` and `cmd/`, where a finding is advisory. Run it once at the end of the task, beside the [go-linting](../go-linting/SKILL.md) gate, which does not run it.
 
 ---
 
@@ -123,7 +127,10 @@ Key principles:
 ```go
 func ExampleConfig_WriteTo() {
     cfg := &Config{Name: "example"}
-    cfg.WriteTo(os.Stdout)
+    if _, err := cfg.WriteTo(os.Stdout); err != nil {
+        fmt.Println("write config:", err)
+        return
+    }
     // Output:
     // {"name": "example"}
 }

@@ -1,6 +1,11 @@
 package evals_test
 
-import "testing"
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"testing"
+)
 
 func TestTransactionExampleFinalizes(t *testing.T) {
 	code := exampleBlock(t, "skills/go-database/references/SQL-PATTERNS.md", "## Transaction helper")
@@ -63,7 +68,89 @@ func TestMissingAccountRollsBack(t *testing.T) {
   if err:=db.Close();err!=nil {t.Fatal(err)}
  }
 }
+`+accountDriver)
+}
 
+// The go-database SKILL.md transfer is the form a reader copies: a missing
+// account on either side rolls back and surfaces ErrNotFound, never
+// sql.ErrNoRows, and nothing is committed.
+func TestDatabaseExampleTransactionRollsBackMissingAccount(t *testing.T) {
+	code := exampleBlock(t, "skills/go-database/SKILL.md", "## Transactions")
+	runExampleTest(t, `package example
+import ("context"; "database/sql"; "database/sql/driver"; "errors"; "fmt"; "io"; "testing")
+var ErrNotFound = errors.New("not found")
+func transfer(ctx context.Context, db *sql.DB, from, to, amount int64) error {
+`+code+`
+}
+func TestMissingAccount(t *testing.T) {
+ for _, missing := range []int64{0, 1, 2} {
+  conn := &testConn{missingID: missing}
+  db := sql.OpenDB(conn)
+  err := transfer(t.Context(), db, 1, 2, 100)
+  wantErr := missing != 0
+  if errors.Is(err, ErrNotFound) != wantErr {t.Errorf("transfer(missing=%d): error=%v, want ErrNotFound=%t", missing, err, wantErr)}
+  if errors.Is(err, sql.ErrNoRows) {t.Errorf("transfer(missing=%d): sql.ErrNoRows leaked: %v", missing, err)}
+  if wantErr && (conn.commits != 0 || conn.rollbacks != 1) {t.Errorf("missing=%d: commits=%d rollbacks=%d, want 0/1", missing, conn.commits, conn.rollbacks)}
+  if !wantErr && (conn.commits != 1 || conn.rollbacks != 0) {t.Errorf("success: commits=%d rollbacks=%d, want 1/0", conn.commits, conn.rollbacks)}
+  if got:=db.Stats().InUse;got!=0 {t.Errorf("transfer: connections in use=%d, want 0",got)}
+  if err:=db.Close();err!=nil {t.Fatal(err)}
+ }
+}
+`+accountDriver)
+}
+
+// The real-database helper in go-testing's INTEGRATION.md skips without a DSN
+// and closes the pool it opened; a fake "pgx" driver stands in for the one the
+// module already imports. The file carries the integration build tag, so the
+// module is tested with it.
+func TestTestingExampleRealDatabaseHelper(t *testing.T) {
+	code := exampleBlock(t, "skills/go-testing/references/INTEGRATION.md", "## Real Databases")
+	dir := t.TempDir()
+	for name, content := range map[string]string{
+		"go.mod":     "module example\n\ngo 1.27\n",
+		"db_test.go": code,
+		"use_test.go": `//go:build integration
+
+package store_test
+import ("database/sql"; "database/sql/driver"; "errors"; "testing")
+var closes int
+type fakeDriver struct{}
+type fakeConn struct{}
+func (fakeDriver) Open(string) (driver.Conn, error) { return fakeConn{}, nil }
+func (fakeConn) Prepare(string) (driver.Stmt, error) { return nil, errors.New("unused") }
+func (fakeConn) Close() error { closes++; return nil }
+func (fakeConn) Begin() (driver.Tx, error) { return nil, errors.New("unused") }
+func init() { sql.Register("pgx", fakeDriver{}) }
+func TestOpenTestDB(t *testing.T) {
+ t.Run("unset", func(t *testing.T) {
+  t.Setenv("TEST_DATABASE_URL", "")
+  defer func() { if !t.Skipped() { t.Error("openTestDB did not skip without TEST_DATABASE_URL") } }()
+  openTestDB(t)
+ })
+ t.Run("set", func(t *testing.T) {
+  t.Setenv("TEST_DATABASE_URL", "fake")
+  if openTestDB(t) == nil { t.Fatal("openTestDB returned nil") }
+ })
+ if closes != 1 { t.Errorf("connections closed after the subtests = %d, want 1", closes) }
+}
+`,
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, args := range [][]string{{"vet", "-tags", "integration", "./..."}, {"test", "-count=1", "-race", "-tags", "integration", "./..."}} {
+		cmd := exec.CommandContext(t.Context(), "go", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("go %s: %v\n%s", args[0], err, out)
+		}
+	}
+}
+
+// accountDriver is a database/sql driver whose UPDATE ... RETURNING finds every
+// account except missingID; both transaction examples run against it.
+const accountDriver = `
 // Перевірка реакції Go-коду на EOF від драйвера; SQL виконується лише в інтеграційних тестах.
 type testConn struct {
  beginErr, commitErr, rollbackErr error
@@ -97,5 +184,4 @@ func (r *accountRows) Next(dest []driver.Value) error {
 }
 func (c *testConn) Commit() error { c.commits++; return c.commitErr }
 func (c *testConn) Rollback() error { c.rollbacks++; return c.rollbackErr }
-`)
-}
+`

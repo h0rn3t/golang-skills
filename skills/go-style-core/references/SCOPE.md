@@ -13,18 +13,18 @@ scope in Go.
 
 Group related `var`, `const`, and `type` declarations in blocks; keep unrelated
 top-level declarations separate. Adjacent local declarations may share a block
-when this improves readability. Follow the repository's naming convention for
-globals; the `_` prefix in examples is not a universal rule.
+when this improves readability. Naming globals, including the `_` prefix, is
+[go-naming](../../go-naming/references/VARIABLES.md#unexported-globals)'s rule.
 
 At the top level, always use `var`. Do not specify the type unless it differs
 from the expression's type:
 
 ```go
 // Bad: redundant type
-var _s string = F()
+var name string = F()
 
 // Good: type inferred
-var _s = F()
+var name = F()
 ```
 
 Specify the type when the desired type differs from the expression:
@@ -36,7 +36,7 @@ func (myError) Error() string { return "error" }
 func F() myError              { return myError{} }
 
 // F returns myError but we want the error interface
-var _e error = F()
+var errDefault error = F()
 ```
 
 ---

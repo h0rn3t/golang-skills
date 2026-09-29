@@ -1,6 +1,6 @@
 # Variable Names
 
-> Sources: source/google-go-styleguide/decisions.md (Variable names); source/golang-wiki/CodeReviewComments.md (Variable Names)
+> Sources: source/google-go-styleguide/decisions.md (Variable names); source/golang-wiki/CodeReviewComments.md (Variable Names); source/uber-go-style/style.md (Prefix Unexported Globals with _)
 > Authority: advisory
 > Last verified: 2026-09-10
 
@@ -78,42 +78,26 @@ limitStr := r.FormValue("limit")
 limit, err := strconv.Atoi(limitStr)
 ```
 
-## Prefix Unexported Globals with _
+## Unexported Globals
 
-> **Source**: Uber Go Style Guide
-
-Prefix unexported top-level `var`s and `const`s with `_` to clarify when they
-are used that they are global symbols.
-
-**Rationale**: Top-level variables and constants have package scope. Using a
-generic name makes it easy to accidentally shadow the value in a different file.
+> **Advisory**: Name an unexported top-level `var` or `const` for its role,
+> with no prefix — new code with no neighbor to match included. The `_` prefix
+> is the Uber style guide's convention, which the Google style guide does not
+> use; follow it only in a package that already uses it.
 
 ```go
-// Bad - hard to distinguish from local variables
+// Good - new code
 const (
     defaultPort = 8080
     defaultUser = "user"
 )
 
-func Bar() {
-    defaultPort := 9090  // shadows global, no compile error
-    fmt.Println("Default port", defaultPort)
-}
+// Only where the package already prefixes its globals (Uber convention)
+const _defaultTimeout = 30 * time.Second
 ```
 
-```go
-// Good (Uber convention) - clearly global
-const (
-    _defaultPort = 8080
-    _defaultUser = "user"
-)
-```
-
-> **Advisory**: The `_` prefix is Uber's convention; the Google style guide
-> does not use it and relies on scope-appropriate names instead. Match the
-> repository — do not introduce the prefix into a codebase that lacks it.
-
-**Exception**: Unexported error values use the `err` prefix without underscore:
+Unexported error values keep the `err` prefix without the underscore, in a
+package that uses `_` too:
 
 ```go
 var errUserNotFound = errors.New("user not found")

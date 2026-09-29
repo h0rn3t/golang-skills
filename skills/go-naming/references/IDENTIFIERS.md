@@ -28,6 +28,11 @@ Package names must be:
 Avoid names that tempt users to rename on import: `util`, `common`, `helper`,
 `model`, `base`. Prefer specific names: `stringutil`, `httpauth`, `configloader`.
 
+The layer directories of a layered tree take the plural layer names
+`handlers`, `services`, `repositories`, and `models`
+([ARCHITECTURE.md](../../go-code-refactor/references/ARCHITECTURE.md#the-preferred-layer-names));
+`model` or `models` is a generic name only as a catch-all outside such a tree.
+
 ### Import Renaming
 
 When renaming imports, the local name must follow package naming rules:

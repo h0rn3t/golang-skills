@@ -3,7 +3,7 @@
 > Sources: https://go.dev/doc/comment (Go 1.19 doc comment syntax)
 > Authority: normative
 > Minimum Go: doc links, `#` headings, and list syntax 1.19
-> Last verified: 2026-09-10
+> Last verified: 2026-09-29
 
 ## Godoc Formatting
 
@@ -27,8 +27,9 @@ comments into it, so an old-style heading is rewritten on the next save.
 // A heading gets an anchor on pkg.go.dev; keep it short, no trailing period.
 ```
 
-**Lists** — lines indented and starting with `-`, `*`, or `1.`; a blank `//`
-line before and after; gofmt normalizes the marker and indentation:
+**Lists** — lines indented and starting with `-`, `*`, or `1.`; text after the
+list starts after a blank `//` line, which gofmt inserts along with the
+normalized marker and indentation:
 
 ```go
 // LoadConfig treats these keys specially:
@@ -57,35 +58,19 @@ Bare URLs are linked automatically:
 // [design note]: https://example.com/design
 ```
 
-Old-style Godoc (a heading as a plain capitalized line, lists as verbatim
-blocks) still renders as paragraphs or code, not as headings or lists.
+An old-style heading — a lone capitalized line with no final punctuation,
+between blank `//` lines — still renders as a heading, and gofmt rewrites it to
+`// # Heading`. An old-style list written as an indented block without `-`,
+`*`, or `1.` markers renders as code, not as a list.
 
 ---
 
 ## Signal Boosting
 
-> **Advisory**: Add comments to highlight unusual or easily-missed patterns.
-
-These two are hard to distinguish:
-
-```go
-if err := doSomething(); err != nil {  // common
-    // ...
-}
-
-if err := doSomething(); err == nil {  // unusual!
-    // ...
-}
-```
-
-Add a comment to boost the signal:
-
-```go
-// Good:
-if err := doSomething(); err == nil { // if NO error
-    // ...
-}
-```
+A comment inside a function that flags an easily-missed form, such as
+`err == nil` where `!= nil` is usual, is an internal comment:
+[go-style-core PRINCIPLES.md](../../go-style-core/references/PRINCIPLES.md#3-concision)
+owns it.
 
 ---
 
@@ -98,4 +83,4 @@ go doc -all .                                   # terminal rendering, Go 1.19+ s
 go install golang.org/x/pkgsite/cmd/pkgsite@latest && pkgsite   # the pkg.go.dev view
 ```
 
-Both render the syntax above; an old-style heading shows up as a paragraph.
+Both render the syntax above.

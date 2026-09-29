@@ -368,7 +368,8 @@ func TestRoutingGate(t *testing.T) {
 
 	// --hints runs the same owner table over whole files for the prompt hook:
 	// a handler names go-http and go-error-handling, a test file go-testing,
-	// a missing file nothing.
+	// a missing file nothing, and a query go-database and go-error-handling,
+	// as the go-code SQL row loads both.
 	t.Run("hints mode names owners for files", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
@@ -386,6 +387,17 @@ func TestRoutingGate(t *testing.T) {
 		}
 		if got, want := strings.TrimSpace(string(out)), "go-http go-error-handling go-testing"; got != want {
 			t.Fatalf("--hints = %q, want %q", got, want)
+		}
+		db := filepath.Join(dir, "store.go")
+		if err := os.WriteFile(db, []byte("package store\n\nimport \"database/sql\"\n\nfunc count(db *sql.DB) {}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		out, err = exec.Command("bash", script, "--hints", db).Output()
+		if err != nil {
+			t.Fatalf("--hints %s: %v", db, err)
+		}
+		if got, want := strings.TrimSpace(string(out)), "go-database go-error-handling"; got != want {
+			t.Fatalf("--hints on a database/sql file = %q, want %q", got, want)
 		}
 	})
 

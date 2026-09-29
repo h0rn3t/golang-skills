@@ -2,7 +2,7 @@
 
 > Sources: https://pkg.go.dev/golang.org/x/sync/errgroup; source/effective-go/effective_go.html (Concurrency)
 > Authority: advisory
-> Last verified: 2026-09-10
+> Last verified: 2026-09-29
 
 Situational patterns for bounded work, request/response multiplexing, and
 CPU-bound parallelization.
@@ -75,7 +75,7 @@ The client sends a request with a function, its arguments, and a channel on
 which to receive the result:
 
 ```go
-request := &Request{[]int{3, 4, 5}, sum, make(chan int)}
+request := &Request{[]int{3, 4, 5}, sum, make(chan int, 1)} // one slot: the reply never blocks the server
 clientRequests <- request
 fmt.Printf("answer: %d\n", <-request.resultChan)
 ```
@@ -84,15 +84,17 @@ The server handler reads from the queue and sends results back on each
 request's reply channel:
 
 ```go
-func handle(queue chan *Request) {
+func handle(queue <-chan *Request) {
     for req := range queue {
         req.resultChan <- req.f(req.args)
     }
 }
 ```
 
-This pattern forms the basis for a rate-limited, parallel, non-blocking RPC
-system without a mutex in sight.
+Because each reply channel has one slot, the server's send completes even when
+the client has stopped waiting; an unbuffered reply channel would park the
+handler forever on the first abandoned request. This pattern forms the basis
+for a rate-limited, parallel RPC system without a mutex in sight.
 
 ---
 
@@ -128,7 +130,9 @@ func (v Vector) DoAll(u Vector) {
 Size the fan-out with `runtime.GOMAXPROCS(0)`, not `runtime.NumCPU()`:
 `NumCPU` reports hardware cores and ignores the cgroup CPU limit, so a
 container capped at 2 CPUs on a 64-core host spawns 64 workers that thrash.
-Since Go 1.25 the default `GOMAXPROCS` is cgroup-aware, and
+When the main module's `go` directive is 1.25 or later the default `GOMAXPROCS`
+is cgroup-aware (an older directive builds with `containermaxprocs=0` in
+`DefaultGODEBUG`, and the default stays the host's CPU count), and
 `runtime.SetDefaultGOMAXPROCS()` restores that default after a manual override.
 
 No `i := i` capture line — loop variables are per-iteration since Go 1.22, and

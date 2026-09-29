@@ -3,6 +3,7 @@ set -euo pipefail
 
 VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
     cat <<EOF
@@ -16,9 +17,14 @@ DESCRIPTION
     reports any findings. Use before manual code review to catch
     mechanical issues early.
 
-    A missing golangci-lint is reported as unavailable (the run is then
-    INCOMPLETE, not clean); gofmt and go vet still run. Use --strict where
-    the linter is guaranteed (CI) to make its absence an error.
+    golangci-lint runs with the project's configuration; without one it
+    runs with the go-linting baseline (../../go-linting/assets/golangci.yml
+    beside this skill) when that file is installed.
+
+    A missing golangci-lint, or one that exits with an error rather than
+    findings (exit code other than 0 or 1), is reported as unavailable (the
+    run is then INCOMPLETE, not clean); gofmt and go vet still run. Use
+    --strict where the linter is guaranteed (CI) to make that an error.
 
     Exits 0 if no check failed, 1 if issues found, 2 on error.
 
@@ -26,7 +32,7 @@ OPTIONS
     -h, --help       Show this help message
     -v, --version    Show version
     --json           Output results as JSON
-    --strict         Fail if golangci-lint is not installed
+    --strict         Fail if golangci-lint is not installed or cannot run
     --force          Accepted and ignored (a missing linter is reported as unavailable by default)
     --limit N        Max items reported per section (0 = unlimited, default: 0)
 
@@ -113,14 +119,41 @@ if ! GOVET_OUTPUT=$(go vet "$TARGET" 2>&1); then
 fi
 
 LINT_STATUS="unavailable"
+LINT_REASON="not installed"
 LINT_OUTPUT=""
+LINT_BASELINE=false
 if command -v golangci-lint &>/dev/null; then
-    LINT_STATUS="pass"
-    if ! LINT_OUTPUT=$(golangci-lint run "$TARGET" 2>&1); then
-        LINT_STATUS="fail"
+    LINT_ARGS=(run)
+    # golangci-lint looks for a config in the working directory and from the
+    # path argument upward; without one, the go-linting baseline enables the
+    # linters the review checklist leaves to tools (revive, godot, gosec,
+    # modernize).
+    HAS_CONFIG=false
+    for dir in . "$GOFMT_DIR"; do
+        if [[ -d "$dir" ]] && (cd "$dir" && golangci-lint config path) >/dev/null 2>&1; then
+            HAS_CONFIG=true
+        fi
+    done
+    BASELINE="$SCRIPT_DIR/../../go-linting/assets/golangci.yml"
+    if ! $HAS_CONFIG && [[ -f "$BASELINE" ]]; then
+        # Paths would otherwise be relative to the baseline's directory.
+        LINT_ARGS+=(--config "$BASELINE" --path-mode=abs)
+        LINT_BASELINE=true
     fi
-elif $STRICT; then
-    echo "error: golangci-lint not installed (--strict)" >&2
+    # Exit 1 is findings; any other non-zero exit (no Go files, a go
+    # directive newer than the linter, a broken config) is an environment
+    # error, not a finding.
+    LINT_EXIT=0
+    LINT_OUTPUT=$(golangci-lint "${LINT_ARGS[@]}" "$TARGET" 2>&1) || LINT_EXIT=$?
+    case "$LINT_EXIT" in
+        0) LINT_STATUS="pass" ;;
+        1) LINT_STATUS="fail" ;;
+        *) LINT_REASON="golangci-lint exited $LINT_EXIT" ;;
+    esac
+fi
+if [[ "$LINT_STATUS" == "unavailable" ]] && $STRICT; then
+    echo "error: golangci-lint unavailable: $LINT_REASON (--strict)" >&2
+    [[ -z "$LINT_OUTPUT" ]] || echo "$LINT_OUTPUT" >&2
     exit 2
 fi
 
@@ -232,9 +265,11 @@ else
 
     echo ""
     echo "=== golangci-lint ==="
-    if [[ "$LINT_STATUS" == "unavailable" ]]; then
-        echo "Unavailable (not installed)"
-    elif [[ "$LINT_STATUS" == "fail" ]]; then
+    $LINT_BASELINE && echo "No project config: linted with the go-linting baseline"
+    [[ "$LINT_STATUS" == "unavailable" ]] && echo "Unavailable ($LINT_REASON)"
+    if [[ "$LINT_STATUS" == "pass" ]]; then
+        echo "OK"
+    elif [[ -n "$LINT_OUTPUT" ]]; then
         if [[ $LIMIT -gt 0 ]]; then
             LINT_ARR=()
             while IFS= read -r line; do
@@ -249,13 +284,11 @@ else
         else
             echo "$LINT_OUTPUT"
         fi
-    else
-        echo "OK"
     fi
 
     echo ""
     if [[ $FAILED -eq 1 ]]; then
-        echo "Pre-review checks FAILED — fix issues before manual review."
+        echo "Pre-review checks FAILED — report the findings above before the manual review."
     elif [[ "$LINT_STATUS" == "unavailable" ]]; then
         echo "Pre-review checks INCOMPLETE — golangci-lint unavailable; gofmt and go vet passed."
     else

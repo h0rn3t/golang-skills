@@ -2,42 +2,50 @@
 
 > Sources: source/uber-go-style/style.md (Do not Panic); https://pkg.go.dev/regexp#MustCompile
 > Authority: advisory
-> Last verified: 2026-09-10
+> Last verified: 2026-09-29
 
 `Must` functions wrap a fallible function and panic on error. Use them **only**
-during program initialization where failure means the program cannot run.
+during program initialization, on a value fixed when the program is built, so
+a failure is a bug rather than a missing file or a bad environment.
 
 ## Standard Library Examples
 
 ```go
-// regexp.MustCompile panics if the pattern is invalid
+// regexp.MustCompile panics if the pattern is invalid.
 var validID = regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`)
 
-// template.Must panics if template parsing fails
-var tmpl = template.Must(template.ParseFiles("index.html"))
+//go:embed index.html
+var files embed.FS
+
+// template.Must panics if the embedded template does not parse.
+var tmpl = template.Must(template.ParseFS(files, "index.html"))
 ```
 
-These are safe because they run at package init time — if they fail, the
-program cannot function correctly.
+These are safe because their input is compiled into the binary: a failure is
+a bug the first test run reports. `template.ParseFiles("index.html")` at
+package init is not the same case — it reads the working directory at run
+time, so it belongs in `main`, returning its error.
 
 ## When to Use Must
 
 ```
-Is this called during program initialization (package-level var, init, main setup)?
-├─ Yes → Is failure unrecoverable (config, regex, template)?
+Is this called during program initialization (package-level var, init)?
+├─ Yes → Is the input fixed at build time (a literal, an embedded file)?
 │        ├─ Yes → Must is appropriate
-│        └─ No  → Return error instead
+│        └─ No  → Return error instead (config, files, environment)
 └─ No  → Never use Must — return error
 ```
 
 ### Appropriate Uses
 
-- **Package-level `var`**: Compiling regexps, parsing templates, loading
-  required config
-- **`init()` or early `main()`**: Setting up resources that must exist for
-  the program to run
+- **Package-level `var`**: Compiling regexp literals, parsing embedded
+  templates
+- **`init()`**: Building tables from the package's own constants
 - **Test helpers**: `t.Fatal` is preferred in tests, but Must can be
   acceptable for test fixtures
+
+Required config is not on this list: `main` (or the `run` it calls) loads it
+and returns the error, so a missing file exits non-zero with a message.
 
 ### Never Use Must For
 
@@ -51,12 +59,12 @@ Is this called during program initialization (package-level var, init, main setu
 Follow the naming convention `MustX` where `X` is the fallible function name:
 
 ```go
-func MustParseConfig(path string) *Config {
-    cfg, err := ParseConfig(path)
+func MustParseRule(s string) Rule {
+    r, err := ParseRule(s)
     if err != nil {
-        panic(fmt.Sprintf("parsing config %s: %v", path, err))
+        panic(fmt.Sprintf("parsing rule %q: %v", s, err))
     }
-    return cfg
+    return r
 }
 ```
 
@@ -68,9 +76,9 @@ func MustParseConfig(path string) *Config {
 - **Document**: Always document that the function panics on error
 
 ```go
-// MustParseConfig parses the config file at path.
-// It panics if the file cannot be read or contains invalid configuration.
-func MustParseConfig(path string) *Config { ... }
+// MustParseRule is like ParseRule but panics if s is invalid. It simplifies
+// the initialization of package-level variables holding rule literals.
+func MustParseRule(s string) Rule { ... }
 ```
 
 ## Relationship to Panic/Recover

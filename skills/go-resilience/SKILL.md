@@ -87,13 +87,16 @@ func retry(ctx context.Context, attempts int, base, maxWait time.Duration,
         wait := min(base<<min(i, 20), maxWait) // an uncapped shift overflows to a negative wait
         wait = wait/2 + rand.N(wait/2+1) // jitter within [wait/2, wait]
         wait = max(wait, retryAfter)     // Retry-After is a lower bound
+        if d, ok := ctx.Deadline(); ok && time.Until(d) <= wait {
+            return err // the wait outlasts the budget: stop now, do not sleep it out
+        }
         select {
         case <-ctx.Done():
             return errors.Join(ctx.Err(), err)
         case <-time.After(wait):
         }
     }
-    return nil // attempts <= 0: nothing was tried
+    return errors.New("retry: attempts < 1, nothing was tried") // not a success
 }
 ```
 

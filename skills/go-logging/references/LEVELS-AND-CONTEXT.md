@@ -83,11 +83,12 @@ attribute with the actual error value.
 ### Choosing Between Warn and Error
 
 ```
-Did the operation ultimately succeed?
-├─ Yes (after retry/fallback) → Warn
-└─ No (caller gets an error)  → Error
-    ├─ Requires immediate attention → Error
-    └─ Can wait for next review   → Warn
+Is the error returned to the caller?
+├─ Yes → do not log it; the top of the chain logs it once
+└─ No, it is handled here
+    ├─ The operation succeeded after retry/fallback → Warn
+    ├─ It failed and needs an operator now          → Error
+    └─ It failed and can wait for the next review   → Warn
 ```
 
 ---
@@ -257,7 +258,7 @@ slog.Info("users loaded", "count", len(users))
 | User ID (opaque) | Yes | — |
 | HTTP method, path, status | Yes | — |
 | Error messages | Yes | — |
-| Passwords / tokens | **Never** | Log token prefix or "redacted" |
+| Passwords / tokens | **Never** | A secret type whose `LogValue` returns `[REDACTED]` ([go-logging](../SKILL.md#what-not-to-log)) |
 | Full request body | **No** | Log content length and type |
 | PII (email, name) | **Avoid** | Log opaque user ID |
 | Large collections | **No** | Log count or summary |

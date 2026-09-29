@@ -18,12 +18,17 @@ import (
 	"strings"
 )
 
-const version = "2.0.0"
+const version = "2.1.0"
 
 type violation struct {
 	File    string `json:"file"`
 	Line    int    `json:"line"`
 	Rule    string `json:"rule"`
+	Message string `json:"message"`
+}
+
+type parseError struct {
+	File    string `json:"file"`
 	Message string `json:"message"`
 }
 
@@ -53,11 +58,17 @@ DESCRIPTION
     Parses Go source files and reports naming violations from the Go style
     guides:
       - SCREAMING_SNAKE_CASE constants (should be MixedCaps)
-      - Get-prefixed getter methods (should omit Get)
-      - Packages named util/helper/common/misc
+      - Get-prefixed methods with no parameters (simple accessors; omit Get)
+      - Packages named util, utils, helper, helpers, common, misc, shared,
+        base, or lib
       - Receivers named "this" or "self"
 
-    Exits 0 if no violations found, 1 if violations found, 2 on error.
+    Skips _test.go files and, as go ./... does, vendor and testdata
+    directories and directories or files whose names begin with "." or "_".
+
+    Exits 0 if no violations found, 1 if violations found, 2 on a usage error
+    or when a file does not parse. The other files are still checked; --json
+    then adds "status":"parse_error" and a "parse_errors" list.
 
 OPTIONS
     -h, --help       Show this help message
@@ -100,11 +111,12 @@ func main() {
 	}
 
 	var all []violation
+	var parseErrors []parseError
 	fset := token.NewFileSet()
 	for _, path := range files {
 		f, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", path, err)
+			parseErrors = append(parseErrors, parseError{File: path, Message: err.Error()})
 			continue
 		}
 		all = append(all, check(fset, path, f)...)
@@ -129,12 +141,17 @@ func main() {
 
 	if opts.jsonOutput {
 		out := struct {
-			Violations []violation `json:"violations"`
-			Total      int         `json:"total"`
-			Truncated  bool        `json:"truncated"`
-		}{Violations: shown, Total: total, Truncated: truncated}
+			Violations  []violation  `json:"violations"`
+			Total       int          `json:"total"`
+			Truncated   bool         `json:"truncated"`
+			Status      string       `json:"status,omitempty"`
+			ParseErrors []parseError `json:"parse_errors,omitempty"`
+		}{Violations: shown, Total: total, Truncated: truncated, ParseErrors: parseErrors}
 		if shown == nil {
 			out.Violations = []violation{}
+		}
+		if len(parseErrors) > 0 {
+			out.Status = "parse_error"
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -142,21 +159,39 @@ func main() {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(2)
 		}
-	} else if total == 0 {
-		fmt.Println("No naming violations found.")
 	} else {
+		printText(shown, parseErrors, total, truncated, opts.limit)
+	}
+	if len(parseErrors) > 0 {
+		os.Exit(2)
+	}
+	if total > 0 {
+		os.Exit(1)
+	}
+}
+
+func printText(shown []violation, parseErrors []parseError, total int, truncated bool, limit int) {
+	if len(parseErrors) > 0 {
+		fmt.Println("Malformed Go files:")
+		fmt.Println()
+		for _, pe := range parseErrors {
+			fmt.Printf("  %s  %s\n", pe.File, pe.Message)
+		}
+		fmt.Println()
+	}
+	switch {
+	case total == 0 && len(parseErrors) == 0:
+		fmt.Println("No naming violations found.")
+	case total > 0:
 		fmt.Println("Naming violations found:")
 		fmt.Println()
 		for _, v := range shown {
 			fmt.Printf("  %s:%d  [%s] %s\n", v.File, v.Line, v.Rule, v.Message)
 		}
 		if truncated {
-			fmt.Printf("  ... and %d more (use --limit to adjust)\n", total-opts.limit)
+			fmt.Printf("  ... and %d more (use --limit to adjust)\n", total-limit)
 		}
 		fmt.Printf("\nTotal: %d violation(s)\n", total)
-	}
-	if total > 0 {
-		os.Exit(1)
 	}
 }
 
@@ -191,7 +226,8 @@ func parseArgs(args []string) (options, error) {
 }
 
 // findGoFiles accepts a file, a directory, or a ./... pattern and returns the
-// non-test Go files beneath it, skipping vendor and .git.
+// non-test Go files beneath it, skipping what go ./... skips: vendor,
+// testdata, and names that begin with "." or "_".
 func findGoFiles(target string) ([]string, error) {
 	dir := strings.TrimSuffix(target, "/...")
 	if dir == "" {
@@ -212,10 +248,13 @@ func findGoFiles(target string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() {
-			if name := d.Name(); path != dir && (name == "vendor" || name == ".git") {
+		if path != dir && ignored(d.Name()) {
+			if d.IsDir() {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if d.IsDir() {
 			return nil
 		}
 		if strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
@@ -224,6 +263,12 @@ func findGoFiles(target string) ([]string, error) {
 		return nil
 	})
 	return files, err
+}
+
+// ignored reports a directory or file name that go ./... leaves out
+// (go help packages).
+func ignored(name string) bool {
+	return name == "vendor" || name == "testdata" || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")
 }
 
 func check(fset *token.FileSet, path string, f *ast.File) []violation {
@@ -265,7 +310,8 @@ func check(fset *token.FileSet, path string, f *ast.File) []violation {
 						fmt.Sprintf("receiver named '%s'; use a short 1-2 letter abbreviation of the type instead", n))
 				}
 			}
-			if m := getterName.FindStringSubmatch(d.Name.Name); m != nil && !getterException.MatchString(m[1]) {
+			// A simple accessor takes no parameters; GetUser(ctx, id) is a lookup.
+			if m := getterName.FindStringSubmatch(d.Name.Name); m != nil && d.Type.Params.NumFields() == 0 && !getterException.MatchString(m[1]) {
 				add(d.Pos(), "get-prefix",
 					fmt.Sprintf("method '%s' has Get prefix; Go getters should omit Get (use '%s')", d.Name.Name, m[1]))
 			}

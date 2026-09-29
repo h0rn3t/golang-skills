@@ -8,7 +8,7 @@ allowed-tools: Bash(bash:*)
 
 ## Resource Routing
 
-- `scripts/check-naming.sh` - Run when checking SCREAMING_SNAKE_CASE constants, Get-prefixed getters, generic package names, or receivers named `this`/`self`.
+- `scripts/check-naming.sh` - Run when checking SCREAMING_SNAKE_CASE constants, `Get`-prefixed methods with no parameters, generic package names, or receivers named `this`/`self`.
 - `scripts/check-naming-ast.go` - Implementation helper invoked by `check-naming.sh`; patch this when changing what counts as a naming violation.
 - `references/IDENTIFIERS.md` - Read for the conventions themselves — package, interface, receiver, constant, initialism, getter and type-suffix names — when a choice for an exported identifier or package-level symbol is in doubt.
 - `references/REPETITION.md` - Read when names repeat package, receiver, type, or local context.
@@ -30,7 +30,8 @@ prefix, initialisms in one case — so this skill carries the decisions and
 
 ```
 What are you naming?
-├─ Package       → Short, lowercase, singular noun (no underscores, no mixedCaps)
+├─ Package       → Short, lowercase, singular noun (no underscores, no mixedCaps);
+│                  a layer directory is plural: handlers, services, repositories, models
 ├─ Interface     → Method name + "-er" suffix when single-method (Reader, Writer)
 ├─ Receiver      → 1-2 letter abbreviation of type (c for Client); consistent across methods
 ├─ Constant      → MixedCaps; use iota for enums; no ALL_CAPS
@@ -60,9 +61,9 @@ What are you naming?
   finding; name the package for what it provides (`httpauth`, `stringutil`).
   [REPETITION.md](references/REPETITION.md) has the cases.
 - **`_` prefix on unexported globals** (Uber only; Google style does not use
-  it): follow the repository. Never introduce the prefix into a codebase that
-  lacks it — [go-style-core](../go-style-core/SKILL.md#house-style-wins) owns
-  the house-style rule.
+  it): new code writes `defaultPort`, not `_defaultPort`, including new code
+  with no neighbor to match. Only a package that already prefixes its globals
+  keeps doing so ([VARIABLES.md](references/VARIABLES.md#unexported-globals)).
 - **Type in the name.** `users` not `userSlice`, `name` not `nameString`;
   when functions differ only by type, the type goes at the end (`ParseInt`,
   `ParseInt64`).
@@ -81,7 +82,7 @@ const defaultPort = 8080                  // package scope: the full name
 
 ## Validation
 
-> **Validation**: `scripts/check-naming.sh` reports the anti-patterns above; it runs with the build and the rest of the [go-linting](../go-linting/SKILL.md) gate, once, at the end of the task.
+> **Validation**: `scripts/check-naming.sh` reports four patterns: SCREAMING_SNAKE_CASE constants, `Get`-prefixed methods with no parameters, generic package names (`util`, `utils`, `helper`, `helpers`, `common`, `misc`, `shared`, `base`, `lib`), and receivers named `this` or `self`. Error names are `errname`'s and package stutter is revive `exported`'s, both in the [go-linting](../go-linting/SKILL.md) gate; the rest of the repetition above has no check. Run the script once at the end of the task, beside that gate, which does not run it.
 
 ## Related Skills
 

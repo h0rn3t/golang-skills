@@ -19,13 +19,15 @@ description: Use when writing or reviewing Go HTTP code — handlers, routing wi
 Use `net/http` method/path routing before adding a router module
 ([go-packages](../go-packages/SKILL.md) owns the dependency ladder). Match an
 existing framework and house style; the HTTP rules still apply.
-Use a framework only when the repository already uses one.
+Use a framework only when the repository already uses one or the user asks
+for it.
 
 ## Routing (Go 1.22+)
 
 ```go
 mux := http.NewServeMux()
 mux.HandleFunc("GET /users/{id}", s.handleGetUser) // serves GET and HEAD
+mux.HandleFunc("GET /users", s.handleListUsers)
 mux.HandleFunc("POST /users", s.handleCreateUser)
 mux.HandleFunc("GET /{$}", s.handleIndex) // exact "/", not a subtree
 
@@ -33,29 +35,42 @@ id := r.PathValue("id")
 ```
 
 - **A `GET` pattern also serves `HEAD`.** A method pattern answers every other
-  method on its path with 405 and an `Allow` header; `HEAD` is the one it lets
-  through, with the `GET` handler's status. Under a contract that makes every
-  method but `GET` a 405, every `GET` pattern gets a `HEAD` pattern — the
-  health check and the index as much as the resource routes, so the file
-  registers as many `HEAD` patterns as `GET` patterns — or every handler
-  opens with the `r.Method != http.MethodGet` check; the test file sends
-  `HEAD` to each `GET` path. A pattern without a method matches every method.
+  method on its path with 405 and an `Allow` header that lists `HEAD`; `HEAD`
+  is the one it lets through, with the `GET` handler's status. Under a
+  contract that makes every method but `GET` a 405, every `GET` path gets a
+  `HEAD` pattern and a pattern without a method, both answered with the
+  methods that path serves — the health check and the index as much as the
+  resource routes, so the file registers as many `HEAD` patterns as `GET`
+  patterns — or a `GET`-only path registers its handler without a method and
+  opens it with an `r.Method != http.MethodGet` check that answers 405 with
+  `Allow: GET`; the test file sends
+  `HEAD` and `POST` to each `GET` path and reads `Allow`. A pattern without a
+  method matches every method.
 - Conflicting patterns panic at registration; overlapping patterns are valid
   when one is more specific, which is why `HEAD /users/{id}` registers beside
   `GET /users/{id}`.
 - Trailing `/` is a subtree; `{$}` pins the exact path.
 
-Only when the contract makes `HEAD` a 405, one package function answers it,
-registered once per `GET` pattern, the index included:
+Only when the contract makes `HEAD` a 405, one package function builds the
+answer, registered twice per `GET` path — as `HEAD` and without a method, so
+`POST` and `DELETE` get the same `Allow` — the index included:
 
 ```go
-func methodNotAllowed(w http.ResponseWriter, _ *http.Request) {
-    w.Header().Set("Allow", "GET")
-    http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+// methodNotAllowed answers every method its path does not serve, HEAD among
+// them; allow lists the methods the path does serve.
+func methodNotAllowed(allow string) http.HandlerFunc {
+    return func(w http.ResponseWriter, _ *http.Request) {
+        w.Header().Set("Allow", allow)
+        http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+    }
 }
 
-mux.HandleFunc("HEAD /users/{id}", methodNotAllowed)
-mux.HandleFunc("HEAD /{$}", methodNotAllowed)
+mux.HandleFunc("HEAD /users/{id}", methodNotAllowed("GET"))
+mux.HandleFunc("/users/{id}", methodNotAllowed("GET"))
+mux.HandleFunc("HEAD /users", methodNotAllowed("GET, POST"))
+mux.HandleFunc("/users", methodNotAllowed("GET, POST"))
+mux.HandleFunc("HEAD /{$}", methodNotAllowed("GET"))
+mux.HandleFunc("/{$}", methodNotAllowed("GET"))
 ```
 
 ## Handler Shape
@@ -65,7 +80,11 @@ shared by handlers; a small handler can capture them directly. Preserve the
 existing structure. No package-level state.
 
 Bound and decode → validate → call the domain with `r.Context()` → map the
-error → write once. With `import json "encoding/json/v2"` (Go 1.27):
+error → write once. `Server` below stands for the type the repository already
+has; in new code without one, the handler is a function literal in the
+constructor that builds the mux, capturing the store
+([go-code](../go-code/SKILL.md#declaration-budget)). With
+`import json "encoding/json/v2"` (Go 1.27):
 
 ```go
 func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -88,6 +107,10 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
         http.Error(w, "name already taken", http.StatusConflict)
         return
     }
+    if err != nil && errors.Is(r.Context().Err(), context.Canceled) {
+        slog.DebugContext(r.Context(), "create user: client gone", "err", err)
+        return // nobody is left to read a status
+    }
     if err != nil {
         slog.ErrorContext(r.Context(), "create user", "err", err)
         http.Error(w, "internal error", http.StatusInternalServerError)
@@ -95,7 +118,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
     }
     w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(http.StatusCreated)
-    _ = json.MarshalWrite(w, user) // headers are sent; a failed write is the client's disconnect
+    _ = json.MarshalWrite(w, user) // headers are sent; an encode or write error can no longer change the status
 }
 ```
 
@@ -115,9 +138,11 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
   with no matches is written as it is, with no `make([]T, 0, n)`; that line
   belongs to a package on v1, or under `FormatNilSliceAsNull(true)`
   ([JSON-V2.md](references/JSON-V2.md#defaults-that-can-change-the-contract)).
-- Set headers before `WriteHeader`, and call it once. `json.Marshal` first
-  when an encode error must change the status; otherwise `MarshalWrite`
-  after the headers, and its error is the client's disconnect.
+- Set headers before `WriteHeader`, and call it once. After the headers, an
+  encode or write error from `MarshalWrite` can no longer change the status.
+  A value no v2 decode has validated — database text, which can hold invalid
+  UTF-8, or a type with its own `MarshalJSON` — is marshalled first with
+  `json.Marshal` and written after, so its error still gets a 500.
 - A write whose error has nowhere to go is discarded in the open with its
   reason on the line, never bare:
 
@@ -145,8 +170,11 @@ row where that failure can occur:
 | `context.DeadlineExceeded` from downstream | 504 | Generic |
 | Anything else | 500 | Generic — **never** `err.Error()` |
 
-At the 500 boundary, log the full error server-side with the request ID and
-return a generic message. This is the handle-once exception owned by
+At the 500 boundary, log the full error server-side and return a generic
+message. The request ID reaches that record only through the request-scoped
+logger [go-logging](../go-logging/SKILL.md#request-scoped-logging) sets up;
+where the repository has one, the example's `slog` calls go through it. This is
+the handle-once exception owned by
 [go-error-handling](../go-error-handling/SKILL.md).
 
 ## Middleware
@@ -167,8 +195,8 @@ Construct an `http.Server`; bare `http.ListenAndServe` sets no timeouts.
 | `IdleTimeout` | Reclaim keep-alive connections |
 | `MaxHeaderBytes`, `MaxHeaderValueCount` (Go 1.27+) | Only to change the defaults, 1 MiB (`http.DefaultMaxHeaderBytes`) and 500 values: zero is the default, so `MaxHeaderBytes: 1 << 20` restates it |
 | `Handler: http.NewCrossOriginProtection().Handler(mux)` | CSRF for state-changing requests (Go 1.25+) |
-| `DisableClientPriority` (Go 1.27+) | HTTP/2 only: ignore RFC 9218 client priorities and serve round-robin, so one client cannot starve others; no-op with a custom write scheduler |
-| `BaseContext` | Expose process shutdown to handlers |
+| `DisableClientPriority` (Go 1.27+) | HTTP/2 only: serve one connection's streams round-robin instead of by the client's RFC 9218 priorities; no-op with a custom write scheduler |
+| `BaseContext` | Never the `signal.NotifyContext` context when in-flight requests should drain: it cancels every request at the signal, before `Shutdown` waits for them. Handlers that must see shutdown get a separate context, cancelled once `Shutdown`'s timeout expires |
 
 For graceful shutdown, `signal.NotifyContext` owns the lifetime;
 `ListenAndServe` runs in one goroutine feeding a buffered error channel;
@@ -177,8 +205,10 @@ For graceful shutdown, `signal.NotifyContext` owns the lifetime;
 ## Clients
 
 - Never `http.Get`, `http.Post`, or `http.DefaultClient` — no timeout. One
-  `*http.Client{Timeout: d}` per dependency, built once and reused; it owns the
-  connection pool.
+  tuned `*http.Transport` and one `*http.Client{Timeout: d, Transport: t}` per
+  dependency, built once and reused. The Transport owns the connection pool: a
+  `Client` with a nil `Transport` shares `http.DefaultTransport`, which keeps
+  two idle connections per host (`http.DefaultMaxIdleConnsPerHost`).
 - `http.NewRequestWithContext(ctx, ...)` — the ctx-less form is unbounded;
   `noctx` in the lint gate flags it.
 - `defer resp.Body.Close()` right after the `err != nil` return, on every

@@ -22,8 +22,8 @@ memory. Don't add allocations or complexity without evidence that it helps.
 
 ## Prefer strconv over fmt
 
-For direct primitive conversions, prefer `strconv`; measure its benefit on
-the actual inputs and toolchain:
+For direct primitive conversions, prefer `strconv` by default; choosing it
+needs no benchmark:
 
 ```go
 s := strconv.Itoa(n)
@@ -73,27 +73,11 @@ data := make([]int, 0, size)
 
 Unlike maps, slice capacity is **not a hint**—the compiler allocates exactly that much memory. Subsequent `append()` operations incur zero allocations until capacity is reached.
 
-Preallocation avoids backing-array growth within the chosen capacity. Measure
-the resulting time and memory tradeoff; oversized estimates can retain more
-memory than the workload needs.
-
 ---
 
 ## Pass Values
 
-Don't pass pointers as function arguments just to save a few bytes. If a function refers to its argument `x` only as `*x` throughout, then the argument shouldn't be a pointer.
-
-```go
-func process(s string) { // not *string — strings are small fixed-size headers
-    fmt.Println(s)
-}
-```
-
-**Common pass-by-value types**: `string`, `io.Reader`, small structs.
-
-**Exceptions**:
-- Large structs where copying is expensive
-- Small structs that might grow in the future
+A pointer parameter is not a speed fix: value versus pointer parameters belong to [go-functions](../go-functions/SKILL.md#pointers-to-interfaces).
 
 ---
 
@@ -113,16 +97,21 @@ Choose the right strategy based on complexity:
 
 ## Benchmarking and Profiling
 
-Always measure before and after optimizing. Use Go's built-in benchmark framework and profiling tools.
+A change made for speed beyond the defaults above (`strconv` for primitive
+conversions, capacity when the final size is known) needs a baseline saved
+before the edit and a comparison after it, run serially on the same machine
+and toolchain — concurrent runs share CPUs and contaminate `ns/op`:
 
 ```bash
-go test -bench=. -benchmem -count=10 ./...
+bash scripts/bench-compare.sh --save before.txt ./path/to/pkg      # before the edit
+bash scripts/bench-compare.sh --baseline before.txt ./path/to/pkg  # after it
 ```
 
-> **Validation**: Run `bash scripts/bench-compare.sh` to measure the actual
-> impact, and **revert any optimization without a measurable win** — an
-> unmeasured optimization is a readability cost with no benefit. Report the
-> before/after numbers; do not describe a change as "faster" without them.
+> **Validation**: keep the change only for a delta `benchstat` calls
+> significant — never a single run, never a `~` row — and revert it
+> otherwise. Report the before/after table, or report the comparison as
+> skipped; do not describe a change as "faster" without it.
+> [BENCHMARKS.md](references/BENCHMARKS.md) reads benchstat output and profiles.
 
 ### Benchmark discipline
 
@@ -130,11 +119,7 @@ go test -bench=. -benchmem -count=10 ./...
   the functions they measure. Go only requires some `_test.go` file; the
   `*_bench_test.go` suffix is this pack's convention, and an existing project
   layout outranks it.
-- Implement competing variants in isolation, then measure serially on the same
-  machine and toolchain; concurrent runs share CPUs and contaminate `ns/op`.
-- Compare with `benchstat` (see
-  [BENCHMARKS.md](references/BENCHMARKS.md)) and claim only deltas it calls
-  significant — never a single run, never a `~` row.
+- Implement competing variants in isolation, so each run measures one of them.
 - A comparison that straddles a toolchain bump measures the toolchain, not the
   code — re-run the baseline on the new toolchain first.
 - Perf-only changes use a `perf(scope):` subject and paste the benchstat table

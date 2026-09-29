@@ -72,8 +72,14 @@ func run() error {
             http.Error(w, "internal error", http.StatusInternalServerError)
             return
         }
+        body, err := json.Marshal(u) // stored text can fail to encode: choose the status first
+        if err != nil {
+            slog.ErrorContext(r.Context(), "encode user", "id", id, "err", err)
+            http.Error(w, "internal error", http.StatusInternalServerError)
+            return
+        }
         w.Header().Set("Content-Type", "application/json")
-        _ = json.MarshalWrite(w, u) // headers are sent; a failed write is the client's disconnect
+        _, _ = w.Write(body) // headers are sent; a failed write is the client's disconnect
     })
 
     srv := &http.Server{

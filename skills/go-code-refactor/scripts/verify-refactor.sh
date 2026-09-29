@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-VERSION="1.2.0"
+VERSION="1.3.0"
 SCRIPT_NAME="$(basename "$0")"
 
 usage() {
@@ -21,7 +21,7 @@ DESCRIPTION
       diff          Compare recorded check results, including failures and skips
       leaks         Run tests; leak verification stays incomplete without a profile
       loc-baseline  Record the starting production LOC, before the first edit
-      loc-diff      Recount and compare against that record
+      loc-diff      Recount the same path and compare against that record
 
     Results are written under .refactor-verify/ in the working directory.
 
@@ -32,7 +32,7 @@ DESCRIPTION
 
     Exits 0 if all checks pass (or the diff is empty, or neither LOC count
     grew), 1 if a check failed, the diff is non-empty, or a count grew,
-    2 on usage or environment error.
+    2 on usage or environment error, including loc-diff on another path.
     The leaks mode exits 3 when tests pass: this harness does not collect or
     inspect in-process leak profiles, so it cannot certify leak freedom. Its
     2 keeps the environment meaning (a toolchain older than Go 1.26).
@@ -362,7 +362,11 @@ func report(c counts, saved string, asJSON bool) {
 }
 
 // compare returns the exit status: 0 when neither count grew, 1 when either did.
+// A record of another directory is no baseline, so that exits 2 before counting.
 func compare(before, now counts, asJSON bool) int {
+	if before.Root != now.Root {
+		fail(fmt.Sprintf("the recorded count is of %s, not %s; run loc-baseline and loc-diff on the same path", before.Root, now.Root))
+	}
 	physical, code, files := now.Physical-before.Physical, now.Code-before.Code, now.Files-before.Files
 	pass := physical <= 0 && code <= 0
 	added, removed := changedFiles(before, now)
@@ -587,9 +591,17 @@ run_step race go test -count=1 -race -timeout "$GO_TEST_TIMEOUT" "$TARGET"
 
 # Pending modernizations, informational: excluded from the strict summary
 # because a refactor is expected to reduce them, not hold them equal.
+# `go fix -diff` exits 1 when the diff is non-empty, so exit 1 with a diff and
+# no error on stderr is a count; any other failure means the check did not run.
+# Package headers and skipped alternative fixes are notices, not errors.
 FIX_PENDING="n/a"
-if go fix -diff "$TARGET" >"$OUT_DIR/$MODE.fix.diff" 2>/dev/null; then
+FIX_RC=0
+FIX_ERR="$(go fix -diff "$TARGET" 2>&1 >"$OUT_DIR/$MODE.fix.diff")" || FIX_RC=$?
+FIX_ERR="$(printf '%s\n' "$FIX_ERR" | grep -v -e '^# ' -e 'ignoring alternative fix' || true)"
+if [[ $FIX_RC -eq 0 ]] || [[ $FIX_RC -eq 1 && -z "$FIX_ERR" && -s "$OUT_DIR/$MODE.fix.diff" ]]; then
     FIX_PENDING="$(wc -l <"$OUT_DIR/$MODE.fix.diff" | tr -d ' ')"
+elif [[ -n "$FIX_ERR" ]]; then
+    printf '=== go fix -diff ===\n%s\n' "$FIX_ERR" >>"$LOG"
 fi
 
 LINT_FINDINGS="n/a"

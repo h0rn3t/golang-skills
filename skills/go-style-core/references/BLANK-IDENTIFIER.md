@@ -49,7 +49,10 @@ import _ "image/png"       // registers PNG decoder
 ```
 
 This is commonly used to register drivers, codecs, or debug handlers that
-wire themselves into a registry during `init()`.
+wire themselves into a registry during `init()`. Where a side-effect import
+may appear — `main` packages and tests, plus `import _ "embed"` in a library
+file that embeds into a `string` or `[]byte` — is
+[go-packages](../../go-packages/references/IMPORTS.md#blank-imports-import-_)'s rule.
 
 ---
 

@@ -84,6 +84,18 @@ func process(r *io.Reader) { ... }
 func process(r io.Reader) { ... }
 ```
 
+The same holds for every parameter the function reads only as `*x`: a
+`string`, slice, map, `time.Time`, or small struct travels by value, never as
+a pointer to save a copy. Take a pointer when the callee writes through it,
+when the type holds a lock (`go vet` copylocks reports the copy), or when the
+type's methods have pointer receivers — large structs among them, per
+[RECEIVER-TYPE.md](../go-interfaces/references/RECEIVER-TYPE.md):
+
+```go
+func greet(name string) string { ... } // not *string: only read
+func drain(q *Queue) { ... }           // *Queue: Queue has pointer receivers
+```
+
 ---
 
 ## Printf and Stringer
@@ -135,4 +147,4 @@ them. Implementation and tradeoffs live in the constructor reference above.
 - [go-naming](../go-naming/SKILL.md): function, method, and getter names.
 - [go-interfaces](../go-interfaces/SKILL.md): when the option abstraction itself needs design.
 - [go-documentation](../go-documentation/SKILL.md): constructors, defaults, `With*` functions.
-- [go-style-core](../go-style-core/SKILL.md): signature formatting and line breaks.
+- [go-style-core](../go-style-core/SKILL.md): general formatting and line length; signature wrapping is owned here, in [SIGNATURES.md](references/SIGNATURES.md).

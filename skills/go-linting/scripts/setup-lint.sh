@@ -19,7 +19,8 @@ DESCRIPTION
     group local imports separately.
 
     Exits 0 if lint passes, 1 if lint issues found, 2 on error (including
-    a generated config that fails schema verification).
+    a generated config that fails schema verification, and a golangci-lint
+    run that exits with an error rather than findings, such as no Go files).
 
 OPTIONS
     -h, --help       Show this help message
@@ -115,15 +116,15 @@ if [[ -f "$CONFIG_PATH" ]] && ! $FORCE; then
     exit 2
 fi
 
-generate_config > "$CONFIG_PATH"
-
-LINT_OUTPUT=""
-LINT_EXIT=0
 if ! command -v golangci-lint &>/dev/null; then
     echo "error: golangci-lint is not installed" >&2
     exit 2
 fi
 
+generate_config > "$CONFIG_PATH"
+
+LINT_OUTPUT=""
+LINT_EXIT=0
 if ! VERIFY_OUTPUT=$(golangci-lint config verify --config "$CONFIG_PATH" 2>&1); then
     echo "error: $CONFIG_PATH failed schema verification:" >&2
     echo "$VERIFY_OUTPUT" >&2
@@ -131,6 +132,13 @@ if ! VERIFY_OUTPUT=$(golangci-lint config verify --config "$CONFIG_PATH" 2>&1); 
 fi
 
 LINT_OUTPUT=$(golangci-lint run ./... 2>&1) || LINT_EXIT=$?
+# Exit 1 is findings; any other non-zero exit (5: no Go files, 3: a go
+# directive newer than the linter) is an environment error.
+if [[ $LINT_EXIT -ne 0 && $LINT_EXIT -ne 1 ]]; then
+    echo "error: $CONFIG_PATH was written, but golangci-lint run exited $LINT_EXIT:" >&2
+    echo "$LINT_OUTPUT" >&2
+    exit 2
+fi
 
 if $JSON_OUTPUT; then
     LINT_TRUNCATED=false

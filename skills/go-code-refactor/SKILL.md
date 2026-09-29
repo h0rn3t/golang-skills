@@ -35,7 +35,7 @@ target project using the resolved absolute script path.
 - `references/OVER-ENGINEERING.md` - Read when a step adds a helper, type, layer, option, or import (it owns the restraint ladder, the reach-for table, and the ship-then-question write rules), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
 - `references/GOPLS.md` - Read before renaming, extracting, or inlining anything with more than one caller, or when you need a symbol's callers, implementations, or declaration: MCP-first symbol discovery, gopls navigation (`LSP` tool, MCP, CLI), and safe rename.
 - `scripts/verify-refactor.sh` - Run to capture baseline and final check results, and to count production LOC before and after; use focused checks between edits.
-- `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no upgrade path.
+- `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no ceiling and no fix.
 - `assets/refactor-report.md` - Use as the final report structure.
 
 Every command below needs a shell tool (`Bash` in Claude Code); Workflow
@@ -76,7 +76,7 @@ cannot solve gets one sentence in the report.
 
 The tier sets what has to be true *before* the step, and pairs with the coverage
 tiers in [SAFETY-NET.md](references/SAFETY-NET.md): low coverage on the blast
-radius pushes every transform up a tier.
+radius pushes every transform up a tier except those its Low / zero row allows.
 
 | Tier | Transforms | Required before the step |
 |---|---|---|
@@ -116,10 +116,10 @@ A helper the refactor adds meets one of the four
 [Declaration Budget](../go-code/SKILL.md#declaration-budget) rules — two call
 sites in the final code, a caller outside the function that names it, a
 distinct algorithm, or a step at another level of abstraction than its
-caller — or it is not added: a few-line `writeHeader`, `writeRow`, and
-`writeTotal` that `Render` calls once each rename its steps at its own level,
-and the report names the rule each kept helper meets. Count the helper and
-its call sites when comparing complexity.
+caller — or it is not added. A few-line `writeHeader`, `writeRow`, and
+`writeTotal` that `Render` calls once each are not added: they only rename its
+steps at its own level. The report names the rule each kept helper meets.
+Count the helper and its call sites when comparing complexity.
 
 Before writing any new line — helper, wrapper, interface — climb the restraint
 ladder in `references/OVER-ENGINEERING.md` and stop at the first rung that
@@ -191,20 +191,20 @@ the reason [Delete Before You Restructure](#delete-before-you-restructure) requi
 - **Code LOC:** lines containing Go tokens other than comments. A line with a
   trailing comment counts once; every line of a multiline literal counts.
 
-Record both starting counts before the first edit, and compare after `gofmt`,
-with the counter this skill ships:
+Record both starting counts before the first edit, and compare after `gofmt` on
+the same path, with the counter this skill ships:
 
 ```bash
-bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-baseline ./internal/gateway
-bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-diff ./internal/gateway
+bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-baseline ./...
+bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-diff ./...
 ```
 
-`loc-diff` exits 0 when neither count grew and 1 when one did. Exit 1 is a
-signal, not a verdict: name the declaration, layer, or dependency that grew and
-why; unjustified growth is a finding. The report carries only the two counts
-`loc-diff` printed, physical and code; when it could not run, that sentence
-stands where the numbers would. The `baseline`, `after` and `diff` modes
-compare check records and say nothing about size.
+`loc-diff` exits 0 when neither count grew, 1 when one did, and 2 when the
+recorded path differs. Exit 1 is a signal, not a verdict: name the declaration,
+layer, or dependency that grew and why; unjustified growth is a finding. The
+report carries only the two counts `loc-diff` printed, physical and code; when
+it could not run, that sentence stands where the numbers would. The `baseline`,
+`after` and `diff` modes compare check records and say nothing about size.
 
 Keep documentation that explains a decision or contract. Removing comments
 or blank lines cannot compensate for added code; do not compress statements

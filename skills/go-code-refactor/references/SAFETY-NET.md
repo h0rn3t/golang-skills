@@ -98,9 +98,9 @@ Two kinds matter in Go:
   `//go:build`. Rare, and mostly for platform-specific substitution.
 
 The enabling move for untested code with no seam: extract the smallest possible
-interface, often one method, at the exact point where the code reaches for
-something external — a database handle, the filesystem, a clock — and inject it
-through the constructor instead of building it inline.
+seam, one method or one function field whose results a fake can build, at the
+exact point where the code reaches for something external — a database handle,
+the filesystem, a clock — and bind the real one in the constructor.
 
 ```go
 // Before — the concrete field gives a test nowhere to substitute a small fake.
@@ -112,20 +112,24 @@ func newReport(db *sql.DB) *Report {
     return &Report{db: db}
 }
 
-// After — one method, declared where it is consumed. *sql.DB already
-// satisfies it, so the package that provides it needs no change at all.
-type rowQuerier interface {
-    QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
-}
-
+// After — the query is a field returning plain values; a test assigns a closure.
+// A seam returning *sql.Row is none: no fake can build a Row.
 type Report struct {
-    db rowQuerier
+    monthTotal func(ctx context.Context, month string) (int64, error)
 }
 
-func newReport(db rowQuerier) *Report {
-    return &Report{db: db}
+func newReport(db *sql.DB) *Report {
+    return &Report{monthTotal: func(ctx context.Context, month string) (total int64, err error) {
+        err = db.QueryRowContext(ctx, "SELECT sum(cents) FROM sales WHERE month = $1", month).Scan(&total)
+        return total, err
+    }}
 }
 ```
+
+When the query has to stay on a `*sql.DB` field, a `database/sql/driver` double
+is the seam instead, as
+[the architecture fixture](../testdata/architecture/internal/order/repositories/postgres_test.go)
+does.
 
 Two cautions before this becomes a habit. It is a seam for code that has no
 net — not a licence to split every struct into an interface plus an

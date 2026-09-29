@@ -78,21 +78,22 @@ scope established above and inspect the preview before applying changes.
 |---|---|
 | `waitgroupgo` | `wg.Go(f)` instead of `Add(1)`/`go`/`Done` (Go 1.25+) |
 | `errorsastype` | `errors.AsType[T]` instead of `errors.As` (Go 1.26+) |
-| `newexpr` | `new(expr)` instead of a temp variable (Go 1.26+) |
+| `newexpr` | A `&v` pointer helper (`func intPtr(v int) *int { return &v }`) and its calls become `new(v)` / `new(4)` (Go 1.26+); a temp-then-address form stays a hand edit |
 | `embedlit` | Direct promoted fields in composite literals (Go 1.27); see [initialization](../go-style-core/references/INITIALIZATION.md#embedded-fields-in-go-127) |
 | `testingcontext` | `t.Context()` instead of `context.WithCancel` in tests (Go 1.24+) |
 | `forvar` | Deletes `x := x` loop captures (dead since Go 1.22) |
 | `atomictypes` | `atomic.Int64` and friends instead of basic types in `sync/atomic` calls (Go 1.19+) |
 | `slicesbackward` | `for i, v := range slices.Backward(s)` instead of a backward index loop (Go 1.23+) |
-| `unsafefuncs` | `unsafe.Slice`/`unsafe.String` instead of pointer arithmetic |
+| `unsafefuncs` | `unsafe.Add(p, n)` instead of `unsafe.Pointer(uintptr(p) + n)` |
 | `reflecttypefor` | `reflect.TypeFor[T]()` instead of `reflect.TypeOf(x)` (Go 1.22+) |
-| `rangeint`, `minmax`, `omitzero`, `any` | `for i := range n` (Go 1.22+), `min`/`max`, `omitzero` tags (Go 1.24+), `any` |
+| `rangeint`, `minmax`, `any` | `for i := range n` (Go 1.22+), `min`/`max`, `any` |
+| `omitzero` | Deletes `omitempty` from a struct-typed field, where it has no effect; the `omitzero` tag (Go 1.24+) it offers instead omits a zero struct, a behavior change `go fix` does not apply |
 | `slicessort`, `slicescontains`, `mapsloop`, `stringsseq`, `stditerators` | `slices`/`maps` APIs instead of hand-written loops; `SplitSeq`/`FieldsSeq` (Go 1.24+) and `Len`/`At`-to-iterator rewrites (Go 1.23+) |
 | `stringsbuilder`, `stringscut`, `stringscutprefix` | `strings.Builder`, `Cut`, `CutPrefix` |
 
-`atomictypes`, `embedlit`, `slicesbackward`, and `unsafefuncs` are new in Go
-1.27; the same release renamed `waitgroup` to `waitgroupgo` and dropped
-`fmtappendf`, so a pinned command naming either of those now fails.
+`atomictypes`, `embedlit`, `errorsastype`, `slicesbackward`, and `unsafefuncs`
+are new in Go 1.27; the same release renamed `waitgroup` to `waitgroupgo` and
+dropped `fmtappendf`, so a pinned command naming either of those now fails.
 
 Select a subset with `go fix -waitgroupgo ./...`, or exclude with
 `-NAME=false`. Review the diff: these carry fixes, not just diagnostics, and a
@@ -141,13 +142,13 @@ teach instead of leaving it to review attention:
 
 | Linter | Enforces | Skill |
 |--------|----------|-------|
-| `depguard` | Deny list: `pkg/errors`, `logrus`, `zap`, `x/exp/slices`, `x/exp/maps`, `google/uuid` | [go-packages](../go-packages/SKILL.md) dependency ladder |
+| `depguard` | Deny list of packages the standard library replaces outright: `pkg/errors`, `x/exp/slices`, `x/exp/maps` | [go-packages](../go-packages/SKILL.md) dependency ladder |
 | `errname`, `errorlint` | `ErrFoo`/`FooError` names; `errors.Is`/`AsType` over `==` and type assertions (`errorf` check off — `%v` at boundaries is deliberate) | [go-error-handling](../go-error-handling/SKILL.md) |
 | `sloglint` | Static message, key-value attrs, `snake_case` keys | [go-logging](../go-logging/SKILL.md) |
 | `noctx` | Outbound HTTP/SQL calls carry a context | [go-context](../go-context/SKILL.md), [go-http](../go-http/SKILL.md) |
 | `rowserrcheck`, `sqlclosecheck` | `rows.Err()` after the loop; rows and statements closed | [go-database](../go-database/SKILL.md) |
 | `perfsprint` | `strconv` over `fmt.Sprint` for a lone value; `fmt.Sprintf` formatting and `+` are not reported | [go-performance](../go-performance/SKILL.md) |
-| `usetesting` | `t.Context`, `t.TempDir`, `t.Setenv` over hand-rolled forms | [go-testing](../go-testing/SKILL.md) |
+| `usetesting` | `t.Context()` over `context.Background()`/`TODO()`, `t.TempDir`, `t.Setenv` over hand-rolled forms; inside `t.Cleanup`, where `t.Context()` is already cancelled, `context.WithoutCancel(t.Context())` | [go-testing](../go-testing/SKILL.md) |
 | `godot` | Doc comments end in a period | [go-documentation](../go-documentation/SKILL.md) |
 | `exhaustive` | `switch` covers every enum member (`default` counts) | [go-style-core](../go-style-core/SKILL.md) |
 | `nolintlint` | Suppressions name the linter and explain why | Nolint directives below |

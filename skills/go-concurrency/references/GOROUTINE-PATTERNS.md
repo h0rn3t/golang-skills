@@ -2,8 +2,8 @@
 
 > Sources: source/uber-go-style/style.md (Goroutine Lifetimes, No goroutine leaks); source/golang-wiki/CodeReviewComments.md (Goroutine Lifetimes)
 > Authority: advisory
-> Minimum Go: `time.Tick` without `Stop` in a process-lifetime loop 1.23
-> Last verified: 2026-09-13
+> Minimum Go: `time.Tick` without `Stop` in the process's own main loop 1.23
+> Last verified: 2026-09-29
 
 Detailed patterns for managing goroutine lifetimes — ensuring every goroutine
 has a clear start/stop mechanism and preventing resource leaks.
@@ -49,10 +49,14 @@ close(stop)  // signal the goroutine to stop
 ```
 
 `ticker.Stop()` matters here because the goroutine can end while the program
-runs on. A loop that runs for the life of the process needs neither the
-variable nor the `Stop`: `for range time.Tick(d)` (Go 1.23) — since 1.23 an
-unreferenced ticker is collected, so the old warning against `time.Tick` no
-longer holds; keep `time.NewTicker` where `Stop` or `Reset` is called.
+runs on. A spawned goroutine keeps this form — `time.NewTicker` plus `select` on
+its stop channel or `ctx.Done()` — even when it is meant to run until exit: a
+`for range time.Tick(d)` goroutine has no stop and nothing to wait on
+([Core Rules](../SKILL.md#core-rules) 1-2). Only a loop that is the process's
+own main loop, run by `main` itself rather than in a `go` statement, may use
+`for range time.Tick(d)` (Go 1.23): since 1.23 an unreferenced ticker is
+collected, which reclaims the ticker, not a goroutine. Keep `time.NewTicker`
+where `Stop` or `Reset` is called.
 
 Sending on a closed channel panics — always use `close()` to signal, never send:
 

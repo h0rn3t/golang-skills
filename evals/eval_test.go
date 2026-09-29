@@ -538,6 +538,9 @@ func TestScriptFunctional(t *testing.T) {
 		requireFinding(t, result.Violations, "evals/fixtures/naming/violations.go", 12, "get-prefix", "GetName")
 		requireFinding(t, result.Violations, "evals/fixtures/naming/violations.go", 12, "bad-receiver", "this")
 
+		// The clean tree also holds a Get method with parameters (a lookup,
+		// not an accessor) and violations under testdata/ and _draft/, which
+		// go ./... skips and so must the script.
 		clean := filepath.Join(fixturesDir, "naming", "clean")
 		out = runCommand(t, 0, "bash", script, "--json", clean)
 		var cleanResult struct {
@@ -561,6 +564,31 @@ func TestScriptFunctional(t *testing.T) {
 		}
 		if emptyResult.Total != 0 || emptyResult.Truncated || emptyResult.Status != "no_go_files" {
 			t.Fatalf("unexpected no-Go naming result: %#v\n%s", emptyResult, out)
+		}
+
+		// A malformed file is reported the way check-docs reports it: the
+		// other files are still checked, and the run exits 2.
+		malformedDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(malformedDir, "bad.go"), []byte("package malformed\n\nfunc Broken( {\n"), 0644); err != nil {
+			t.Fatalf("write malformed fixture: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(malformedDir, "good.go"), []byte("package util\n"), 0644); err != nil {
+			t.Fatalf("write parseable malformed-dir fixture: %v", err)
+		}
+		out = runCommand(t, 2, "bash", script, "--json", malformedDir)
+		var malformedResult struct {
+			Total       int    `json:"total"`
+			Truncated   bool   `json:"truncated"`
+			Status      string `json:"status"`
+			ParseErrors []struct {
+				File string `json:"file"`
+			} `json:"parse_errors"`
+		}
+		if err := json.Unmarshal(out, &malformedResult); err != nil {
+			t.Fatalf("parse malformed naming JSON: %v\n%s", err, out)
+		}
+		if malformedResult.Total != 1 || malformedResult.Truncated || malformedResult.Status != "parse_error" || len(malformedResult.ParseErrors) != 1 {
+			t.Fatalf("unexpected malformed naming result: %#v\n%s", malformedResult, out)
 		}
 	})
 
@@ -648,10 +676,13 @@ func TestScriptFunctional(t *testing.T) {
 		if err := json.Unmarshal(out, &methodsResult); err != nil {
 			t.Fatalf("parse methods docs JSON: %v\n%s", err, out)
 		}
-		if methodsResult.Total != 1 {
-			t.Fatalf("standard methods and methods of an unexported type should be skipped, got %d findings\n%s", methodsResult.Total, out)
+		// The skipped methods are revive exported's commonMethods; MarshalJSON
+		// is not among them, so it is reported as revive reports it.
+		if methodsResult.Total != 2 {
+			t.Fatalf("revive's standard methods and methods of an unexported type should be skipped, got %d findings\n%s", methodsResult.Total, out)
 		}
 		requireDocMissing(t, methodsResult.Missing, "evals/fixtures/docs/methods/methods.go", 19, "function", "New")
+		requireDocMissing(t, methodsResult.Missing, "evals/fixtures/docs/methods/methods.go", 23, "method", "MarshalJSON")
 
 		malformedDir := t.TempDir()
 		malformed := filepath.Join(malformedDir, "bad.go")
@@ -702,11 +733,13 @@ func TestScriptFunctional(t *testing.T) {
 		if err := json.Unmarshal(out, &result); err != nil {
 			t.Fatalf("parse JSON: %v\n%s", err, out)
 		}
-		if result.Total != 2 {
-			t.Fatalf("default run should report the 2 non-bare-return findings, got %d\n%s", result.Total, out)
+		if result.Total != 3 {
+			t.Fatalf("default run should report the 3 non-bare-return findings, got %d\n%s", result.Total, out)
 		}
-		requireFinding(t, result.Findings, "evals/fixtures/errors/violations.go", 19, "string-error-compare", "errors.Is")
+		requireFinding(t, result.Findings, "evals/fixtures/errors/violations.go", 19, "string-error-compare", "errors.AsType")
 		requireFinding(t, result.Findings, "evals/fixtures/errors/violations.go", 30, "log-and-return", "logged")
+		// A switch case body is a statement list like an if body.
+		requireFinding(t, result.Findings, "evals/fixtures/errors/violations.go", 51, "log-and-return", "logged")
 		for _, finding := range result.Findings {
 			if finding.Rule == "bare-return-err" {
 				t.Fatalf("default run emitted a bare-return finding, which the skill allows: %#v\n%s", finding, out)
@@ -722,10 +755,10 @@ func TestScriptFunctional(t *testing.T) {
 		if err := json.Unmarshal(out, &bareResult); err != nil {
 			t.Fatalf("parse --bare-return JSON: %v\n%s", err, out)
 		}
-		if bareResult.Total != 6 {
-			t.Fatalf("--bare-return should add 4 bare-return findings to the 2 defaults, got %d\n%s", bareResult.Total, out)
+		if bareResult.Total != 8 {
+			t.Fatalf("--bare-return should add 5 bare-return findings to the 3 defaults, got %d\n%s", bareResult.Total, out)
 		}
-		for _, line := range []int{11, 22, 31, 39} {
+		for _, line := range []int{11, 22, 31, 39, 52} {
 			requireFinding(t, bareResult.Findings, "evals/fixtures/errors/violations.go", line, "bare-return-err", "bare return err")
 		}
 
@@ -737,8 +770,8 @@ func TestScriptFunctional(t *testing.T) {
 		if err := json.Unmarshal(out, &noBareResult); err != nil {
 			t.Fatalf("parse no-bare errors JSON: %v\n%s", err, out)
 		}
-		if noBareResult.Total != 2 {
-			t.Fatalf("--no-bare-return should match the default run (2 findings), got %d\n%s", noBareResult.Total, out)
+		if noBareResult.Total != 3 {
+			t.Fatalf("--no-bare-return should match the default run (3 findings), got %d\n%s", noBareResult.Total, out)
 		}
 
 		// The bare-return analysis still handles 3-result tuples and multiline
@@ -786,6 +819,22 @@ func TestScriptFunctional(t *testing.T) {
 			t.Fatalf("fieldlogger fixture should produce one log-and-return finding, got %d\n%s", fieldResult.Total, out)
 		}
 		requireFinding(t, fieldResult.Findings, "evals/fixtures/errors/fieldlogger/fieldlogger.go", 12, "log-and-return", "logged")
+
+		// A log pairs with a return only in the same statement list and only
+		// while err still holds the logged error: the "log and degrade"
+		// branch before an unrelated return, a log ending one function next to
+		// the return that starts the next, and a retry that reassigns err are
+		// not findings.
+		out = runCommand(t, 0, "bash", script, "--json", filepath.Join(fixturesDir, "errors", "degrade"))
+		var degradeResult struct {
+			Total int `json:"total"`
+		}
+		if err := json.Unmarshal(out, &degradeResult); err != nil {
+			t.Fatalf("parse degrade JSON: %v\n%s", err, out)
+		}
+		if degradeResult.Total != 0 {
+			t.Fatalf("degrade fixture produced %d log-and-return findings, want 0\n%s", degradeResult.Total, out)
+		}
 
 		out = runCommand(t, 0, "bash", script, "--json", filepath.Join(fixturesDir, "errors", "clean"))
 		var cleanResult struct {
@@ -854,21 +903,57 @@ func TestScriptFunctional(t *testing.T) {
 			t.Fatalf("all-good interface fixture produced %d missing checks\n%s", goodResult.CountMissing, out)
 		}
 
+		// go-interfaces' Bad case: the producer declares the interface and an
+		// exported constructor returns it. The return converts, so only the
+		// returned_by finding reports it.
 		convertedDir := filepath.Join(fixturesDir, "interfaces", "converted")
-		out = runCommand(t, 0, "bash", script, "--json", convertedDir)
+		out = runCommand(t, 1, "bash", script, "--json", convertedDir)
 		var convertedResult struct {
+			Missing []struct {
+				File       string `json:"file"`
+				Line       int    `json:"line"`
+				Name       string `json:"name"`
+				ReturnedBy string `json:"returned_by"`
+			} `json:"missing"`
 			CountInterfaces int `json:"count_interfaces"`
 			CountMissing    int `json:"count_missing"`
 		}
 		if err := json.Unmarshal(out, &convertedResult); err != nil {
 			t.Fatalf("parse converted JSON: %v\n%s", err, out)
 		}
-		if convertedResult.CountInterfaces != 1 || convertedResult.CountMissing != 0 {
-			t.Fatalf("a constructor returning the interface already converts to it, got %#v\n%s", convertedResult, out)
+		if convertedResult.CountInterfaces != 1 || convertedResult.CountMissing != 1 || len(convertedResult.Missing) != 1 {
+			t.Fatalf("an exported constructor returning its own package's interface should be reported, got %#v\n%s", convertedResult, out)
+		}
+		if got := convertedResult.Missing[0]; !pathHasSuffix(got.File, "evals/fixtures/interfaces/converted/converted.go") || got.Line != 4 || got.Name != "Store" || got.ReturnedBy != "NewStore" {
+			t.Fatalf("converted finding = %#v, want converted.go:4 Store returned_by NewStore", got)
 		}
 		text := string(runCommand(t, 1, "bash", script, missingDir))
 		if !strings.Contains(text, "does a consumer need interface 'Runner'") || strings.Contains(text, "var _") {
 			t.Fatalf("text output should question the interface, not suggest an assertion:\n%s", text)
+		}
+		text = string(runCommand(t, 1, "bash", script, convertedDir))
+		if !strings.Contains(text, "should NewStore return the concrete type?") || strings.Contains(text, "var _") {
+			t.Fatalf("text output should name the constructor, not suggest an assertion:\n%s", text)
+		}
+
+		// A composite-literal element, a map value, and a send already make
+		// the compiler check the pair; an interface the package also takes as
+		// a parameter is consumed there, so returning it is not reported.
+		for _, dir := range []struct {
+			name       string
+			interfaces int
+		}{{"literal", 4}, {"middleware", 1}} {
+			out = runCommand(t, 0, "bash", script, "--json", filepath.Join(fixturesDir, "interfaces", dir.name))
+			var wired struct {
+				CountInterfaces int `json:"count_interfaces"`
+				CountMissing    int `json:"count_missing"`
+			}
+			if err := json.Unmarshal(out, &wired); err != nil {
+				t.Fatalf("parse %s JSON: %v\n%s", dir.name, err, out)
+			}
+			if wired.CountInterfaces != dir.interfaces || wired.CountMissing != 0 {
+				t.Fatalf("%s fixture: want %d interfaces and none to question, got %#v\n%s", dir.name, dir.interfaces, wired, out)
+			}
 		}
 
 		consumerDir := filepath.Join(fixturesDir, "interfaces", "consumer")
@@ -977,6 +1062,10 @@ func TestScriptFunctional(t *testing.T) {
 		if jsonResult.Func != "ParseDuration" || jsonResult.Package != "parser" || jsonResult.OutputFile != "" || !jsonResult.Parallel || jsonResult.Written {
 			t.Fatalf("unexpected gen-table JSON metadata: %#v\n%s", jsonResult, out)
 		}
+		// stdout is only the JSON (checked above); the help says the scaffold goes to stderr.
+		if combined := runCommand(t, 0, "bash", script, "--json", "ParseDuration", "parser"); !bytes.Contains(combined, []byte("func TestParseDuration(t *testing.T)")) {
+			t.Errorf("gen-table --json without --output did not write the scaffold to stderr:\n%s", combined)
+		}
 		runCommand(t, 2, "bash", script, "parseDuration", "parser")
 		runCommand(t, 2, "bash", script, "ParseDuration", "123bad")
 		runCommand(t, 2, "bash", script, "ParseDuration", "func")
@@ -1031,6 +1120,14 @@ func TestScriptFunctional(t *testing.T) {
 		if setupJSON.ConfigPath != ".golangci.yml" || setupJSON.LocalPrefix != "github.com/acme/project" || !setupJSON.Created || setupJSON.LintIssues {
 			t.Fatalf("unexpected setup-lint JSON metadata: %#v\n%s", setupJSON, out)
 		}
+
+		// golangci-lint exits 5 on a module with no Go files: an environment
+		// error (exit 2), not a lint finding (exit 1).
+		emptyDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(emptyDir, "go.mod"), []byte("module setuplintempty\n\ngo 1.27\n"), 0644); err != nil {
+			t.Fatalf("write setup-lint empty go.mod: %v", err)
+		}
+		runCommandInDir(t, emptyDir, 2, "bash", script, "--json")
 	})
 
 	t.Run("PreReview", func(t *testing.T) {
@@ -1071,6 +1168,39 @@ func TestScriptFunctional(t *testing.T) {
 		if cleanResult.Gofmt.Status != "pass" || cleanResult.Govet.Status != "pass" || !cleanResult.Passed {
 			t.Fatalf("pre-review clean fixture should pass gofmt/go vet, got %#v\n%s", cleanResult, out)
 		}
+
+		// Without a project config the go-linting baseline runs, so modernize
+		// reports interface{}; a config golangci-lint cannot run (exit 3) is
+		// unavailable, not a finding, and --strict makes it an error.
+		lintStatus := func(t *testing.T, out []byte) string {
+			t.Helper()
+			var result struct {
+				GolangciLint struct {
+					Status string `json:"status"`
+				} `json:"golangci_lint"`
+			}
+			if err := json.Unmarshal(out, &result); err != nil {
+				t.Fatalf("parse pre-review JSON: %v\n%s", err, out)
+			}
+			return result.GolangciLint.Status
+		}
+		lintDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(lintDir, "go.mod"), []byte("module prereviewlint\n\ngo 1.27\n"), 0644); err != nil {
+			t.Fatalf("write pre-review go.mod: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(lintDir, "any.go"), []byte("package prereviewlint\n\n// Echo returns v.\nfunc Echo(v interface{}) interface{} { return v }\n"), 0644); err != nil {
+			t.Fatalf("write pre-review source: %v", err)
+		}
+		if got := lintStatus(t, runCommandInDir(t, lintDir, 1, "bash", script, "--json", "./...")); got != "fail" {
+			t.Fatalf("pre-review without a project config: golangci_lint status %q, want fail from the baseline's modernize", got)
+		}
+		if err := os.WriteFile(filepath.Join(lintDir, ".golangci.yml"), []byte("version: \"2\"\nlinters:\n  default: none\n"), 0644); err != nil {
+			t.Fatalf("write pre-review .golangci.yml: %v", err)
+		}
+		if got := lintStatus(t, runCommandInDir(t, lintDir, 0, "bash", script, "--json", "./...")); got != "unavailable" {
+			t.Fatalf("pre-review with a config enabling no linter: golangci_lint status %q, want unavailable", got)
+		}
+		runCommandInDir(t, lintDir, 2, "bash", script, "--strict", "./...")
 	})
 
 	t.Run("CheckDocsStrict", func(t *testing.T) {
@@ -1111,6 +1241,11 @@ func TestScriptFunctional(t *testing.T) {
 		}
 		if result.BenchmarksFound != 1 || result.Count != 1 {
 			t.Fatalf("unexpected bench metadata: %#v\n%s", result, out)
+		}
+		// --limit bounds the text output too; the note counts result lines.
+		text := string(runCommandStdout(t, 0, "bash", script, "--limit", "1", "-n", "2", filepath.Join(fixturesDir, "bench")))
+		if got := regexp.MustCompile(`(?m)^Benchmark`).FindAllString(text, -1); len(got) != 1 || !strings.Contains(text, "2 benchmark result lines found, showing the first 1") {
+			t.Fatalf("text output with --limit 1 of 2 result lines should show one and say so:\n%s", text)
 		}
 		runCommand(t, 1, "bash", script, "-n", "1", filepath.Join(fixturesDir, "bench", "nobench"))
 		runCommand(t, 2, "bash", script, "-n", "nope", filepath.Join(fixturesDir, "bench"))
@@ -1193,6 +1328,47 @@ func TestScriptFunctional(t *testing.T) {
 		}
 
 		runCommand(t, 2, "bash", script, "--json", filepath.Join(fixturesDir, "does-not-exist"))
+	})
+
+	t.Run("VerifyRefactor", func(t *testing.T) {
+		t.Parallel()
+		script := scriptPath("go-code-refactor", "verify-refactor.sh")
+		dir := t.TempDir()
+		for name, content := range map[string]string{
+			"go.mod":             "module example\n\ngo 1.27\n",
+			"sum.go":             "package example\n\nfunc Sum(n int) (s int) {\n\tfor i := 0; i < n; i++ {\n\t\ts += i\n\t}\n\treturn s\n}\n",
+			"gateway/gateway.go": "package gateway\n",
+		} {
+			path := filepath.Join(dir, name)
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		// `go fix -diff` виходить з 1, коли diff непорожній: очікувана модернізація
+		// має дати кількість рядків, а не "n/a". Код виходу baseline тут не
+		// перевіряється: -race залежить від середовища.
+		cmd := exec.Command("bash", script, "--json", "baseline", ".")
+		cmd.Dir = dir
+		out, _ := cmd.Output()
+		var baseline struct {
+			FixPending string `json:"fix_pending_lines"`
+		}
+		if err := json.Unmarshal(out, &baseline); err != nil {
+			t.Fatalf("baseline JSON: %v\n%s", err, out)
+		}
+		if n, err := strconv.Atoi(baseline.FixPending); err != nil || n == 0 {
+			t.Errorf("fix_pending_lines = %q, want a positive count for a pending rangeint rewrite", baseline.FixPending)
+		}
+
+		// loc-diff іншого каталогу, ніж записав loc-baseline, — помилка
+		// використання (2), а не PASS порівняння з чужим записом.
+		runCommandInDir(t, dir, 0, "bash", script, "loc-baseline", "./...")
+		runCommandInDir(t, dir, 2, "bash", script, "loc-diff", "./gateway")
+		runCommandInDir(t, dir, 0, "bash", script, "loc-diff", "./...")
 	})
 
 	t.Run("InvalidLimitFlags", func(t *testing.T) {

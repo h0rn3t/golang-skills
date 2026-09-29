@@ -2,7 +2,7 @@
 
 > Sources: https://pkg.go.dev/fmt; source/uber-go-style/style.md (Printf-style Functions)
 > Authority: normative for `fmt` verb semantics; naming advice advisory
-> Last verified: 2026-09-10
+> Last verified: 2026-09-29
 
 Deep reference for Go's `fmt` printing verbs, the `Stringer` and `GoStringer`
 interfaces, custom `Format()` methods, and common pitfalls.
@@ -236,8 +236,8 @@ respecting width/precision flags.
 
 ## The Infinite Recursion Trap
 
-**Calling `fmt.Sprintf` with `%s` or `%v` on the receiver inside `String()`
-causes infinite recursion:**
+**Calling `fmt.Sprintf` on the receiver inside `String()` with a verb that
+calls `String()` — `%v`, `%s`, `%q`, `%x`, `%X` — causes infinite recursion:**
 
 ```go
 type MyString string
@@ -258,7 +258,7 @@ func (m MyString) String() string {
 
 This trap also applies to:
 - Types whose underlying type is a string, []byte, or another Stringer
-- Any `String()` method that formats `self` using `%s` or `%v`
+- Any `String()` method that formats `self` using one of those verbs
 - `GoString()` methods that format `self` using `%#v`
 
 ```go
@@ -271,8 +271,9 @@ func (ip IPAddr) String() string {
 ```
 
 **Rule of thumb**: inside `String()`, never pass the receiver (or the receiver
-directly re-typed as its own type) to a `%s` or `%v` verb. Convert to the
-underlying primitive type first.
+directly re-typed as its own type) to `%v`, `%s`, `%q`, `%x`, or `%X`. Convert
+to the underlying primitive type first. `go vet` reports the call:
+`fmt.Sprintf format %s with arg m causes recursive (pkg.MyString).String method call`.
 
 ---
 
@@ -284,8 +285,8 @@ underlying primitive type first.
 | `%+v` | Struct fields with names |
 | `%#v` | Go-syntax representation; customize via `GoStringer` |
 | Format string storage | Declare as `const` outside Printf calls |
-| Printf function names | End with `f` for `go vet` support |
+| Printf function names | End with `f` so callers pass a format; vet finds a forwarding wrapper by any name, a listed `-printf.funcs` name only if it ends in `f` |
 | `Stringer` | Implement `String() string` for `%v`/`%s` output |
 | `GoStringer` | Implement `GoString() string` for `%#v` output |
 | `Formatter` | Implement `Format(fmt.State, rune)` for full verb control |
-| Recursion trap | Never `Sprintf("%s", receiver)` inside `String()`; convert to underlying type |
+| Recursion trap | Never pass the receiver to `%v`/`%s`/`%q`/`%x`/`%X` inside `String()`; convert to underlying type |

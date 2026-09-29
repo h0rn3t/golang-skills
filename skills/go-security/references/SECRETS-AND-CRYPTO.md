@@ -3,7 +3,7 @@
 > Sources: `crypto/*`, `crypto/tls`, `crypto/subtle`, `net/http` package docs; go.dev/blog/fips140; OWASP Password Storage Cheat Sheet
 > Authority: normative for stdlib API choices; project policy for the argon2 default
 > Minimum Go: 1.24 for `crypto/pbkdf2`, `crypto/hkdf`, `crypto/sha3`, `crypto/mlkem`, `rand.Text`
-> Last verified: 2026-09-19
+> Last verified: 2026-09-29
 
 Rule zero: **do not invent cryptography**. Every primitive below is a stdlib
 or Go-team-maintained call. The job is choosing the right one and handling the
@@ -99,7 +99,7 @@ owns the form; the choice table:
 | Need | Call |
 |---|---|
 | URL-safe secret string (session ID, reset token) | `rand.Text()` (Go 1.24+, 128 bits, base32) |
-| Raw key material | `rand.Read(buf)` — it never returns an error and crashes the program if the OS source fails, so there is nothing to check |
+| Raw key material | `rand.Read(buf)`, no error check ([go-defensive](../../go-defensive/SKILL.md#crypto-rand) owns the contract) |
 | UUID | stdlib `uuid` on the dependency ladder ([go-packages](../../go-packages/SKILL.md)) |
 | Nonce for AES-GCM | `cipher.NewGCMWithRandomNonce` (Go 1.24+) for new formats; explicit nonces only when the protocol requires them |
 
@@ -149,12 +149,13 @@ post-quantum key exchange negotiated automatically. Configure only what you
 must:
 
 ```go
-srv := &http.Server{
-    TLSConfig: &tls.Config{
-        MinVersion: tls.VersionTLS13, // a TLS 1.3-only service; otherwise leave it unset
-    },
+cfg := &tls.Config{
+    MinVersion: tls.VersionTLS13, // a TLS 1.3-only service; otherwise leave it unset
 }
 ```
+
+It goes in `http.Server.TLSConfig`; the rest of that server, `ReadHeaderTimeout`
+included, is [go-http](../../go-http/SKILL.md#server-construction)'s.
 
 - `InsecureSkipVerify: true` outside a test with a local self-signed server is
   a finding, always. For a private CA, set `RootCAs`.
@@ -211,8 +212,10 @@ http.SetCookie(w, &http.Cookie{
 - Regenerate the session ID on login and privilege change (fixation).
 - Invalidate server-side on logout; clearing the cookie is cosmetic.
 - CSRF for state-changing requests: `http.NewCrossOriginProtection` (Go 1.25+)
-  in [go-http](../../go-http/SKILL.md); fall back to a per-session token in a
-  hidden field when pre-1.25 browsers without `Sec-Fetch-Site` matter.
+  in [go-http](../../go-http/SKILL.md). Without `Sec-Fetch-Site` it compares
+  `Origin` with `Host`, and it allows a request that carries neither; add a
+  per-session token in a hidden field only when state-changing requests can
+  arrive with neither `Sec-Fetch-Site` nor `Origin`.
 
 ---
 

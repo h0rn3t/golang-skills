@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.27.1] - 2026-09-30
+
 - The prompt hook names `go-testing` without a condition when the prompt asks
   for new code (implement, write, add, a stub): go-code's step 4 writes the
   contract test before the body, and "`go-testing` if you write or edit a

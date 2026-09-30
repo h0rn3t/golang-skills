@@ -5,7 +5,8 @@ import (
 	"log"
 )
 
-// Report is the "log and degrade gracefully" branch of ERROR-FLOW.md followed
+// Report is the "log and degrade gracefully" branch of go-error-handling's
+// Error Flow, followed
 // within a few lines by a return of a different error: not log-and-return.
 func Report() (int, error) {
 	if err := emitMetrics(); err != nil {

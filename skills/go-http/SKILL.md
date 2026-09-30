@@ -14,13 +14,10 @@ description: Use when writing or reviewing Go HTTP code — handlers, routing wi
 - `references/WEB-SERVER.md` - Read when assembling a complete server: routing, handler, graceful shutdown, and where the other go-* skills meet in one `main`.
 - `references/JSON-V2.md` - Read when choosing JSON v2 I/O APIs, decoding a bounded document, migrating wire formats, or testing exact JSON bytes (Go 1.27+).
 
-## Stdlib First
-
-Use `net/http` method/path routing before adding a router module
-([go-packages](../go-packages/SKILL.md) owns the dependency ladder). Match an
-existing framework and house style; the HTTP rules still apply.
-
 ## Routing (Go 1.22+)
+
+A package already on a framework keeps it, and the rules below still apply;
+[go-packages](../go-packages/SKILL.md) owns adding a router module.
 
 ```go
 mux := http.NewServeMux()
@@ -231,12 +228,6 @@ if len(body) > maxBody {
 }
 return json.Unmarshal(body, dst)
 ```
-
-## Validation
-
-Run `go vet ./...` (`httpresponse`), `golangci-lint run` with `bodyclose` and
-`noctx` from [go-linting](../go-linting/SKILL.md), and `go test -race ./...`:
-handlers run concurrently. Test handlers with `httptest.NewTestServer(t, h)`.
 
 ## Related Skills
 

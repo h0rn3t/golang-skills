@@ -15,8 +15,6 @@ allowed-tools: Bash(bash:*)
 
 - `scripts/gen-table-test.sh` - Run when generating a table-driven test scaffold.
 - `assets/table-test-template.go` - Use as a copyable table-test starting point.
-- `references/TABLE-DRIVEN-TESTS.md` - Read when choosing table tests, subtests, or parallel test patterns.
-- `references/TEST-HELPERS.md` - Read when writing helpers, fixtures, or cleanup, or asserting with testify.
 - `references/TEST-ORGANIZATION.md` - Read when choosing or naming test doubles, structuring packages, black-box tests, or larger test suites.
 - `references/VALIDATION-APIS.md` - Read when designing an exported validation function or a `*test` package that other packages' tests call.
 - `references/INTEGRATION.md` - Read when testing external services, HTTP handlers, databases, or long-running setup.
@@ -88,9 +86,9 @@ t.Errorf("Add(2, 3) = %d, want %d", got, 5)
 > adds a module dependency. Enable `testifylint` when using testify.
 > [go-style-core](../go-style-core/SKILL.md) owns the house-style rule.
 
-Use `assert` for independent checks that can continue after failure; use
-`require` for prerequisites, only from the test goroutine. See
-[Test Helpers](references/TEST-HELPERS.md) for examples.
+Use `assert` for independent checks that can continue after failure and
+`require` for prerequisites, only from the test goroutine; a wrapped error is
+`require.ErrorIs`, not a match on its text.
 
 For protocol buffers, add `protocmp.Transform()` as a cmp option. Always
 include the direction key `(-want +got)` in diff messages. Compare serialized
@@ -102,16 +100,9 @@ serialization is the contract. For JSON v2 options and golden-test limits, see
 
 ## t.Error vs t.Fatal
 
-> **Normative**: Use `t.Error` by default to report all failures in one run.
-> Use `t.Fatal` only when continuing is impossible.
-
-**Choose `t.Fatal` when:**
-- Setup fails (DB connection, file load)
-- The next assertion depends on the previous one succeeding (e.g., decode after
-  encode)
-
-**Never call `t.Fatal`/`t.FailNow` from a goroutine** other than the test
-goroutine — use `t.Error` instead.
+`t.Error` by default, so one run reports every failure; `t.Fatal` only when
+the next check cannot run — setup failed, or it reads what the previous one
+produced. Never `t.Fatal`/`t.FailNow` from a goroutine other than the test's.
 
 ---
 
@@ -126,11 +117,13 @@ or multiple branches — write separate test functions instead.
 **Key rules:**
 - Use field names when cases span many lines or have same-type adjacent fields
 - Include inputs in failure messages — never identify rows by index
+- Subtest names are short and carry no `/`, which splits a `-run` pattern; no
+  subtest depends on another's state or order
 - `t.Parallel()` on each subtest is the default for a pure function
   (`gen-table-test.sh --parallel` emits it); leave it off when the table
   touches globals, `t.Setenv`, `t.Chdir`, or a shared fixture. Under a `go`
-  directive of 1.22 or later, write no `tt := tt` capture line: loop variables
-  are per-iteration there; below 1.22 the capture stays.
+  directive of 1.22 or later no `tt := tt` capture line (`go fix -forvar`
+  removes one in touched lines); below 1.22 it stays.
 
 > **Validation**: Running the tests, with `-race` and the pipeline's flags,
 > belongs to the [go-linting](../go-linting/SKILL.md) gate, once, at the end
@@ -141,7 +134,9 @@ or multiple branches — write separate test functions instead.
 ## Test Helpers
 
 > **Normative**: Test helpers must call `t.Helper()` first and use `t.Cleanup()`
-> for teardown.
+> for teardown: a `defer` in the helper runs when the helper returns, before
+> the test has used what it built. A helper that opens a real database is in
+> [INTEGRATION.md](references/INTEGRATION.md#real-databases).
 
 ```go
 func newStore(t *testing.T) *Store {

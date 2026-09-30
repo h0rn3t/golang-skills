@@ -26,9 +26,24 @@ Since Go 1.26, `go fix` hosts modernizers that rewrite code to current idioms.
 A default run includes `hostport`, whose hunks are Tier 2: keep them only where
 IPv6 cannot reach the code, or leave them out with `-hostport=false`. Scope
 follows [Scope mechanical modernization](../SKILL.md#3-scope-mechanical-modernization).
-`go tool fix help` is authoritative;
-[go-linting](../../go-linting/SKILL.md#modernization-go-fix) lists the
-analyzers the idiom card does not show and the Go 1.27 renames. Report incorrect fixes; do not silently discard them.
+`go tool fix help` is authoritative; the analyzers the
+[idiom card](../../go-style-core/references/CURRENT-GO.md) does not show:
+
+| Analyzer | Rewrites to |
+|---|---|
+| `newexpr` | A `&v` pointer helper (`func intPtr(v int) *int { return &v }`) and its calls become `new(v)` / `new(4)` (Go 1.26+); a temp-then-address form stays a hand edit |
+| `slicesbackward` | `for i, v := range slices.Backward(s)` instead of a backward index loop (Go 1.23+) |
+| `unsafefuncs` | `unsafe.Add(p, n)` instead of `unsafe.Pointer(uintptr(p) + n)` |
+| `omitzero` | Deletes `omitempty` from a struct-typed field, where it has no effect; the `omitzero` tag (Go 1.24+) it offers instead omits a zero struct, a behavior change `go fix` does not apply |
+
+`atomictypes`, `embedlit`, `errorsastype`, `slicesbackward`, and `unsafefuncs`
+are new in Go 1.27; the same release renamed `waitgroup` to `waitgroupgo` and
+dropped `fmtappendf`, so a pinned command naming either of those now fails.
+The x/tools `modernize` suite, versioned apart from the toolchain, also
+carries `appendclipped` and `slicesdelete`: they are not `go fix` analyzers,
+and they change nilness or zero the old slice tail, so never classify them as
+behavior-preserving swaps. Check the installed tool's help before naming
+flags. Report incorrect fixes; do not silently discard them.
 
 ## Tier 1 — safe swaps
 

@@ -26,23 +26,11 @@ or use interfaces other than `context.Context` in function signatures.
 
 ## Where to Put Application Data
 
-Consider these options in order of preference:
-
-1. **Function parameters** — most explicit and type-safe
-2. **Receiver** — for data that belongs to the type
-3. **Globals** — for truly global configuration (use sparingly)
-4. **Context value** — only for request-scoped data
-
-Context values are appropriate for:
-- Request IDs and trace IDs
-- Authentication/authorization info that flows with requests
-
-Context values are **not** appropriate for:
-- Deadlines and cancellation signals — derive them with `WithTimeout`,
-  `WithDeadline`, or `WithCancel`, never `WithValue`
-- Optional function parameters
-- Data that could be passed explicitly
-- Configuration that doesn't vary per-request
+Parameters first, then the receiver, then a global; a context value carries
+only request-scoped data that crosses APIs — a request or trace ID, the
+authenticated principal — never an optional parameter, per-process
+configuration, or a deadline, which is derived with `WithTimeout`,
+`WithDeadline`, or `WithCancel`.
 
 ---
 
@@ -71,33 +59,11 @@ for _, item := range items {
 
 ### Cancellation With a Reason
 
-`context.WithCancelCause` records *why* a context was cancelled: `ctx.Err()`
-still returns `Canceled`, and `context.Cause(ctx)` returns the reason. Use it
-when several paths can cancel and the caller must tell them apart:
-
-```go
-ctx, cancel := context.WithCancelCause(ctx)
-defer cancel(nil)
-// ...
-cancel(fmt.Errorf("upstream closed: %w", err))
-// later, in the caller
-if err := context.Cause(ctx); err != nil {
-    return err
-}
-```
-
-`context.WithTimeoutCause` and `context.WithDeadlineCause` (Go 1.21+) do the
-same for a deadline: `ctx.Err()` stays `DeadlineExceeded`, `context.Cause(ctx)`
-is the error you supplied, so a caller can tell this timeout from an upstream
-one.
-
-`context.AfterFunc(ctx, f)` runs `f` once `ctx` is done; call `stop` when the
-work ends first:
-
-```go
-stop := context.AfterFunc(ctx, func() { conn.Close() })
-defer stop()
-```
+With `context.WithCancelCause`, `WithTimeoutCause`, or `WithDeadlineCause`,
+`ctx.Err()` still returns `Canceled` or `DeadlineExceeded`; only
+`context.Cause(ctx)` returns the reason supplied, so a caller that must tell
+this cancellation or timeout from an upstream one reads `Cause`, and
+`defer cancel(nil)` releases a cause context on the success path.
 
 `context.WithoutCancel(ctx)` keeps the values but drops cancellation; use it
 for work that must outlive the request (audit log, cleanup) and give that work

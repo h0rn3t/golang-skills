@@ -14,9 +14,6 @@ allowed-tools: Bash(bash:*)
 
 - `scripts/check-errors.sh` - Run when checking string-based error matching and log-and-return patterns; `--bare-return` adds the opt-in bare `return err` review.
 - `scripts/check-errors-ast.go` - Implementation helper invoked by `check-errors.sh`; patch this when changing error-flow analysis behavior.
-- `references/ERROR-FLOW.md` - Read when deciding where to handle, wrap, log, or return errors.
-- `references/ERROR-TYPES.md` - Read when matching sentinel errors, or for the API rules on error values (message form, in-band values).
-- `references/WRAPPING.md` - Read when choosing `%w` versus `%v` or crossing package boundaries.
 
 ---
 
@@ -36,6 +33,9 @@ Error encountered?
 │   the same error is both logged and answered.
 └─ Neither? → Log at appropriate level, continue
 ```
+
+Handling one matched case — `errors.Is(err, ErrUserNotFound)` falls back to a
+default — and returning the rest wrapped is handling once too.
 
 An error discarded on purpose says why on the same line
 (`n, _ := b.Write(p) // never returns a non-nil error`); a bare `_` is a
@@ -62,7 +62,8 @@ first failure cancels the rest and is what `Wait` returns.
 | Inspect additional structured fields or type-specific behavior | Custom `error` type |
 | Message only, no stable matching contract | `errors.New` for static text; `fmt.Errorf` for dynamic text |
 
-Dynamic wording alone does not justify a new type. `%w` already preserves
+A failure is never an in-band value (`-1`, `""`, `nil`): return `(T, error)`
+or `(T, bool)`. Dynamic wording alone does not justify a new type. `%w` already preserves
 existing sentinels and typed causes for `errors.Is` and `errors.AsType`.
 Add a custom type when callers need new programmatic data or behavior beyond
 the existing cause and a contextual message. Whatever the type, the result is
@@ -96,11 +97,14 @@ cause matching the second branch, including wrapping.
 
 ## Error Wrapping
 
-- **Use `%v`**: For display or annotation that deliberately omits the error chain
+- **Use `%v`**: For display or annotation that deliberately omits the error chain;
+  it keeps the text, not the identity, and redacts nothing
 - **Use `%w`**: When the underlying cause is part of the caller-facing contract
 
 **Key rules**: Place `%w` at the end (two causes of one failure take two `%w`
-verbs in one `fmt.Errorf`). Add context callers don't have. If
+verbs in one `fmt.Errorf`). Add context callers don't have: an `os` error
+already names its path, so `launch codes unavailable: %w` rather than
+`read settings.txt: %w`. If
 annotation adds nothing, return `err` directly. One error often serves two
 audiences — the operator reading a log line and the caller matching with
 `errors.Is` — and `fmt.Errorf("resolve %q: %w", sku, err)` serves both where

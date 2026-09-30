@@ -4,7 +4,7 @@
     "name": "h0rn3t"
   },
   "metadata": {
-    "description": "24 modular skills for idiomatic Go 1.27, derived from Effective Go, Google Go Style Guide, Uber Go Style Guide, and Go Wiki CodeReviewComments. Backed by 74 reference files, 11 automation scripts (--json on all eleven, --limit where output is unbounded, --force on the three that write files), 5 asset templates, a go-verify subagent, a PostToolUse hook that runs gofmt, vet, go fix, the package tests, and golangci-lint after every Go edit, a routing gate for the go-code, go-code-refactor, and go-code-review routers, and prompt and subagent hooks that name the router.",
+    "description": "24 modular skills for idiomatic Go 1.27, derived from Effective Go, Google Go Style Guide, Uber Go Style Guide, and Go Wiki CodeReviewComments. Backed by 70 reference files, 11 automation scripts (--json on all eleven, --limit where output is unbounded, --force on the three that write files), 5 asset templates, a go-verify subagent, a PostToolUse hook that runs gofmt, vet, go fix, the package tests, and golangci-lint after every Go edit, a routing gate for the go-code, go-code-refactor, and go-code-review routers, and prompt and subagent hooks that name the router.",
     "version": "1.26.1"
   },
   "plugins": [

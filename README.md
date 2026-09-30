@@ -4,7 +4,7 @@
 
 AI [Agent Skills](https://agentskills.io/) for writing idiomatic,
 production-quality Go 1.27 code. The pack contains **24 modular skills**,
-**74 reference files**, **11 bundled scripts**, and **5 asset templates**.
+**70 reference files**, **11 bundled scripts**, and **5 asset templates**.
 The Claude Code plugin also ships a `go-verify` agent and hooks for routing and
 post-edit verification.
 

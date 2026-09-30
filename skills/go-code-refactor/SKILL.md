@@ -6,8 +6,7 @@ allowed-tools: Bash(bash:*)
 
 # Go Refactoring
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Modernization
-> targets the `go` directive in `go.mod`, not the installed toolchain.
+> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
 
 Improve readability while preserving observable behavior. Establish evidence
 for that promise; compilation alone does not establish equivalent behavior.
@@ -37,8 +36,8 @@ target project using the resolved absolute script path.
 - `scripts/check-debt.sh` - Harvest `Kept:` markers and flag the ones naming no ceiling and no fix.
 - `assets/refactor-report.md` - The final report structure.
 
-The commands below need a shell tool; Workflow step 1 sets the variable they
-run through.
+The commands below need a shell tool; Workflow step 1 says how to write their
+path.
 
 ## When Not to Refactor
 
@@ -164,8 +163,9 @@ literal. Error texts and the point where an unknown key fails do not move.
 > contract; keeping the tree and repairing one boundary is a valid result.
 
 When the smell is the import graph, `references/ARCHITECTURE.md` owns the
-call: measure the graph, name the shape, propose the smallest repair. A move is
-High tier and a proposal unless the user asked for it; its first commit
+call: measure the graph, name the shape, propose the smallest repair — a
+target plus a staged plan, applied only as far as authorized. A move is High
+tier and a proposal unless the user asked for it; its first commit
 encodes the rule in `architecture.json` and runs `scripts/check-architecture.sh`,
 whose `known` list a refactor never extends to make its own run pass.
 
@@ -173,14 +173,9 @@ whose `known` list a refactor never extends to make its own run pass.
 
 Keep a transformation only when behavior is preserved and a reader can trace
 decisions, errors, and side effects from the entry point without chasing
-trivial wrappers. Measure both production LOC counts; growth in either needs
-the reason [Delete Before You Restructure](#delete-before-you-restructure) requires:
-
-- **Physical LOC:** every line in the scoped non-test `*.go` files, including
-  blank lines and comments; include new files and account for deleted files.
-- **Code LOC:** lines containing Go tokens other than comments. A line with a
-  trailing comment counts once; every line of a multiline literal counts.
-
+trivial wrappers. Measure both production LOC counts, physical and code (the
+script's `--help` defines them); growth in either needs the reason
+[Delete Before You Restructure](#delete-before-you-restructure) requires.
 Record both starting counts before the first edit, and compare after `gofmt` on
 the same path, with the counter this skill ships: `loc-baseline` in step 1 of
 the [Workflow](#workflow), `loc-diff` in step 5.
@@ -194,11 +189,8 @@ it could not run, that sentence stands where the numbers would. The `baseline`,
 
 Keep documentation that explains a decision or contract. Removing comments
 or blank lines cannot compensate for added code; do not compress statements
-onto one line to meet the limit. Preserve validation, failure behavior,
-security controls, and useful abstraction boundaries. If a transformation
-fails, revise it or undo only your own edits. An empty diff is successful when
-no qualifying improvement exists. Report starting and final physical/code
-counts, their deltas, and the checks supporting behavior preservation.
+onto one line to meet the limit. An empty diff is successful when no
+qualifying improvement exists.
 
 ## Workflow
 
@@ -227,10 +219,6 @@ Flag two file classes before editing: **generated** files (exclude silently
 when incidental; a generated target changes through its generator, below) and **build-tagged** files for
 another GOOS/GOARCH, which never compile here — run
 `GOOS=<target> go build ./...` and say in the report that their tests did not run.
-
-Read the `go` directive in `go.mod`; it gates which modernization is legal. If
-it lags the toolchain, mention the gap once — bumping it is the user's call and
-carries its own behavior changes.
 
 Record the baseline in one shell call; the second line runs even when a red
 baseline exits 1:
@@ -266,10 +254,6 @@ what produces a real transformation; jumping to edits produces cosmetic churn �
 renamed variables, shuffled lines, same confusion. Record location, what is
 hard to read, and the intended transformation.
 
-When the smell is package-scale, the audit is the import graph —
-`references/ARCHITECTURE.md` has the commands and the shape names — and the
-deliverable is a target plus a staged plan, applied only as far as authorized.
-
 When the ask is a cut list rather than a rewrite — "what can we delete", a repo
 handed over as bloated — the audit *is* the deliverable: use the tags and
 ranked format in `references/OVER-ENGINEERING.md` and stop there.
@@ -302,15 +286,10 @@ Reuse unchanged passing results and finish with the required repository gate.
 For independent packages, follow the host's delegation policy and
 [go-style-core](../go-style-core/SKILL.md#how-much-to-say).
 
-`references/PLAYBOOK.md` has the transformations. The high-value ones: delete
-dead code, flatten with early returns, name things after what they mean,
-name magic values, remove duplication that
-has a name, fold branches that differ only in values into one selection
-(see [Remove Duplication to the End](#remove-duplication-to-the-end)).
-Before a rename or an extraction, list its uses: the build catches the static
-ones after the edit, but reflection, templates, string-based lookups, and a
-type matched only through an assertion or a type switch fail at run time, so
-search for those by text.
+`references/PLAYBOOK.md` has the transformations, ordered by payoff. Before a
+rename or an extraction, search its uses by text: the build catches the static
+ones, not reflection, templates, string lookups, or a type matched only
+through an assertion or a type switch.
 
 Three cases leave the playbook. A move that crosses a function, type, or package
 boundary is in `references/CATALOG.md`, with its tool and tier. The same edit
@@ -347,10 +326,7 @@ invisible breakages compilation misses.
 
 ### 6. Report
 
-Use `assets/refactor-report.md`. Lead with what was deleted and the net line
-count — the part of the diff that needed no design decision. Keep prose short
-([go-style-core](../go-style-core/SKILL.md#how-much-to-say) owns the length);
-report skipped checks as skipped; the table and the diff carry the information.
+Use `assets/refactor-report.md`; report skipped checks as skipped.
 
 ## Mark What You Deliberately Left Alone
 

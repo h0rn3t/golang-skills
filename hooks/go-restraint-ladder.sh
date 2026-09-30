@@ -17,7 +17,7 @@
 #     prints that level's line. Any other prompt prints nothing.
 #
 # Both texts are read at run time — the ladder from OVER-ENGINEERING.md, the
-# level line from the Intensity table in go-code/SKILL.md — so neither is a
+# level line from the table in go-code/references/INTENSITY.md — so neither is a
 # second copy. GOLANG_SKILLS_LADDER=lite|full|ultra sets the level a session
 # starts at; off turns the hook off. Never blocks: exit 0 always.
 set -u
@@ -78,7 +78,7 @@ print(word)
 state="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/${session:-default}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)" || exit 0
 ladder_file="$root/skills/go-code-refactor/references/OVER-ENGINEERING.md"
-levels_file="$root/skills/go-code/SKILL.md"
+levels_file="$root/skills/go-code/references/INTENSITY.md"
 
 if [[ -n "$word" ]]; then
     mkdir -p "$state" && printf '%s\n' "$word" > "$state/intensity"
@@ -94,7 +94,7 @@ row="$(awk -v l="$level" 'index($0, "| `" l "` | ") == 1 {
 }' "$levels_file" 2>/dev/null)"
 
 if [[ "$event" == "UserPromptSubmit" ]]; then
-    printf 'golang-skills: restraint level `%s` for the rest of this session (Intensity in %s; a behavior-preserving refactor runs at `full`). %s\n' \
+    printf 'golang-skills: restraint level `%s` for the rest of this session (levels in %s; a behavior-preserving refactor runs at `full`). %s\n' \
         "$level" "$levels_file" "$row"
     exit 0
 fi

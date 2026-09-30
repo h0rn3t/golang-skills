@@ -4,6 +4,41 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- A second, smaller token pass on the skills every routed session loads.
+  SKILL.md bodies shrink by 5.3 KB and references by 5.9 KB (70 reference
+  files): an HTTP implement session with a shell loads about 2.9 KB less, and
+  five optional `Read when` references are gone.
+  - `go-code`'s Intensity section moves to the new `references/INTENSITY.md`,
+    read only when the prompt carries `lite` or `ultra`; the ladder hook reads
+    the level rows from there. The refactor scripts leave Close With The
+    Gate: `go-code-refactor`, which runs them, lists them itself.
+  - `go-code-refactor` loses its Workflow sentence about a variable that
+    1.26.1 removed, a second copy of the `go` directive rule (go-style-core's
+    Write Current Go), the LOC definitions (the script's `--help` has them),
+    the generic list of high-value transformations, a second rename caveat,
+    and the report order the asset already carries.
+  - `go-testing`'s `TABLE-DRIVEN-TESTS.md` and `TEST-HELPERS.md`, and all
+    three `go-error-handling` references, fold into their SKILL.md as the few
+    facts they held that the SKILL.md did not: no `/` in a subtest name,
+    `t.Cleanup` over `defer` in a helper, `require.ErrorIs`, handling one
+    matched case as handling once, no in-band failure values, `%v` redacting
+    nothing, and an `os` error already naming its path.
+  - `go-linting` keeps `go fix` usage; the analyzer table, the Go 1.27
+    renames, and the x/tools `modernize` note move to `MODERNIZATION.md`'s
+    Start with `go fix`, which pointed back at them.
+  - `go-http` drops Stdlib First (one sentence under Routing now) and its
+    Validation section (the gate runs those checks); `go-context` states the
+    data-placement order and the `Cause` contexts in one paragraph each, the
+    idiom card having the `AfterFunc` and `Cause` rows.
+  - Measured with `abrun`, reference (v1.26.1) against baseline, all three
+    corpora, `-effort low -n 2`, Sonnet 5.5 and Opus 5.5 (136 sessions):
+    implement golden 100%/100% on Sonnet and 92%/100% on Opus with lint
+    unchanged, refactor identical (−18.8 lines, golden 100%), cost within
+    ±3–7%. Review sessions loaded none of the edited skills, so their
+    recall gap (Sonnet 0.96/0.92, Opus 0.93/0.91; must-fix 0.98/0.97 and
+    1.00/1.00) is run-to-run noise on identical context. No session in either
+    arm read any of the five deleted references.
+
 ## [1.26.1] - 2026-09-30
 
 - `go-code-refactor` no longer asks for `export REFACTOR_SKILL_DIR=...` once

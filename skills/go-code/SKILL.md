@@ -16,14 +16,15 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
 
 - `../go-style-core/SKILL.md` — Load on every task (step 2), with its idiom card `references/CURRENT-GO.md`; its other references only for a decision the task requires.
 - `../go-linting/SKILL.md` — Its Verification Gate at step 6, when a shell tool is in your tool list.
+- `references/INTENSITY.md` — Read when the prompt carries `lite` or `ultra` (`/go-code ultra <task>`, `ultra mode`): what each level changes.
 - `references/NEW-CODE-EXAMPLES.md` — Read when the shape of a Contract Table case, Plain Code body, or budgeted helper is in doubt.
 - `../go-code-refactor/references/OVER-ENGINEERING.md` — The restraint ladder when a [Declaration Budget](#declaration-budget) entry is in doubt; its replacement catalog when seeking a simpler existing API.
 
 ## Workflow
 
 1. **Resolve invocation.** `$go-code <task>` or `/go-code <task>` selects Go
-   work; a leading `lite`, `full`, or `ultra` sets the [Intensity](#intensity),
-   not the task. An invocation inserts this file only; steps 2 and 3 load the
+   work; a leading `lite`, `full`, or `ultra` sets the restraint level
+   ([INTENSITY.md](references/INTENSITY.md)), not the task. An invocation inserts this file only; steps 2 and 3 load the
    rest. As a modifier (`/opsx:apply add-auth /go-code`) it is never a change
    name or path, and the host keeps workflow state, checkpoints, and
    delegation policy.
@@ -246,9 +247,6 @@ Select checks with [go-linting](../go-linting/SKILL.md#verification-gate) for
 the requested scope; a repository gate replaces the defaults rather than
 joining them. Bundled scripts add evidence the gate lacks:
 
-- Refactor: `../go-code-refactor/scripts/verify-refactor.sh` for baseline/after
-  evidence; `../go-code-refactor/scripts/check-debt.sh` for deliberate `Kept:`
-  markers, whose format is owned by `go-code-refactor`.
 - Error handling: `../go-error-handling/scripts/check-errors.sh`.
 - Exported API documentation: `../go-documentation/scripts/check-docs.sh`.
 - Before submitting: [go-code-review](../go-code-review/SKILL.md).
@@ -291,27 +289,6 @@ not require `go-naming` or `go-documentation`.
 | JSON and other wire formats, struct tags | [go-http](../go-http/SKILL.md) ([JSON-V2.md](../go-http/references/JSON-V2.md)) | [go-defensive](../go-defensive/SKILL.md) (tags) |
 | CLI entry point, flags, `main`/`run` | [go-packages](../go-packages/SKILL.md) | — |
 | a list of findings from a review or audit | the rows the findings name | per area, not per task |
-
-## Intensity
-
-A level word right after the command — `/go-code lite <task>`,
-`/go-code ultra <task>` — or `lite mode` / `ultra mode` in the prompt sets how
-hard the [restraint ladder](../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder)
-pushes. The word is never part of the task. The level holds for the rest of
-the session, until another level word; `full` is the default and returns to
-it. A behavior-preserving refactor runs at `full` whatever the word: the
-[delete-first order](../go-code-refactor/SKILL.md#delete-before-you-restructure)
-already fixes its shape.
-
-| Level | What changes |
-|---|---|
-| `lite` | Rungs 1–6 advise on what the request implies: build the shape the request suggests, and where a higher rung would hold, name it in one report line — `lazier: <X>` — for the user to pick. |
-| `full` | The ladder and the [Declaration Budget](#declaration-budget) as written. The default. |
-| `ultra` | Rung 1 for every part the request does not state in words — an option, a config field, a hook, an export, a cache, a goroutine: skip it and report `skipped: <X>, add when <Y>`. Before adding a line, delete what the change leaves dead. A stated requirement a higher rung would cover still ships, with one line: `Need <X>? <Y> covers it.` |
-
-No level changes the gate, the [Contract Table](#contract-table), an explicit
-requirement, or what the ladder never cuts: validation at trust boundaries,
-error handling that prevents data loss, and security controls.
 
 ## Related Skills
 

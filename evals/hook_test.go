@@ -554,6 +554,25 @@ func TestRoutingGate(t *testing.T) {
 		}
 	})
 
+	// A plain defer and a ctx parameter passed on appear in nearly every body;
+	// the 1.7.0 hints for them named go-defensive in 16 of 73 implement gate
+	// blocks on 2026-09-30.
+	t.Run("plain defer and a ctx parameter are routine syntax", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		for _, skill := range []string{"go-code", "go-style-core"} {
+			hookEvent(t, script, state, routingPayload("PostToolUse", "s12", "Skill", map[string]any{"skill": skill}))
+		}
+		hookEvent(t, script, state, routingPayload("PostToolUse", "s12", "Read",
+			map[string]any{"file_path": "/home/u/.claude/skills/go-style-core/references/CURRENT-GO.md"}))
+		routine := "package store\n\nfunc (s *Store) Read(ctx context.Context, f *os.File) error {\n\ts.mu.Lock()\n\tdefer s.mu.Unlock()\n\tdefer f.Close()\n\treturn s.load(ctx, f)\n}\n"
+		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "s12", "Write",
+			map[string]any{"file_path": "/repo/store/read.go", "content": routine}))
+		if code != 0 || msg != "" {
+			t.Fatalf("defer Unlock/Close and a ctx parameter: exit %d, stderr %q; want silent 0", code, msg)
+		}
+	})
+
 	t.Run("decision-bearing forms name their owner", func(t *testing.T) {
 		t.Parallel()
 		cases := []struct {
@@ -563,8 +582,10 @@ func TestRoutingGate(t *testing.T) {
 				"package x\n\nfunc Map[T any](xs []T) []T { return xs }\n", "go-generics"},
 			{"pgxpool", "s8", "/repo/x/db.go",
 				"package x\n\nfunc open(dsn string) (*pgxpool.Pool, error) {\n\treturn pgxpool.New(ctx, dsn)\n}\n", "go-database"},
-			{"defer", "s9", "/repo/x/read.go",
-				"package x\n\nfunc read(f *os.File) {\n\tdefer f.Close()\n}\n", "go-defensive"},
+			{"deferred closure with recover", "s9", "/repo/x/run.go",
+				"package x\n\nfunc run() (err error) {\n\tdefer func() {\n\t\tif r := recover(); r != nil {\n\t\t\terr = fmt.Errorf(\"panic: %v\", r)\n\t\t}\n\t}()\n\treturn work()\n}\n", "go-defensive"},
+			{"context stored in a struct", "s11", "/repo/x/worker.go",
+				"package x\n\ntype Worker struct {\n\tctx  context.Context\n\tjobs []Job\n}\n", "go-context"},
 		}
 		for _, tc := range cases {
 			tc := tc
@@ -656,6 +677,19 @@ func TestVetHook(t *testing.T) {
 		}
 	})
 
+	t.Run("go fix hunks elsewhere in the package are one count", func(t *testing.T) {
+		t.Parallel()
+		path := module(t, clean)
+		loop := "package main\n\nimport \"fmt\"\n\nfunc count() {\n\tn := 3\n\tfor i := 0; i < n; i++ {\n\t\tfmt.Println(i)\n\t}\n}\n"
+		if err := os.WriteFile(filepath.Join(filepath.Dir(path), "other.go"), []byte(loop), 0o644); err != nil {
+			t.Fatalf("write other.go: %v", err)
+		}
+		code, msg := hookEventEnv(t, script, t.TempDir(), edited(path), "GOLANG_SKILLS_EDIT_LINT=off")
+		if code != 2 || !strings.Contains(msg, "1 hunk(s) in other files") || strings.Contains(msg, "range n") {
+			t.Fatalf("modernizable other.go: exit %d, stderr %q; want 2 with a hunk count and no hunk text", code, msg)
+		}
+	})
+
 	t.Run("vet failure", func(t *testing.T) {
 		t.Parallel()
 		path := module(t, "package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Printf(\"%d\\n\", \"s\")\n}\n")
@@ -712,6 +746,19 @@ func TestVetHook(t *testing.T) {
 		}
 	})
 
+	t.Run("a test timeout prints the running tests, not the goroutine dump", func(t *testing.T) {
+		t.Parallel()
+		slow := "package main\n\nimport (\n\t\"testing\"\n\t\"time\"\n)\n\nfunc TestSlow(t *testing.T) {\n\ttime.Sleep(5 * time.Second)\n}\n"
+		path := withTest(t, clean, slow)
+		code, msg := hookEventEnv(t, script, t.TempDir(), edited(path), "GOLANG_SKILLS_EDIT_LINT=off", "GOLANG_SKILLS_EDIT_TEST_TIMEOUT=1")
+		if code != 2 || !strings.Contains(msg, "panic: test timed out after 1s") || !strings.Contains(msg, "TestSlow") || !strings.Contains(msg, "goroutine dump cut") {
+			t.Fatalf("slow test: exit %d, stderr %q; want 2 naming the timeout and the running test", code, msg)
+		}
+		if strings.Contains(msg, "testing.tRunner") || strings.Contains(msg, "goroutine 1 [") {
+			t.Errorf("a timeout must not print the goroutine dump:\n%s", msg)
+		}
+	})
+
 	t.Run("package tests can be switched off", func(t *testing.T) {
 		t.Parallel()
 		path := withTest(t, clean, failing)
@@ -758,6 +805,37 @@ func TestVetHook(t *testing.T) {
 		code, msg := hookEvent(t, script, t.TempDir(), edited(path))
 		if code != 2 || !strings.Contains(msg, "1 finding(s) in other files") || strings.Contains(msg, "errcheck") {
 			t.Fatalf("finding in other.go: exit %d, stderr %q; want 2 with a count and no finding text", code, msg)
+		}
+	})
+
+	t.Run("in a git checkout only lint issues new since HEAD count", func(t *testing.T) {
+		t.Parallel()
+		needLint(t)
+		if _, err := exec.LookPath("git"); err != nil {
+			t.Skip("git not installed")
+		}
+		path := module(t, bareWrite)
+		git := func(args ...string) {
+			t.Helper()
+			cmd := exec.Command("git", append([]string{"-c", "user.email=t@example.com", "-c", "user.name=t", "-c", "commit.gpgsign=false"}, args...)...)
+			cmd.Dir = filepath.Dir(path)
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("git %v: %v\n%s", args, err, out)
+			}
+		}
+		git("init", "-q")
+		git("add", ".")
+		git("commit", "-q", "-m", "older debt")
+		src := bareWrite + "\nfunc handle2(w http.ResponseWriter, _ *http.Request) {\n\tw.Write([]byte(\"two\"))\n}\n"
+		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+			t.Fatalf("write main.go: %v", err)
+		}
+		code, msg := hookEvent(t, script, t.TempDir(), edited(path))
+		if code != 2 || !strings.Contains(msg, "errcheck") || !strings.Contains(msg, path+":12:") {
+			t.Fatalf("new bare write: exit %d, stderr %q; want 2 with an errcheck finding at %s:12", code, msg, path)
+		}
+		if strings.Contains(msg, path+":6:") {
+			t.Errorf("the committed finding at line 6 predates the session and must not print:\n%s", msg)
 		}
 	})
 
@@ -856,6 +934,18 @@ func TestPromptRouting(t *testing.T) {
 		cardPath := filepath.Join(repoRoot(t), "skills", "go-style-core", "references", "CURRENT-GO.md")
 		if !strings.Contains(out, "Read the idiom card whole") || !strings.Contains(out, cardPath) {
 			t.Fatalf("note must name the idiom card at %s:\n%s", cardPath, out)
+		}
+	})
+
+	t.Run("new code names go-testing without a condition", func(t *testing.T) {
+		t.Parallel()
+		_, out := promptEvent(t, t.TempDir(), "p21", t.TempDir(), implement)
+		if !strings.Contains(out, "`golang-skills:go-testing`, since new code starts with its contract test") || strings.Contains(out, "if you write or edit a test") {
+			t.Fatalf("implement prompt must name go-testing unconditionally:\n%s", out)
+		}
+		_, out = promptEvent(t, t.TempDir(), "p22", t.TempDir(), "Fix the Go bug in ./feed where the totals come out wrong")
+		if !strings.Contains(out, "`golang-skills:go-testing` if you write or edit a test") {
+			t.Fatalf("fix prompt keeps the condition on go-testing:\n%s", out)
 		}
 	})
 
@@ -1090,13 +1180,16 @@ func TestPromptRouting(t *testing.T) {
 			t.Fatal(err)
 		}
 		_, out := promptEvent(t, t.TempDir(), "p13", cwd, refactor)
-		for _, want := range []string{"`golang-skills:go-code-refactor`", "`golang-skills:go-style-core`", "`golang-skills:go-error-handling`", "`golang-skills:go-context`", "`golang-skills:go-defensive`", "before the first edit"} {
+		for _, want := range []string{"`golang-skills:go-code-refactor`", "`golang-skills:go-style-core`", "`golang-skills:go-error-handling`", "`golang-skills:go-context`", "before the first edit"} {
 			if !strings.Contains(out, want) {
 				t.Errorf("note must name %s:\n%s", want, out)
 			}
 		}
 		if strings.Contains(out, "`golang-skills:go-http`") {
 			t.Errorf("a test file's imports must not name an owner:\n%s", out)
+		}
+		if strings.Contains(out, "`golang-skills:go-defensive`") {
+			t.Errorf("defer cancel() is routine; it must not name go-defensive:\n%s", out)
 		}
 		// A bare package name in the prompt resolves against cwd too.
 		if _, out := promptEvent(t, t.TempDir(), "p14", cwd, "Спрости Go-пакет dispatch, не змінюючи поведінки"); !strings.Contains(out, "`golang-skills:go-context`") {

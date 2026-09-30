@@ -143,7 +143,8 @@ completed check.
 
 Where the Claude Code plugin is installed, a hook runs `gofmt`, `go vet`,
 `go fix -diff`, the package's tests, and `golangci-lint` after every edit of a
-`.go` file and prints only the checks that failed; it never blocks. A finding
+`.go` file and prints only the checks that failed, scoped to the edited file
+(in a git checkout, lint to issues new since HEAD); it never blocks. A finding
 it prints is fixed before the next step, not reported around. Without a shell
 tool its output is the whole check record: a check it printed and a later edit
 cleared is `<check> pass (hook)`. Before the hook has printed once in the

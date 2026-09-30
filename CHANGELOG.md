@@ -4,6 +4,34 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- The prompt hook names `go-testing` without a condition when the prompt asks
+  for new code (implement, write, add, a stub): go-code's step 4 writes the
+  contract test before the body, and "`go-testing` if you write or edit a
+  test" left 43 of 73 implement gate blocks to go-testing on 2026-09-30
+  (abrun low, Sonnet 5.5 and Opus 5.5) — the model judged it would write no
+  test, then was blocked writing the contract test and re-sent the whole
+  file. A fix prompt keeps the condition.
+- The gate's owner hints stop firing on routine syntax: a plain `defer`
+  (`f.Close()`, `mu.Unlock()`, `cancel()`) no longer names go-defensive — a
+  deferred closure, `recover()`, or `unsafe.` does — and a `ctx
+  context.Context` parameter passed on no longer names go-context — context
+  creation, `AfterFunc`, or a `context.Context` struct field does.
+  go-defensive was among the owners named in 16 of those 73 blocks.
+- The edit hook prints less that predates the session: `go fix -diff` shows
+  the edited file's hunks and counts the rest of the package in one line; in
+  a git checkout with a HEAD, `golangci-lint` reports only issues new since
+  HEAD; a test timeout prints the running tests instead of the goroutine dump
+  (`GOLANG_SKILLS_EDIT_TEST_TIMEOUT` sets the limit, default 50 s). One edit of
+  a large test file had printed about 10 KB of older findings, on every edit.
+  go-style-core's Edit Hook Record says the output is scoped.
+- Measured with `abrun`, reference (v1.27.0) against baseline, implement and
+  refactor corpora, `-effort low -n 2`, Sonnet 5.5 and Opus 5.5 (88
+  sessions): implement gate blocks per session 1.14 → 0.36 on Sonnet and
+  1.21 → 0.64 on Opus (go-testing blocks 8 → 1 and 9 → 0), golden 100%/100%
+  and 92%/100%, lint unchanged; Opus implement cost −5% and output tokens
+  −11%, Sonnet flat; refactor unchanged. The git-scoped lint cannot show in
+  abrun, whose scratch trees are not git checkouts; `TestVetHook` covers it.
+
 ## [1.27.0] - 2026-09-30
 
 - A second, smaller token pass on the skills every routed session loads.

@@ -49,10 +49,15 @@
 #
 # The owner hints below are heuristics: regular expressions over the edited
 # text that recognize the decision-bearing forms of thirteen owners (error
-# wrapping, goroutines, context creation, SQL, slog, exec/templates, defer,
-# type parameters, interfaces, main, retries, HTTP, tests).
-# Routine syntax — a plain fmt.Errorf("%v"), r.Context(), an http.StatusOK in a
-# comment, make([]T, n), append — must not fire. Collections have no hint on
+# wrapping, goroutines, context creation or a Context field, SQL, slog,
+# exec/templates, a deferred closure or recover, type parameters, interfaces,
+# main, retries, HTTP, tests).
+# Routine syntax — a plain fmt.Errorf("%v"), r.Context(), a ctx parameter
+# passed on, defer f.Close() / mu.Unlock() / cancel(), an http.StatusOK in a
+# comment, make([]T, n), append — must not fire. The bare defer and
+# context.Context hints of 1.7.0 fired on nearly every body: on 2026-09-30
+# (abrun low, both 5.5 models) go-defensive was among the owners named in 16
+# of 73 implement gate blocks. Collections have no hint on
 # purpose: make/append appear in nearly every Go body, and the 2026-09-10
 # implementation control plus its follow-up smoke show the forced
 # go-data-structures load itself starting a make+copy -> slices.Clone rewrite
@@ -134,11 +139,11 @@ OWNER_PATTERNS = [
     ("go-http", r"\bnet/http\b|\bhttp\.(Handle|HandleFunc|Server\b|Client\b|NewServeMux|NewRequest|ResponseWriter|Error|ListenAndServe|Redirect|StatusCode)"),
     ("go-error-handling", r"fmt\.Errorf\([^)]*%w|\berrors\.(Is|As|AsType|Join|New)\("),
     ("go-concurrency", r"\bgo\s+func\b|\bgo\s+[A-Za-z_]\w*\(|\bmake\(chan\b|\bchan\s|\bsync\.(Mutex|RWMutex|WaitGroup|Once|Map)\b"),
-    ("go-context", r"\bcontext\.(Background|TODO|With[A-Za-z]+|Context)\b"),
+    ("go-context", r"\bcontext\.(Background|TODO|With[A-Za-z]+|AfterFunc)\b|^\s+\w+\s+context\.Context\s*(//.*)?$"),
     ("go-database", r"database/sql|\bsql\.(Open|DB|Tx|Rows|Null)\b|\bpgx(pool)?\."),
     ("go-logging", r"\bslog\."),
     ("go-security", r"os/exec|html/template|text/template|\bcrypto/|\bexec\.Command|\bhttp\.(SetCookie|Cookie)\b|\bfilepath\.Join\("),
-    ("go-defensive", r"\bdefer\s|\bunsafe\."),
+    ("go-defensive", r"\bdefer\s+func\b|\brecover\(\)|\bunsafe\."),
     ("go-generics", r"\[[A-Z][A-Za-z0-9]*\s+(any|comparable|~|[A-Za-z]+\.[A-Za-z]+)\b"),
     ("go-interfaces", r"\binterface\s*\{"),
     ("go-packages", r"^package main\b|\bfunc main\("),
@@ -358,8 +363,8 @@ PreToolUse)
         if (( attempt == 1 )) && [[ -n "$fresh" ]]; then
             cat <<'EOF'
 The gate reads the edited text and recognizes some owners only: tests, error
-wrapping, goroutines, context creation, SQL, slog, exec and templates, defer,
-type parameters, interfaces, main, retries, HTTP. The routing table in
+wrapping, goroutines, context creation, SQL, slog, exec and templates,
+deferred closures, type parameters, interfaces, main, retries, HTTP. The routing table in
 go-code/SKILL.md decides, including the owners the gate cannot see, and the
 gate's silence is not a passing result.
 EOF

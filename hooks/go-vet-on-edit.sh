@@ -11,14 +11,22 @@
 # in five shipped a `null` its own contract test would have caught, had
 # anything run it. The hook is the host's process, so it runs either way.
 #
+#   go fix     -diff on the package; hunks in the edited file are printed and
+#              the rest of the package is one count.
 #   go test    -short -count=1 on the package, only when it type-checks and
 #              has test files. GOLANG_SKILLS_EDIT_TESTS=off disables it for a
-#              package whose tests need a service the hook cannot start.
+#              package whose tests need a service the hook cannot start;
+#              GOLANG_SKILLS_EDIT_TEST_TIMEOUT sets its -timeout in seconds
+#              (default 50). A timeout prints the running tests, not the
+#              goroutine dump.
 #   lint       golangci-lint on the package with the repository's own
 #              configuration when one is found, the bundled
 #              skills/go-linting/assets/golangci.yml otherwise. Findings in
 #              the edited file are printed; the rest of the package is one
 #              count, so a repository's older debt cannot flood the session.
+#              In a git checkout with a HEAD only issues new since HEAD count:
+#              on 2026-09-30 one edit of a large test file printed 40 lines of
+#              findings older than the session, on every edit.
 #              GOLANG_SKILLS_EDIT_LINT=off disables it.
 set -u
 
@@ -82,7 +90,19 @@ if (cd "$dir" && go list -m >/dev/null 2>&1); then
     # Report only; -diff never writes.
     if ! printf '%s\n' "$vet_out" | grep -q '^vet: '; then
         fix_out="$(cd "$dir" && go fix -diff . 2>&1)" || true
-        if [[ -n "$fix_out" ]]; then
+        if [[ -n "$fix_out" ]] && printf '%s\n' "$fix_out" | grep -q '^--- '; then
+            # Hunks are grouped under "--- <abs path> (old)"; match the path as
+            # given and as the directory resolves (a symlinked TMPDIR).
+            real="$(cd "$dir" && pwd -P)/$(basename "$file")"
+            mine_fix="$(printf '%s\n' "$fix_out" | awk -v a="$file" -v b="$real" '/^--- /{cur=$2} cur==a || cur==b')"
+            other_hunks="$(printf '%s\n' "$fix_out" | awk -v a="$file" -v b="$real" '/^--- /{cur=$2} cur!=a && cur!=b && /^@@ /{n++} END{print n+0}')"
+            if [[ -n "$mine_fix" ]]; then
+                findings+="$(section "go fix -diff $pkg:" "$mine_fix")"$'\n'
+            fi
+            if [[ "$other_hunks" -gt 0 ]]; then
+                findings+="go fix -diff $pkg: $other_hunks hunk(s) in other files of the package; run go fix -diff . to list them"$'\n'
+            fi
+        elif [[ -n "$fix_out" ]]; then
             findings+="$(section "go fix -diff $pkg:" "$fix_out")"$'\n'
         fi
 
@@ -90,14 +110,24 @@ if (cd "$dir" && go list -m >/dev/null 2>&1); then
         # Both are capped at 60 s: a hook that outlives the host's timeout
         # reports nothing at all.
         if [[ "${GOLANG_SKILLS_EDIT_TESTS:-on}" != "off" ]] && compgen -G "$dir/*_test.go" >/dev/null; then
-            if ! test_out="$(cd "$dir" && timeout 60 go test -short -count=1 -timeout 50s . 2>&1)"; then
+            tt="${GOLANG_SKILLS_EDIT_TEST_TIMEOUT:-50}"
+            [[ "$tt" =~ ^[0-9]+$ ]] || tt=50
+            if ! test_out="$(cd "$dir" && timeout "$((tt + 10))" go test -short -count=1 -timeout "${tt}s" . 2>&1)"; then
+                if printf '%s\n' "$test_out" | grep -q '^panic: test timed out after'; then
+                    test_out="$(printf '%s\n' "$test_out" | awk '/^panic: test timed out after/{p=1} p && /^goroutine /{exit} p && NF')"
+                    test_out+=$'\n'"(goroutine dump cut: the package's tests outlast the hook's ${tt}s; run go test yourself, or set GOLANG_SKILLS_EDIT_TESTS=off)"
+                fi
                 findings+="$(section "go test $pkg:" "$test_out")"$'\n'
             fi
         fi
         if [[ "${GOLANG_SKILLS_EDIT_LINT:-on}" != "off" ]] && command -v golangci-lint >/dev/null 2>&1; then
             # --allow-parallel-runners: two sessions editing at once must not
             # fail each other's run on golangci-lint's global lock.
-            lint_args=(run --allow-parallel-runners --path-mode=abs --output.text.print-issued-lines=false --show-stats=false .)
+            lint_args=(run --allow-parallel-runners --path-mode=abs --output.text.print-issued-lines=false --show-stats=false)
+            if (cd "$dir" && git rev-parse --verify -q HEAD >/dev/null 2>&1); then
+                lint_args+=(--new-from-rev=HEAD)
+            fi
+            lint_args+=(.)
             # golangci-lint config path exits 0 and prints the file when the
             # repository has one; otherwise the bundled configuration applies.
             if ! (cd "$dir" && golangci-lint config path >/dev/null 2>&1); then

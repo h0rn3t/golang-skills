@@ -84,6 +84,16 @@ mention = None if slash else re.search(
     r"(?:^|(?<=[\s`\x27\"(\[$]))/?(?:[A-Za-z0-9_.-]+:)?(go-code-refactor|go-code-review|go-code)(?![\w/-]|\.\w)",
     prompt)
 
+# New code starts with its contract test (go-code step 4), so a prompt that
+# asks for new code gets go-testing without a condition; "if you write or edit
+# a test" left 43 of 73 implement gate blocks to go-testing on 2026-09-30
+# (abrun low, both 5.5 models): the model judged it would write no test, then
+# wrote the contract test first. A fix keeps the condition.
+new_code = re.search(
+    r"\b(?:implement\w*|write|add|create|build|stub\w*|not implemented|fill in|"
+    r"реаліз\w*|реализ\w*|напиш\w*|напис\w*|дода\w*|добав\w*|створ\w*|созда\w*|допиш\w*|заполн\w*)\b",
+    prompt, re.I) is not None
+
 def names_go(text):
     return re.search(
         r"\bGo\b|\bgolang\b|\b[\w./-]+\.go\b|\bgo\.mod\b|\bgoroutines?\b|\bgofmt\b|\bgo (?:build|test|vet|run|mod|fix)\b",
@@ -138,6 +148,7 @@ if slash:
     print(slash.group(1))
     print("")
     print("slash")
+    print("new" if new_code else "")
     for p in target_files()[:40]:
         print(p)
     sys.exit(0)
@@ -146,6 +157,7 @@ if mention:
     print(mention.group(1))
     print("")
     print("mention")
+    print("new" if new_code else "")
     for p in target_files()[:40]:
         print(p)
     sys.exit(0)
@@ -197,11 +209,12 @@ print((d.get("session_id") or "default").replace("\n", " "))
 print(skill)
 print(kind)
 print("note")
+print("new" if new_code else "")
 for p in target_files()[:40]:
     print(p)
 ')" || exit 0
 [[ -n "$parsed" ]] || exit 0
-{ read -r session; read -r skill; read -r kind; read -r mode; mapfile -t files; } <<< "$parsed"
+{ read -r session; read -r skill; read -r kind; read -r mode; read -r newcode; mapfile -t files; } <<< "$parsed"
 [[ -n "$skill" ]] || exit 0
 
 state="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/${session:-default}"
@@ -276,7 +289,11 @@ fi
 # ("in the same message as the go-style-core load"), the card pulled
 # go-style-core off the owners' turn and cost 3.22 Skill turns a session
 # against 2.44 (2026-09-18, Sonnet 5 medium, n=3).
-line+="; \`$(q go-testing)\` if you write or edit a test"
+if [[ "$skill" == "go-code" && "$newcode" == "new" ]]; then
+    line+="; \`$(q go-testing)\`, since new code starts with its contract test"
+else
+    line+="; \`$(q go-testing)\` if you write or edit a test"
+fi
 [[ -z "$card" ]] || line+="; and Read the idiom card whole (no offset or limit): $card"
 line+='. All of them in one message, before the first edit.'
 if [[ "$mode" == "slash" ]]; then

@@ -182,12 +182,8 @@ the reason [Delete Before You Restructure](#delete-before-you-restructure) requi
   trailing comment counts once; every line of a multiline literal counts.
 
 Record both starting counts before the first edit, and compare after `gofmt` on
-the same path, with the counter this skill ships:
-
-```bash
-bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-baseline ./...
-bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-diff ./...
-```
+the same path, with the counter this skill ships: `loc-baseline` in step 1 of
+the [Workflow](#workflow), `loc-diff` in step 5.
 
 `loc-diff` exits 0 when neither count grew, 1 when one did, and 2 when the
 recorded path differs. Exit 1 is a signal, not a verdict: name the declaration,
@@ -208,16 +204,12 @@ counts, their deltas, and the checks supporting behavior preservation.
 
 ### 1. Orient
 
-Set `REFACTOR_SKILL_DIR` once, before the first command, to the base
-directory the host printed for this skill
-(`${CLAUDE_PLUGIN_ROOT}/skills/go-code-refactor` under the Claude Code plugin,
-`~/.agents/skills/go-code-refactor` under Codex), and keep the working
-directory in the target project:
-
-```bash
-export REFACTOR_SKILL_DIR="<base directory the host printed for this skill>"
-bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" --version    # must print a version; 127 means the path is wrong
-```
+Scripts run from the target project by full path: `<installed-skill-dir>`
+below is the base directory the host printed when it loaded this skill
+(`~/.agents/skills/go-code-refactor` under Codex). Write the path itself into
+each command — every shell call starts with a fresh environment, so a
+variable exported in one call is empty in the next. Exit 127 from the first
+script means the path is wrong.
 
 With no shell tool, run nothing and read no script: the
 [edit hook's output](../go-style-core/SKILL.md#the-edit-hook-record) is the
@@ -232,7 +224,7 @@ or the host's routing note when it names them. No edit before every selected
 skill is in context.
 
 Flag two file classes before editing: **generated** files (exclude silently
-when incidental, ask when they are the target) and **build-tagged** files for
+when incidental; a generated target changes through its generator, below) and **build-tagged** files for
 another GOOS/GOARCH, which never compile here — run
 `GOOS=<target> go build ./...` and say in the report that their tests did not run.
 
@@ -240,9 +232,12 @@ Read the `go` directive in `go.mod`; it gates which modernization is legal. If
 it lags the toolchain, mention the gap once — bumping it is the user's call and
 carries its own behavior changes.
 
+Record the baseline in one shell call; the second line runs even when a red
+baseline exits 1:
+
 ```bash
-bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" baseline ./...
-bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-baseline ./...
+bash "<installed-skill-dir>/scripts/verify-refactor.sh" baseline ./...
+bash "<installed-skill-dir>/scripts/verify-refactor.sh" loc-baseline ./...
 ```
 
 If characterization tests are needed, run them against unchanged production
@@ -325,10 +320,12 @@ migration, never one atomic commit (`references/STRUCTURAL.md`).
 
 ### 5. Verify
 
+In one shell call:
+
 ```bash
-bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" after ./...
-bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" diff
-bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" loc-diff ./...
+bash "<installed-skill-dir>/scripts/verify-refactor.sh" after ./...
+bash "<installed-skill-dir>/scripts/verify-refactor.sh" diff
+bash "<installed-skill-dir>/scripts/verify-refactor.sh" loc-diff ./...
 ```
 
 The diff compares recorded check results, not program behavior. An empty diff
@@ -368,7 +365,7 @@ prefixes, so the markers stay greppable:
 ```
 
 A marker naming no ceiling and no upgrade path rots into "later means never".
-`bash "$REFACTOR_SKILL_DIR/scripts/check-debt.sh" ./...` lists every marker and
+`bash "<installed-skill-dir>/scripts/check-debt.sh" ./...` lists every marker and
 exits 1 on those.
 
 ## Related Skills

@@ -27,7 +27,8 @@ production-ready коду на Go 1.27. Пакет містить **24 моду�
 
 Плагін містить `agents/go-verify.md`, хуки в `hooks/` і маніфести в
 `.claude-plugin/`. У Go-проєкті хуки виводять драбину стриманості на старті
-сесії та в кожного сабагента; `/go-code ultra <задача>` або `lite mode`
+сесії та в кожного сабагента, крім `go-verify` і хостових Explore,
+claude-code-guide та statusline-setup; `/go-code ultra <задача>` або `lite mode`
 змінює її рівень до кінця сесії, `GOLANG_SKILLS_LADDER=lite|ultra` задає
 рівень на старті сесії, а `off` вимикає її.
 

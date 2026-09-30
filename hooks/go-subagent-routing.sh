@@ -6,8 +6,11 @@
 # subagent's context.
 #
 # Fires for every subagent, since each one is a fresh context; skips the
-# plugin's own go-verify agent, which runs checks and has no Skill tool. It
-# never blocks (SubagentStart cannot) and always exits 0.
+# plugin's own go-verify agent, which runs checks and has no Skill tool, and
+# the host's agents that write no Go: Explore searches, claude-code-guide
+# answers questions about Claude Code, statusline-setup edits a setting. Plan
+# still hears it, since a plan decides what gets written. It never blocks
+# (SubagentStart cannot) and always exits 0.
 set -u
 
 input="$(cat)"
@@ -22,8 +25,8 @@ except Exception:
 if (d.get("hook_event_name") or "SubagentStart") != "SubagentStart":
     sys.exit(0)
 # A plugin install names the agent "golang-skills:go-verify".
-agent = (d.get("agent_type") or "").rsplit(":", 1)[-1]
-if agent == "go-verify":
+agent = (d.get("agent_type") or "").rsplit(":", 1)[-1].lower()
+if agent in ("go-verify", "explore", "claude-code-guide", "statusline-setup"):
     sys.exit(0)
 
 def has_go_files(root, depth=2):

@@ -39,7 +39,9 @@ the other clients. The plugin's hooks enforce the same order:
   edit with nothing loaded in between stops the session with the reason
   instead of a third block. A skill missing from the plugin copy is reported,
   not required. `GOLANG_SKILLS_ROUTING_GATE=off` switches the gate off.
-- `hooks/go-subagent-routing.sh` repeats the router note to each subagent.
+- `hooks/go-subagent-routing.sh` repeats the router note to each subagent
+  that may write Go; `go-verify`, Explore, claude-code-guide, and
+  statusline-setup hear nothing.
 
 The hooks catch a skipped load after the fact; the instruction gets the loads
 into the first message, which saves the blocked turn.

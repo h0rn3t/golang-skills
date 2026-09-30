@@ -33,4 +33,6 @@ func (m *SMap) Get(k string) string {
 ```
 
 Exception: Embedding is acceptable in test types and internal structs where
-API stability is not a concern.
+API stability is not a concern — but never a mutex: an embedded `sync.Mutex`
+puts `Lock` and `Unlock` in the method set of an unexported type too
+([SYNC-PRIMITIVES.md](../../go-concurrency/references/SYNC-PRIMITIVES.md#dont-embed-mutexes)).

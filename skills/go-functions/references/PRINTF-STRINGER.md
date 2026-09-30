@@ -150,14 +150,9 @@ func (p Point) String() string {
 
 ## The `fmt.GoStringer` Interface
 
-Implement `fmt.GoStringer` to control `%#v` output. This is useful for types
-where the default Go-syntax representation is misleading or too verbose:
-
-```go
-type fmt.GoStringer interface {
-    GoString() string
-}
-```
+Implement `fmt.GoStringer` (`GoString() string`) to control `%#v` output. This
+is useful for types where the default Go-syntax representation is misleading
+or too verbose:
 
 ```go
 type Color struct{ R, G, B uint8 }
@@ -177,13 +172,8 @@ debugging, not user-facing display.
 
 ## Custom Formatting with `fmt.Formatter`
 
-For full control over all format verbs, implement `fmt.Formatter`:
-
-```go
-type fmt.Formatter interface {
-    Format(f fmt.State, verb rune)
-}
-```
+For full control over all format verbs, implement `fmt.Formatter`
+(`Format(f fmt.State, verb rune)`):
 
 ```go
 type Point struct{ X, Y int }

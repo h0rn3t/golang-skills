@@ -4,6 +4,36 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- `go-code-refactor` no longer asks for `export REFACTOR_SKILL_DIR=...` once
+  and `$REFACTOR_SKILL_DIR` in every later command: each shell call in Claude
+  Code and Codex starts with a fresh environment, so the variable was empty
+  from the second call on and the scripts ran as `/scripts/...` (exit 127).
+  The commands now carry `<installed-skill-dir>`, as `go-code-review` does,
+  and the model writes the path the host printed into each one; the
+  separate `--version` probe is gone (exit 127 from the first script says the
+  same), `baseline`/`loc-baseline` and `after`/`diff`/`loc-diff` each run in
+  one shell call, and the Concision Gate points at those two steps instead of
+  a third copy of the commands. `ARCHITECTURE-CHECKS.md` follows.
+- `go-code-refactor` states one rule for a generated target: the Orient
+  paragraph said "ask when they are the target", the bullet below it "trace
+  its generator … ask only if the real source cannot be determined"; the
+  paragraph now points at the bullet.
+- `PRINTF-STRINGER.md` no longer shows `type fmt.GoStringer interface` and
+  `type fmt.Formatter interface`, which are not Go; the method signatures sit
+  in the sentence, as 1.26.0 did for `fmt.Stringer`.
+- `EMBEDDING.md`'s exception for internal structs excludes a mutex, which
+  `SYNC-PRIMITIVES.md` forbids embedding even in an unexported struct.
+- `go-code`'s Intensity section moves from third place to just before
+  Related Skills, unchanged. A level word is read at step 1 and the ladder
+  hook prints the active row itself, while Claude Code re-attaches only the
+  first ~5K tokens of a skill after auto-compaction: the cut, which fell at
+  the end of the Delete Pass, now falls inside the Declaration Budget, so the
+  Reader Pass and most of the budget survive compaction.
+- The restraint-ladder and subagent-routing hooks skip the host's agents that
+  write no Go — Explore, claude-code-guide, statusline-setup — as they
+  already skipped `go-verify`: 3.6 KB of ladder and the router note per such
+  subagent. Plan keeps both, since a plan decides what gets written.
+
 ## [1.26.0] - 2026-09-30
 
 - The skills no longer mention gopls. `go-code-refactor/references/GOPLS.md`

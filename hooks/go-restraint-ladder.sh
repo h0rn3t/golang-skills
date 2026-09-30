@@ -9,7 +9,9 @@
 #     directory holding Go, print the ladder section and the session's level.
 #     compact is in the matcher because compaction drops what startup printed;
 #     a subagent starts with an empty context. The plugin's go-verify agent
-#     runs checks only and is skipped.
+#     runs checks only and is skipped, as are the host's agents that write no
+#     Go (Explore, claude-code-guide, statusline-setup) — 3.6 KB each they
+#     would never use. Plan keeps the ladder: it shapes what a plan proposes.
 #   UserPromptSubmit: a level word — `/go-code ultra <task>`, `ultra mode`,
 #     `режим ultra` — records the level for the rest of the session and
 #     prints that level's line. Any other prompt prints nothing.
@@ -60,7 +62,7 @@ if event == "UserPromptSubmit":
         sys.exit(0)
     word = next(g for g in m.groups() if g).lower()
 elif event in ("SessionStart", "SubagentStart"):
-    if (d.get("agent_type") or "").rsplit(":", 1)[-1] == "go-verify":
+    if (d.get("agent_type") or "").rsplit(":", 1)[-1].lower() in ("go-verify", "explore", "claude-code-guide", "statusline-setup"):
         sys.exit(0)
     if not has_go_files(d.get("cwd") or ""):
         sys.exit(0)

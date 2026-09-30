@@ -1230,12 +1230,19 @@ func TestSubagentRouting(t *testing.T) {
 		}
 	})
 
-	t.Run("silent for go-verify", func(t *testing.T) {
+	t.Run("silent for go-verify and agents that write no Go", func(t *testing.T) {
 		t.Parallel()
-		for _, agent := range []string{"go-verify", "golang-skills:go-verify"} {
+		for _, agent := range []string{"go-verify", "golang-skills:go-verify", "Explore", "claude-code-guide", "statusline-setup"} {
 			if code, out := subagentEvent(t, goDir, agent); code != 0 || out != "" {
 				t.Fatalf("%s subagent: exit %d, stdout %q; want silent 0", agent, code, out)
 			}
+		}
+	})
+
+	t.Run("Plan still hears the note", func(t *testing.T) {
+		t.Parallel()
+		if code, out := subagentEvent(t, goDir, "Plan"); code != 0 || !strings.Contains(out, "`golang-skills:go-code`") {
+			t.Fatalf("Plan subagent: exit %d, stdout %q; want the router note", code, out)
 		}
 	})
 }
@@ -1356,12 +1363,19 @@ func TestLadderHook(t *testing.T) {
 		}
 	})
 
-	t.Run("silent for go-verify", func(t *testing.T) {
+	t.Run("silent for go-verify and agents that write no Go", func(t *testing.T) {
 		t.Parallel()
-		for _, agent := range []string{"go-verify", "golang-skills:go-verify"} {
+		for _, agent := range []string{"go-verify", "golang-skills:go-verify", "Explore", "claude-code-guide", "statusline-setup"} {
 			if code, out := ladderEvent(t, t.TempDir(), subagent("l8", agent)); code != 0 || out != "" {
 				t.Errorf("%s subagent: exit %d, stdout %q; want silent 0", agent, code, out)
 			}
+		}
+	})
+
+	t.Run("Plan still gets the ladder", func(t *testing.T) {
+		t.Parallel()
+		if code, out := ladderEvent(t, t.TempDir(), subagent("l9", "Plan")); code != 0 || !strings.Contains(out, "## The Restraint Ladder") {
+			t.Errorf("Plan subagent: exit %d, stdout %q; want the ladder", code, out)
 		}
 	})
 }

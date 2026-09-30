@@ -27,7 +27,8 @@ The current skill names are the directories under `skills/go-*/`.
 
 The plugin includes `agents/go-verify.md`, routing hooks under `hooks/`, and
 the manifests under `.claude-plugin/`. In a Go project the hooks print the
-restraint ladder at session start and into each subagent; `/go-code ultra
+restraint ladder at session start and into each subagent except `go-verify`
+and the host's Explore, claude-code-guide, and statusline-setup; `/go-code ultra
 <task>` or `lite mode` changes its level for the session, and
 `GOLANG_SKILLS_LADDER=lite|ultra` sets the level a session starts at, and `off`
 turns it off.

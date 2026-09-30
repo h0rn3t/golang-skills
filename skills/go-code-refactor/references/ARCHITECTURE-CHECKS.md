@@ -27,7 +27,7 @@ and the [fixture](../testdata/architecture/README.md) is the module it passes.
 ## Running the checker
 
 ```bash
-bash "$REFACTOR_SKILL_DIR/scripts/check-architecture.sh" [--json] [--limit N] [--include-tests] [--config FILE] [module-root]
+bash "<installed-skill-dir>/scripts/check-architecture.sh" [--json] [--limit N] [--include-tests] [--config FILE] [module-root]
 ```
 
 The wrapper builds the checker once into the skills cache and runs it from the

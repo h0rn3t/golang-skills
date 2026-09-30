@@ -16,7 +16,7 @@ description: Use when choosing or writing Go generics, constraints, type aliases
 
 ## Resource Routing
 
-- `references/CONSTRAINTS.md` - Read when composing constraints, using type sets, or choosing between generics and interfaces.
+- `references/CONSTRAINTS.md` - Read when composing constraints or supplying type arguments explicitly.
 
 ## When to Use Generics
 
@@ -36,16 +36,6 @@ reusable container.
 
 **Avoid generics when**: only one type is ever instantiated; an interface
 already models the shared behavior; the generic version is harder to read.
-
-> "Write code, don't design types." — Robert Griesemer and Ian Lance Taylor
-
-```go
-// Bad: premature — only ever called with int
-func Sum[T constraints.Integer | constraints.Float](vals []T) T { /* ... */ }
-
-// Good
-func SumInts(vals []int) int { /* ... */ }
-```
 
 ---
 
@@ -82,18 +72,6 @@ inference in Go 1.21. Prefer inference when the call site remains clear.
 
 ---
 
-## Type Parameter Naming
-
-| Name | Typical Use |
-|------|-------------|
-| `T` | General type parameter |
-| `K` / `V` | Map key / value type |
-| `E` | Element/item type |
-
-For complex constraints, a short descriptive name can clarify the parameter's role.
-
----
-
 ## Constraints
 
 Prefer standard-library constraints over hand-written ones:
@@ -101,8 +79,6 @@ Prefer standard-library constraints over hand-written ones:
 | Need | Use |
 |---|---|
 | `<`, `>` ordering | `cmp.Ordered` (Go 1.21+) — not `constraints.Ordered` |
-| `==` only | `comparable` |
-| Anything | `any` |
 | Numeric union | Write a local union; the `constraints` module is still `x/exp` |
 
 ```go

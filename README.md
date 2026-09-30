@@ -4,7 +4,7 @@
 
 AI [Agent Skills](https://agentskills.io/) for writing idiomatic,
 production-quality Go 1.27 code. The pack contains **24 modular skills**,
-**73 reference files**, **11 bundled scripts**, and **5 asset templates**.
+**74 reference files**, **11 bundled scripts**, and **5 asset templates**.
 The Claude Code plugin also ships a `go-verify` agent and hooks for routing and
 post-edit verification.
 
@@ -29,7 +29,8 @@ The plugin includes `agents/go-verify.md`, routing hooks under `hooks/`, and
 the manifests under `.claude-plugin/`. In a Go project the hooks print the
 restraint ladder at session start and into each subagent; `/go-code ultra
 <task>` or `lite mode` changes its level for the session, and
-`GOLANG_SKILLS_LADDER=off` turns it off.
+`GOLANG_SKILLS_LADDER=lite|ultra` sets the level a session starts at, and `off`
+turns it off.
 
 ## Installation
 

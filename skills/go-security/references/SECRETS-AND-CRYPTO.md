@@ -28,37 +28,20 @@ key material around it.
 Environment variables or a mounted file, read once at startup, absent from
 the binary and the repository. A flag *default* is a literal in the binary.
 
-```go
-func loadConfig() (Config, error) {
-    key := os.Getenv("SIGNING_KEY")
-    if key == "" {
-        return Config{}, errors.New("SIGNING_KEY is required") // fail at boot, not on first use
-    }
-    ...
-}
-```
-
 - Prefer a file (`/run/secrets/...`) to an env var where the platform offers
   one: env vars leak through `/proc/<pid>/environ`, crash dumps, and child
   processes (`exec.Command` inherits `os.Environ()` unless `cmd.Env` is set).
 - Rotate without redeploy: hold the secret behind a small accessor that
   re-reads on `SIGHUP` or a timer only if the service actually needs it —
   otherwise the restart *is* the rotation.
-- A `gitleaks`/`trufflehog` pre-commit hook is cheaper than a rotation.
 
 ---
 
 ## Comparing secrets
 
 `==` on strings returns at the first differing byte; a remote attacker with
-enough samples recovers the prefix. Compare anything secret in constant time:
-
-```go
-if subtle.ConstantTimeCompare(got, want) != 1 { // crypto/subtle; also unequal when lengths differ
-    http.Error(w, "forbidden", http.StatusForbidden)
-    return
-}
-```
+enough samples recovers the prefix. Compare anything secret in constant time
+(`subtle.ConstantTimeCompare(got, want) == 1`).
 
 Applies to API keys, HMAC tags, session IDs, and password-reset tokens. Hash
 both sides first (`sha256.Sum256`) when the reference value has variable
@@ -197,18 +180,6 @@ included, is [go-http](../../go-http/SKILL.md#server-construction)'s.
 
 ## Cookies and sessions
 
-```go
-http.SetCookie(w, &http.Cookie{
-    Name:     "__Host-session", // prefix: Secure, no Domain, Path=/ enforced by browsers
-    Value:    sessionID,        // opaque random ID; data lives server-side
-    Path:     "/",
-    MaxAge:   int((8 * time.Hour).Seconds()),
-    HttpOnly: true,             // no document.cookie
-    Secure:   true,             // HTTPS only
-    SameSite: http.SameSiteLaxMode, // Strict breaks top-level navigations from email links
-})
-```
-
 - Regenerate the session ID on login and privilege change (fixation).
 - Invalidate server-side on logout; clearing the cookie is cosmetic.
 - CSRF for state-changing requests: `http.NewCrossOriginProtection` (Go 1.25+)
@@ -223,12 +194,8 @@ http.SetCookie(w, &http.Cookie{
 
 | Sink | Defense |
 |---|---|
-| `slog` | Implement `slog.LogValuer` on the secret type → `slog.StringValue("[REDACTED]")` ([go-logging](../../go-logging/SKILL.md)) |
-| `fmt.Errorf` | Wrap the error, not the credential: `fmt.Errorf("auth for %s: %w", userID, err)` |
 | `%v` / `%+v` on a config struct | `String()` method that omits secret fields; or a separate `Redacted()` view |
 | Panics and crash dumps | `debug.SetCrashOutput` goes to a file with restricted permissions, not stdout |
-| HTTP error body | Generic text; the detailed error is logged with a request ID the client can quote |
-| `/debug/pprof`, `expvar` | Internal listener only — heap dumps contain live secrets |
 
 ---
 
@@ -236,10 +203,6 @@ http.SetCookie(w, &http.Cookie{
 
 | Avoid | Use | Since |
 |---|---|---|
-| `math/rand` for anything secret | `crypto/rand` | always |
-| `md5`, `sha1` for integrity or passwords | `sha256`, `sha3` (Go 1.24+) / a KDF | always |
 | `cipher.NewOFB`, `NewCFB*` | AEAD (`NewGCMWithRandomNonce`, or `NewGCM` for an existing nonce format) or `NewCTR` + HMAC | Go 1.24 deprecates |
 | `rsa.EncryptPKCS1v15` for new designs | `rsa.EncryptOAEP` or a KEM (`crypto/mlkem`, `crypto/ecdh`) | Go 1.26 |
 | `golang.org/x/crypto/{sha3,hkdf,pbkdf2}` | `crypto/{sha3,hkdf,pbkdf2}` | Go 1.24 |
-| `crypto/elliptic` for ECDH | `crypto/ecdh` | Go 1.20 |
-| `InsecureSkipVerify` + manual `VerifyPeerCertificate` | `RootCAs` / `ServerName` | always |

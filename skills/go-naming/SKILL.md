@@ -22,26 +22,8 @@ grows with the distance between declaration and use. Go names are shorter
 than in most languages. The reader knows the conventions — MixedCaps,
 lowercase packages, `-er` interfaces, short consistent receivers, no `Get`
 prefix, initialisms in one case — so this skill carries the decisions and
-`references/` the rules.
-
----
-
-## Naming Decision Flow
-
-```
-What are you naming?
-├─ Package       → Short, lowercase, singular noun (no underscores, no mixedCaps);
-│                  a layer directory is plural: handlers, services, repositories, models
-├─ Interface     → Method name + "-er" suffix when single-method (Reader, Writer)
-├─ Receiver      → 1-2 letter abbreviation of type (c for Client); consistent across methods
-├─ Constant      → MixedCaps; use iota for enums; no ALL_CAPS
-├─ Exported func → Verb or verb-phrase in MixedCaps; no Get prefix for getters
-├─ Variable      → Length proportional to scope distance
-│                  ├─ Tiny scope (1-7 lines) → single letter (i, n, r)
-│                  ├─ Medium scope           → short word (count, buf)
-│                  └─ Package-level / wide   → descriptive (userAccountCount)
-└─ Any name      → Check: does it repeat package name or context? If yes, shorten it
-```
+`references/` the rules. A package is a short, lowercase, singular noun;
+a layer directory is plural: `handlers`, `services`, `repositories`, `models`.
 
 ---
 
@@ -72,17 +54,11 @@ What are you naming?
   compiles and hides the built-in for the rest of the scope;
   [SHADOWING.md](../go-style-core/references/SHADOWING.md) owns detection.
 
-```go
-for i, v := range items { ... }           // small scope
-pendingOrders := filterPending(orders)    // larger scope
-const defaultPort = 8080                  // package scope: the full name
-```
-
 ---
 
 ## Validation
 
-> **Validation**: `scripts/check-naming.sh` reports four patterns: SCREAMING_SNAKE_CASE constants, `Get`-prefixed methods with no parameters, generic package names (`util`, `utils`, `helper`, `helpers`, `common`, `misc`, `shared`, `base`, `lib`), and receivers named `this` or `self`. Error names are `errname`'s and package stutter is revive `exported`'s, both in the [go-linting](../go-linting/SKILL.md) gate; the rest of the repetition above has no check. Run the script once at the end of the task, beside that gate, which does not run it.
+> **Validation**: `scripts/check-naming.sh` reports the four patterns its Resource Routing line names. Error names are `errname`'s and package stutter is revive `exported`'s, both in the [go-linting](../go-linting/SKILL.md) gate; the rest of the repetition above has no check. Run the script once at the end of the task, beside that gate, which does not run it.
 
 ## Related Skills
 

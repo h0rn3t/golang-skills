@@ -19,8 +19,6 @@ description: Use when writing or reviewing Go HTTP code — handlers, routing wi
 Use `net/http` method/path routing before adding a router module
 ([go-packages](../go-packages/SKILL.md) owns the dependency ladder). Match an
 existing framework and house style; the HTTP rules still apply.
-Use a framework only when the repository already uses one or the user asks
-for it.
 
 ## Routing (Go 1.22+)
 
@@ -75,9 +73,7 @@ mux.HandleFunc("/{$}", methodNotAllowed("GET"))
 
 ## Handler Shape
 
-Use plain functions, closures, or methods. A struct holds dependencies or state
-shared by handlers; a small handler can capture them directly. Preserve the
-existing structure. No package-level state.
+Preserve the existing handler structure. No package-level state.
 
 Bound and decode → validate → call the domain with `r.Context()` → map the
 error → write once. `Server` below stands for the type the repository already
@@ -122,10 +118,9 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-- Bound every decoded body with `http.MaxBytesReader`. `UnmarshalRead`
-  succeeds only at EOF, so one decode is the whole single-document check;
-  `{}` and `null` still decode, leaving `req` zero, so required fields are
-  validated before the store call. The request type is declared in the handler that reads it; a second
+- Bound every decoded body with `http.MaxBytesReader`. `{}` and `null` still
+  decode, leaving `req` zero, so required fields are validated before the
+  store call. The request type is declared in the handler that reads it; a second
   handler decoding the same document is what moves it to package level
   ([go-code](../go-code/SKILL.md#declaration-budget)).
 - A package already decoding with `encoding/json` v1 keeps v1 and its two
@@ -133,14 +128,11 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
   `dec.Decode(new(any))` must return `io.EOF` — `DisallowUnknownFields`
   alone accepts trailing data, and the second decode allows trailing
   whitespace while the cap still holds.
-- Pass `r.Context()` downstream; it is cancelled on client disconnect.
 - v2 encodes a nil slice as `[]` and a nil map as `{}`, so a filtered list
   with no matches is written as it is, with no `make([]T, 0, n)`; that line
   belongs to a package on v1, or under `FormatNilSliceAsNull(true)`
   ([JSON-V2.md](references/JSON-V2.md#defaults-that-can-change-the-contract)).
-- Set headers before `WriteHeader`, and call it once. After the headers, an
-  encode or write error from `MarshalWrite` can no longer change the status.
-  A value no v2 decode has validated — database text, which can hold invalid
+- A value no v2 decode has validated — database text, which can hold invalid
   UTF-8, or a type with its own `MarshalJSON` — is marshalled first with
   `json.Marshal` and written after, so its error still gets a 500.
 - A write whose error has nowhere to go is discarded in the open with its
@@ -170,8 +162,7 @@ row where that failure can occur:
 | `context.DeadlineExceeded` from downstream | 504 | Generic |
 | Anything else | 500 | Generic — **never** `err.Error()` |
 
-At the 500 boundary, log the full error server-side and return a generic
-message. The request ID reaches that record only through the request-scoped
+The request ID reaches the 500 record only through the request-scoped
 logger [go-logging](../go-logging/SKILL.md#request-scoped-logging) sets up;
 where the repository has one, the example's `slog` calls go through it. This is
 the handle-once exception owned by
@@ -193,9 +184,8 @@ Construct an `http.Server`; bare `http.ListenAndServe` sets no timeouts.
 | `ReadHeaderTimeout` | Slowloris defense; must never be zero |
 | `ReadTimeout`, `WriteTimeout` | Bound slow clients; `WriteTimeout` exceeds the slowest handler |
 | `IdleTimeout` | Reclaim keep-alive connections |
-| `MaxHeaderBytes`, `MaxHeaderValueCount` (Go 1.27+) | Only to change the defaults, 1 MiB (`http.DefaultMaxHeaderBytes`) and 500 values: zero is the default, so `MaxHeaderBytes: 1 << 20` restates it |
+| `MaxHeaderBytes`, `MaxHeaderValueCount` (Go 1.27+) | Only to change the defaults, 1 MiB and 500 values: `MaxHeaderBytes: 1 << 20` restates zero |
 | `Handler: http.NewCrossOriginProtection().Handler(mux)` | CSRF for state-changing requests (Go 1.25+) |
-| `DisableClientPriority` (Go 1.27+) | HTTP/2 only: serve one connection's streams round-robin instead of by the client's RFC 9218 priorities; no-op with a custom write scheduler |
 | `BaseContext` | Never the `signal.NotifyContext` context when in-flight requests should drain: it cancels every request at the signal, before `Shutdown` waits for them. Handlers that must see shutdown get a separate context, cancelled once `Shutdown`'s timeout expires |
 
 For graceful shutdown, `signal.NotifyContext` owns the lifetime;
@@ -250,14 +240,9 @@ handlers run concurrently. Test handlers with `httptest.NewTestServer(t, h)`.
 
 ## Related Skills
 
-- [go-code](../go-code/SKILL.md): the workflow for a handler or server written
-  from a specification — contract table, plain code, declaration budget.
 - [go-context](../go-context/SKILL.md): derived deadlines and request lifetime.
-- [go-error-handling](../go-error-handling/SKILL.md): sentinels and wrapping.
-- [go-logging](../go-logging/SKILL.md): request IDs, log fields, redaction.
 - [go-database](../go-database/SKILL.md): handler queries and transactions.
 - [go-testing](../go-testing/SKILL.md): `httptest` and `synctest`.
 - [go-concurrency](../go-concurrency/SKILL.md): server goroutine and shared state.
-- [go-packages](../go-packages/SKILL.md): router, JSON, and client dependencies.
 - [go-security](../go-security/SKILL.md): input naming files, URLs or commands;
   cookies, SSRF, and error disclosure.

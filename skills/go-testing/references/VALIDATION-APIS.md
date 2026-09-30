@@ -4,9 +4,6 @@
 > Authority: advisory
 > Last verified: 2026-09-10
 
-Detailed reference for designing reusable test validation functions that callers
-can use for acceptance testing.
-
 ---
 
 ## The `*test` Package Export Pattern
@@ -71,19 +68,6 @@ func ExercisePlayer(t *testing.T, b *chess.Board, p chess.Player) {
 }
 ```
 
-**Use custom error types** for rich diagnostics when needed:
-
-```go
-type IllegalMoveError struct {
-    Move   chess.Move
-    Reason string
-}
-
-func (e *IllegalMoveError) Error() string {
-    return fmt.Sprintf("illegal move %v: %s", e.Move, e.Reason)
-}
-```
-
 ---
 
 ## When to Use Validation APIs vs Simple Helpers
@@ -94,15 +78,6 @@ func (e *IllegalMoveError) Error() string {
 | Shared setup across tests in one package | Test helper with `t.Helper()` |
 | Complex assertion reused in 2-3 tests | Helper returning `error` or `bool` |
 | One-off setup or comparison | Inline test code |
-
-**Validation APIs** are worth the extra package when:
-- Multiple external packages will implement your interface
-- The contract has non-obvious invariants that are easy to get wrong
-- You want a single source of truth for "correct behavior"
-
-**Simple helpers** are better when:
-- The helper is a straightforward setup or comparison function
-- The reuse is incidental, not part of a published contract
 
 ---
 

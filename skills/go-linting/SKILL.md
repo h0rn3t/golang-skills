@@ -6,9 +6,8 @@ allowed-tools: Bash(bash:*)
 
 # Go Linting
 
-More important than any "blessed" linter set: **lint consistently across a
-codebase**. This skill owns the repository's verification gate — the commands
-that decide whether Go work is finished.
+This skill owns the repository's verification gate — the commands that decide
+whether Go work is finished.
 
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Analyzer and
 > linter names are checked against go1.27.1 and golangci-lint 2.13.2.
@@ -17,6 +16,7 @@ that decide whether Go work is finished.
 
 - `scripts/setup-lint.sh` - Run when generating a `.golangci.yml`, validating the first lint pass, or producing JSON metadata.
 - `assets/golangci.yml` - Use as the v2 golangci-lint baseline for established projects.
+- `references/CONFIGURATION.md` - Read for any linter configuration, CI, or first-lint setup task.
 
 ## Verification Gate
 
@@ -29,9 +29,9 @@ gofmt -l .            # inspect output: exit 0 alone does not mean clean
 go build ./...
 go vet ./...          # includes stdversion, printf, lostcancel, waitgroup
 go test -race ./...
-go fix -diff ./...    # preview only; whole-repository form — a scoped gate passes the packages in the diff (rules below)
+go fix -diff ./...    # preview only
 golangci-lint run ./...
-govulncheck ./...     # dependency CVEs; run before release, not every edit
+govulncheck ./...     # dependency CVEs
 ```
 
 Gate rules:
@@ -68,28 +68,20 @@ Gate rules:
 
 ## Modernization: `go fix`
 
-Since Go 1.26 the modernizers are `go fix` analyzers; the 1.27 set is below.
+Since Go 1.26 the modernizers are `go fix` analyzers.
 `go fix -diff <packages>` previews; `go fix <packages>` applies. Use the package
 scope established above and inspect the preview before applying changes.
 
-`go tool fix help` lists the current set. The ones that change guidance:
+`go tool fix help` lists the current set; most rewrite to a form
+[CURRENT-GO.md](../go-style-core/references/CURRENT-GO.md) lists. The ones it
+does not show:
 
 | Analyzer | Rewrites to |
 |---|---|
-| `waitgroupgo` | `wg.Go(f)` instead of `Add(1)`/`go`/`Done` (Go 1.25+) |
-| `errorsastype` | `errors.AsType[T]` instead of `errors.As` (Go 1.26+) |
 | `newexpr` | A `&v` pointer helper (`func intPtr(v int) *int { return &v }`) and its calls become `new(v)` / `new(4)` (Go 1.26+); a temp-then-address form stays a hand edit |
-| `embedlit` | Direct promoted fields in composite literals (Go 1.27); see [initialization](../go-style-core/references/INITIALIZATION.md#embedded-fields-in-go-127) |
-| `testingcontext` | `t.Context()` instead of `context.WithCancel` in tests (Go 1.24+) |
-| `forvar` | Deletes `x := x` loop captures (dead since Go 1.22) |
-| `atomictypes` | `atomic.Int64` and friends instead of basic types in `sync/atomic` calls (Go 1.19+) |
 | `slicesbackward` | `for i, v := range slices.Backward(s)` instead of a backward index loop (Go 1.23+) |
 | `unsafefuncs` | `unsafe.Add(p, n)` instead of `unsafe.Pointer(uintptr(p) + n)` |
-| `reflecttypefor` | `reflect.TypeFor[T]()` instead of `reflect.TypeOf(x)` (Go 1.22+) |
-| `rangeint`, `minmax`, `any` | `for i := range n` (Go 1.22+), `min`/`max`, `any` |
 | `omitzero` | Deletes `omitempty` from a struct-typed field, where it has no effect; the `omitzero` tag (Go 1.24+) it offers instead omits a zero struct, a behavior change `go fix` does not apply |
-| `slicessort`, `slicescontains`, `mapsloop`, `stringsseq`, `stditerators` | `slices`/`maps` APIs instead of hand-written loops; `SplitSeq`/`FieldsSeq` (Go 1.24+) and `Len`/`At`-to-iterator rewrites (Go 1.23+) |
-| `stringsbuilder`, `stringscut`, `stringscutprefix` | `strings.Builder`, `Cut`, `CutPrefix` |
 
 `atomictypes`, `embedlit`, `errorsastype`, `slicesbackward`, and `unsafefuncs`
 are new in Go 1.27; the same release renamed `waitgroup` to `waitgroupgo` and
@@ -111,93 +103,6 @@ Check the installed tool's help before naming flags.
 
 ---
 
-## Setup Procedure
-
-1. Create `.golangci.yml` with `scripts/setup-lint.sh` or copy `assets/golangci.yml`
-2. `golangci-lint config verify --config .golangci.yml` — validate the schema first
-3. `golangci-lint run ./...`
-4. Fix category by category (formatting, vet, style); re-run until clean
-
----
-
-## Baseline Linters
-
-`assets/golangci.yml` enables `errcheck`, `govet`, `revive`, and `staticcheck`
-as the minimum, adds `bodyclose`, `gocyclo`, `gosec`, `ineffassign`, and
-`misspell` for production code, and turns on the skill-enforcing set below; the
-comment beside each entry names the rule it enforces. `goimports` runs as a
-formatter under `formatters`, not as a linter.
-
-The edit hook lints with this file when a repository has none, and a finding
-it prints is fixed, so the config reports nothing a skill example shows as
-correct. `errcheck` skips `Close` on `sql.Rows` and `io.ReadCloser` and
-`Tx.Rollback` — closing what was only read — and still reports `Close` on a
-written file; `gocyclo` reports from 30, above a flat chain of error checks;
-`gosec` excludes G304, which fires on every `os.ReadFile(path)`.
-
-## Linters That Enforce the Skills
-
-The baseline config turns these on so the gate checks what the `go-*` skills
-teach instead of leaving it to review attention:
-
-| Linter | Enforces | Skill |
-|--------|----------|-------|
-| `depguard` | Deny list of packages the standard library replaces outright: `pkg/errors`, `x/exp/slices`, `x/exp/maps` | [go-packages](../go-packages/SKILL.md) dependency ladder |
-| `errname`, `errorlint` | `ErrFoo`/`FooError` names; `errors.Is`/`AsType` over `==` and type assertions (`errorf` check off — `%v` at boundaries is deliberate) | [go-error-handling](../go-error-handling/SKILL.md) |
-| `sloglint` | Static message, key-value attrs, `snake_case` keys | [go-logging](../go-logging/SKILL.md) |
-| `noctx` | Outbound HTTP/SQL calls carry a context | [go-context](../go-context/SKILL.md), [go-http](../go-http/SKILL.md) |
-| `rowserrcheck`, `sqlclosecheck` | `rows.Err()` after the loop; rows and statements closed | [go-database](../go-database/SKILL.md) |
-| `perfsprint` | `strconv` over `fmt.Sprint` for a lone value; `fmt.Sprintf` formatting and `+` are not reported | [go-performance](../go-performance/SKILL.md) |
-| `usetesting` | `t.Context()` over `context.Background()`/`TODO()`, `t.TempDir`, `t.Setenv` over hand-rolled forms; inside `t.Cleanup`, where `t.Context()` is already cancelled, `context.WithoutCancel(t.Context())` | [go-testing](../go-testing/SKILL.md) |
-| `godot` | Doc comments end in a period | [go-documentation](../go-documentation/SKILL.md) |
-| `exhaustive` | `switch` covers every enum member (`default` counts) | [go-style-core](../go-style-core/SKILL.md) |
-| `nolintlint` | Suppressions name the linter and explain why | Nolint directives below |
-| `usestdlibvars` | Named HTTP method/status constants | [go-http](../go-http/SKILL.md) |
-| `gosec` | String-built SQL, `sh -c`, `template.HTML` on input, weak hashes, `InsecureSkipVerify`, `math/rand` for secrets | [go-security](../go-security/SKILL.md) |
-| `modernize` | The `go fix` rewrites as lint findings, so a stale idiom fails the gate even when nobody ran `go fix -diff`; `appendclipped`/`slicesdelete` stay off | [go-style-core](../go-style-core/SKILL.md#write-current-go) |
-| `revive` `early-return`, `indent-error-flow`, `superfluous-else` | No `else` after a branch that exits | [go-style-core](../go-style-core/SKILL.md#reduce-nesting) |
-| `revive` `exported` | A doc comment on exported API outside `internal/`, `cmd/`, and `package main` | [go-documentation](../go-documentation/SKILL.md) |
-| `revive` `var-naming`, `receiver-naming`, `error-strings` | `userID` not `userId`; one receiver name per type; lowercase error strings | [go-naming](../go-naming/SKILL.md) |
-| `iface` (`opaque` only) | A constructor returns its concrete type, not an interface declared for its one implementation | [go-interfaces](../go-interfaces/SKILL.md) |
-| `nilnil` | No `return nil, nil`; a sentinel or an ok bool | [go-error-handling](../go-error-handling/references/ERROR-TYPES.md) |
-| `unparam` | An unexported function whose parameter always receives one value, or whose result is always nil or never read | [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#go-hunt-list) |
-
-Opt-in, not in the baseline: `contextcheck` (context lost mid-chain; noisy on
-deliberate breaks) and `testifylint` (only in repositories that use testify).
-Left off after a noise check on five codebases: `revive`'s `unused-parameter`,
-which fires on the `w, r` a handler type fixes, and `iface`'s `unused` and
-`identical`, which fire on exported interfaces a library offers its callers.
-Left off because it contradicts a skill: `prealloc`, which reports every
-`var out []T` filled by `append` in a loop, hot path or not, and whose fix
-turns a nil result (`null` under `encoding/json` v1) into an empty one —
-[go-performance](../go-performance/SKILL.md) measures first, and
-[go-data-structures](../go-data-structures/SKILL.md) owns nil against empty.
-
-`govulncheck` is not a golangci-lint linter. Track it as a tool dependency so
-local runs and CI share one pin — `go get -tool golang.org/x/vuln/cmd/govulncheck@vX.Y.Z`,
-then `go tool govulncheck ./...` ([go-packages](../go-packages/SKILL.md#adding-and-auditing-dependencies)
-owns the directive). It reports only vulnerabilities on reachable call paths,
-so its findings are actionable.
-
----
-
-## Example Configuration
-
-`assets/golangci.yml` is the maintained example and the only copy —
-`setup-lint.sh` emits it verbatim. It targets golangci-lint v2 (verified with
-2.13.2 on 2026-09-07), keeps `goimports` under `formatters`, and enables the
-core linters, the production additions, and the skill-enforcing set above.
-
-```bash
-# Pin the version this skill is verified against
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
-
-golangci-lint run              # all linters
-golangci-lint run ./pkg/...    # specific paths
-```
-
----
-
 ## Nolint Directives
 
 ```go
@@ -211,46 +116,8 @@ explicit discard.
 
 ---
 
-## CI/CD Integration
-
-Run the verification gate in CI, pinning every tool version so local and
-release behavior do not drift. Use `golangci/golangci-lint-action` on GitHub
-Actions.
-
-```bash
-#!/bin/sh
-# .git/hooks/pre-commit — lint only the staged change (CI compares with HEAD~)
-golangci-lint run --new-from-rev=HEAD
-```
-
-A minimal Go pipeline runs test and lint on every PR:
-
-- **Matrix** covers the version in the `go` directive plus `stable`, with
-  `fail-fast: false` so one version never cancels the rest. While the directive
-  names the current release those two resolve to the same toolchain — the
-  second entry earns its minutes when the next minor ships. Older directives
-  add their supported minors.
-- **Test flags**: `go test -race -shuffle=on ./...`, plus `-count=1` for
-  suites that touch real services so caching cannot hide flakes.
-- **Hygiene**: the tidy check [go-packages](../go-packages/SKILL.md#adding-and-auditing-dependencies)
-  owns.
-- **Vulnerability scan**: `govulncheck` keeps the trigger contract above —
-  dependency changes, release, or on request — plus a scheduled run, since a
-  new advisory lands against code that did not change.
-- **Pinning**: pin each GitHub Action to a full commit SHA. A `@vN` tag moves,
-  so it is a compatibility marker, not a supply-chain control — GitHub's
-  hardening guidance treats the SHA as the only immutable reference. Pin tool
-  versions to the ones local runs use, `govulncheck` included: its
-  vulnerability database is fetched at run time, so a pinned binary still
-  reports today's advisories.
-- **Permissions**: least-privilege `permissions:` on each job; only release
-  jobs get `contents: write`.
-
----
-
 ## Related Skills
 
-- [go-style-core](../go-style-core/SKILL.md): the style questions linters enforce.
 - [go-code-review](../go-code-review/SKILL.md): linter output alongside the manual checklist.
 - [go-error-handling](../go-error-handling/SKILL.md): what to do with an `errcheck` finding.
 - [go-testing](../go-testing/SKILL.md): linters and tests in one CI pipeline.

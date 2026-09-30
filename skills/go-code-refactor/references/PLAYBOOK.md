@@ -29,17 +29,6 @@ The Google style guide's order — clarity, simplicity, concision,
 maintainability, consistency — is the tie-breaker for every judgment call below.
 [go-style-core](../../go-style-core/SKILL.md) owns it.
 
-Concision is *third*: when a shorter form costs clarity, the hierarchy already
-made the call. The inverse matters too — repetitive code is a concision failure
-precisely because it hides the one difference between near-identical blocks, so
-factoring it out serves clarity, not just line count.
-
-Two corollaries the guide states outright. **Least mechanism**: prefer the most
-standard tool — core language construct first (channel, slice, map, loop,
-struct), then stdlib, then anything heavier. **Complexity must be deliberate**:
-where genuinely required it stays *and* gets a comment explaining why;
-unexplained complexity in a simple-purpose function is a signal to simplify.
-
 ### Signal-boost the unusual variant
 
 Common idioms are read by pattern recognition. When code is *almost* a common
@@ -90,46 +79,9 @@ that differs only in values folds instead: [POLICY-TABLES.md](POLICY-TABLES.md).
 ## 1. Flatten with early returns
 
 The highest-yield change in most Go code. Keep the happy path at the leftmost
-indent and let failures exit.
-
-```go
-// before
-func process(u *User) error {
-    if u != nil {
-        if u.Active {
-            if err := validate(u); err == nil {
-                return save(u)
-            } else {
-                return err
-            }
-        } else {
-            return ErrInactive
-        }
-    }
-    return ErrNilUser
-}
-
-// after
-func process(u *User) error {
-    if u == nil {
-        return ErrNilUser
-    }
-    if !u.Active {
-        return ErrInactive
-    }
-    if err := validate(u); err != nil {
-        return err
-    }
-    return save(u)
-}
-```
-
-Rules that fall out: no `else` after a `return`; handle the error case first;
-scope `err` into the `if` when it is not used later
-([go-style-core](../../go-style-core/SKILL.md)).
-
-**Careful**: do not hoist a condition's subexpressions into variables above the
-`if` — that defeats short-circuiting and can panic where the original did not.
+indent and let failures exit;
+[go-style-core](../../go-style-core/SKILL.md#reduce-nesting) owns the rule, and
+[BEHAVIOR-TRAPS.md](BEHAVIOR-TRAPS.md#evaluation-order) the short-circuit trap.
 
 ## 2. Extract meaningful operations
 
@@ -194,20 +146,11 @@ scope. Renaming an unexported identifier is free when no reflection, template,
 identifier or a **struct tag key** is an API or wire-format change — findings
 list, not the diff.
 
-Both directions are worth fixing: names too short for a wide scope (`d`, `tmp`
-living 40 lines) and names too long for a narrow one (`elementIndex` as a
-three-line loop variable). Go scales name length *with* scope.
-
 ## 4. Name the magic values
-
-`if resp.StatusCode == 429 { time.Sleep(3 * time.Second) }` becomes
-`if resp.StatusCode == http.StatusTooManyRequests { time.Sleep(retryAfter) }`.
 
 Prefer standard-library constants where they exist. For enum-like sets use a
 defined type plus `iota` — **only if the numeric values stay identical**, since
-they may be persisted or sent over the wire. `0`, `1`, `""`, `-1` in obvious
-positions need no name; the goal is removing questions, not maximizing
-constants.
+they may be persisted or sent over the wire.
 
 ## 5. Error handling in an existing codebase
 
@@ -232,58 +175,33 @@ punctuation, one clause of new context, `: %w` at the end.
 
 ## 6. Reduce what is in scope
 
-Readers hold live variables in their head, and each one costs. Declare at first
-use rather than at the top of the function; scope to the smallest block
-(`if v, err := f(); err != nil`); inline variables used once unless the name
-does explanatory work; eliminate accidental shadowing — two `err`s at different
-depths is a reliable source of confusion; group related package-level
-declarations into one block. See [go-style-core](../../go-style-core/SKILL.md).
+Declare at first use; scope to the smallest block; eliminate accidental
+shadowing. See [go-style-core](../../go-style-core/SKILL.md).
 
 ## 7. Comments that earn their place
 
-Delete comments that restate the code (`counter++ // increment counter`); they
-add scroll and go stale. Keep and add comments that explain **why** — the
-non-obvious constraint, the workaround for an upstream bug, the reason an
-ordering matters:
-
-```go
-// The vendor API rejects bursts above 10 rps, so we pace even on retries.
-time.Sleep(rateLimitInterval)
-```
-
-Adding a doc comment to an undocumented exported symbol is pure gain — nothing
-changes at runtime. See [go-documentation](../../go-documentation/SKILL.md).
+Delete comments that restate the code; keep and add comments that explain
+**why**. Adding a doc comment to an undocumented exported symbol is pure gain —
+nothing changes at runtime. See [go-documentation](../../go-documentation/SKILL.md).
 Leave `TODO`/`FIXME` in place; they are someone's open thread. Delete only
 those describing work that demonstrably shipped.
 
 ## 8. Anti-patterns of "cleanup"
 
-Things that feel like improvement and are not. The common thread: each one
-*adds* something in the name of cleanliness.
+Things that feel like improvement and are not.
 
 - **Interfaces with one implementation**, added "for testability". They move
   the definition away from the usage and force readers to chase.
-- **Generics where a concrete type worked.** [go-generics](../../go-generics/SKILL.md#when-to-use-generics) owns the threshold.
 - **Merging similar-looking code that means different things.** Two rhyming
   10-line blocks are cheaper than one 15-line function with a mode flag.
 - **Splitting so far that following one request means opening eight
   functions.** The goal is one job per function, not one statement.
-- **A `util`, `helpers`, or `common` package.** `util.Process(x)` says nothing,
-  grab-bags grow forever, and the names collide on import.
-- **A new dependency** for what the standard library covers
-  ([go-packages](../../go-packages/SKILL.md)), or **clever over boring** — a
-  bit-twiddling one-liner replacing an obvious loop is shorter and worse.
+- **Clever over boring** — a bit-twiddling one-liner replacing an obvious loop
+  is shorter and worse.
 - **Reformatting the whole file**, so the meaningful diff drowns in whitespace.
   Run `gofmt`; stop there.
 - **Blanket capacity hints** as drive-by optimization. A size hint earns its
   place when the size is known and the allocation was shown to matter.
-- **Fixing bugs mid-refactor**, or **editing generated files** — the first
-  breaks reviewability, the second reverts at the next generation.
-
-The one that looks like restraint but is not: **removing a check because it
-seemed redundant.** Validation at a trust boundary, error handling that
-prevents data loss, and security checks stay, even when they are the ugliest
-lines in the file. Prove it unnecessary, or leave it and say why.
 
 ## 9. Test readability
 

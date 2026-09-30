@@ -4,8 +4,6 @@
 > Authority: advisory
 > Last verified: 2026-09-10
 
-Detailed rules and examples for organizing Go imports.
-
 ## Import Grouping
 
 Imports are organized in groups, with blank lines between them. The standard
@@ -14,17 +12,6 @@ library packages are always in the first group.
 **Minimal grouping (Uber):** stdlib, then everything else.
 
 **Extended grouping (Google):** stdlib → other → protocol buffers → side-effects.
-
-```go
-// Good: Standard library separate from external packages
-import (
-    "fmt"
-    "os"
-
-    "go.uber.org/atomic"
-    "golang.org/x/sync/errgroup"
-)
-```
 
 ```go
 // Good: Full grouping with protos and side-effects
@@ -51,22 +38,6 @@ most local or project-specific import**.
 (remove underscores, add `pb` suffix).
 
 **May rename:** uninformative names (e.g., `v1`), collision with local variable.
-
-```go
-// Good: Proto packages renamed with pb suffix
-import (
-    foosvcpb "path/to/package/foo_service_go_proto"
-)
-
-// Good: urlpkg when url variable is needed
-import (
-    urlpkg "net/url"
-)
-
-func parseEndpoint(url string) (*urlpkg.URL, error) {
-    return urlpkg.Parse(url)
-}
-```
 
 ## Blank Imports (`import _`)
 
@@ -114,20 +85,4 @@ import (
     "bar/testutil" // also imports "foo"
     . "foo"
 )
-```
-
-In this case, the test file cannot be in package `foo` because it uses
-`bar/testutil`, which imports `foo`. So the `import .` form lets the file
-pretend to be part of package `foo` even though it is not.
-
-**Except for this one case, do not use `import .` in your programs.**
-
-```go
-// Bad: Dot import hides origin
-import . "foo"
-var myThing = Bar() // Where does Bar come from?
-
-// Good: Explicit qualification
-import "foo"
-var myThing = foo.Bar()
 ```

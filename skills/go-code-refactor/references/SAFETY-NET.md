@@ -5,22 +5,11 @@
 > Minimum Go: 1.27 baseline
 > Last verified: 2026-09-06
 
-How much caution a refactor needs is not a fixed policy. It is set by how well
-tested **the code you are about to touch** already is — not by the project's
-overall coverage number. A repository at 90% can have the one function in the
-diff at 0%; a repository at 30% can have it fully pinned. Measure the blast
-radius, then pick a tier.
-
-The gate that decides *done* is the repository's, and
-[go-linting](../../go-linting/SKILL.md) owns it. This file decides only how much
-net has to exist *before* the first edit.
-
-## Contents
-
-- [The three tiers](#the-three-tiers)
-- [Measuring the blast radius](#measuring-the-blast-radius)
-- [Two things the coverage number will not tell you](#two-things-the-coverage-number-will-not-tell-you)
-- [Seams](#seams)
+How much caution a refactor needs is set by how well tested **the code you are
+about to touch** already is — not by the project's overall coverage number.
+Measure the blast radius, then pick a tier. The gate that decides *done* is
+[go-linting](../../go-linting/SKILL.md)'s; this file decides only how much net
+has to exist *before* the first edit.
 
 ---
 
@@ -60,14 +49,7 @@ and even unexported results still need the build-tag, generated-code,
 ## Measuring the blast radius
 
 References first, coverage second: find every caller of the code you will
-touch, then measure only those packages:
-
-```bash
-go test -covermode=atomic -coverpkg=./... -coverprofile=cover.out ./...
-go tool cover -func=cover.out    # per-function, ranked — read the functions in the diff
-go tool cover -html=cover.out    # which branches are actually green
-```
-
+touch, then measure only those packages.
 [go-testing](../../go-testing/SKILL.md) owns how to write the tests themselves;
 `scripts/verify-refactor.sh` captures the before/after comparison.
 

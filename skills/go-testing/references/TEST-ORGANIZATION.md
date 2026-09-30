@@ -4,8 +4,6 @@
 > Authority: advisory
 > Last verified: 2026-09-10
 
-Detailed reference for test doubles, test packages, and where a test belongs.
-
 ---
 
 ## Test Double Types
@@ -114,71 +112,12 @@ Export constructors that accept `*testing.T` so they can call `t.Helper()` and
 
 ## Test Packages
 
-| Package Declaration | Use Case |
-|---------------------|----------|
-| `package foo` | Same-package tests, can access unexported identifiers |
-| `package foo_test` | Black-box tests, avoids circular dependencies |
-
-Both go in `foo_test.go` files in the same directory.
-
-**Use `package foo` (white-box)** when you need to test unexported functions or
-internal state.
-
-**Use `package foo_test` (black-box)** when testing only the public API, breaking
-import cycles, or verifying external usability.
-
-```go
-package parser_test  // Black-box: only tests exported API
-
-import "mymodule/parser"
-
-func TestParse(t *testing.T) {
-    got, err := parser.Parse("input")
-    // ...
-}
-```
-
-If a black-box test needs an unexported symbol, create `export_test.go` in
-`package foo` (not `foo_test`) that exposes it. Use this sparingly.
+If a black-box test (`package foo_test`) needs an unexported symbol, create
+`export_test.go` in `package foo` (not `foo_test`) that exposes it. Use this
+sparingly.
 
 ---
 
 ## Setup Scoping
 
-> **Advisory**: Keep setup scoped to tests that need it.
-
-Explicit setup in each test is clearer and avoids penalizing unrelated tests:
-
-```go
-// Good: Explicit setup in tests that need it
-func TestParseData(t *testing.T) {
-    data := mustLoadDataset(t)
-    // ...
-}
-
-func TestUnrelated(t *testing.T) {
-    // Doesn't pay for dataset loading
-}
-```
-
-**Avoid global `init` for test setup** — it runs for every test in the file,
-even unrelated ones.
-
-**Subtest setup**: Use a parent test with `t.Run` when a group of subtests
-shares setup:
-
-```go
-func TestDatabase(t *testing.T) {
-    db := setupTestDB(t)
-
-    t.Run("Insert", func(t *testing.T) {
-        // uses db
-    })
-    t.Run("Select", func(t *testing.T) {
-        // uses db
-    })
-}
-```
-
-This scopes the database lifecycle to the subtests that need it. Use `TestMain`
-only as a last resort (see [INTEGRATION.md](INTEGRATION.md)).
+Use `TestMain` only as a last resort (see [INTEGRATION.md](INTEGRATION.md)).

@@ -11,10 +11,10 @@ allowed-tools: Bash(bash:*)
 
 ## Resource Routing
 
-- `scripts/check-interface-compliance.sh` - Run as a heuristic to list exported interfaces implemented beside their declaration that nothing in the package converts to, or that an exported function returns while nothing in the package takes them as a parameter; each is a question whether the interface is needed.
+- `scripts/check-interface-compliance.sh` - Run as a heuristic; [Interface Satisfaction Checks](#interface-satisfaction-checks) says what it lists.
 - `scripts/check-interface-compliance.go` - Implementation helper invoked by `check-interface-compliance.sh`; patch this when changing method-set analysis.
-- `references/EMBEDDING.md` - Read when embedding interfaces or structs in public APIs.
-- `references/RECEIVER-TYPE.md` - Read when pointer/value receivers affect interface satisfaction.
+- `references/EMBEDDING.md` - Read when embedding a type in a public struct.
+- `references/RECEIVER-TYPE.md` - Read when choosing pointer or value receivers.
 
 ---
 
@@ -82,29 +82,6 @@ mismatch is a programming error that should panic, such as a recover guard
 re-panicking a foreign value ([PANIC-RECOVER.md](../go-defensive/references/PANIC-RECOVER.md)).
 Reflection code uses `reflect.TypeAssert[T]` (Go 1.25+) instead of
 `v.Interface().(T)`.
-
-```go
-str, ok := value.(string)
-if ok {
-    fmt.Printf("string value is: %q\n", str)
-}
-```
-
-To check if a value implements an interface:
-
-```go
-if _, ok := val.(json.Marshaler); ok {
-    fmt.Printf("value %v implements json.Marshaler\n", val)
-}
-```
-
----
-
-## Type Switch
-
-It's idiomatic to reuse the variable name (`t := t.(type)`) — the variable has
-the correct type in each case branch. When a case lists multiple types
-(`case int, int64:`), the variable has the interface type.
 
 ---
 

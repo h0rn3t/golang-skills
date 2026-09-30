@@ -9,40 +9,6 @@
 Use the `time` package for time values in process. A raw integer appears
 only on the wire, with its unit in the field name ([JSON Fields](#json-fields)).
 
-### Instants
-
-**Bad**
-```go
-func isActive(now, start, stop int) bool {
-  return start <= now && now < stop
-}
-```
-
-**Good**
-```go
-func isActive(now, start, stop time.Time) bool {
-  return (start.Before(now) || start.Equal(now)) && now.Before(stop)
-}
-```
-
-### Durations
-
-**Bad**
-```go
-func poll(delay int) {
-  time.Sleep(time.Duration(delay) * time.Millisecond)
-}
-poll(10)  // seconds? milliseconds?
-```
-
-**Good**
-```go
-func poll(delay time.Duration) {
-  time.Sleep(delay)
-}
-poll(10 * time.Second)
-```
-
 ### JSON Fields
 
 `time.Duration` is the in-process type, not a wire form: `encoding/json/v2`
@@ -91,26 +57,3 @@ the `jsonv1.FormatDurationAsNano(true)` option
 Owned by [go-interfaces](../../go-interfaces/references/EMBEDDING.md#dont-embed-in-public-structs):
 an embedded type's method set becomes public API, so adding, removing, or
 replacing it is a breaking change. Use an unexported field and forward methods.
-
-## Use Field Tags in Marshaled Structs
-
-Always use explicit field tags for JSON, YAML, etc.
-
-**Bad**
-```go
-type Stock struct {
-  Price int
-  Name  string
-}
-```
-
-**Good**
-```go
-type Stock struct {
-  Price int    `json:"price"`
-  Name  string `json:"name"`
-  // Safe to rename Name to Symbol
-}
-```
-
-Tags make the serialization contract explicit and safe to refactor.

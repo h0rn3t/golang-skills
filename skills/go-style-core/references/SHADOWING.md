@@ -22,17 +22,6 @@ return err  // always nil!
 
 ### Fix: Return Where the Error Occurs
 
-```go
-if condition {
-    val, err := someFunc()
-    if err != nil {
-        return err
-    }
-    use(val)
-}
-return nil
-```
-
 When a value must outlive the block, declare it before the block and assign
 it with `=`.
 

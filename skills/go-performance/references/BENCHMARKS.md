@@ -8,10 +8,7 @@
 ## Contents
 
 - [Writing Benchmarks](#writing-benchmarks)
-- [Running Benchmarks](#running-benchmarks)
-- [Interpreting Results](#interpreting-results)
 - [Using benchstat for Comparison](#using-benchstat-for-comparison)
-- [Benchmark Examples from Performance Patterns](#benchmark-examples-from-performance-patterns)
 - [Profiles from Benchmarks](#profiles-from-benchmarks)
 - [Common Mistakes](#common-mistakes)
 
@@ -72,59 +69,10 @@ func BenchmarkConvert(b *testing.B) {
 
 ---
 
-## Running Benchmarks
-
-```bash
-# Run all benchmarks in a package
-go test -bench=. ./...
-
-# Run specific benchmark with memory stats
-go test -bench=BenchmarkStrconv -benchmem ./...
-
-# Run with count for statistical significance
-go test -bench=. -benchmem -count=10 ./...
-```
-
-The `-benchmem` flag reports allocations per operation. The `-count` flag runs
-each benchmark N times for statistical significance.
-
----
-
-## Interpreting Results
-
-These numbers illustrate the output format; they are not Go 1.27 measurements.
-
-```
-BenchmarkStrconv-8     18705042    64.2 ns/op    16 B/op    1 allocs/op
-BenchmarkFmtSprint-8    8249536   143.0 ns/op    16 B/op    2 allocs/op
-```
-
-| Field | Meaning |
-|-------|---------|
-| `-8` | GOMAXPROCS |
-| `18705042` | Number of iterations |
-| `64.2 ns/op` | Time per operation |
-| `16 B/op` | Bytes allocated per operation |
-| `1 allocs/op` | Heap allocations per operation |
-
----
-
 ## Using benchstat for Comparison
 
-`benchstat` compares benchmark results statistically. Install it and save
-benchmark output to files:
-
 ```bash
-# Install benchstat
 go install golang.org/x/perf/cmd/benchstat@latest
-
-# Run benchmarks and save results
-go test -bench=. -benchmem -count=10 ./... > old.txt
-
-# Make changes, then run again
-go test -bench=. -benchmem -count=10 ./... > new.txt
-
-# Compare results
 benchstat old.txt new.txt
 ```
 
@@ -155,72 +103,6 @@ Tips:
 
 ---
 
-## Benchmark Examples from Performance Patterns
-
-### strconv vs fmt
-
-Run the two functions above against representative identical inputs. Retain
-the raw samples, toolchain, CPU, and benchmark source with any published numbers.
-
-### Repeated Byte Conversions
-
-```go
-func BenchmarkRepeatedConversion(b *testing.B) {
-    var buf bytes.Buffer
-    buf.Grow(len("Hello world"))
-    for b.Loop() {
-        buf.Reset()
-        buf.Write([]byte("Hello world"))
-    }
-}
-
-func BenchmarkSingleConversion(b *testing.B) {
-    var buf bytes.Buffer
-    data := []byte("Hello world")
-    buf.Grow(len(data))
-    for b.Loop() {
-        buf.Reset()
-        buf.Write(data)
-    }
-}
-```
-
-Both variants reset the buffer on every iteration and preallocate the same
-capacity, so retained data does not grow with the iteration count. A concrete
-`bytes.Buffer` may let the compiler avoid the conversion allocation; equal
-results are valid. Measure the actual writer type before generalizing.
-
-### Slice Capacity
-
-```go
-var sinkInts []int
-
-func BenchmarkNoCapacity(b *testing.B) {
-    for b.Loop() {
-        data := make([]int, 0)
-        for k := 0; k < 1000; k++ {
-            data = append(data, k)
-        }
-        sinkInts = data
-    }
-}
-
-func BenchmarkWithCapacity(b *testing.B) {
-    for b.Loop() {
-        data := make([]int, 0, 1000)
-        for k := 0; k < 1000; k++ {
-            data = append(data, k)
-        }
-        sinkInts = data // without it, make does not escape: 0 B/op
-    }
-}
-```
-
-Measure both allocation count and elapsed time; capacity is a workload choice,
-not a universal speedup factor.
-
----
-
 ## Profiles from Benchmarks
 
 A benchmark says how much; a profile says where. Capture both from the same
@@ -241,40 +123,10 @@ for the next bottleneck.
 
 ## Common Mistakes
 
-### Ignoring the benchmark loop
-
-The testing framework adjusts iteration counts to get stable timing. Using a
-fixed iteration count produces meaningless results:
-
-```go
-// Bad: Ignores the benchmark loop, so the framework can't calibrate
-func BenchmarkFixed(b *testing.B) {
-    for i := 0; i < 1000; i++ {
-        doWork()
-    }
-}
-
-// Good: Use b.Loop on Go 1.24+
-func BenchmarkCorrect(b *testing.B) {
-    for b.Loop() {
-        doWork()
-    }
-}
-```
-
 ### Compiler Elision with `b.Loop`
 
 In the exact `for b.Loop() { ... }` form (Go 1.24+), the compiler keeps
-arguments and results of calls inside the loop alive. The call below does not
-need a package-level sink:
-
-```go
-func BenchmarkWork(b *testing.B) {
-    for b.Loop() {
-        expensiveFunc()
-    }
-}
-```
+arguments and results of calls inside the loop alive.
 
 That guarantee does not cover manual `b.N` loops or `RunParallel`. In a `b.N`
 loop assign the result to a package-level sink (`sink = expensiveFunc()`); in

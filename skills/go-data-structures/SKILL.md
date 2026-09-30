@@ -7,33 +7,11 @@ description: Use when creating or manipulating Go slices, maps, arrays, or sets,
 
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `slices`/`maps`
 > and `slices.Clone`/`maps.Clone` require Go 1.21+; `slices.Concat` Go 1.22+;
-> `strings.Cut` Go 1.18+, `strings.CutPrefix`/`CutSuffix` Go 1.20+,
-> `strings.SplitSeq` Go 1.24+, `strings.CutLast`/`bytes.CutLast` Go 1.27+.
+> `strings.CutLast`/`bytes.CutLast` Go 1.27+.
 
 ## Resource Routing
 
-- `references/SLICES.md` - Read when deciding nil versus empty slices, copying slices, or managing slice capacity and aliasing.
-
-## Choosing a Data Structure
-
-```
-What do you need?
-├─ Ordered collection of items
-│  ├─ Fixed size known at compile time → Array [N]T
-│  └─ Dynamic size → Slice []T
-│     ├─ Final size known at the call site? → make([]T, 0, n)
-│     └─ Unknown size → var s []T (nil); allocate when the contract needs [] under encoding/json v1
-├─ Key-value lookup
-│  └─ Map map[K]V
-│     ├─ Final size known at the call site? → make(map[K]V, n)
-│     └─ Need a set? → map[T]struct{} (zero-size values)
-└─ Need to pass to a function?
-   └─ Copy at the boundary if the caller might mutate it
-```
-
-> **When this skill does NOT apply**: For concurrent access to data structures (mutexes, atomic operations), see [go-concurrency](../go-concurrency/SKILL.md). For defensive copying at API boundaries, see [go-defensive](../go-defensive/SKILL.md). For pre-sizing capacity for performance, see [go-performance](../go-performance/SKILL.md).
-
----
+- `references/SLICES.md` - Read when managing slice capacity and aliasing, or when a subslice keeps a large backing array alive.
 
 ## Slices
 
@@ -45,24 +23,10 @@ Writing the loop instead is a reviewable defect, not a style choice —
 
 | Loop you were about to write | Use |
 |---|---|
-| Search for a value, or its position | `slices.Contains`, `slices.ContainsFunc`, `slices.Index`, `slices.IndexFunc` |
-| Sort | `slices.Sort`, `slices.SortFunc` (not `sort.Slice`) |
-| Shallow copy, where a nil input may stay nil | `slices.Clone`, `maps.Clone` |
-| Copy that must encode as `[]` or `{}` under `encoding/json` v1 | `dst := make([]T, len(s)); copy(dst, s)` or `append([]T{}, s...)`; `Clone` of nil is nil, which v1 writes as `null` |
-| Merge entries into an existing map | `maps.Copy` |
-| Delete map entries by predicate | `maps.DeleteFunc` |
 | Compare | `slices.Equal`, `maps.Equal` |
-| Largest or smallest element | `slices.Max`, `slices.Min` |
 | Concatenate | `slices.Concat` (Go 1.22+) |
-| Remove adjacent duplicates | `slices.Compact` after `slices.Sort` |
-| Empty a map, zero a slice | `clear(m)`; `clear(s)` keeps the length |
-| Drop spare capacity before keeping a subslice | `slices.Clip` |
-| Collect keys/values, where an empty result may be nil | `slices.Collect(maps.Keys(m))`, `slices.Sorted(maps.Keys(m))` |
-| Collect keys into a slice that must encode as `[]` under `encoding/json` v1 (v2 writes nil as `[]`) | `keys := slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m)); slices.Sort(keys)` — `Collect` and `Sorted` return nil for an empty iterator |
 | Insert/delete in the middle | `slices.Insert`, `slices.Delete` |
 | Iterate in reverse | `slices.Backward` |
-| Split a string once at a separator | `strings.Cut`, `strings.CutPrefix`, `strings.CutSuffix` (Go 1.20+) |
-| Split a string once, iterate | `strings.SplitSeq` (no slice allocated) |
 | Split off the last segment | `strings.CutLast` / `bytes.CutLast` (Go 1.27+) |
 
 `slices.Clone` and `maps.Clone` preserve nilness: nil input yields nil, while
@@ -76,12 +40,6 @@ replacing a loop.
 These clones are shallow: references inside elements or map values remain
 shared. Copy depth and type-specific `Clone` contracts belong to
 [go-defensive](../go-defensive/references/BOUNDARY-COPYING.md#copy-depth-is-part-of-the-contract).
-
-Two signatures an older habit gets wrong: `maps.Keys` and `maps.Values`
-return iterators (`iter.Seq`), not the slices the retired
-`golang.org/x/exp/maps` returned — range over them or `slices.Collect`; the
-`slices.SortFunc` comparator returns an `int` through `cmp.Compare`, not the
-`bool` of `sort.Slice`, and `slices.SortStableFunc` is the stable one.
 
 ```go
 dir, file, ok := strings.CutLast("a/b/c.txt", "/") // "a/b", "c.txt", true
@@ -97,46 +55,7 @@ maps.DeleteFunc(dst, func(_ string, score int) bool { return score < minimum })
 ```
 
 Both operations mutate `dst`, so existing aliases observe the changes.
-`Copy` leaves unrelated keys intact; it is a merge, not replacement or deep
-cloning. The destination must be initialized if the source contains entries.
-With distinct source and destination maps, the source is unchanged; if they
-are the same map, filtering naturally changes both. Preserve copy/filter order
-and use a predicate without map mutations or iteration-order assumptions.
-See [maps.Copy](https://pkg.go.dev/maps#Copy) and
-[maps.DeleteFunc](https://pkg.go.dev/maps#DeleteFunc).
-
-### The append Function
-
-**Always assign the result** — the underlying array may change:
-
-```go
-x := []int{1, 2, 3}
-x = append(x, 4, 5, 6)
-
-// Append a slice to a slice
-x = append(x, y...)  // Note the ...
-```
-
-### Two-Dimensional Slices
-
-**Independent inner slices** (can grow/shrink independently):
-
-```go
-picture := make([][]uint8, YSize)
-for i := range picture {
-    picture[i] = make([]uint8, XSize)
-}
-```
-
-**Single allocation** (more efficient for fixed sizes):
-
-```go
-picture := make([][]uint8, YSize)
-pixels := make([]uint8, XSize*YSize)
-for i := range picture {
-    picture[i], pixels = pixels[:XSize], pixels[XSize:]
-}
-```
+The destination must be initialized if the source contains entries.
 
 ### Declaring Empty Slices
 
@@ -168,14 +87,7 @@ zero-length slices.
 ### Implementing a Set
 
 Use `map[T]struct{}` when the map is only a set. The empty struct takes no
-storage and makes membership intent explicit:
-
-```go
-attended := map[string]struct{}{"Ann": {}, "Joe": {}}
-if _, ok := attended[person]; ok {
-    fmt.Println(person, "was at the meeting")
-}
-```
+storage and makes membership intent explicit.
 
 Use boolean map values only when the value carries a separate meaning beyond
 presence.

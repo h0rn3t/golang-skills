@@ -17,28 +17,28 @@ for that promise; compilation alone does not establish equivalent behavior.
 Resolve resources from this installed skill directory; run scripts from the
 target project using the resolved absolute script path.
 
-- `../go-style-core/SKILL.md` - Load on every refactor before the first edit (Workflow step 1); its `references/CURRENT-GO.md` gives the current form of each touched line.
-- `references/BEHAVIOR-TRAPS.md` - Read its Pre-commit checklist before every refactor; read a section when a transform moves a `defer`, changes nil versus empty, alters goroutine or channel shape, or touches struct layout.
-- `references/PLAYBOOK.md` - Read for the concrete transformations, ordered by payoff, with before/after Go.
-- `references/POLICY-TABLES.md` - Read when repeated selection accesses fields of one shared policy record; includes a complete before/after example.
-- `references/CATALOG.md` - Read when the move crosses a function, type, or package boundary: the smell that triggers each transform, the tool that performs it, and its risk tier.
-- `references/SAFETY-NET.md` - Read when the blast radius has thin or no tests: coverage tiers, characterization tests, and seams for untested code.
-- `references/MECHANICAL.md` - Read when the same edit recurs across many sites: `gofmt -r`, `eg`, `gopatch`, and `go/analysis` fixers instead of hand-editing each one.
-- `references/ARCHITECTURE.md` - Read when the smell is package-scale — a global god package, global layers several domains share, drivers in services or models, handlers calling repositories, a cycle through a proxy package — or the ask names architecture, layers, modules, or a monolith: the smells and their evidence, the graph, "modules own the tree; layers live inside the module", the layer rules, cross-module contracts, the target shapes, choosing, and staging.
-- `references/ARCHITECTURE-BEHAVIOR.md` - Read before moving code a use case's atomicity, error identity, or authorization passes through: the three contracts a package move carries unchanged and the behavior checks each needs.
-- `references/ARCHITECTURE-CHECKS.md` - Read when installing or reading the checker: `architecture.json`, the rules, the graph commands, what imports cannot prove, the `depguard` duplicate, the report contract, the evaluation scenarios, and the common mistakes.
-- `references/ARCHITECTURE-EXAMPLES.md` - Read only when an example is needed to explain a choice: four community repositories that use the layer vocabulary, with their limits.
-- `scripts/check-architecture.sh` - Run from the module root to check `internal/` imports against the policy; exit 1 on a violation or a stale `known` entry, 2 when a package fails to load or `architecture.json` is missing.
-- `scripts/check-architecture.go` - The checker the wrapper builds; `scripts/check-architecture_test.go` holds its unit tests (`go test ./check-architecture.go ./check-architecture_test.go` in the scripts directory).
-- `references/STRUCTURAL.md` - Read before moving a type between packages, breaking an import cycle, or changing an exported API: type-alias gradual repair and the deprecation sequence.
-- `references/MODERNIZATION.md` - Read when a hunk adopts a newer API or `go fix -diff` proposes one; sorts Go 1.21–1.27 features into safe, conditional, and report-only.
-- `references/OVER-ENGINEERING.md` - Read when a step adds a helper, type, layer, option, or import (it owns the restraint ladder, the reach-for table, and the ship-then-question write rules), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
-- `scripts/verify-refactor.sh` - Run to capture baseline and final check results, and to count production LOC before and after; use focused checks between edits.
-- `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no ceiling and no fix.
-- `assets/refactor-report.md` - Use as the final report structure.
+- `../go-style-core/SKILL.md` - Load on every refactor before the first edit, with its idiom card `references/CURRENT-GO.md`.
+- `references/BEHAVIOR-TRAPS.md` - Its Pre-commit checklist before every refactor; a section when a transform moves a `defer`, nil versus empty, goroutine or channel shape, or struct layout.
+- `references/PLAYBOOK.md` - The concrete transformations, ordered by payoff.
+- `references/POLICY-TABLES.md` - When repeated selection reads fields of one shared policy record.
+- `references/CATALOG.md` - When a move crosses a function, type, or package boundary: the tool and the risk tier.
+- `references/SAFETY-NET.md` - When the blast radius has thin or no tests.
+- `references/MECHANICAL.md` - When the same edit recurs across many sites.
+- `references/ARCHITECTURE.md` - Only when the smell is package-scale (a god package, shared global layers, drivers in services, a cycle) or the ask names architecture, layers, modules, or a monolith.
+- `references/ARCHITECTURE-BEHAVIOR.md` - Before moving code a use case's atomicity, error identity, or authorization passes through.
+- `references/ARCHITECTURE-CHECKS.md` - When installing or reading the architecture checker.
+- `references/ARCHITECTURE-EXAMPLES.md` - Only when an example is needed to explain an architecture choice.
+- `scripts/check-architecture.sh` - Run from the module root to check `internal/` imports against `architecture.json`; exit 1 on a violation or a stale `known` entry, 2 when a package fails to load or the policy is missing.
+- `scripts/check-architecture.go` - The checker the wrapper builds; `scripts/check-architecture_test.go` holds its unit tests.
+- `references/STRUCTURAL.md` - Before moving a type between packages, breaking an import cycle, or changing an exported API.
+- `references/MODERNIZATION.md` - When a hunk adopts a newer API or `go fix -diff` proposes one: safe, conditional, report-only.
+- `references/OVER-ENGINEERING.md` - When a step adds a helper, type, layer, option, or import, and when the ask is "what can we delete".
+- `scripts/verify-refactor.sh` - Baseline and final check results, and production LOC before and after.
+- `scripts/check-debt.sh` - Harvest `Kept:` markers and flag the ones naming no ceiling and no fix.
+- `assets/refactor-report.md` - The final report structure.
 
-Every command below needs a shell tool (`Bash` in Claude Code); Workflow
-step 1 sets the variable the commands run through.
+The commands below need a shell tool; Workflow step 1 sets the variable they
+run through.
 
 ## When Not to Refactor
 
@@ -121,10 +121,7 @@ Count the helper and its call sites when comparing complexity.
 
 Before writing any new line — helper, wrapper, interface — climb the restraint
 ladder in `references/OVER-ENGINEERING.md` and stop at the first rung that
-holds. On a refactor the top rung usually holds: deletion beats rewrite, and
-rung 2 (the helper two files over) beats a second copy of it. Climb only after
-reading the code the change touches — the ladder shortens the diff, never the
-reading.
+holds; on a refactor the top one usually does.
 
 Delete only what is **provably** unreachable — "looks unused" is a finding, not
 a licence. Apply the shorter form only where it reads as well; never golf.
@@ -166,16 +163,11 @@ literal. Error texts and the point where an unknown key fails do not move.
 > no transport or database driver; cross-module code stops at a module's root
 > contract; keeping the tree and repairing one boundary is a valid result.
 
-When the smell is the import graph — a global `models` or `pkg` every owner
-imports, features that edit unrelated owners, a router or driver in services,
-handlers calling repositories — `references/ARCHITECTURE.md` owns the call:
-measure the graph, name the shape, propose the smallest repair, and stage a
-move only when a concrete consequence is established. The move is High tier
-and a proposal unless the user asked for it; the first commit encodes the rule
-in `architecture.json` and runs `scripts/check-architecture.sh`, whose `known`
-list a refactor never extends to make its own run pass. Growth is justified by
-the coupling it removes and named in the report
-(`references/ARCHITECTURE-CHECKS.md` carries the report contract).
+When the smell is the import graph, `references/ARCHITECTURE.md` owns the
+call: measure the graph, name the shape, propose the smallest repair. A move is
+High tier and a proposal unless the user asked for it; its first commit
+encodes the rule in `architecture.json` and runs `scripts/check-architecture.sh`,
+whose `known` list a refactor never extends to make its own run pass.
 
 ## Concision Gate
 
@@ -227,19 +219,13 @@ export REFACTOR_SKILL_DIR="<base directory the host printed for this skill>"
 bash "$REFACTOR_SKILL_DIR/scripts/verify-refactor.sh" --version    # must print a version; 127 means the path is wrong
 ```
 
-Unset, the path collapses to `/scripts/verify-refactor.sh`, every call exits
-127 (`No such file or directory`), and with no baseline recorded the gate
-below cannot pass. With no shell tool in your tool list, the edit hook's
-output after each `.go` edit is the whole check record
-([go-style-core](../go-style-core/SKILL.md#the-edit-hook-record)): run
-nothing, read no script, and load no further skill — not this one again, not
-`go-linting`, not `go-code-review` — to find a way to verify.
+With no shell tool, run nothing and read no script: the
+[edit hook's output](../go-style-core/SKILL.md#the-edit-hook-record) is the
+check record.
 
 Load the skills before the first edit (a read of `../<name>/SKILL.md` where
 there is no `Skill` tool): [go-style-core](../go-style-core/SKILL.md) on every
-refactor — the shared style and control-flow rules, snippet-only refactors, and
-the convention files its House Style Wins names, which outrank the guide's
-defaults — then the owner of each decision the diff moves, from
+refactor, then the owner of each decision the diff moves, from
 [Related Skills](#related-skills), go-code's
 [Route Before The First Edit](../go-code/SKILL.md#route-before-the-first-edit),
 or the host's routing note when it names them. No edit before every selected
@@ -360,10 +346,7 @@ behavior they exercise; report what remains unverified.
 
 Watch tests that assert on error strings or JSON output — they catch the
 invisible breakages compilation misses.
-[go-linting](../go-linting/SKILL.md) owns what the individual checks mean;
-without a shell tool it stays unread and the
-[edit hook's record](../go-style-core/SKILL.md#the-edit-hook-record) is the
-report's check line.
+[go-linting](../go-linting/SKILL.md) owns what the individual checks mean.
 
 ### 6. Report
 

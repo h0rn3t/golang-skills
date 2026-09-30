@@ -5,15 +5,7 @@
 > Minimum Go: `errors.AsType` 1.26
 > Last verified: 2026-09-29
 
-This reference covers error wrapping with `%v` vs `%w`, placement conventions,
-adding context to errors, and logging best practices.
-
----
-
 ## Wrapping Errors: %v vs %w
-
-The choice between `%v` and `%w` significantly impacts how errors are propagated
-and inspected.
 
 ### Use %v for Simple Annotation
 
@@ -53,19 +45,6 @@ if errors.Is(err, fs.ErrNotExist) {
 }
 ```
 
-### When to Use Each
-
-**Use %w when**:
-- Adding context while preserving the original error for programmatic inspection
-- You explicitly document and test the underlying errors you expose
-
-**Use %v when**:
-- The API deliberately omits the underlying cause from programmatic inspection
-- Logging or displaying to humans
-- Creating independent errors that hide implementation details
-
----
-
 ## Placement of %w
 
 Place `%w` at the **end** of the error string so error text mirrors error chain
@@ -77,22 +56,6 @@ err1 := fmt.Errorf("err1")
 err2 := fmt.Errorf("err2: %w", err1)
 err3 := fmt.Errorf("err3: %w", err2)
 fmt.Println(err3) // err3: err2: err1
-```
-
-```go
-// Bad: %w at start - prints oldest to newest (confusing)
-err1 := fmt.Errorf("err1")
-err2 := fmt.Errorf("%w: err2", err1)
-err3 := fmt.Errorf("%w: err3", err2)
-fmt.Println(err3) // err1: err2: err3
-```
-
-```go
-// Bad: %w in middle - incoherent order
-err1 := fmt.Errorf("err1")
-err2 := fmt.Errorf("err2-1 %w err2-2", err1)
-err3 := fmt.Errorf("err3-1 %w err3-2", err2)
-fmt.Println(err3) // err3-1 err2-1 err1 err2-2 err3-2
 ```
 
 **Pattern**: Use the form `context message: %w`
@@ -136,29 +99,3 @@ return fmt.Errorf("failed: %v", err)
 // Good: Just return the error
 return err
 ```
-
----
-
-## Logging Errors
-
-When the error is handled by logging, [go-logging](../../go-logging/SKILL.md)
-owns the level, the attribute shape, and the `Enabled` guard for expensive
-attributes; log it once, at the point that handles it.
-
-### Protect Sensitive Information
-
-Be careful with PII (Personally Identifiable Information) in log messages. Many
-log sinks are not appropriate for sensitive user data.
-
----
-
-## Quick Reference
-
-| Pattern | Guidance |
-|---------|----------|
-| `%v` | Display text or deliberately omit the chain; does not redact the message |
-| `%w` | Use to preserve error chain for programmatic inspection |
-| `%w` placement | Always at the end: `"context: %w"` |
-| Adding context | Add new info, don't duplicate existing info |
-| Empty annotation | Just return `err` instead of `fmt.Errorf("failed: %v", err)` |
-| Logging | Don't log and return; use appropriate log levels |

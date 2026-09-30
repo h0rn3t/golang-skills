@@ -23,91 +23,49 @@ and the required contract rather than refactor equivalence.
 ## Start with `go fix`
 
 Since Go 1.26, `go fix` hosts modernizers that rewrite code to current idioms.
-Preview their output and verify the relevant behavior contracts. A default run
-includes `hostport`, whose hunks are Tier 2: keep them only where IPv6 cannot
-reach the code, or leave them out with `-hostport=false`.
-
-Use the package scope and apply conditions in
-[Scope mechanical modernization](../SKILL.md#3-scope-mechanical-modernization);
-a scoped refactor does not authorize unrelated modernization. Within scope, an
-older form in the neighboring code is not a reason to keep it: the module's `go`
-directive sets the idiom ([Write Current Go](../../go-style-core/SKILL.md#write-current-go)).
-Keep mechanical changes distinguishable from hand edits. `go tool fix help` is
-authoritative; [go-linting](../../go-linting/SKILL.md#modernization-go-fix)
-catalogues the current analyzers and each release's renames and removals.
-Report incorrect fixes; do not silently discard them.
+A default run includes `hostport`, whose hunks are Tier 2: keep them only where
+IPv6 cannot reach the code, or leave them out with `-hostport=false`. Scope
+follows [Scope mechanical modernization](../SKILL.md#3-scope-mechanical-modernization).
+`go tool fix help` is authoritative;
+[go-linting](../../go-linting/SKILL.md#modernization-go-fix) lists the
+analyzers the idiom card does not show and the Go 1.27 renames. Report incorrect fixes; do not silently discard them.
 
 ## Tier 1 — safe swaps
 
-### `new(expr)` — Go 1.26
+[CURRENT-GO.md](../../go-style-core/references/CURRENT-GO.md) gives each form
+and its trap; an entry here names only what keeps the swap behavior-identical
+on existing code, and the `go fix` analyzer where one exists.
 
-```go
-// before
-age := yearsSince(born)
-p := Person{Name: name, Age: &age}
-
-// after
-p := Person{Name: name, Age: new(yearsSince(born))}
-```
-
-Useful for JSON/protobuf optional fields such as `*int`/`*bool`; `new(30)` is `*int`, so a `*time.Duration` field takes `new(30 * time.Second)`. The temp-then-address form is a hand edit, and only where the temp has no other use; `go fix -newexpr` rewrites only `func ptr(x T) *T { return &x }` helpers and their calls.
-
-### `errors.AsType[T]` — Go 1.26
-
-Generic `errors.As` with the same matching semantics and no out-parameter:
-
-```go
-// before
-var perr *fs.PathError
-if errors.As(err, &perr) { log.Println(perr.Path) }
-
-// after
-if perr, ok := errors.AsType[*fs.PathError](err); ok { log.Println(perr.Path) }
-```
-
-`go fix -errorsastype`. Note this replaces `As`, never `Is`.
-
-### `sync.WaitGroup.Go` — Go 1.25
-
-```go
-// before
-wg.Add(1)
-go func() { defer wg.Done(); work(item) }()
-
-// after
-wg.Go(func() { work(item) })
-```
-
-Preserve goroutine count and `Add`-before-start. If the old code calls `Add`
-inside the goroutine, correcting that race is a Tier 3 fix for that call site.
-`go fix -waitgroupgo`.
-
-### `strings.CutLast` / `bytes.CutLast` — Go 1.27
-
-```go
-// before
-i := strings.LastIndex(name, ".")
-if i < 0 { return name, "" }
-return name[:i], name[i+1:]
-
-// after
-base, ext, _ := strings.CutLast(name, ".")
-```
-
-Same contract as `Cut`: not found → `(s, "", false)`. Check what the old `-1`
-branch returned before folding it into `ok` — if it returned anything other
-than `(s, "")`, the swap needs an explicit `if !ok`.
-
-### Drop now-redundant type arguments — Go 1.27
-
-Inference now applies to all assignments and conversions to matching function
-types. Typed-variable assignment already worked in Go 1.21; conversion is new:
-
-```go
-type Fold func(int, int) int
-fold := Fold(combine[int]) // before
-fold := Fold(combine)      // Go 1.27
-```
+- **`new(expr)`** (Go 1.26): a hand edit, only where the temp has no other use;
+  `go fix -newexpr` rewrites only `func ptr(x T) *T { return &x }` helpers and
+  their calls.
+- **`errors.AsType[T]`** (Go 1.26): same matching semantics as `errors.As`.
+  `go fix -errorsastype`.
+- **`wg.Go`** (Go 1.25): preserve goroutine count and `Add`-before-start. If the
+  old code calls `Add` inside the goroutine, correcting that race is a Tier 3
+  fix for that call site. `go fix -waitgroupgo`.
+- **`strings.CutLast`, `bytes.CutLast`** (Go 1.27): check what the old `-1`
+  branch returned before folding it into `ok` — if it returned anything other
+  than `(s, "")`, the swap needs an explicit `if !ok`.
+- **Redundant type arguments** (Go 1.27): inference now applies to conversions
+  to matching function types, so `Fold(combine[int])` becomes `Fold(combine)`.
+- **`strings.SplitSeq`, `FieldsSeq`, `FieldsFuncSeq`** (Go 1.24): only when the
+  slice is not indexed, re-ranged, or kept — otherwise it is a rewrite, not a
+  swap. `strings.Lines` is **not** a drop-in: it keeps each trailing newline.
+- **`for i := range n`** (Go 1.22): only when the body does not mutate `i` or
+  `n`; `range n` evaluates `n` once. `go fix -rangeint`.
+- **Delete `x := x`** (Go 1.22): a mechanical delete under a `go` directive
+  below 1.22 is a real bug. `go fix -forvar`.
+- **`min`, `max`, `clear`** (Go 1.21): float helpers need a NaN and signed-zero
+  check first. Replace a delete loop with `clear(m)` only when no key can hold
+  a NaN, through an array, struct, or interface included: the loop cannot
+  delete a NaN key and `clear` can, making that a Tier 3 fix. `go fix -minmax`.
+- **`cmp.Or`** (Go 1.22): not for expensive or side-effecting fallbacks.
+- **Test-only conveniences**: `t.Context()`, `t.Chdir()`, `slog.DiscardHandler`,
+  `b.Loop()` (Go 1.24); `synctest.Sleep`, `httptest.NewTestServer` (Go 1.27).
+  Preserve what the test observes — cancellation and cleanup timing, clock
+  behavior, transport coverage: `httptest.NewTestServer` has no listener for
+  anything else to dial. See [go-testing](../../go-testing/SKILL.md).
 
 ### `url.URL.Clone` / `url.Values.Clone` — Go 1.27
 
@@ -116,19 +74,6 @@ its value slices, unlike `maps.Clone`. Treat a shallow-to-deep swap as a Tier 3
 semantic fix with a contract test, not a behavior-preserving cleanup. `Clone`
 returns nil for nil, where a copy loop over `make` returned a writable map:
 `out := v.Clone(); if out == nil { out = url.Values{} }` keeps that. See the [go-defensive copy-depth rule](../../go-defensive/references/BOUNDARY-COPYING.md#copy-depth-is-part-of-the-contract).
-
-### Iterator forms of splitting — Go 1.24
-
-```go
-for line := range strings.SplitSeq(text, "\n") { ... }
-```
-
-Also `FieldsSeq`, `FieldsFuncSeq`, and the `bytes` equivalents: same elements in
-the same order, no intermediate slice. Only when the slice is not indexed,
-re-ranged, or kept — otherwise it is a rewrite, not a swap.
-
-`strings.Lines` is **not** a drop-in: it yields lines *with* their trailing
-newline, unlike `strings.Split(s, "\n")`.
 
 ### `slices` and `maps` over hand-rolled loops — Go 1.21–1.23
 
@@ -146,51 +91,10 @@ keys := slices.AppendSeq(make([]string, 0, len(m)), maps.Keys(m))
 slices.Sort(keys)
 ```
 
-`slices.Sorted(maps.Keys(m))` is the swap worth making — one line for three —
-but it returns nil for an empty map where the loop returned a non-nil empty
-slice, which `encoding/json` v1 writes as `null`, not `[]`. When that is
-observable, append into the allocation with `slices.AppendSeq` (Go 1.23+).
 Check nilness and capacity before replacing any collection loop or copy.
-
-Likewise `slices.Contains`, `Index`, `Reverse`, `Collect`, `Max`/`Min`,
-`Clone`. **Watch the sort**: `sort.Slice` is unstable, `slices.SortFunc` is
+**Watch the sort**: `sort.Slice` is unstable, `slices.SortFunc` is
 unstable, `slices.SortStableFunc` is stable — match what the original used,
 because for equal keys the output order is observable.
-
-### `for i := range n` — Go 1.22
-
-Only when the body does not mutate `i` or `n`. `range n` evaluates `n` once;
-the three-clause loop re-evaluates it each iteration. `go fix -rangeint`.
-
-### Delete `x := x` loop-variable shadowing — Go 1.22
-
-Per-iteration loop variables make the copy redundant. Safe once the `go`
-directive says 1.22+; a mechanical delete under an older directive is a real
-bug. A pointer to the element itself is `&s[i]`, not `&v`. `go fix -forvar`.
-
-### `min`, `max`, `clear` — Go 1.21
-
-Replace hand-written integer helpers when their comparisons agree with the
-builtins; float helpers need a NaN and signed-zero check first, because
-`min`/`max` propagate NaN and distinguish `-0` from `+0`. Replace
-`for k := range m { delete(m, k) }` with `clear(m)` only when no key can hold
-a NaN, through an array, struct, or interface included: the loop cannot delete
-a NaN key and `clear` can, making that a Tier 3 fix. `clear` on a *slice*
-zeroes elements rather than truncating — it is not `s = s[:0]`. `go fix -minmax`.
-
-### `cmp.Or` for fallback chains — Go 1.22
-
-`name := cmp.Or(input, defaultName)` replaces the if-chain, but evaluates every
-argument — not for expensive or side-effecting fallbacks, and not where `0` or `false` is a legitimate value the chain must keep.
-
-### Test-only conveniences — Go 1.24–1.27
-
-`t.Context()`, `t.Chdir()`, `slog.DiscardHandler`, `b.Loop()`, and — Go 1.27 —
-`synctest.Sleep` and `httptest.NewTestServer`. Preserve what the test observes
-— cancellation and cleanup timing, clock behavior, transport coverage:
-`httptest.NewTestServer` serves its own client over an in-memory network by
-default, with no listener for anything else to dial. See
-[go-testing](../../go-testing/SKILL.md).
 
 ## Tier 2 — safe with a condition
 

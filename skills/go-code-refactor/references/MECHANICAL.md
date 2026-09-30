@@ -96,23 +96,10 @@ For a rewrite too specific for the three above, write an `analysis.Analyzer`:
 `.golden` files with `analysistest.RunWithSuggestedFixes`, then ship it as a
 `singlechecker` binary or run it through `go vet -vettool=<path>`.
 
-This is the rung where the rewrite itself gets a test — which is why it is worth
-reaching even for a one-off, when the alternative is an unreviewable diff across
-dozens of files.
-
-`//go:fix inline` marks a function or constant so `go fix` folds every call site
-into its replacement — the machine-executable end of a deprecation migration
-once the replacement exists.
-
 ## `dave/dst` — when comments must survive
 
-`go/ast` stores comments in a side table keyed by byte offset, so moving,
-reordering, or deleting nodes desyncs them from the code they described.
-
-`github.com/dave/dst` attaches comments and blank-line spacing as node-local
-decorations, so a hand-rolled rewrite round-trips them via `decorator.Parse` and
-`decorator.Print`; `dstutil.Apply` mirrors `astutil.Apply`, so existing rewrite
-logic ports over. Reach for it only when a bespoke fixer has to preserve
+`go/ast` desyncs comments from the nodes a rewrite moves; `github.com/dave/dst`
+keeps them attached. Reach for it only when a bespoke fixer has to preserve
 comments — it is a dependency, and the ladder in
 [OVER-ENGINEERING.md](OVER-ENGINEERING.md) applies to tooling too.
 
@@ -123,9 +110,6 @@ goimports -w .     # even after a tool that claims to manage imports itself
 deadcode ./...     # find what the rewrite orphaned
 ```
 
-`deadcode` builds reachability with rapid type analysis from `main` and `init`,
-so it is unsound with respect to assembly, `go:linkname`, and reflection-driven
-dispatch. A "dead" verdict on code using any of those is a strong hint, not a
-proof — the deletion bar in [SKILL.md](../SKILL.md) is unchanged. Then run the
-repository gate: a rewrite that touched thirty files earns the full check, not
-the focused one.
+A `deadcode` verdict on code using assembly, `go:linkname`, or reflection-driven
+dispatch is a strong hint, not a proof. Then run the repository gate: a rewrite
+that touched thirty files earns the full check, not the focused one.

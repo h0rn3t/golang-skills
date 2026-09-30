@@ -6,13 +6,10 @@
 > Last verified: 2026-09-29
 
 One line per idiom: the form an older habit produces, the form the directive
-allows, and the trap on the same line. Read the whole card before the first
-edit of a task that writes Go — the older rows apply at every directive, so a
-`head` or a `grep` over it misses what a Go 1.19 module still gets. The card
-says what to write; [MODERNIZATION.md](../../go-code-refactor/references/MODERNIZATION.md)
-says which of these swaps change behavior when *existing* code is rewritten,
-and [go-data-structures](../../go-data-structures/SKILL.md) owns nil against
-empty for every collection row.
+allows, and the trap. Read the whole card — the older rows apply at every
+directive. [MODERNIZATION.md](../../go-code-refactor/references/MODERNIZATION.md)
+says which of these swaps change behavior when *existing* code is rewritten;
+[go-data-structures](../../go-data-structures/SKILL.md) owns nil against empty.
 
 ## In nearly every file
 
@@ -102,24 +99,10 @@ empty for every collection row.
 
 ## An API you have not written before
 
-`go doc` is the signature: `go doc strings.CutLast`, `go doc sync.OnceValue`,
-`go doc errors.AsType` before the line is written, never from memory —
+`go doc strings.CutLast` before the line is written, never from memory —
 `maps.Keys` returns an iterator (`iter.Seq`), not the slice the retired
-`golang.org/x/exp/maps` returned; a `slices.SortFunc` comparator returns
-`int`; `strings.Lines` keeps the newline. Without a shell, the owner skill's
-example is the source, and a symbol no skill shows is reported, not invented.
-`go vet` runs `stdversion`, which reports a standard-library symbol newer than
-the directive; `go fix -diff` shows the rewrites the analyzers know
-([go-linting](../../go-linting/SKILL.md#modernization-go-fix)).
-
-## Which version governs
-
-The `go` directive of the module's `go.mod`, read before the first edit. A
-`go.mod` with no `go` line is language version 1.16; a `go.work` has its own
-directive for the workspace, and it does not raise a member module's language
-version. A `toolchain` line, `GOTOOLCHAIN`, and the Go installed on the machine
-choose the compiler, not the language version, so none of them makes a newer
-form legal: the compiler refuses one with `requires go1.NN or later (-lang was
-set to go1.MM; check go.mod)`, and `go vet`'s `stdversion` reports a newer
-library symbol. Bumping the directive is its own change
+`golang.org/x/exp/maps` returned. Without a shell, the owner skill's example
+is the source, and a symbol no skill shows is reported, not invented. Which
+`go` directive governs is [Write Current Go](../SKILL.md#write-current-go)'s
+rule; bumping it is its own change
 ([MODERNIZATION.md](../../go-code-refactor/references/MODERNIZATION.md#tier-3--report-dont-apply)).

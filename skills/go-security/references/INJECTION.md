@@ -5,10 +5,6 @@
 > Minimum Go: 1.24 for `os.Root`; everything else long-standing
 > Last verified: 2026-09-29
 
-Every section is the same story: untrusted bytes reach an interpreter (SQL,
-shell, HTML, the filesystem, a URL fetcher) as **code** instead of **data**.
-The fix is an API that keeps the two apart, applied once at the boundary.
-
 ## Contents
 
 - [SQL](#sql)
@@ -93,29 +89,15 @@ Also:
   between your check and its open.
   [go-defensive](../../go-defensive/SKILL.md#confine-filesystem-access) has
   the form that hands the child the open file instead.
-- Use `CommandContext` so a hung child dies with the request.
 
 ---
 
 ## HTML and templates
 
-`html/template` is `text/template` plus contextual escaping: it knows whether
-`{{.}}` sits in text, an attribute, a URL, or a script block and escapes for
-that context. Rendering HTML with `text/template` or `fmt.Fprintf(w, "<p>%s</p>",
-name)` is XSS.
-
-The escape hatches — `template.HTML`, `template.JS`, `template.URL`,
+The `html/template` escape hatches — `template.HTML`, `template.JS`, `template.URL`,
 `template.HTMLAttr` — tell the engine "trust this". Wrapping input in one is
 the vulnerability; they exist for content **you** produced (a sanitizer's
 output, a constant snippet).
-
-```go
-// ✗ Bad — sanitization bypassed
-data := map[string]any{"Bio": template.HTML(user.Bio)}
-
-// ✓ Good — escaped for the context it lands in
-data := map[string]any{"Bio": user.Bio}
-```
 
 Set `Content-Type: text/html; charset=utf-8` yourself; sniffing turns a JSON
 endpoint into an HTML one when a client saves it as `.html`. Add
@@ -146,14 +128,12 @@ leading `..`, so `filepath.Join(base, filepath.Clean("../../etc/passwd"))` is
 `os.OpenRoot` resolves every component inside the directory, so those cases
 return an error instead of a file.
 
-Two more sinks:
+One more sink:
 
 - **Archive extraction** (`archive/zip`, `archive/tar`): the entry name, type,
   and size are attacker-controlled — `../` and absolute names, a symlink entry
   that a later entry writes through, and a 1 KB zip that expands to
   gigabytes. go-defensive's archive loop checks all three.
-- **Temp files**: `os.CreateTemp(dir, pattern)` — never build the name
-  yourself; a predictable name in a shared `/tmp` is a symlink race.
 
 ---
 
@@ -229,13 +209,8 @@ check see the proxy's address, not the target's.
 `net/http` rejects CR and LF in header values, so classic header injection is
 closed. What remains:
 
-- **Open redirect**: `http.Redirect(w, r, r.FormValue("next"), 302)` sends
-  users to an attacker's site from your domain. Accept local paths using the
-  check below, or use an explicit allowlist when external destinations are needed.
 - **Host header**: absolute URLs built from `r.Host` (password-reset links)
   follow whatever the client sent. Use a configured canonical host.
-- **`X-Forwarded-For`**: append-only and client-writable. Trust the *last*
-  hop only when a known proxy set it; otherwise `r.RemoteAddr` is the truth.
 
 ### Local redirects
 
@@ -265,7 +240,6 @@ Decoders are parsers running on attacker bytes; bound them.
 
 | Input | Bound |
 |---|---|
-| Request body | `http.MaxBytesReader(w, r.Body, limit)` before any decode |
 | JSON | Require one complete bounded document; use the [HTTP decoding rules](../../go-http/SKILL.md#handler-shape) or [JSON v2 example](../../go-http/references/JSON-V2.md#one-bounded-request-document) |
 | XML | a size cap before `xml.Unmarshal`; `encoding/xml` expands no entity a DTD declares (`&b;` is a syntax error), so billion-laughs does not apply |
 | Regex on input | RE2 is linear — Go's `regexp` is safe; a third-party PCRE engine is not |

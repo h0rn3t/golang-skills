@@ -13,7 +13,7 @@ allowed-tools: Bash(bash:*)
 
 - `../go-style-core/SKILL.md` - Load on every review before the first finding (Review Procedure step 2); its convention files fix the report language.
 - `assets/review-template.md` - Use when formatting review output with Must Fix, Should Fix, and Nits sections.
-- `scripts/pre-review.sh` - Run before manual review to collect gofmt, go vet, and golangci-lint results; a missing linter, or one that cannot run, is reported as `unavailable`, `--strict` makes it an error.
+- `scripts/pre-review.sh` - Run before manual review to collect gofmt, go vet, and golangci-lint results.
 
 ## Review Procedure
 
@@ -57,16 +57,14 @@ allowed-tools: Bash(bash:*)
 > **Validation**: Every finding names a file and line, and carries its
 > `verified` / `plausible` marker — a guess dressed as `verified` costs trust.
 > Name the checks you actually ran; a linter that was not installed or tests
-> that did not run are `unavailable`, never presented as clean.
-
----
+> that did not run are `unavailable`, never presented as clean. Gate result per
+> [go-linting](../go-linting/SKILL.md#verification-gate) (`PASS` / `FAIL` /
+> `INCOMPLETE`) with the checks actually run.
 
 ## Less Code
 
 - [ ] **Subtract first**: for each added block, what can stop existing? Name the cut tag and show the shorter form; the hunt list and the reach-for table live with the owner → [go-code-refactor](../go-code-refactor/SKILL.md#delete-before-you-restructure)
 - [ ] **Shorter only where it reads as well**: never golf; validation at trust boundaries, data-loss error handling, and security checks are never "simplified" away, nor are the tests that fail when the logic breaks → [go-code-refactor](../go-code-refactor/references/OVER-ENGINEERING.md)
-
----
 
 ## Correctness
 
@@ -75,14 +73,9 @@ allowed-tools: Bash(bash:*)
 - [ ] **Callers outside the diff**: for a changed exported signature, behavior, or interface method set, look up references and implementations and read the callers the diff did not touch; one it leaves broken is a Must Fix
 - [ ] **Failure paths**: every error branch, timeout, and partial write leaves state a caller can recover from — read each with the failing call moved one line earlier
 
----
-
 ## Documentation
 
 - [ ] **Package comments**: Package comment appears adjacent to package clause with no blank line → [go-documentation](../go-documentation/SKILL.md)
-- [ ] **Named result parameters**: Only used when they clarify meaning (e.g., multiple same-type returns), not just to enable naked returns → [go-documentation](../go-documentation/SKILL.md)
-
----
 
 ## Error Handling
 
@@ -90,48 +83,32 @@ allowed-tools: Bash(bash:*)
 - [ ] **In-band errors**: No magic values (-1, "", nil); use multiple returns with error or ok bool → [go-error-handling](../go-error-handling/SKILL.md)
 - [ ] **Indent error flow**: Handle errors first and return; keep normal path at minimal indentation → [go-style-core](../go-style-core/SKILL.md#reduce-nesting)
 
----
-
 ## Naming
 
-- [ ] **Variable names**: Short names for limited scope (`i`, `r`, `c`); longer names for wider scope → [go-naming](../go-naming/SKILL.md)
 - [ ] **Package names**: No stuttering (use `chubby.File` not `chubby.ChubbyFile`); avoid `util`, `common`, `misc` → [go-packages](../go-packages/SKILL.md)
 - [ ] **Built-in names stay free**: `error`, `string`, `len`, `cap`, `append`, `copy`, `new`, `make` name only the builtins; a local of that name is a finding → [go-style-core](../go-style-core/SKILL.md)
-
----
 
 ## Concurrency
 
 - [ ] **Goroutine lifetimes**: Clear when/whether goroutines exit; document if not obvious → [go-concurrency](../go-concurrency/SKILL.md)
-- [ ] **Synchronous functions**: Prefer sync over async; let callers add concurrency if needed → [go-concurrency](../go-concurrency/SKILL.md)
 - [ ] **Contexts**: the first parameter, passed through every call that can block or be cancelled; a `ctx` field in a struct or a custom Context type is a finding → [go-context](../go-context/SKILL.md)
-
----
 
 ## Interfaces
 
-- [ ] **Interface location**: Define in consumer package, not implementor; return concrete types from producers → [go-interfaces](../go-interfaces/SKILL.md)
 - [ ] **Interfaces where they are consumed**: an interface appears when a consumer substitutes implementations, declared in the consumer's package; one declared beside its only implementation "for mocking" is a finding → [go-interfaces](../go-interfaces/SKILL.md)
 - [ ] **Receiver type**: Use pointer if mutating, has sync fields, or is large; value for small immutable types; don't mix → [go-interfaces](../go-interfaces/SKILL.md)
 
----
-
 ## Data Structures
 
-- [ ] **Empty slices**: Prefer `var t []string` (nil) over `t := []string{}` (non-nil zero-length) → [go-data-structures](../go-data-structures/SKILL.md)
 - [ ] **Empty list on a v1 wire**: in a package on `encoding/json` v1, a list the contract writes as `[]` keeps `out := make([]T, 0, n)`, since v1 writes nil as `null`; a change to `var out []T` there is a finding → [go-data-structures](../go-data-structures/SKILL.md#declaring-empty-slices)
 - [ ] **Copy depth**: check the ownership contract: `slices.Clone`/`maps.Clone` are shallow, and a type's `Clone` follows its documented contract. Flag a copy that violates the contract or an unrequested depth change presented as cleanup; a deeper copy that fixes an existing contract violation is a bug fix → [go-defensive](../go-defensive/references/BOUNDARY-COPYING.md#copy-depth-is-part-of-the-contract)
 - [ ] **Copying values**: do not copy structs containing locks or other synchronization values after use; a value receiver on a type with `*T` methods is a finding → [go-data-structures](../go-data-structures/SKILL.md)
-
----
 
 ## Security
 
 - [ ] **Trace untrusted input to its sink**: SQL, shell, template, file path, outbound URL, log line — each has a stdlib defense at the boundary → [go-security](../go-security/SKILL.md)
 - [ ] **Secrets**: constant-time compare, memory-hard password hash, no credential in a log or error, `InsecureSkipVerify` only in tests → [go-security](../go-security/SKILL.md)
 - [ ] **Errors over panics**: a failure the caller can act on returns an error; `panic` marks a programmer error the process cannot continue past → [go-defensive](../go-defensive/SKILL.md)
-
----
 
 ## Declarations and Initialization
 
@@ -140,35 +117,20 @@ allowed-tools: Bash(bash:*)
 - [ ] **Reduce scope**: Move declarations close to usage; use if-init to limit variable scope → [go-style-core](../go-style-core/SKILL.md)
 - [ ] **Struct init**: Prefer keyed fields; preserve meaningful zero values and local exceptions → [go-style-core](../go-style-core/SKILL.md)
 
----
-
 ## Functions
 
 - [ ] **File ordering**: Types → constructors → exported methods → unexported → utilities → [go-functions](../go-functions/SKILL.md)
-- [ ] **Signature formatting**: All args on own lines with trailing comma when wrapping → [go-functions](../go-functions/SKILL.md)
 - [ ] **Naked parameters**: Add `/* name */` comments for ambiguous bool/int args, or use custom types → [go-functions](../go-functions/SKILL.md)
-- [ ] **Printf naming**: Functions accepting format strings end in `f` for `go vet` → [go-functions](../go-functions/SKILL.md)
-
----
 
 ## Style
 
 - [ ] **Current Go**: Changed lines use the form available at the `go` directive; an older idiom kept because the neighbor uses it is Should Fix, and `go fix -diff` on the diff's packages reports nothing in changed lines; the forms are one line each in [CURRENT-GO.md](../go-style-core/references/CURRENT-GO.md) → [go-style-core](../go-style-core/SKILL.md#write-current-go)
-- [ ] **Line length**: No rigid limit, but avoid uncomfortably long lines; break by semantics, not arbitrary length → [go-style-core](../go-style-core/SKILL.md)
-- [ ] **Naked returns**: Only in short functions; explicit returns in medium/large functions → [go-style-core](../go-style-core/SKILL.md)
 - [ ] **Pass values**: small fixed-size types (`string`, `time.Time`, a few ints) travel by value; a pointer parameter means mutation or identity → [go-functions](../go-functions/SKILL.md)
-- [ ] **String concatenation**: `+` for simple; `fmt.Sprintf` for formatting; `strings.Builder` for loops → [go-performance](../go-performance/SKILL.md)
-
----
 
 ## Logging
 
 - [ ] **Use slog**: New code uses `log/slog`, not `log` or `fmt.Println` for operational logging → [go-logging](../go-logging/SKILL.md)
 - [ ] **Structured fields**: Log messages use static strings with key-value attributes, not fmt.Sprintf → [go-logging](../go-logging/SKILL.md)
-- [ ] **Appropriate levels**: Debug for developer tracing, Info for notable events, Warn for recoverable issues, Error for failures → [go-logging](../go-logging/SKILL.md)
-- [ ] **No secrets in logs**: PII, credentials, and tokens are never logged → [go-logging](../go-logging/SKILL.md)
-
----
 
 ## HTTP
 
@@ -177,8 +139,6 @@ allowed-tools: Bash(bash:*)
 - [ ] **Error mapping**: Sentinels map to status codes; 500 responses never carry `err.Error()` → [go-http](../go-http/SKILL.md)
 - [ ] **Clients**: Per-dependency `*http.Client` with `Timeout`; `NewRequestWithContext`; body closed on every path → [go-http](../go-http/SKILL.md)
 
----
-
 ## Database
 
 - [ ] **Context on queries**: `QueryContext`/`ExecContext`/`BeginTx`, never the ctx-less forms → [go-database](../go-database/SKILL.md)
@@ -186,42 +146,19 @@ allowed-tools: Bash(bash:*)
 - [ ] **Transactions**: `defer tx.Rollback()` right after `BeginTx`; `Commit` error checked; only `tx` used inside → [go-database](../go-database/SKILL.md)
 - [ ] **No query per row**: Batch with `ANY`/`IN` or a join; placeholders, never string-built SQL → [go-database](../go-database/SKILL.md)
 
----
-
-## Imports
-
-- [ ] **Import renaming**: Avoid unless collision; rename local/project-specific import on collision → [go-packages](../go-packages/SKILL.md)
-
----
-
 ## Generics
 
 - [ ] **When to use**: Only when multiple types share identical logic and interfaces don't suffice → [go-generics](../go-generics/SKILL.md)
 - [ ] **Type aliases**: Use definitions for new types; aliases only for package migration → [go-generics](../go-generics/SKILL.md)
 
----
-
 ## Testing
 
 - [ ] **Examples**: Include runnable `Example` functions or tests demonstrating usage → [go-documentation](../go-documentation/SKILL.md)
 - [ ] **Useful test failures**: Messages include what was wrong, inputs, got, and want; order is `got != want` → [go-testing](../go-testing/SKILL.md)
-- [ ] **TestMain**: Use only when all tests need common setup with teardown; prefer scoped helpers first → [go-testing](../go-testing/SKILL.md)
 - [ ] **Real transports**: Prefer `httptest.NewTestServer(t, h)` (Go 1.27+) + real client over mocking HTTP; at a 1.26 directive, `httptest.NewServer(h)` plus `t.Cleanup(srv.Close)` → [go-testing](../go-testing/SKILL.md)
 - [ ] **Test context**: Tests use `t.Context()`, not `context.Background()` → [go-testing](../go-testing/SKILL.md)
 - [ ] **No sleep-based waits**: Timing tests use `synctest`, not `time.Sleep` → [go-testing](../go-testing/SKILL.md)
 
----
-
-## Automated Checks
-
-Gate result per [go-linting](../go-linting/SKILL.md#verification-gate)
-(`PASS` / `FAIL` / `INCOMPLETE`) with the checks actually run.
-
----
-
 ## Related Skills
 
-- [go-style-core](../go-style-core/SKILL.md): style priority and how much to say; [go-linting](../go-linting/SKILL.md): golangci-lint and CI configuration.
-- [go-code](../go-code/SKILL.md): the loads before a fix the request asks for.
-- [go-code-refactor](../go-code-refactor/SKILL.md): when the review becomes a restructure; its [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md) for what to delete.
-- [go-http](../go-http/SKILL.md) and [WEB-SERVER.md](../go-http/references/WEB-SERVER.md): handlers, middleware, servers, clients; [go-database](../go-database/SKILL.md): repositories, queries, transactions, migrations.
+- [go-http](../go-http/SKILL.md) and [WEB-SERVER.md](../go-http/references/WEB-SERVER.md): handlers, middleware, servers, clients.

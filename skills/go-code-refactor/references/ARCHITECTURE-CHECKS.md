@@ -7,8 +7,7 @@
 
 Companion to [ARCHITECTURE.md](ARCHITECTURE.md): how to install and read the
 bundled checker, what each rule fails, what the checker cannot see, the
-optional `depguard` duplicate, the report shape, and the required behavior per
-situation. The checker is
+optional `depguard` duplicate, and the report shape. The checker is
 [`scripts/check-architecture.go`](../scripts/check-architecture.go), run
 through [`scripts/check-architecture.sh`](../scripts/check-architecture.sh);
 its unit tests are
@@ -24,7 +23,6 @@ and the [fixture](../testdata/architecture/README.md) is the module it passes.
 - [What the checker does not cover](#what-the-checker-does-not-cover)
 - [Optional depguard duplicate](#optional-depguard-duplicate)
 - [Report contract](#report-contract)
-- [Common mistakes](#common-mistakes)
 
 ## Running the checker
 
@@ -137,7 +135,8 @@ review item; the checker sees imports, not signatures.
 duplicates that one rule and none of the others. The configuration is schema
 version 2 and enables the linter explicitly; both the global (`internal/services`)
 and module-first (`internal/<module>/services`) spellings are covered, nested
-packages included. Validate it with the repository's pinned `golangci-lint`
+packages included; a `handlers` rule is the same shape with only the database
+entries. Validate it with the repository's pinned `golangci-lint`
 (`golangci-lint config verify --config <file>`) before adopting it.
 
 ```yaml
@@ -171,21 +170,6 @@ linters:
               desc: persistence belongs in repositories
             - pkg: gorm.io
               desc: persistence belongs in repositories
-        handlers-have-no-database-drivers:
-          list-mode: lax
-          files:
-            - "**/internal/handlers/*.go"
-            - "**/internal/handlers/**/*.go"
-            - "**/internal/*/handlers/*.go"
-            - "**/internal/*/handlers/**/*.go"
-            - "!$test"
-          deny:
-            - pkg: database/sql
-              desc: persistence belongs in repositories
-            - pkg: github.com/jackc/pgx
-              desc: persistence belongs in repositories
-            - pkg: gorm.io
-              desc: persistence belongs in repositories
 ```
 
 `go-arch-lint` can state the module and layer edges declaratively as
@@ -207,39 +191,4 @@ Verification: commands, tool/build scope, results, and before/after findings.
 Exceptions/limits: approved waivers, unexecuted checks, remaining uncertainty.
 ```
 
-Do not turn "fewer imports" or "more modules" into success criteria. The required behavior by situation:
-
-| Situation | Required behavior |
-|---|---|
-| Coherent one-domain B | No unsolicited directory migration |
-| One handler-to-repository shortcut | Local boundary repair, not a new architecture |
-| Unrelated domains mixed in global layers | Ownership-based proposal retaining preferred names |
-| Same-module forbidden edge | Checker fails, including a nested subpackage |
-| Foreign implementation vs foreign root contract | Reject the implementation; allow a legitimate contract from a use-case consumer |
-| Business-to-app or platform-to-business import | Checker fails |
-| Module path itself contains `/internal/` | Correct classification using the actual module prefix |
-| Removed, duplicated, or unexplained exception | Checker fails rather than silently accepting it |
-| Package move across an atomic use case | Atomicity and observable behavior preserved |
-| Tool unavailable or build scope incomplete | Report the limitation without inventing a green gate |
-
-The checker proves import rules, not that the chosen architecture is right; there is no single correct directory tree.
-
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Blaming `handlers/services/repositories/models` | Judge ownership, scope, and edges |
-| Treating a four-layer feature edit as proof of bad architecture | Identify unrelated owners/contracts that had to change |
-| Choosing C/D/E before considering no move | Try the smallest boundary repair first |
-| "Concrete first" while forbidding service-to-repository imports | Use a minimal consumer interface at this real architectural seam |
-| Drawing repository-to-service imports as mandatory | Let structural satisfaction and constructor wiring do the work |
-| Putting multi-module business orchestration in `app` | Give the use case a business owner; reserve `app` for composition |
-| Exposing ORM/local models through a root contract | Publish the small intended contract, not a re-export of the implementation |
-| Creating DTOs and generic repositories for every layer | Split only at demonstrated representation or behavioral divergence |
-| Losing atomicity when splitting repositories | Preserve the transaction contract and test partial failure |
-| Assuming `%w` hides driver details | Deliberately choose error identity and abstraction boundaries |
-| Making `platform/**` universally importable | Exact shared-package approval; no business dependencies from platform |
-| Checking only cross-module edges | Check layers, composition, drivers, and unknown classification too |
-| Waiving the violation introduced by the refactor | Fix it or report it; seek a separate policy decision |
-| Claiming imports prove data ownership or authorization | Add query, contract, and behavior checks |
-| Renaming an entire monolith in one patch | Stage one ownership concept; retain reversible checkpoints |
+Do not turn "fewer imports" or "more modules" into success criteria. The checker proves import rules, not that the chosen architecture is right; there is no single correct directory tree.

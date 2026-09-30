@@ -5,11 +5,9 @@
 > Minimum Go: `ServeMux` patterns 1.22; `encoding/json/v2` 1.27
 > Last verified: 2026-09-24
 
-A whole `package main` that serves one read-only route, in the form the owner
-skills ask for. The store is a concrete type: an interface arrives with a
-second implementation or a test fake
-([go-interfaces](../../go-interfaces/SKILL.md)). The handler is registered
-once, so it is written at its registration and captures the store. A server
+A whole `package main` that serves one read-only route. The store is a
+concrete type: an interface arrives with a second implementation or a test fake
+([go-interfaces](../../go-interfaces/SKILL.md)). A server
 with state-changing routes also wraps the mux in
 `http.NewCrossOriginProtection().Handler(mux)`
 ([Server Construction](../SKILL.md#server-construction)); on a GET-only
@@ -112,12 +110,4 @@ error that arrives first is a real one and is returned as it is.
 
 | Area | Skill | What's demonstrated |
 |------|-------|---------------------|
-| Concrete dependency | [go-interfaces](../../go-interfaces/SKILL.md) | `store` is a type, not an interface with one implementation |
-| Naming | [go-naming](../../go-naming/SKILL.md) | MixedCaps, one-letter receiver, unexported names in `package main` |
-| Error handling | [go-error-handling](../../go-error-handling/SKILL.md) | Sentinel matched with `errors.Is`; the handler logs once and answers with a status |
-| Context | [go-context](../../go-context/SKILL.md) | Signal context owns the lifetime; the request context reaches the store |
-| Control flow | [go-style-core](../../go-style-core/SKILL.md) | Early returns for error cases |
-| Concurrency | [go-concurrency](../../go-concurrency/SKILL.md) | One goroutine with a buffered result channel |
-| Defensive | [go-defensive](../../go-defensive/SKILL.md) | `defer cancel()`, `time.Duration` timeouts, graceful shutdown |
-| Packages | [go-packages](../../go-packages/SKILL.md) | `main` calls `run` and is the only place that exits |
 | Logging | [go-logging](../../go-logging/SKILL.md) | Structured slog, a static message, the error logged once |

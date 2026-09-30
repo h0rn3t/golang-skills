@@ -15,17 +15,6 @@ artifact. Use `rg` for narrow discovery, then read definitions and call sites.
 Resolve interface implementations, router registration, and build/feature
 branches for the affected deployment.
 
-Typical paths (skip layers the system does not have):
-
-```text
-HTTP request → router → auth/tenant middleware → decode/defaults
-             → domain/service → repository/SQL or external call
-             → scan/mapping/aggregation → response serialization
-
-Event → consumer registration → decode/version → tenant/idempotency check
-      → transaction/state change → acknowledgement or retry
-```
-
 Do not expand into the whole repository. At each relevant boundary record:
 
 | Boundary | What to compare |

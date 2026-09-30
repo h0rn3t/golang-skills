@@ -1,15 +1,15 @@
 # Architecture of an Existing Monolith
 
-> Sources: [go.dev/doc/modules/layout](https://go.dev/doc/modules/layout); [`go help list`](https://go.dev/cmd/go/#hdr-List_packages_or_modules); [Executing transactions](https://go.dev/doc/database/execute-transactions); [Working with Errors in Go](https://go.dev/blog/go1.13-errors); [go.dev/blog/package-names](https://go.dev/blog/package-names); [Google Go interface guidance](https://google.github.io/styleguide/go/decisions.html#interfaces); Fowler, *Branch by Abstraction*; the background works listed under Sources and companion materials
-> Authority: target shapes are advisory. The dependency rules below are project policy, not requirements of the Go language. For a multi-domain monolith, the preferred ownership model is **modules own the tree; layers live inside a module when they earn a package**.
-> Minimum Go: 1.27 project baseline, retained from the original reference. Do not change a repository's `go.mod`, toolchain, or pinned linters as a side effect of an architecture refactor.
-> Last verified: 2026-09-13. This date records the document revision, not successful execution against the target repository or verification of every external example.
+> Sources: [go.dev/doc/modules/layout](https://go.dev/doc/modules/layout); [`go help list`](https://go.dev/cmd/go/#hdr-List_packages_or_modules); [Executing transactions](https://go.dev/doc/database/execute-transactions); [Working with Errors in Go](https://go.dev/blog/go1.13-errors); [go.dev/blog/package-names](https://go.dev/blog/package-names); [Google Go interface guidance](https://google.github.io/styleguide/go/decisions.html#interfaces); Fowler, *Branch by Abstraction*
+> Authority: target shapes are advisory. The dependency rules below are project policy, not requirements of the Go language.
+> Minimum Go: 1.27 project baseline. Do not change a repository's `go.mod`, toolchain, or pinned linters as a side effect of an architecture refactor.
+> Last verified: 2026-09-13.
 
 The compiler restricts access to `internal/` packages and rejects import cycles. It does not enforce service boundaries, data ownership, or transaction semantics. Those need executable checks and behavior tests.
 
-Use this reference when the problem concerns package dependencies or ownership, not merely a long function. Read repository conventions and measure the existing graph before choosing a target. **Keeping the current structure and repairing one boundary is a valid, often preferable result.**
+Read repository conventions and measure the existing graph before choosing a target. **Keeping the current structure and repairing one boundary is a valid, often preferable result.**
 
-An architecture move is High tier ([SKILL.md](../SKILL.md#risk-tiers)): propose it unless the user explicitly requested the move. Permission to refactor a function or improve readability is not permission to reorganize the application. Production code may grow, but the report must explain what concrete coupling, ownership violation, or behavior duplication that growth removes ([Concision Gate](../SKILL.md#concision-gate)). [go-packages](../../go-packages/SKILL.md#package-organization) owns placement of new packages.
+Permission to refactor a function or improve readability is not permission to reorganize the application. [go-packages](../../go-packages/SKILL.md#package-organization) owns placement of new packages.
 
 Here, **business module** means an owned feature/domain package tree, not a Go module with a separate `go.mod`. Do not introduce multiple `go.mod` files merely to obtain business boundaries.
 
@@ -27,9 +27,6 @@ Here, **business module** means an owned feature/domain package tree, not a Go m
 - [Staging the move](#staging-the-move)
 - [Enforcing the boundary](#enforcing-the-boundary)
 - [Report contract](#report-contract)
-- [Common mistakes](#common-mistakes)
-- [Decision rule](#decision-rule)
-- [Sources and companion materials](#sources-and-companion-materials)
 
 ## When the smell is architectural
 
@@ -241,56 +238,9 @@ State what can be reverted at each step. Avoid combining a package relocation wi
 
 ## Enforcing the boundary
 
-Use [ARCHITECTURE-CHECKS.md](ARCHITECTURE-CHECKS.md) and the bundled checker/tests when installing or changing enforcement. Keep executable code out of this policy reference so there is one implementation to test, not an uncompiled Markdown copy.
-
-| Requirement | Executable or review gate |
-|---|---|
-| No foreign implementation imports | `scripts/check-architecture.go`: `ownership` rule |
-| Same-module layer directions | Same checker: `layer` rule; includes nested layer packages and B/C layouts |
-| Business/platform code cannot import `app` | Same checker: `composition` rule |
-| Platform cannot import business; shared imports are explicitly approved | Same checker: `platform` rule |
-| Layered root contracts do not re-export local implementation dependencies | Same checker: `contract` imports, plus exported-signature review |
-| No listed transport/DB drivers in services/models/contracts; no DB drivers in handlers | Same checker: `driver` rule; optional `depguard` duplicates file-level checks |
-| Unknown internal ownership is not silently ignored | Same checker rejects unclassified packages and local targets |
-| No newly waived violation or stale waiver | Exact rule/edge allowlist and stale-entry check; policy/config changes reviewed separately |
-| Atomicity, errors, authorization, data ownership | Behavior/integration tests and query/contract review; **not** proven by import checking |
-
-The checker covers production imports under the selected Go module's `internal/`, for one build configuration. It is not a workspace-wide architecture proof. Test-only imports, packages outside `internal/`, other Go modules, transitive library behavior, SQL table ownership, and runtime call cycles require their own declared checks. Run each supported build scope, and do not share a conditional exception baseline across unrelated scopes without aggregating observations.
-
-The optional standalone `depguard` configuration declares golangci-lint schema version 2 and explicitly enables the linter. Its globs cover both `internal/services` and `internal/<module>/services`, including nested packages, and the equivalent models/handlers cases. It complements the checker; it is not a replacement for ownership/layer enforcement. Validate it with the repository's pinned golangci-lint version before adoption. See [configuration](https://golangci-lint.run/docs/configuration/file/) and [depguard settings](https://golangci-lint.run/docs/linters/configuration/#depguard).
-
-**The model must not add a new allowlist entry, broaden a glob/allow rule, suppress a failure, change the selected layout, or disable a gate merely to make its refactor pass.** A new exception is a separate architecture decision. The supplied configurations start with empty `known` lists; approval metadata cannot be inferred from a failing test. Do not mark a check as passed when it was not run.
+Use [ARCHITECTURE-CHECKS.md](ARCHITECTURE-CHECKS.md) and the bundled checker/tests when installing or changing enforcement. Atomicity, errors, authorization, and data ownership need behavior/integration tests and query/contract review; they are **not** proven by import checking.
 
 ## Report contract
 
-The compact report shape (observation, consequence, decision, why not smaller,
-preserve, changes, verification, exceptions) and the required behavior per
-situation live in [ARCHITECTURE-CHECKS.md](ARCHITECTURE-CHECKS.md#report-contract).
+The compact report shape lives in [ARCHITECTURE-CHECKS.md](ARCHITECTURE-CHECKS.md#report-contract).
 Fewer imports or more modules are never the success criterion.
-
-## Common mistakes
-
-The mistakes the checker and a review catch — blaming the layer names,
-choosing C/D/E before considering no move, waiving the violation a refactor
-introduced, losing atomicity when splitting repositories — are tabled with
-their fixes in [ARCHITECTURE-CHECKS.md](ARCHITECTURE-CHECKS.md#common-mistakes).
-
-## Decision rule
-
-Use the names that make the codebase easy for its maintainers to navigate. Keep `handlers/`, `services/`, `repositories/`, and `models/` as the default layered vocabulary.
-
-```text
-small cohesive service:        layers may be the tree
-multi-domain monolith:         modules own the tree; layers stay local
-no demonstrated boundary bug: keep the current structure
-```
-
-Improve an established ownership or dependency problem with the smallest safe change, and prove the relevant behavior was preserved. Directory names are navigation; architectural quality comes from ownership, dependency direction, and explicit contracts.
-
-## Sources and companion materials
-
-Background sources: Go module layout and package naming; Google Go Style Guide; Ben Johnson, *Standard Package Layout* (2016); Kat Zien's GopherCon 2018 talk and JetBrains follow-up; Three Dots Labs on modular monoliths and Clean Architecture; Fowler's *Branch by Abstraction* and *Strangler Fig Application*; Feathers, *Working Effectively with Legacy Code*; Russ Cox's comment in `golang-standards/project-layout#117`; depguard and go-arch-lint. These works are background, not authorities for this project's exact folder spellings or policy preference order.
-
-The links beside technical statements identify the directly relevant official/primary documentation. The checker rules and the report format are project policy, not attributed quotations from those sources.
-
-Companions: [examples](ARCHITECTURE-EXAMPLES.md), [check installation and coverage](ARCHITECTURE-CHECKS.md), [checker](../scripts/check-architecture.go), [checker tests](../scripts/check-architecture_test.go), and [compilable fixture](../testdata/architecture/README.md).

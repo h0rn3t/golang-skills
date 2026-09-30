@@ -29,49 +29,8 @@ sense.
   mutable fields and no pointers work well as value receivers
 - **Simple basic types**: `int`, `string`, etc.
 
-```go
-// Value receivers: small, immutable type; scaling returns a new Point
-type Point struct {
-    X, Y float64
-}
-
-func (p Point) Distance(q Point) float64 {
-    return math.Hypot(q.X-p.X, q.Y-p.Y)
-}
-
-func (p Point) Scale(factor float64) Point {
-    return Point{X: p.X * factor, Y: p.Y * factor}
-}
-
-// Pointer receiver: mutates, and contains sync.Mutex
-type Counter struct {
-    mu    sync.Mutex
-    count int
-}
-
-func (c *Counter) Increment() {
-    c.mu.Lock()
-    c.count++
-    c.mu.Unlock()
-}
-```
-
 ## Consistency Rule
 
 **Don't mix receiver types**. Choose either pointers or struct types for all
 available methods on a type. If any method needs a pointer receiver, use pointer
 receivers for all methods.
-
-```go
-// Good: Consistent pointer receivers
-type Buffer struct {
-    data []byte
-}
-
-func (b *Buffer) Write(p []byte) (int, error) { /* ... */ }
-func (b *Buffer) Read(p []byte) (int, error)  { /* ... */ }
-func (b *Buffer) Len() int                     { return len(b.data) }
-
-// Bad: Mixed receiver types
-func (b Buffer) Len() int                      { return len(b.data) }  // inconsistent
-```

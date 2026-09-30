@@ -5,9 +5,6 @@
 > Minimum Go: `log/slog` 1.21; `slog.DiscardHandler` 1.24; `slog.NewMultiHandler` 1.26
 > Last verified: 2026-09-10
 
-Detailed patterns for slog setup, handler configuration, testing, HTTP
-middleware, and migration from the legacy `log` package.
-
 ## Contents
 
 - [Setting Up slog](#setting-up-slog)
@@ -18,59 +15,25 @@ middleware, and migration from the legacy `log` package.
 
 ## Setting Up slog
 
-### Basic Configuration
-
-In `main`, configure a JSON handler for production:
-
-```go
-logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-    Level: slog.LevelInfo,
-}))
-slog.SetDefault(logger)
-slog.Info("server started", "addr", ":8080")
-// Output: {"time":"...","level":"INFO","msg":"server started","addr":":8080"}
-```
-
 ### Dynamic Level Control
 
 Use `slog.LevelVar` to change the minimum level at runtime (e.g., via an
 admin endpoint or signal handler):
 
 ```go
-func run() error {
-    level := new(slog.LevelVar) // Info until changed
-    slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
-
-    admin := http.NewServeMux() // served on an internal-only listener
-    admin.HandleFunc("POST /log-level/debug", func(w http.ResponseWriter, r *http.Request) {
-        level.Set(slog.LevelDebug)
-    })
-    // ...
-}
+level := new(slog.LevelVar) // Info until changed
+slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
+level.Set(slog.LevelDebug)
 ```
 
 ---
 
 ## Handler Configuration
 
-### Adding Source Location
-
-```go
-logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-    AddSource: true,
-    Level:     slog.LevelInfo,
-}))
-// Output includes: "source":{"function":"main.handleRequest","file":"server.go","line":42}
-```
-
 ### Default Attributes
 
 Use `logger.With` for fixed fields; a custom handler is only needed when fields
-must be extracted dynamically from each call's context:
-
-```go
-logger = logger.With("service", "orders")
-```
+must be extracted dynamically from each call's context.
 
 ### Multi-Handler (Fan-Out)
 
@@ -118,23 +81,6 @@ func TestHandler(t *testing.T) {
         return m
     }
     slogtest.Run(t, newHandler, result)
-}
-```
-
-### Capturing Logs in Tests
-
-For unit tests that assert on log output, write to a buffer:
-
-```go
-func TestOrderProcessing(t *testing.T) {
-    var buf bytes.Buffer
-    logger := slog.New(slog.NewJSONHandler(&buf, nil))
-
-    processOrder(logger, order)
-
-    if !strings.Contains(buf.String(), `"order_id"`) {
-        t.Error("expected order_id in log output")
-    }
 }
 ```
 
@@ -231,17 +177,7 @@ func loggerFromCtx(ctx context.Context) *slog.Logger {
 
 ## Migration from log.Printf to slog
 
-### Step 1: Replace Direct Calls
-
-```go
-// Before
-log.Printf("user %s logged in from %s", userID, ip)
-
-// After
-slog.Info("user logged in", "user_id", userID, "ip", ip)
-```
-
-### Step 2: Replace log.Fatalf in main()
+### Replace log.Fatalf in main()
 
 ```go
 // Before
@@ -252,7 +188,7 @@ slog.Error("connect", "err", err)
 os.Exit(1)
 ```
 
-### Step 3: Bridge Legacy Code
+### Bridge Legacy Code
 
 If migrating incrementally, redirect the standard `log` package output
 through slog:
@@ -264,28 +200,3 @@ slog.SetDefault(logger)
 // The standard log package now writes through slog's default handler.
 // This works because slog.SetDefault also updates log.Default().
 ```
-
-### Step 4: Replace Logger Parameters
-
-```go
-// Before: passing *log.Logger around
-func NewServer(addr string, logger *log.Logger) *Server
-
-// After: pass *slog.Logger explicitly
-func NewServer(addr string, logger *slog.Logger) *Server
-
-// Or derive from context in handlers
-func (s *Server) handleExport(ctx context.Context, id string) {
-    loggerFromCtx(ctx).Info("export queued", "export_id", id)
-}
-```
-
-### Migration Checklist
-
-| Step | What to change | Verify |
-|------|---------------|--------|
-| 1 | `log.Printf` → `slog.Info/Warn/Error` | `rg 'log\.Printf'` returns 0 hits |
-| 2 | `log.Fatalf` → `slog.Error` + `os.Exit(1)` in main | Only in `main()` |
-| 3 | Set `slog.SetDefault` early in main | Legacy `log` calls route through slog |
-| 4 | `*log.Logger` params → `*slog.Logger` | All constructors updated |
-| 5 | Remove `"log"` imports where replaced | `goimports` handles this |

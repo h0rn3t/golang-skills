@@ -13,8 +13,6 @@ description: Use when creating or splitting Go packages, organizing imports or d
 - `references/IMPORTS.md` - Read when grouping imports, using blank imports, dot imports, or import aliases.
 - `references/PACKAGE-SIZE.md` - Read when splitting packages, avoiding `init`, structuring `main`, or designing CLI flags/subcommands.
 
-> **When this skill does NOT apply**: For naming individual identifiers within a package, see [go-naming](../go-naming/SKILL.md). For organizing functions within a single file, see [go-functions](../go-functions/SKILL.md). For configuring linters that enforce import rules, see [go-linting](../go-linting/SKILL.md).
-
 ## Dependency Ladder
 
 > **Normative**: Before adding a module to `go.mod`, check the stdlib. Go 1.27
@@ -84,10 +82,9 @@ not have (v1, v3, v5, custom sources).
   blocks down to two — direct and indirect — so the first run after the bump
   can produce a large diff that changes no dependency.
   `go mod tidy && git diff --exit-code` is the clean-checkout form for CI.
-- **Scan before releasing**: `govulncheck ./...` for reachable CVEs in the
-  module tree, pinned through the `tool` directive above so local runs and CI
-  agree. The gate lives in [go-linting](../go-linting/SKILL.md); finding
-  triage routes to [go-security](../go-security/SKILL.md).
+- **Scan before releasing**: `govulncheck ./...`, pinned through the `tool`
+  directive above. The gate lives in [go-linting](../go-linting/SKILL.md);
+  finding triage routes to [go-security](../go-security/SKILL.md).
 
 ---
 
@@ -96,10 +93,9 @@ not have (v1, v3, v5, custom sources).
 ### Layout
 
 - `cmd/<binary>` holds each `main` package; everything it imports lives
-  elsewhere so the logic is testable.
-- `internal/` holds packages that are not API — the compiler refuses imports
-  from outside the parent tree. Use it for anything you do not want to support;
-  do not wrap the whole module in `internal/pkg`. A layer tree
+  elsewhere.
+- `internal/` holds packages that are not API. Use it for anything you do not
+  want to support; do not wrap the whole module in `internal/pkg`. A layer tree
   (`internal/handlers`, `internal/services`, `internal/repositories`,
   `internal/models`) fits one cohesive service; once several domains change
   independently, the same layer names move under `internal/<module>/`.
@@ -113,13 +109,6 @@ not have (v1, v3, v5, custom sources).
 
 ### Package Size
 
-| Question | Action |
-|----------|--------|
-| Can you describe its purpose in one sentence? | No → split by responsibility |
-| Do files never share unexported symbols? | Those files could be separate packages |
-| Distinct user groups use different parts? | Split along user boundaries |
-| Godoc page overwhelming? | Split to improve discoverability |
-
 **Do NOT split** just because a file is long, to create single-type packages, or
 if it would create circular dependencies.
 
@@ -127,30 +116,10 @@ if it would create circular dependencies.
 
 ## Imports
 
-Imports are organized in groups separated by blank lines. Standard library
-packages always come first. Use
-[goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports) to manage this
-automatically.
-
-```go
-import (
-    "fmt"
-    "os"
-
-    "github.com/foo/bar"
-    "rsc.io/goversion/version"
-)
-```
-
-**Quick rules:**
-
 | Rule | Guidance |
 |------|----------|
-| Grouping | stdlib first, then external. Extended: stdlib → other → protos → side-effects |
-| Renaming | Avoid unless collision. Rename the most local import. Proto packages get `pb` suffix |
 | Blank imports (`import _`) | Only in `main` packages or tests |
 | `import _ "embed"` | Any package, in the file whose `//go:embed` fills a `string` or `[]byte` — the compiler requires it |
-| Dot imports (`import .`) | Never use, except for circular-dependency test files |
 
 ---
 
@@ -160,11 +129,7 @@ Avoid `init()` where possible. When unavoidable, it must be:
 
 1. Completely deterministic
 2. Independent of other `init()` ordering
-3. Free of environment state (env vars, working dir, args)
-4. Free of I/O (filesystem, network, system calls)
-
-**Acceptable uses**: complex expressions that can't be single assignments,
-pluggable hooks (e.g., `database/sql` dialects), deterministic precomputation.
+3. Free of environment state and I/O
 
 ---
 
@@ -199,17 +164,6 @@ func main() {
 - Prefer the standard `flag` package, which already accepts `-v` and `--v` as
   the same flag; use `pflag` only when POSIX/GNU conventions are required —
   grouped single-letter flags (`-xvf`) or short/long pairs (`-v`/`--verbose`)
-
-```go
-// Good: Flag in main, passed as parameter to library
-func main() {
-    outputDir := flag.String("output_dir", ".", "directory for output files")
-    flag.Parse()
-    if err := mylib.Generate(*outputDir); err != nil {
-        log.Fatal(err)
-    }
-}
-```
 
 ---
 

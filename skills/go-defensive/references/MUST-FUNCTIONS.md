@@ -28,14 +28,6 @@ time, so it belongs in `main`, returning its error.
 
 ## When to Use Must
 
-```
-Is this called during program initialization (package-level var, init)?
-├─ Yes → Is the input fixed at build time (a literal, an embedded file)?
-│        ├─ Yes → Must is appropriate
-│        └─ No  → Return error instead (config, files, environment)
-└─ No  → Never use Must — return error
-```
-
 ### Appropriate Uses
 
 - **Package-level `var`**: Compiling regexp literals, parsing embedded
@@ -68,25 +60,8 @@ func MustParseRule(s string) Rule {
 }
 ```
 
-### Guidelines
-
-- **Name**: `Must` prefix + the fallible function name (e.g., `MustParse`,
-  `MustNew`, `MustCompile`)
-- **Panic message**: Include the input and the error for debuggability
-- **Document**: Always document that the function panics on error
-
 ```go
 // MustParseRule is like ParseRule but panics if s is invalid. It simplifies
 // the initialization of package-level variables holding rule literals.
 func MustParseRule(s string) Rule { ... }
 ```
-
-## Relationship to Panic/Recover
-
-Must functions are a controlled use of `panic`. They should:
-
-- Only run during initialization (so recover is unnecessary)
-- Produce clear, actionable panic messages
-- Never be used where returning an error is possible
-
-See [PANIC-RECOVER.md](PANIC-RECOVER.md) for the full panic/recover pattern.

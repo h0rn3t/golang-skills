@@ -12,51 +12,32 @@ Route Go work to the relevant owners, then close with their verification gate.
 ## Resource Routing
 
 Sibling skills resolve relative to this installed directory; scripts run from the target project. A skill is loaded when
-its `SKILL.md` is in context: the `Skill` tool in Claude Code, a read of `../<name>/SKILL.md` elsewhere. Report missing resources.
+its `SKILL.md` is in context: the `Skill` tool where the host has one, else a read of `../<name>/SKILL.md`. Report missing resources.
 
-- `../go-style-core/SKILL.md` — Read once per task for house style, fallback
-  rules, and communication guidance. Read its references only for a decision
-  the task requires, except its `references/CURRENT-GO.md`: the idiom card is
-  read whole before the first edit of a task that writes Go.
-- `../go-linting/SKILL.md` — Read its Verification Gate at step 6, on a task
-  that edits Go and only when a shell tool (`Bash` in Claude Code) is in your
-  tool list. Without one nothing in it can run: leave the file unread; the
-  edit hook's output is the check record
-  ([go-style-core](../go-style-core/SKILL.md#the-edit-hook-record)).
+- `../go-style-core/SKILL.md` — Load on every task (step 2), with its idiom card `references/CURRENT-GO.md`; its other references only for a decision the task requires.
+- `../go-linting/SKILL.md` — Its Verification Gate at step 6, when a shell tool is in your tool list.
 - `references/NEW-CODE-EXAMPLES.md` — Read when the shape of a Contract Table case, Plain Code body, or budgeted helper is in doubt.
-- `../go-code-refactor/references/OVER-ENGINEERING.md` — Read the detailed
-  restraint ladder when a [Declaration Budget](#declaration-budget) entry is
-  in doubt; its replacement catalog when seeking a simpler existing API; its
-  audit lane only when the requested deliverable is a complexity audit.
+- `../go-code-refactor/references/OVER-ENGINEERING.md` — The restraint ladder when a [Declaration Budget](#declaration-budget) entry is in doubt; its replacement catalog when seeking a simpler existing API.
 
 ## Workflow
 
 1. **Resolve invocation.** `$go-code <task>` or `/go-code <task>` selects Go
    work; a leading `lite`, `full`, or `ultra` sets the [Intensity](#intensity),
-   not the task. A slash command inserts this file and loads nothing else: no sibling
-   skill comes with it, so steps 2 and 3 make their `Skill` calls exactly as
-   they do on any other invocation. As a modifier, e.g.
-   `/opsx:apply add-auth /go-code`, remove the modifier before the host parses
-   its arguments; it is never a change name or path, and the host keeps
-   workflow state, checkpoints, and delegation policy.
-2. **Load `go-style-core`, read the idiom card and the code, check for a
-   shell.** Load `go-style-core` on every task and read its
-   `references/CURRENT-GO.md` whole in the same message — one line per idiom
-   with the older form, the form the module's `go` directive allows, and the
-   trap; its older rows apply at every directive, so a `head` or a `grep`
-   over it misses what a Go 1.19 module still gets. Then inspect repository
-   instructions, `go.mod` (its `go` directive sets the idiom), neighboring
-   code and tests.
-   A shell tool (`Bash` in Claude Code) in your tool list means step 6 runs
-   the checks; without one `go-linting` stays unread and the report says so
-   in one line. A new function, package, or stub body makes step 4 apply; a
-   fix or a restructuring skips it.
+   not the task. An invocation inserts this file only; steps 2 and 3 load the
+   rest. As a modifier (`/opsx:apply add-auth /go-code`) it is never a change
+   name or path, and the host keeps workflow state, checkpoints, and
+   delegation policy.
+2. **Load `go-style-core`, read the idiom card and the code.** Load
+   `go-style-core` and read its `references/CURRENT-GO.md` whole in the same
+   message: its older rows apply at every directive, so a `head` or a `grep`
+   misses them. Then inspect repository instructions, `go.mod` (its `go`
+   directive sets the idiom), neighboring code and tests. Without a shell
+   tool, step 6 runs nothing and `go-linting` stays unread. A new function,
+   package, or stub body makes step 4 apply; a fix or a restructuring skips it.
 3. **Load the owners before the first edit.** Match the task against
    [Route Before The First Edit](#route-before-the-first-edit) and load each
-   matched owner plus every `Also load` entry whose condition holds, with the
-   `Skill` calls for all of them in one message: an owner loaded on a turn of
-   its own re-reads the whole context. When step 4 applies, `go-testing` is
-   one of them. Select by the decisions being changed: a routine local
+   matched owner plus every `Also load` entry whose condition holds, all in
+   one message. When step 4 applies, `go-testing` is one of them. Select by the decisions being changed: a routine local
    variable or `if` triggers no owner. No edit before every selected skill is
    in context; add owners when new evidence requires them.
 4. **Write the Contract Table, for new code only.** Turn the documentation
@@ -99,10 +80,7 @@ A level word right after the command — `/go-code lite <task>`,
 hard the [restraint ladder](../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder)
 pushes. The word is never part of the task. The level holds for the rest of
 the session, until another level word; `full` is the default and returns to
-it. Where the plugin's hooks run, they print the ladder and the level at
-session start and into each subagent, and `GOLANG_SKILLS_LADDER=lite|ultra`
-sets the level a session starts at (`off` stops the hook). A
-behavior-preserving refactor runs at `full` whatever the word: the
+it. A behavior-preserving refactor runs at `full` whatever the word: the
 [delete-first order](../go-code-refactor/SKILL.md#delete-before-you-restructure)
 already fixes its shape.
 
@@ -115,12 +93,6 @@ already fixes its shape.
 No level changes the gate, the [Contract Table](#contract-table), an explicit
 requirement, or what the ladder never cuts: validation at trust boundaries,
 error handling that prevents data loss, and security controls.
-
-"Make the worker pool size configurable":
-
-- `lite`: a `Config` struct with the pool's knobs, then `lazier: one workers int parameter; no caller sets the rest.`
-- `full`: a `workers int` parameter on `NewPool`, then `skipped: queue depth and backoff options, add when a caller sets them.`
-- `ultra`: the same parameter, then `Need it configurable? If every caller passes runtime.GOMAXPROCS(0), that call covers it.`
 
 ## Writing New Code
 
@@ -143,14 +115,11 @@ shape the case is meant to prove, and `slices.Clone` of nil is nil. A case
 for a list that may come back empty compares the body text with `[]`
 (`strings.TrimSpace(rec.Body.String())`), never a decoded value:
 `json.Unmarshal` decodes `null` to a nil slice and `[]` to an empty one, both
-of length zero, and the case passes on the one body the contract forbids. A clause written as a class — "any other method", "any other value", "nothing else" —
-takes its case from the member a library default treats unlike the rest,
-because that member is where the class leaks. For "any method other than
-`GET`" that member is `HEAD`, and the case is one `HEAD` request per `GET`
-path in the contract, the health check included: a `GET` pattern answers
-`HEAD` with 200 on its own. For `strconv.ParseBool` it is `t` and `1`; for a
-subtree pattern, the bare path. The member the code plainly rejects (`POST`,
-`maybe`) fails on its own and needs no case.
+of length zero, and the case passes on the one body the contract forbids. A
+clause written as a class — "any other method", "any other value" — takes its
+case from the member a library default treats unlike the rest: for "any method
+other than `GET`" that is one `HEAD` request per `GET` path, the health check
+included, since a `GET` pattern answers `HEAD` with 200 on its own.
 
 Where a case contradicts a standard-library default — a nil slice encoding as
 `null`, a `GET` pattern answering `HEAD` with 200 — the contract wins, and the
@@ -182,17 +151,13 @@ This applies to the entry point, anything it calls, and the contract test.
   expression does not; otherwise it is written where it is used. A fact the
   code tracks — what was already asked for, what was sent, what failed —
   keeps its own variable even when another one almost holds it.
-- **A comment states what the code cannot show**: a constraint, a default
-  deliberately overridden, the business or historical reason behind a choice
-  that neither the code nor the signature shows — never a narration of the
-  next line. [go-style-core](../go-style-core/SKILL.md#formatting)
-  owns comment style and [the early return](../go-style-core/SKILL.md#reduce-nesting).
-- **Use a standard-library operation when it states the intent more clearly.**
-  `slices.SortFunc`, `slices.Sorted(maps.Keys(m))`, `min`, and `max` can
-  replace mechanical loops; a loop that tracks several related facts may
+- **A comment states what the code cannot show**, never a narration of the
+  next line; [go-style-core](../go-style-core/SKILL.md#formatting) owns
+  comment style and [the early return](../go-style-core/SKILL.md#reduce-nesting).
+- **Use a standard-library operation when it states the intent more clearly**
+  (the idiom card lists them); a loop that tracks several related facts may
   read better as a loop. Check ordering, ownership, and nil-versus-empty
-  results. `cmp.Or` evaluates every argument, so use it only when that is
-  acceptable. [Reach For What Go Ships](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships)
+  results. [Reach For What Go Ships](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships)
   lists replacements; [go-data-structures](../go-data-structures/SKILL.md)
   owns collection semantics.
 - **New JSON is `encoding/json/v2`.** A package with no `encoding/json` import writes
@@ -271,20 +236,13 @@ written:
    restates two or three lines of its body is not such a step: those lines
    stay inline.
 
-A function literal bound to a name — `writeJSON := func(w http.ResponseWriter,
-v any) {...}` — that captures nothing from the function around it is a
-package-level function written in the wrong place: it counts under the same
-four rules, and when it earns its place it is a small unexported function of
-the package with a one-line comment or none. A closure is for capturing state
-— a mutex, a counter, the request being served — and a handler registered
-once is written at its registration: it meets none of the four rules. In a
-constructor that returns the `*http.Server`, a `type server struct` holding
-what the routes read, one method per route, and a `handleHealthz` beside them
-are four declarations for handlers registered once each; the values the
-routes share are locals of the constructor that the handler literals capture.
-The count is a record, not a score: a helper two call sites need is one
-declaration named in the report, and hiding it inside a function changes the
-number without changing the code.
+A function literal bound to a name that captures nothing from the function
+around it counts under the same four rules: the count is a record, not a
+score, and hiding a helper inside a function changes the number without
+changing the code. A closure is for capturing state, and a handler registered
+once is written at its registration; the values routes share are locals of
+the constructor that the handler literals capture, not fields of a `server`
+type with one method per route.
 
 A representation is a value, not a reason: a wire document, a formatted error,
 and a sorted view take the [Plain Code](#plain-code) form. A helper that names
@@ -316,8 +274,7 @@ joining them. Bundled scripts add evidence the gate lacks:
 - Exported API documentation: `../go-documentation/scripts/check-docs.sh`.
 - Before submitting: [go-code-review](../go-code-review/SKILL.md).
 
-Run routine checks inline; Claude Code's `go-verify` agent is for checks the
-user asks to delegate. The report carries only results observed for the
+Run routine checks inline. The report carries only results observed for the
 current diff and scope, each as `pass`, `fail`, `unavailable (reason)`, or
 `skipped (reason)` per go-linting; a hook's silence is not one of them.
 

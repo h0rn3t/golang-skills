@@ -13,7 +13,7 @@ allowed-tools: Bash(bash:*)
 
 - `scripts/bench-compare.sh` - Run when comparing benchmark results, saving baselines, or producing JSON benchmark metadata.
 - `references/BENCHMARKS.md` - Read when writing benchmarks, using benchstat, or profiling with pprof.
-- `references/STRING-OPTIMIZATION.md` - Read when optimizing string conversion, concatenation, byte/string boundaries, or memory retained by substrings.
+- `references/STRING-OPTIMIZATION.md` - Read when optimizing concatenation or memory retained by substrings.
 
 Apply performance-specific guidance to measured bottlenecks, including retained
 memory. Don't add allocations or complexity without evidence that it helps.
@@ -28,9 +28,6 @@ needs no benchmark:
 ```go
 s := strconv.Itoa(n)
 ```
-
-The [benchmark reference](references/BENCHMARKS.md) shows how to compare
-the calls. There is no fixed speedup or allocation count across workloads.
 
 ---
 
@@ -53,26 +50,6 @@ for b.Loop() { // Go 1.24+
 
 Preallocate when the final size is known at the call site (`len(files)`, a fixed loop bound); otherwise measure before guessing a capacity — an oversized estimate retains memory the workload never uses.
 
-### Map Capacity Hints
-
-Provide capacity hints when initializing maps with `make()`:
-
-```go
-m := make(map[string]os.DirEntry, len(files))
-```
-
-**Note**: Unlike slices, map capacity hints do not guarantee complete preemptive allocation—they approximate the number of hashmap buckets required.
-
-### Slice Capacity
-
-Provide capacity hints when initializing slices with `make()`, particularly when appending:
-
-```go
-data := make([]int, 0, size)
-```
-
-Unlike maps, slice capacity is **not a hint**—the compiler allocates exactly that much memory. Subsequent `append()` operations incur zero allocations until capacity is reached.
-
 ---
 
 ## Pass Values
@@ -83,15 +60,7 @@ A pointer parameter is not a speed fix: value versus pointer parameters belong t
 
 ## String Concatenation
 
-Choose the right strategy based on complexity:
-
-| Method | Best For |
-|--------|----------|
-| `+` | Few strings, simple concat |
-| `fmt.Sprintf` | Formatted output with mixed types |
-| `strings.Builder` | Loop/piecemeal construction |
-| `strings.Join` | Joining a slice |
-| Backtick literal | Constant multi-line text |
+Build in a loop with `strings.Builder`, calling `Grow(n)` first when the final size is known.
 
 ---
 

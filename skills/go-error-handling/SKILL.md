@@ -15,15 +15,8 @@ allowed-tools: Bash(bash:*)
 - `scripts/check-errors.sh` - Run when checking string-based error matching and log-and-return patterns; `--bare-return` adds the opt-in bare `return err` review.
 - `scripts/check-errors-ast.go` - Implementation helper invoked by `check-errors.sh`; patch this when changing error-flow analysis behavior.
 - `references/ERROR-FLOW.md` - Read when deciding where to handle, wrap, log, or return errors.
-- `references/ERROR-TYPES.md` - Read when choosing sentinel errors, typed errors, or opaque errors, or for the API rules on error values (interface results, message form, in-band values).
+- `references/ERROR-TYPES.md` - Read when matching sentinel errors, or for the API rules on error values (message form, in-band values).
 - `references/WRAPPING.md` - Read when choosing `%w` versus `%v` or crossing package boundaries.
-
-In Go, [errors are values](https://go.dev/blog/errors-are-values) — they are
-created by code and consumed by code. [Error Types](#error-types) chooses
-between propagating a cause and defining a new condition;
-[Error Wrapping](#error-wrapping) chooses `%w` versus `%v`. The reader knows
-the language: this skill carries the decisions that go wrong in review, and
-`references/` the rest.
 
 ---
 
@@ -80,24 +73,7 @@ non-nil interface
 ### Matching a typed error
 
 Use `errors.AsType[T]` (Go 1.26+) — it returns the value instead of writing
-through a pointer, so the target variable and the `if` collapse into one line:
-
-```go
-// Good (Go 1.26+)
-if pathErr, ok := errors.AsType[*fs.PathError](err); ok {
-    return pathErr.Path
-}
-
-// Older toolchains, or when T must be computed at runtime
-var pathErr *fs.PathError
-if errors.As(err, &pathErr) { /* ... */ }
-```
-
-`go fix -errorsastype ./...` rewrites the old form. Keep `errors.Is` for
-sentinel comparison — `AsType` replaces `As`, not `Is`. A sentinel is matched
-with `errors.Is(err, target)`, never `err == target`: `==` sees only the
-outermost value and misses every `%w` wrap, and `errorlint` in the gate
-reports the comparison.
+through a pointer. `go fix -errorsastype ./...` rewrites the old form.
 
 ### Matching multiple typed errors
 
@@ -132,9 +108,7 @@ audiences — the operator reading a log line and the caller matching with
 
 > **Validation**: Run `bash scripts/check-errors.sh` to detect common
 > anti-patterns. The [go-linting](../go-linting/SKILL.md) gate covers the
-> rest — `go vet` catches `errorsas` and `lostcancel`, and `go fix -diff`
-> flags `errors.As` calls that should be `errors.AsType` — and runs once, at
-> the end of the task, not again here.
+> rest and runs once, at the end of the task, not again here.
 
 ---
 
@@ -143,5 +117,4 @@ audiences — the operator reading a log line and the caller matching with
 - [go-naming](../go-naming/SKILL.md#error-names): `ErrX` sentinels and `XError` types.
 - [go-testing](../go-testing/SKILL.md): `errors.Is`/`errors.AsType` under test, error-checking helpers.
 - [go-defensive](../go-defensive/SKILL.md): panic versus error, recover guards.
-- [go-style-core](../go-style-core/SKILL.md): nesting depth, early returns, `if`-init.
 - [go-logging](../go-logging/SKILL.md): log levels and what a log line carries.

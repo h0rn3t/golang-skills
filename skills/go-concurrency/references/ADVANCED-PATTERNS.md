@@ -7,13 +7,6 @@
 Situational patterns for bounded work, request/response multiplexing, and
 CPU-bound parallelization.
 
-## Contents
-
-- [Bounded Work with errgroup](#bounded-work-with-errgroup)
-- [Channels of Channels](#channels-of-channels)
-- [CPU-Bound Parallelization](#cpu-bound-parallelization)
-- [Common Mistakes](#common-mistakes)
-
 ## Bounded Work with errgroup
 
 Use `golang.org/x/sync/errgroup` for related operations when one failure should
@@ -57,10 +50,7 @@ Source: [errgroup API](https://pkg.go.dev/golang.org/x/sync/errgroup).
 
 ## Channels of Channels
 
-> **Source**: Effective Go
-
-A channel is a first-class value that can be allocated and passed around like
-any other. A powerful pattern is embedding a **reply channel** inside a request
+A powerful pattern is embedding a **reply channel** inside a request
 struct, letting each client provide its own path for the answer:
 
 ```go
@@ -80,27 +70,13 @@ clientRequests <- request
 fmt.Printf("answer: %d\n", <-request.resultChan)
 ```
 
-The server handler reads from the queue and sends results back on each
-request's reply channel:
-
-```go
-func handle(queue <-chan *Request) {
-    for req := range queue {
-        req.resultChan <- req.f(req.args)
-    }
-}
-```
-
 Because each reply channel has one slot, the server's send completes even when
 the client has stopped waiting; an unbuffered reply channel would park the
-handler forever on the first abandoned request. This pattern forms the basis
-for a rate-limited, parallel RPC system without a mutex in sight.
+handler forever on the first abandoned request.
 
 ---
 
 ## CPU-Bound Parallelization
-
-> **Source**: Effective Go (modernized)
 
 When a computation can be broken into independent pieces, parallelize it across
 CPU cores using a `sync.WaitGroup` to wait for completion. Use `WaitGroup.Go`
@@ -134,54 +110,3 @@ When the main module's `go` directive is 1.25 or later the default `GOMAXPROCS`
 is cgroup-aware (an older directive builds with `containermaxprocs=0` in
 `DefaultGODEBUG`, and the default stays the host's CPU count), and
 `runtime.SetDefaultGOMAXPROCS()` restores that default after a manual override.
-
-No `i := i` capture line — loop variables are per-iteration since Go 1.22, and
-`for i := range numCPU` replaces the three-clause loop.
-
-> **Important**: Don't confuse concurrency (structuring a program as
-> independently executing components) with parallelism (executing calculations
-> simultaneously on multiple CPUs). Go is a concurrent language; not all
-> parallelization problems fit its model.
-
----
-
-## Common Mistakes
-
-### Forgetting to signal completion
-
-If a goroutine never calls `wg.Done()` (or never sends on a done channel), the
-waiting goroutine blocks forever:
-
-```go
-// Bad: Missing wg.Done — deadlocks
-var wg sync.WaitGroup
-wg.Add(1)
-go func() {
-    doWork()
-}()
-wg.Wait()
-
-// Good: WaitGroup.Go owns completion (Go 1.25+); doWork must not panic
-var wg sync.WaitGroup
-wg.Go(doWork)
-wg.Wait()
-```
-
-### Unbounded goroutine spawning
-
-Launching one goroutine per work item with no limit can exhaust memory or
-overwhelm downstream resources. Cap it with `SetLimit`
-([Bounded Work with errgroup](#bounded-work-with-errgroup)).
-
-```go
-// Bad: Spawns len(items) goroutines at once
-var wg sync.WaitGroup
-for _, item := range items {
-    wg.Add(1)
-    go func(it Item) {
-        defer wg.Done()
-        process(it)
-    }(item)
-}
-wg.Wait()
-```

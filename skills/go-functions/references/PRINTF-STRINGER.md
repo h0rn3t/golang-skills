@@ -126,13 +126,7 @@ go vet -printf.funcs=Recordf,Statusf
 
 ## The `fmt.Stringer` Interface
 
-Implement `fmt.Stringer` to control how your type appears with `%v` and `%s`:
-
-```go
-type fmt.Stringer interface {
-    String() string
-}
-```
+Implement `fmt.Stringer` (`String() string`) to control how your type appears with `%v` and `%s`:
 
 ```go
 type Point struct{ X, Y int }

@@ -41,8 +41,6 @@ Untrusted value arrives (request, env, file, DB row written by others)
 Stop at the branch that matches and apply that defense **at the boundary**,
 once — not at every call site downstream, where it is forgotten.
 
----
-
 ## Quick Reference
 
 | Threat | Defense | Caught by |
@@ -68,8 +66,6 @@ once — not at every call site downstream, where it is forgotten.
 `gosec` is in the baseline `.golangci.yml`; a finding it raises is a gate
 failure, not advice. See [go-linting](../go-linting/SKILL.md).
 
----
-
 ## Injection
 
 The defense is always the same shape: hand data to an API that knows it is
@@ -87,51 +83,17 @@ out, err := exec.CommandContext(ctx, "git", "log", "--end-of-options", ref, "--"
 revisions from paths there; every other program takes `--` before the first
 argument built from input, as in the Quick Reference row.
 
-- SQL: placeholders for values; identifiers (table, column, `ORDER BY`) come
-  from a `switch` over known names, never from input. A row the caller may
-  see only as its owner carries the caller's tenant in the same `WHERE`; a
-  check after the fetch is the one the next handler forgets.
-  [go-database](../go-database/SKILL.md) owns the query form.
-- Templates: `html/template` escapes per context (attribute, URL, JS).
-  `template.HTML(userInput)` opts out of that — treat it as a finding.
-- Downloads: a stored `Content-Type` is what the uploader sent. Serve the file
-  with `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`,
-  and a type you derived, or from a separate origin that holds no session;
-  an uploaded `text/html` served inline runs as your site.
-- Headers: `net/http` neutralizes CR/LF in header values — a response writer
-  turns them into spaces, the server rejects them in a request, `Transport`
-  refuses to send them — so header injection is closed. A `Location` built
-  from input still enables an open redirect: require one leading `/` and
-  reject `//`, `\`, and control characters
-  ([Local redirects](references/INJECTION.md#local-redirects)), or use an
-  allowlist of hosts.
-
-Full patterns, including the hostname allowlist and the `net/netip` range
-check for SSRF, in [INJECTION.md](references/INJECTION.md).
-
----
-
 ## Secrets
 
 - Read secrets from the environment or a mounted file at startup; never from
   a literal, a flag default, or a committed config. Fail fast when missing.
-- Compare tokens and MACs with `subtle.ConstantTimeCompare`; `==` on a secret
-  leaks its prefix length through timing.
 - Verify a signed token the client presents (JWT, a signed cookie) with a
   fixed algorithm allowlist and your key; `alg`, `kid`, or `jku` inside the
   token never choose either, and `exp` is checked against the server clock.
-- Hash passwords with a memory-hard KDF (argon2id from `golang.org/x/crypto`,
-  the maintained Go-team module); when the dependency ladder forbids it,
-  `crypto/pbkdf2` (Go 1.24+) with a high iteration count is the stdlib floor.
-  Never a bare `sha256.Sum256(password)`.
-- Keep secrets out of logs and errors: wrap the type in a `slog.LogValuer`
-  ([go-logging](../go-logging/SKILL.md)) and never `fmt.Errorf("auth %s: %w",
-  token, err)`.
+- Keep secrets out of errors: never `fmt.Errorf("auth %s: %w", token, err)`.
 
 Key derivation, TLS defaults, and cookie flags in
 [SECRETS-AND-CRYPTO.md](references/SECRETS-AND-CRYPTO.md).
-
----
 
 ## HTTP Surface
 
@@ -147,14 +109,10 @@ http.SetCookie(w, &http.Cookie{
 })
 ```
 
-- Error responses carry a status and a generic message; the wrapped error with
-  file paths, SQL, or hostnames goes to the log, not the client.
 - `net/http/pprof` and `expvar` mount on a separate internal listener, never on
   the public mux — they leak heap contents and goroutine stacks.
 - `X-Forwarded-For` is client-writable and append-only: read its **last**
   entry, and only when a known proxy set it; otherwise `r.RemoteAddr`.
-
----
 
 ## Review Mode
 
@@ -170,24 +128,12 @@ the reader decides whether it stays. Inside a
 skill's template with its `verified`/`plausible` marker; blast radius orders
 the Must Fix list, it does not replace the sections.
 
-> **Validation**: `gosec` and `govulncheck` run in the
-> [go-linting gate](../go-linting/SKILL.md#verification-gate); add `go test
-> -fuzz=^FuzzDecode$ -fuzztime=30s` on any hand-written parser at a boundary,
-> with that parser's fuzz target in place of `FuzzDecode`. Report a skipped
-> check as skipped.
-
-Restraint never cuts a security control: the restraint ladder in
-[go-code-refactor](../go-code-refactor/SKILL.md) names them as the code that
-has to exist. Prove a check unnecessary, or leave it and say why.
-
----
+> **Validation**: add `go test -fuzz=^FuzzDecode$ -fuzztime=30s` on any
+> hand-written parser at a boundary, with that parser's fuzz target in place
+> of `FuzzDecode`. Report a skipped check as skipped.
 
 ## Related Skills
 
-- [go-defensive](../go-defensive/SKILL.md): `os.Root`, `crypto/rand`, boundary copies, `Must` at init.
 - [go-database](../go-database/SKILL.md): placeholder queries, identifier allowlists.
-- [go-http](../go-http/SKILL.md): body limits, timeouts, CSRF protection, error-to-status mapping.
 - [go-logging](../go-logging/SKILL.md): `LogValuer` and what never reaches a log line.
-- [go-linting](../go-linting/SKILL.md): `gosec` in the baseline, `govulncheck` in the gate.
-- [go-code-review](../go-code-review/SKILL.md): the report template a security finding lands in during a review pass.
 - [go-troubleshooting](../go-troubleshooting/SKILL.md): a crash or hang rather than a known vulnerability.

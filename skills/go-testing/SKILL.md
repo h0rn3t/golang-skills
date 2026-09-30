@@ -16,7 +16,7 @@ allowed-tools: Bash(bash:*)
 - `scripts/gen-table-test.sh` - Run when generating a table-driven test scaffold.
 - `assets/table-test-template.go` - Use as a copyable table-test starting point.
 - `references/TABLE-DRIVEN-TESTS.md` - Read when choosing table tests, subtests, or parallel test patterns.
-- `references/TEST-HELPERS.md` - Read when writing helpers, fixtures, or cleanup, or choosing `t.Error`, `t.Fatal`, `cmp.Diff`, or assertion style.
+- `references/TEST-HELPERS.md` - Read when writing helpers, fixtures, or cleanup, or asserting with testify.
 - `references/TEST-ORGANIZATION.md` - Read when choosing or naming test doubles, structuring packages, black-box tests, or larger test suites.
 - `references/VALIDATION-APIS.md` - Read when designing an exported validation function or a `*test` package that other packages' tests call.
 - `references/INTEGRATION.md` - Read when testing external services, HTTP handlers, databases, or long-running setup.
@@ -29,9 +29,8 @@ allowed-tools: Bash(bash:*)
 
 | Instead of | Use | Since |
 |---|---|---|
-| `context.Background()` in a test | `t.Context()` — cancelled when the test returns, before `t.Cleanup` runs; cleanup that needs a live context uses `context.WithoutCancel(t.Context())` (`usetesting` reports `context.Background()` there) | 1.24 |
-| `httptest.NewServer` + `defer srv.Close()` | `httptest.NewTestServer(t, h)` — registers cleanup, in-memory transport reached through `srv.Client()` | 1.27 |
-| `time.Sleep` to let goroutines settle | `synctest.Test` + `synctest.Wait` | 1.25 |
+| `context.Background()` in a test | `t.Context()` | 1.24 |
+| `httptest.NewServer` + `defer srv.Close()` | `httptest.NewTestServer(t, h)` — registers cleanup | 1.27 |
 | Real waits for timeout paths | `synctest.Sleep` inside a bubble (fake clock), from the test goroutine only: it calls `synctest.Wait`, which panics with `wait already in progress` when two goroutines reach it at once, so a goroutine the code under test starts sleeps with `time.Sleep` | 1.27 |
 | `fmt.Println` in a test | `t.Output()` — interleaves correctly under `-parallel` | 1.25 |
 | Ad-hoc temp dir for output to keep | `t.ArtifactDir()` with `go test -artifacts -outputdir=DIR` — otherwise removed after the test | 1.26 |
@@ -73,14 +72,8 @@ Every failure message must include: function name, inputs, actual (got), and
 expected (want). Use the format `YourFunc(%v) = %v, want %v`.
 
 ```go
-// Good:
 t.Errorf("Add(2, 3) = %d, want %d", got, 5)
-
-// Bad: Missing function name and inputs
-t.Errorf("got %d, want %d", got, 5)
 ```
-
-Always print got before want: `got %v, want %v` — never reversed.
 
 ---
 
@@ -98,12 +91,6 @@ Always print got before want: `got %v, want %v` — never reversed.
 Use `assert` for independent checks that can continue after failure; use
 `require` for prerequisites, only from the test goroutine. See
 [Test Helpers](references/TEST-HELPERS.md) for examples.
-
-```go
-if diff := cmp.Diff(want, got); diff != "" {
-    t.Errorf("GetPost() mismatch (-want +got):\n%s", diff)
-}
-```
 
 For protocol buffers, add `protocmp.Transform()` as a cmp option. Always
 include the direction key `(-want +got)` in diff messages. Compare serialized
@@ -129,10 +116,6 @@ goroutine — use `t.Error` instead.
 ---
 
 ## Table-Driven Tests
-
-> See `assets/table-test-template.go` when scaffolding a new table-driven test and need the canonical struct, loop, and subtest layout.
-
-> **Advisory**: Use table-driven tests when many cases share identical logic.
 
 **Use table tests when:** all cases run the same code path with no conditional
 setup, mocking, or assertions. A single `shouldErr` bool is acceptable.
@@ -182,14 +165,6 @@ func newStore(t *testing.T) *Store {
 ## Test Error Semantics
 
 > **Advisory**: Test error semantics, not error message strings.
-
-```go
-// Bad: Brittle string comparison
-if err.Error() != "invalid input" { ... }
-
-// Good: Semantic check
-if !errors.Is(err, ErrInvalidInput) { ... }
-```
 
 For simple presence checks when specific semantics don't matter:
 

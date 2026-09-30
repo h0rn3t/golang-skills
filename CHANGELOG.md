@@ -16,6 +16,60 @@ All notable changes to this repository are documented here.
   literal, such as a callee with `defer`. The prompt, subagent, and gate hooks
   print no gopls note, so a read-only Go question now gets no note at all. The
   READMEs drop the gopls section. `abrun -gopls` is unchanged.
+- A token pass over all 24 skills for the target models, GPT 6.1, Opus 5.5,
+  Sonnet 5.5, and Grok 4.7; wording that served only Sonnet 5 or Haiku 4.5
+  is gone. SKILL.md bodies shrink from 253.7 KB to 208.2 KB (−18%) and
+  references from 461.6 KB to 349.3 KB (−24%). Nearly all of it is a second
+  copy of text a session already has — an idiom-card row repeated in an
+  owner, a SKILL.md section restated in its own reference, a Quick Reference
+  table beside the prose it summarizes — or a Go basic the models write
+  unprompted; traps, version facts, and the wording earlier runs measured
+  stay.
+  - `go-linting` keeps the gate, `go fix`, and `nolint` in SKILL.md
+    (15.1 KB → 6.2 KB); setup, the baseline, and CI move to the new
+    `references/CONFIGURATION.md` (74 reference files), and the table of
+    linters that enforce the skills gives way to the comments in
+    `assets/golangci.yml`, which already name each rule. A session that
+    loads the skill for the closing gate no longer pays for the config
+    material.
+  - `go-code` (24.3 KB → 21.5 KB) drops the Intensity example and hook
+    prose, the duplicate idiom-card and no-shell clauses in its Resource
+    Routing and steps, the `ParseBool` and subtree named cases, and most of
+    the closure paragraph; the `HEAD` case, the JSON v2 default, the Delete
+    Pass, and the Declaration Budget rules stay. The idiom card loses its
+    "Which version governs" section, a copy of Write Current Go, which now
+    also carries the `go.work` and `-lang` facts. `go-code-refactor`'s
+    Resource Routing is one short line per file.
+  - The largest owner cuts: `go-concurrency` −42%, `go-data-structures`
+    −48% (the card's rows), `go-security` −24% (injection facts stated four
+    times), `go-code-review` −18% (rows for rules the models follow
+    unprompted, as in ccd1d44), `go-logging` −21%, `go-packages` −18%.
+  - Fixes found on the way: `SYMPTOM-CATALOG.md` no longer lists
+    `GOMAXPROCS` under `go env`, which prints nothing for it; `go-performance`
+    loses the pre-Swiss-table map-bucket note and the claim that the
+    compiler allocates a slice's capacity exactly; `PRINTF-STRINGER.md` no
+    longer shows `type fmt.Stringer interface`, which is not Go.
+  - Per routed session: an HTTP implement session with a shell (`go-code`,
+    `go-style-core` and the card, `go-testing`, `go-http`,
+    `go-error-handling`, `go-linting`) loads about 16.5 KB (≈6K tokens) less
+    skill text, one without a shell about 7.5 KB, a refactor about 5.4 KB,
+    a review about 3.1 KB; the restraint-ladder hook prints 3.6 KB instead
+    of 4.0 KB into every Go session.
+  - Measured with `abrun`, reference (the tree before this pass) against
+    baseline, all 17 fixtures, n=2, medium, on Sonnet 5.5 and Opus 5.5: no
+    regression. Implement golden 14/14 against 13/13 valid on Sonnet and
+    12/13 in both arms on Opus (`fetch`, its known empty-`resp.Status` miss),
+    lint and `go fix` hunks equal; refactor 8/8 everywhere at the same line
+    deltas; review recall 0.95 against 0.90 and must-fix found 62/62 against
+    59/62 on Sonnet. Opus review first showed 47/62 must-fix defects labeled
+    Must against 54/62; after restoring the one procedure line the cut had
+    taken ("Read the scope file-by-file"), an n=3 rerun gave 81/93 against
+    74/93, recall 0.94 in both, baits equal. Cache writes per session fell
+    2–8% and cost moved −7% to +2%, within noise, as a text cut of this size
+    did before. The config move out of `go-linting` does not show here:
+    `abrun` sessions have no shell, so they never load the gate. GPT 6.1 and
+    Grok 4.7 are unmeasured (no Codex or opencode runner on the measuring
+    host). Raw reports are kept outside the repository.
 
 ## [1.25.2] - 2026-09-29
 

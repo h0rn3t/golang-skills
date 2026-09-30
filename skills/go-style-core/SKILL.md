@@ -13,7 +13,7 @@ the task requires. An ordinary function edit does not require every reference.
 
 ## Resource Routing
 
-- `references/CURRENT-GO.md` - Read whole before the first edit of a task that writes or changes Go: one line per idiom — the older form, the form the module's `go` directive allows, and the trap — then `go doc` for an API not written before, and which version governs.
+- `references/CURRENT-GO.md` - Read whole before the first edit of a task that writes or changes Go: one line per idiom — the older form, the form the module's `go` directive allows, and the trap.
 - `references/PRINCIPLES.md` - Read when resolving a tradeoff between clarity, simplicity, concision, maintainability, and consistency.
 - `references/FORMATTING.md` - Read for line breaks, whitespace, comments, and semicolon mechanics.
 - `references/SCOPE.md` - Read for `var` vs `:=`, grouping declarations, if-init, and reassignment across scopes.
@@ -54,7 +54,8 @@ Use `gofmt` for Go source. This guide imposes no rigid line-length limit;
 break by meaning and readability, while respecting repository requirements.
 
 A comment states what the code cannot show: a constraint, a default
-deliberately overridden, the clause a branch serves. Code that reads as its
+deliberately overridden, the business or historical reason behind a choice,
+the clause a branch serves. Code that reads as its
 documentation reads carries none; a comment that narrates the next line or
 argues that a change is correct is removed before the diff closes. Match the
 neighboring code's comment density. Doc comments on exported API belong to
@@ -80,9 +81,8 @@ for i := 0; i < len(items); i++ {
 }
 ```
 
-[CURRENT-GO.md](references/CURRENT-GO.md) lists the forms, one line per idiom
-with its trap; read it whole before the first edit, since its older rows apply
-at every directive. An API not written before is looked up with `go doc`
+[CURRENT-GO.md](references/CURRENT-GO.md) lists the forms; read it whole
+before the first edit. An API not written before is looked up with `go doc`
 first, never written from memory.
 
 Write the older form only when one of three things is true, and name which in
@@ -91,9 +91,12 @@ the report: the current form does not compile at the `go` directive (`go vet`'s
 features); it changes observable behavior (the tiers in
 [MODERNIZATION.md](../go-code-refactor/references/MODERNIZATION.md) say which
 swaps do); or it does not fit the code at hand. The directive is the `go`
-line of the module's `go.mod` — language 1.16 when the line is missing — and
-neither a `toolchain` line nor an installed newer Go raises it or authorizes
-a version bump; respect build constraints and the CI toolchains.
+line of the module's `go.mod` — language 1.16 when the line is missing; a
+`go.work` directive does not raise a member module's version — and neither a
+`toolchain` line, `GOTOOLCHAIN`, nor an installed newer Go raises it or
+authorizes a version bump; respect build constraints and the CI toolchains.
+A form newer than the directive fails with `requires go1.NN or later (-lang
+was set to go1.MM; check go.mod)`.
 
 The rule covers idioms — language features and standard-library APIs — not
 dependencies: the logger, assertion library, router, or ORM the package already
@@ -123,34 +126,30 @@ keep the branches when evaluation has side effects or is expensive.
 
 ## How Much To Say
 
-This skill owns narration, report length, and delegation guidance for the pack.
 Follow the host's communication requirements. Give a short initial update,
 then progress updates on what changed the work: a finding, a decision, a
 blocker, the next check; a read that changed nothing is not an update. Close
 with the outcome, observed verification results, and material limitations;
-never imply a skipped check ran.
-
-Size reports, reviews, and design notes to the task. Use applicable `assets/`
-templates without filler sections or repeated summaries.
+never imply a skipped check ran. Size reports, reviews, and design notes to
+the task; use applicable `assets/` templates without filler sections or
+repeated summaries.
 
 Keep routine edits and checks inline. When the user or host authorizes parallel
 work, delegate only bounded, independent tasks with clear ownership and useful
-work remaining locally. Do not spawn a second agent merely to repeat a completed
-check. A requested independent review is a separate task. Agent availability,
-model choice, and delegation limits belong to the host, not to a Go style rule.
+work remaining locally; do not spawn a second agent merely to repeat a
+completed check.
 
 ### The Edit Hook Record
 
-Where the Claude Code plugin is installed, a hook runs after every edit of a
-`.go` file — `gofmt`, `go vet`, `go fix -diff`, the package's tests, and
-`golangci-lint` — and prints the checks that failed; a clean run prints
-nothing, and it never blocks. A finding it prints is fixed before the next
-step, not reported around. Without a shell tool its output is the whole check
-record. The report carries a check the hook printed and a later edit cleared
-as `<check> pass (hook)`; a check the hook never printed is `unavailable (no
-shell)`, because a session that has not seen the hook print cannot tell a
-clean run from a hook that is not installed. Once the hook has printed in a
-session, its silence after the final edit is that session's clean run.
+Where the Claude Code plugin is installed, a hook runs `gofmt`, `go vet`,
+`go fix -diff`, the package's tests, and `golangci-lint` after every edit of a
+`.go` file and prints only the checks that failed; it never blocks. A finding
+it prints is fixed before the next step, not reported around. Without a shell
+tool its output is the whole check record: a check it printed and a later edit
+cleared is `<check> pass (hook)`. Before the hook has printed once in the
+session, a check it never printed is `unavailable (no shell)` — silence cannot
+be told from a hook that is not installed; after that, its silence following
+the final edit is the session's clean run.
 
 ## Related Skills
 

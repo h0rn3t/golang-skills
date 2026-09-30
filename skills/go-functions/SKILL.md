@@ -10,13 +10,12 @@ description: Use when designing or reviewing Go function APIs, parameters, retur
 
 ## Resource Routing
 
-- `references/SIGNATURES.md` - Read when designing parameters, return values, named results, or signature readability.
+- `references/SIGNATURES.md` - Read when designing parameters or signature readability.
 - `references/PRINTF-STRINGER.md` - Read when using fmt verbs, Stringer, GoStringer, Formatter, or Printf-style function naming.
 - `references/OPTIONS-VS-STRUCTS.md` - Read when choosing or implementing constructor configuration: config structs, functional options, defaults, validation, and caller ergonomics.
 
-For error strategy, see [go-error-handling](../go-error-handling/SKILL.md).
-For identifier names, see [go-naming](../go-naming/SKILL.md). Follow existing
-API conventions and preserve signatures unless changing them is in scope.
+Follow existing API conventions and preserve signatures unless changing them
+is in scope.
 
 ---
 
@@ -29,18 +28,6 @@ Organize functions in a file by these rules:
 3. **Exported** functions appear first, after `struct`/`const`/`var` definitions
 4. `NewXxx`/`newXxx` constructors appear right after the type definition
 5. Plain utility functions appear toward the end of the file
-
-```go
-type something struct{ ... }
-
-func newSomething() *something { return &something{} }
-
-func (s *something) Cost() int { return calcCost(s.weights) }
-
-func (s *something) Stop() { ... }
-
-func calcCost(n []int) int { ... }
-```
 
 ---
 
@@ -75,14 +62,6 @@ Add `/* name */` comments for ambiguous arguments, or better yet, replace naked
 
 You almost never need a pointer to an interface. Pass interfaces as values — the
 underlying data can still be a pointer.
-
-```go
-// Bad: pointer to interface
-func process(r *io.Reader) { ... }
-
-// Good: pass the interface value
-func process(r io.Reader) { ... }
-```
 
 The same holds for every parameter the function reads only as `*x`: a
 `string`, slice, map, `time.Time`, or small struct travels by value, never as
@@ -147,4 +126,4 @@ them. Implementation and tradeoffs live in the constructor reference above.
 - [go-naming](../go-naming/SKILL.md): function, method, and getter names.
 - [go-interfaces](../go-interfaces/SKILL.md): when the option abstraction itself needs design.
 - [go-documentation](../go-documentation/SKILL.md): constructors, defaults, `With*` functions.
-- [go-style-core](../go-style-core/SKILL.md): general formatting and line length; signature wrapping is owned here, in [SIGNATURES.md](references/SIGNATURES.md).
+- [go-style-core](../go-style-core/SKILL.md): general formatting and line length; signature wrapping is owned here.

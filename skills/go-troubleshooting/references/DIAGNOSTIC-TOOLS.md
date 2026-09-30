@@ -42,9 +42,6 @@ read-only diagnostic step. Capture one profile at a time with bounded duration;
 | `GOMEMLIMIT=500MiB` | Soft limit on Go runtime-managed memory (Go 1.19+) | Tuning memory/GC tradeoffs; excludes native allocations and is not an RSS cap or leak diagnosis |
 | `GOFLAGS=-race` | Race detector on for every build in the shell | CI parity locally |
 
-The [Go GC guide](https://go.dev/doc/gc-guide#Memory_limit) defines which memory
-the soft limit covers. Changing the limit does not establish why memory grows.
-
 `GODEBUG` accepts a comma-separated list. The Go-version-compat settings
 (`GODEBUG=panicnil=1`, `httpmuxgo121=1`, ...) and the release that changed
 each default are in `$(go env GOROOT)/doc/godebug.md`; the defaults a build
@@ -57,21 +54,13 @@ finding for [go-security](../../go-security/SKILL.md).
 ## Stack dumps
 
 ```bash
-curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=2' > goroutines.txt
 curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=1' # grouped counts
-curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutineleak?debug=1' # Go 1.27+: leaked only
-go test -timeout 30s ./pkg             # on timeout: dump of every goroutine, then fail
 ```
 
-On `goroutineleak` (Go 1.27+): `debug=1` prints the leaked stacks, `debug=2`
-degrades to every goroutine in panic format, and the plain endpoint returns a
-pprof profile for `go tool pprof`. Every read runs a leak-detecting GC cycle
-first, so `Profile.Count()` reports the last cycle's number and stays at zero
-until the profile has been read once — take the total from the output.
-
-[SIGQUIT normally dumps stacks and exits](https://pkg.go.dev/os/signal#hdr-Default_behavior_of_signals_in_Go_programs).
-Only use `kill -QUIT <pid>` when termination is authorized; prefer the existing
-admin endpoint for a process that must stay alive.
+On `goroutineleak` (Go 1.27+), the plain endpoint returns a pprof profile for
+`go tool pprof`. Every read runs a leak-detecting GC cycle first, so
+`Profile.Count()` reports the last cycle's number and stays at zero until the
+profile has been read once — take the total from the output.
 
 Programmatic (requires existing instrumentation or an authorized code change):
 
@@ -90,13 +79,6 @@ Grouping a `debug=2` dump by top frame:
 awk '/^goroutine /{getline; print}' goroutines.txt | sort | uniq -c | sort -rn | head -20
 ```
 
-Wait states worth recognizing: `chan receive`, `chan send`, `select`,
-`select (no cases)` (a `select {}` — intentional or a bug), `sync.Mutex.Lock`,
-`sync.WaitGroup.Wait`, `semacquire`, `IO wait`, `sleep`, `syscall`. A goroutine
-in `[chan receive, 47 minutes]` may be an idle worker. Confirm leakage by
-comparing counts/stacks under equivalent workload and checking whether its
-owner has finished and its intended lifetime has expired.
-
 ---
 
 ## pprof
@@ -104,17 +86,9 @@ owner has finished and its intended lifetime has expired.
 ### Capture
 
 ```bash
-# Live process (HTTP)
-go tool pprof -seconds=30 http://localhost:6060/debug/pprof/profile   # CPU
-go tool pprof http://localhost:6060/debug/pprof/heap                  # heap (inuse by default)
-go tool pprof http://localhost:6060/debug/pprof/allocs                # heap, alloc_space by default
 go tool pprof http://localhost:6060/debug/pprof/block                 # needs runtime.SetBlockProfileRate
 go tool pprof http://localhost:6060/debug/pprof/mutex                 # needs runtime.SetMutexProfileFraction
 curl -s -o heap.pb.gz http://localhost:6060/debug/pprof/heap          # save for later / diff
-
-# Tests and benchmarks
-go test -cpuprofile cpu.out -memprofile mem.out -bench . ./pkg
-go test -blockprofile block.out -mutexprofile mutex.out ./pkg
 go test -memprofilerate=1 -memprofile mem.out ./pkg   # every allocation, slow but exact
 ```
 
@@ -128,26 +102,12 @@ runtime.SetMutexProfileFraction(5)      // 1 in 5 contention events
 ### Read
 
 ```bash
-go tool pprof -top -cum cpu.out                     # inclusive time, callers first
-go tool pprof -top mem.out                          # inuse_space
-go tool pprof -sample_index=alloc_space -top mem.out
 go tool pprof -sample_index=alloc_objects -top mem.out   # object count: small-object churn
-go tool pprof -list 'pkg.Func' cpu.out              # per-line inside one function
-go tool pprof -peek 'runtime.mallocgc' cpu.out      # who calls this
 go tool pprof -base heap1.pb.gz heap2.pb.gz         # what grew between two snapshots
-go tool pprof -diff_base heap1.pb.gz heap2.pb.gz    # same, normalized
-go tool pprof -http=:8081 cpu.out                   # flame graph, source view, browser
-go tool pprof -focus 'handleOrder' -top cpu.out     # only stacks through this function
-go tool pprof -ignore 'runtime\.' -top cpu.out      # hide a subtree
 ```
 
-Sample indexes for heap profiles: `inuse_space` (live bytes — leaks),
-`inuse_objects`, `alloc_space` (cumulative — churn), `alloc_objects`. Heap
-profiles are as of the last GC; call `runtime.GC()` before a programmatic
+Heap profiles are as of the last GC; call `runtime.GC()` before a programmatic
 `WriteHeapProfile` for an exact live set.
-
-Interactive mode (`go tool pprof cpu.out`) accepts the same verbs: `top`,
-`list`, `peek`, `web`, `weblist`, `disasm`, `tags`, `focus=`, `ignore=`.
 
 ---
 
@@ -204,8 +164,6 @@ interleaving.
 ## Delve
 
 ```bash
-go install github.com/go-delve/delve/cmd/dlv@latest
-
 dlv debug ./cmd/app -- --flag value      # build and run under the debugger
 dlv test ./pkg -- -test.run '^TestName$' # a single test
 dlv attach <pid>                         # a running process (pauses it)
@@ -213,41 +171,23 @@ dlv core ./app core.1234                 # post-mortem from GOTRACEBACK=crash
 dlv exec ./app                           # a prebuilt binary (build with -gcflags=all=-N\ -l)
 ```
 
-Inside:
-
-```text
-break pkg.Func            b main.(*Server).handle:12
-condition 1 id == 42      # break only when
-continue / next / step / stepout
-print v   / p v           # values; p -v v for full nested
-locals / args / goroutines / goroutine 42 / bt / frame 2
-watch -w s.count          # hardware watchpoint on a write
-on 1 print id             # attach a command to a breakpoint
-```
-
-`dlv dap` speaks the Debug Adapter Protocol for editors. Delve is the tool
-for a *deterministic* wrong result; for races and hangs, the dumps and
-profiles above are faster and do not perturb timing.
+Delve is the tool for a *deterministic* wrong result; for races and hangs, the
+dumps and profiles above are faster and do not perturb timing.
 
 ---
 
 ## Compiler and runtime introspection
 
 ```bash
-go build -gcflags='-m' ./pkg 2>&1 | grep -E 'escapes|moved to heap'   # escape analysis
-go build -gcflags='-m -m' ./pkg                                         # with reasons
 go build -gcflags='-d=checkptr' ./...                                   # unsafe.Pointer misuse (on by default under -race)
-go vet ./...                                                            # copylocks, lostcancel, printf, waitgroup, unusedresult
-go tool nm -size -sort size ./app | head                                # what makes the binary big
 go version -m ./app                                                     # module versions baked into a binary
-GOSSAFUNC=Func go build ./pkg                                           # ssa.html for one function
 ```
 
 ```go
 var m runtime.MemStats
 runtime.ReadMemStats(&m)                 // stop-the-world; fine for a debug endpoint, not a hot path
 metrics.Read(samples)                    // runtime/metrics: cheap, per-metric, the modern form
-runtime.NumGoroutine()                   // plot it; a monotone rise is a leak
+runtime.NumGoroutine()                   // plot it
 debug.SetTraceback("all")                // programmatic GOTRACEBACK
 debug.SetCrashOutput(f, debug.CrashOptions{})   // Go 1.23+: crash trace to a file
 debug.ReadBuildInfo()                    // module path, VCS revision, -race, settings
@@ -258,39 +198,16 @@ debug.ReadBuildInfo()                    // module path, VCS revision, -race, se
 ## Test flags for debugging
 
 ```bash
-go test -run '^TestName$' -v ./pkg               # exact match; -v for t.Log output
 go test -count=100 -run '^TestName$' ./pkg | grep -c '^--- FAIL'   # reproduction rate; -failfast would stop at 1
-for i in 1 2 3 4 5; do go test -count=1 -shuffle=on -v ./pkg || break; done   # order dependence: a new seed per run
-go test -shuffle=1712345678 -v ./pkg              # replay that seed; narrow with -run, re-read the order
-go test -race -count=20 ./pkg
-go test -timeout 30s ./pkg                        # hang → goroutine dump
-go test -cpu 1,2,8 ./pkg                          # GOMAXPROCS sweep
-go test -run '^TestName$' ./pkg -args -my.flag=1  # flags to the test binary
-go test -c -o pkg.test ./pkg && ./pkg.test -test.run '^TestName$'   # run the binary directly / under dlv
-go test -json ./... | go run gotest.tools/gotestsum@latest --raw-command -- cat   # structured output
 go build ./...                                    # vendor drift: fails "inconsistent vendoring" under the default -mod=vendor
 ```
 
 `-count=N` with `-shuffle=on` runs one shuffled order N times: the order is
-drawn once per invocation, so vary it across invocations as above. The vendor
+drawn once per invocation, so vary it across invocations. The vendor
 check needs `vendor/` and no `-mod` in `go env GOFLAGS`. A module-mode
 comparison (`GOFLAGS=-mod=mod`) rewrites `go.mod` and `go.sum`; run it only in
 an isolated worktree (`git worktree add ../cmp HEAD`), never in the tree under
 investigation.
-
-`-shuffle` only reorders top-level tests and benchmarks; with `-run` matching a
-single test it changes nothing. For a regression with a known good revision:
-
-```bash
-git bisect start <bad> <good>
-git bisect run sh -c 'go build ./pkg || exit 125; go test -list "^TestName$" ./pkg | grep -qx TestName || exit 125; go test -count=1 -run "^TestName$" ./pkg'
-git bisect reset
-go version -m ./app-good | diff - <(go version -m ./app-bad)   # dependency versions actually built in
-```
-
-Exit 125 skips a revision that does not build or lacks the test. Bare
-`go test -run` marks a build failure bad (exit 1) and a revision without the
-test good (`[no tests to run]`, exit 0), and bisect then names the wrong commit.
 
 `t.Context()` (Go 1.24+) is canceled when the test ends — a goroutine still
 running after that is what `-race` and goroutine-leak checks catch.

@@ -4,10 +4,6 @@
 > Authority: advisory
 > Last verified: 2026-09-10
 
-Detailed patterns for designing enumerated constants with `iota` in Go.
-
----
-
 ## Start Enums at One
 
 Start enums at one so the zero value represents an invalid/unset state. This
@@ -25,22 +21,9 @@ const (
 
 ### When Zero Makes Sense
 
-Use zero when the default behavior is desirable:
-
-```go
-type LogOutput int
-
-const (
-    LogToStdout LogOutput = iota  // zero value = default
-    LogToFile
-    LogToRemote
-)
-```
-
+Use zero when the default behavior is desirable.
 The key question: **is the zero value a valid, useful default?** If yes, start
 at zero. If no, start at one.
-
----
 
 ## Bitmask Patterns
 
@@ -58,27 +41,6 @@ const (
 perms := Read | Write
 ```
 
----
-
-## Byte Size Pattern
-
-A common pattern for byte size constants:
-
-```go
-type ByteSize float64
-
-const (
-    _           = iota
-    KB ByteSize = 1 << (10 * iota)
-    MB
-    GB
-    TB
-    PB
-)
-```
-
----
-
 ## String Representation
 
 An enum whose values reach logs or `%v` output gets a generated `String()`.
@@ -91,24 +53,7 @@ An enum whose values reach logs or `%v` output gets a generated `String()`.
 type Operation int
 ```
 
-Write the switch by hand only when the text differs from the constant names:
-
-```go
-func (o Operation) String() string {
-    switch o {
-    case Add:
-        return "+"
-    case Subtract:
-        return "-"
-    case Multiply:
-        return "*"
-    default:
-        return fmt.Sprintf("Operation(%d)", o)
-    }
-}
-```
-
----
+Write the switch by hand only when the text differs from the constant names.
 
 ## Grouping Rules
 

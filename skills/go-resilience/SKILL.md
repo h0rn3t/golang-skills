@@ -26,10 +26,7 @@ wrapper. Defaults in different layers can multiply attempts.
 
 Implement or review the protection the task needs; a routine client does not
 need every pattern below. Preserve explicit delivery, consistency, freshness,
-and security requirements. If a missing contract changes whether replay or
-fallback is safe, ask for that fact while continuing independently valid work.
-A local implementation request does not authorize production fault injection,
-quota changes, or deployment.
+and security requirements.
 
 ## Choose the Protection
 
@@ -43,12 +40,9 @@ quota changes, or deployment.
 | A failing dependency needs recovery time | Circuit breaker if rejection adds value | It neither limits all concurrency nor makes replay safe |
 | An optional dependency is unavailable | Contract-approved degraded result | No invented success, weaker authorization, or unmarked stale data |
 
-Prefer existing clients/policies and a small local implementation where it is
-sufficient. Follow [go-packages](../go-packages/SKILL.md) before adding a library.
+Follow [go-packages](../go-packages/SKILL.md) before adding a library.
 `golang.org/x/time/rate` is an external Go module for token buckets; the standard
-library has no general circuit breaker. Use a maintained implementation for a
-needed state machine rather than casually building a reusable resilience stack.
-Honor an explicitly selected library and verify its actual composition semantics.
+library has no general circuit breaker.
 
 ## Retry Invariants
 

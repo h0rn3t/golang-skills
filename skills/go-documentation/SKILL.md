@@ -48,24 +48,6 @@ comment when their behavior is not obvious from the signature.
 
 ---
 
-## Comment Sentences
-
-> **Normative**: Documentation comments must be complete sentences.
-
-- Capitalize the first word, end with punctuation
-- Exception: may begin with uncapitalized identifier if clear
-- End-of-line comments for struct fields can be phrases
-
----
-
-## Comment Line Length
-
-> **Advisory**: Aim for ~80 columns, but no hard limit.
-
-Break based on punctuation. Don't split long URLs.
-
----
-
 ## Struct Documentation
 
 Group fields with section comments. Mark optional fields with defaults:
@@ -110,31 +92,11 @@ package math
 | Errors | Sentinel values, error types (use `*PathError`) | — |
 | Named results | Multiple params of same type, action-oriented names | Type alone is clear enough |
 
-Key principles:
-
-- Context cancellation returning `ctx.Err()` is implied — don't restate it
-- Read-only ops are assumed thread-safe; mutations assumed unsafe — don't restate
-- Always document cleanup requirements (e.g., `Call Stop to release resources`)
-- Use pointer in error type docs (`*PathError`) for correct `errors.Is`/`errors.AsType`
-- Don't name results just to enable naked returns — clarity > brevity
-
 ---
 
 ## Runnable Examples
 
-> **Advisory**: Provide runnable examples in test files (`*_test.go`).
-
-```go
-func ExampleConfig_WriteTo() {
-    cfg := &Config{Name: "example"}
-    if _, err := cfg.WriteTo(os.Stdout); err != nil {
-        fmt.Println("write config:", err)
-        return
-    }
-    // Output:
-    // {"name": "example"}
-}
-```
+> **Advisory**: Provide runnable `Example` functions in test files (`*_test.go`); [EXAMPLES.md](references/EXAMPLES.md) shows the form.
 
 Examples appear in Godoc attached to the documented element. `go doc -ex
 <symbol>` (Go 1.27+) lists them from the terminal, and `go doc <pkg>@<version>`

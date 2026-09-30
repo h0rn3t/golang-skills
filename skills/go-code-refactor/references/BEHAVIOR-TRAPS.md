@@ -46,10 +46,8 @@ Same for maps: reading a nil map is fine, writing panics. Adding a defensive
 behavior change wearing a bug fix's clothes.
 
 `slices.Clone(nil)` and `maps.Clone(nil)` return nil, while `make` followed
-by `copy` or a map-copy loop creates a non-nil empty container for nil input.
-The swap can change JSON v1 output or make a later map write panic. Preserve
-the original allocation when non-nil output is required; check observable
-slice capacity too. See
+by `copy` or a map-copy loop creates a non-nil empty container for nil input:
+the swap can make a later map write panic. See
 [go-defensive](../../go-defensive/SKILL.md).
 
 ## defer
@@ -85,11 +83,9 @@ earlier. Flag it rather than doing it silently.
 
 ## Error handling
 
-- Error message text is API. Callers grep logs, tests assert on it, alerts
-  match it. Do not rephrase, capitalize, or punctuate.
-- `%v` and `%w` are not interchangeable: `%w` keeps the chain for `errors.Is`
-  and `errors.AsType`. Converting `%v` to `%w` makes previously-failing
-  `errors.Is` checks start succeeding.
+- Error message text is API: do not rephrase, capitalize, or punctuate.
+- Converting `%v` to `%w` makes previously-failing `errors.Is` checks start
+  succeeding.
 - Consolidating several distinct error returns into one shared error changes
   what `errors.Is` can distinguish.
 - `errors.New` at package level is a comparable sentinel; moving it inside a
@@ -145,11 +141,6 @@ therefore the aliasing.
 
 ## Loops and closures
 
-Loop variables are per-iteration since Go 1.22. Code written for the old
-semantics contains `x := x` shadowing; deleting it is safe when the `go`
-directive is ≥1.22 and breaks below that — check `go.mod` first. A pointer to
-the element itself is `&s[i]`; `&v` points at that iteration's copy.
-
 Converting `for i := 0; i < len(s); i++` to `for i, v := range s` copies each
 element into `v`. If the body writes through `s[i]`, or the elements are large
 structs, this is not equivalent.
@@ -162,9 +153,7 @@ it. If the body appends, the two loops iterate different numbers of times.
 - `int`, `int64`, and `int32` differ in overflow points. Overflow is defined in
   Go, so code may rely on wrapping.
 - `float64` arithmetic is not associative — reordering `a + b + c` can change
-  the last bits. Since Go 1.25 this is sharper: at `GOAMD64=v3` and above the
-  compiler fuses `a*b + c` into one FMA, so results can move across a toolchain
-  bump with no diff from you. `float64(a*b) + c` prevents fusing.
+  the last bits.
 - Integer division truncates toward zero; `a/b*c` and `a*c/b` differ.
 - `strconv.FormatFloat` precision and `%v` vs `%g` produce different strings.
 
@@ -208,17 +197,9 @@ bite most often:
 
 | Swap | Verdict |
 |---|---|
-| `errors.As` → `errors.AsType[T]` | Equivalent |
-| `%v` → `%w` | **Not** equivalent — changes `errors.Is` |
-| `omitempty` → `omitzero` | Changes which fields appear in JSON |
 | `fmt.Sprintf("%s:%d", host, port)` → `net.JoinHostPort` | Differs for IPv6 — a bug fix, not a swap |
 | `os.Open` → `os.Root` | Starts rejecting paths that escape the directory |
-| `strings.Split` → `strings.SplitSeq` | Equivalent only when the slice is ranged once as `for _, v := range` and never indexed or kept; `for i := range` binds `i` to the element |
-| `strings.Split` → `strings.Lines` | **Not** — `Lines` keeps the trailing newline |
-| `sort.Slice` → `slices.SortFunc` | Keeps instability |
-| `sort.Slice` → `slices.SortStableFunc` | Changes order of equal keys |
 | `runtime.SetFinalizer` → `runtime.AddCleanup` | Changes when cleanup runs and how cycles behave |
-| Bumping the `go` directive | New vet diagnostics **and** new semantics — its own change |
 
 [`MODERNIZATION.md`](MODERNIZATION.md) (next to this file) has the full catalog, including toolchain
 releases that break green tests with no diff from you.

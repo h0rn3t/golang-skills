@@ -5,8 +5,6 @@
 
 # SQL Patterns
 
-The full code behind each rule in `SKILL.md`. Copy the shape, not the names.
-
 ## Opening the pool once
 
 ```go
@@ -108,10 +106,7 @@ func move(ctx context.Context, tx *sql.Tx, id, delta int64) error {
 `accounts.id` is a primary key. Each `UPDATE ... RETURNING` must yield one
 row: a missing source or destination makes `Scan` return `sql.ErrNoRows`,
 and `withTx` rolls back the entire transfer. Plain `ExecContext` without
-checking `RowsAffected` can silently commit only one side. `move` maps
-`sql.ErrNoRows` to the `ErrNotFound` sentinel from
-[the repository boundary](#the-repository-boundary) so no driver error reaches
-a handler, and `Transfer` wraps it with the account it came from. Validate a
+checking `RowsAffected` can silently commit only one side. Validate a
 positive amount, self-transfer policy, and overdraft rules at the domain
 boundary; this example demonstrates transaction ownership, not a complete
 ledger.
@@ -126,12 +121,7 @@ replay safety; keep nontransactional external side effects out of that retry.
 ## Batch lookup instead of a loop
 
 ```go
-// Bad: one round trip per order
-for i := range orders {
-    orders[i].Customer, err = repo.CustomerByID(ctx, orders[i].CustomerID)
-}
-
-// Good: one round trip, map in Go (pgx driver: pass the slice, ANY expands it)
+// One round trip, map in Go (pgx driver: pass the slice, ANY expands it)
 ids := make([]int64, 0, len(orders))
 for _, o := range orders {
     ids = append(ids, o.CustomerID)
@@ -177,9 +167,7 @@ or a pointer to preserve that distinction; do not introduce `COALESCE` or
 
 For a column type of your own, implement `sql.Scanner` and `driver.Valuer`;
 `sql.ConvertAssign` (Go 1.27+) exposes the conversion `Rows.Scan` applies, so a
-custom scanner can defer to it instead of reimplementing the type table. Driver
-authors get `driver.RowsColumnScanner` (Go 1.27+) to scan a column straight into
-the caller's destination — irrelevant when you only consume a driver.
+custom scanner can defer to it instead of reimplementing the type table.
 
 ## ORM rules when the repository already has one
 

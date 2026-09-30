@@ -14,30 +14,12 @@ description: Use when choosing a logging approach, configuring slog, writing str
 - `references/LEVELS-AND-CONTEXT.md` - Read when choosing log levels, deciding logger-in-context versus explicit parameters, or excluding sensitive fields.
 - `references/LOGGING-PATTERNS.md` - Read when configuring slog handlers, logging HTTP requests, testing handlers, or migrating from `log.Printf`.
 
-## Core Principle
-
-Logs are for **operators**, not developers. Every log line should help someone
-diagnose a production issue. If it doesn't serve that purpose, it's noise.
-
----
-
 ## Choosing a Logger
 
 > **Normative**: Use `log/slog` for new Go code.
 
-`slog` is structured, leveled, and in the standard library (Go 1.21+). It
-covers the vast majority of production logging needs.
-
-```
-Which logger?
-├─ New production code      → log/slog
-├─ Trivial CLI / one-off    → log (standard)
-└─ Measured perf bottleneck → zerolog or zap (benchmark first)
-```
-
 Do not introduce a third-party logging library unless profiling shows `slog`
-is a bottleneck in your hot path. When you do, keep the same structured
-key-value style.
+is a bottleneck in your hot path.
 
 ---
 
@@ -59,9 +41,6 @@ slog.Info(fmt.Sprintf("order %d placed for $%.2f", orderID, total))
 ### Key Naming
 
 > **Advisory**: Use `snake_case` for log attribute keys.
-
-Keys should be lowercase, underscore-separated, and consistent across the
-codebase: `user_id`, `request_id`, `elapsed_ms`.
 
 ### Typed Attributes
 
@@ -98,26 +77,10 @@ A test or caller that ignores logs passes `slog.New(slog.DiscardHandler)`
 
 ## Log Levels
 
-> **Advisory**: Follow these level semantics consistently.
-
-| Level | When to use | Production default |
-|-------|-------------|--------------------|
-| Debug | Developer-only diagnostics, tracing internal state | Disabled |
-| Info  | Notable lifecycle events: startup, shutdown, config loaded | Enabled |
-| Warn  | Unexpected but recoverable: deprecated feature used, retry succeeded | Enabled |
-| Error | Operation failed, requires operator attention | Enabled |
-
 **Rules of thumb**:
 - If nobody should act on it, it's not Error — use Warn or Info
 - If it's only useful with a debugger attached, it's Debug
 - `slog.Error` should always include an `"err"` attribute
-
-```go
-slog.Error("payment failed", "err", err, "order_id", id)
-slog.Warn("retry succeeded", "attempt", n, "endpoint", url)
-slog.Info("server started", "addr", addr)
-slog.Debug("cache lookup", "key", key, "hit", hit)
-```
 
 On a hot path, guard attribute construction that allocates with
 `logger.Enabled(ctx, slog.LevelDebug)` so a disabled level costs one check.
@@ -132,17 +95,13 @@ Use middleware to enrich a logger with request ID, user ID, or trace ID, then
 pass the enriched logger downstream — in the context for handler and
 middleware chains, as an explicit parameter for libraries and background
 workers ([the decision table](references/LEVELS-AND-CONTEXT.md#when-to-use-each)).
-Keep the full context-key and middleware implementation in the logging patterns
-reference so request-scoped logging has one owner.
 
 Log through the `*Context` variants (`slog.InfoContext`, `slog.ErrorContext`)
 so the context reaches `Handler.Handle`. That call alone adds nothing:
 `TextHandler` and `JSONHandler` ignore the context. A trace or request ID
 reaches the record only from a logger already enriched with it, or from a
-handler that reads it out of the context. For the existing enriched-logger
-approach, see "HTTP Request Logging Middleware" and "Retrieving the Logger
-from Context" in [LOGGING-PATTERNS.md](references/LOGGING-PATTERNS.md).
-Use that retrieved logger's `InfoContext` method downstream.
+handler that reads it out of the context. For the enriched-logger approach,
+see [LOGGING-PATTERNS.md](references/LOGGING-PATTERNS.md).
 
 ---
 
@@ -152,8 +111,7 @@ The handle-once rule and its one exception — a handler at the top of the
 chain logs the detail and answers with a status — belong to
 [go-error-handling](../go-error-handling/SKILL.md#error-flow). The logging
 side of that exception is one `*Context` call carrying the fields the record
-needs; under `JSONHandler` the context itself adds none
-([Request-Scoped Logging](#request-scoped-logging)):
+needs:
 
 ```go
 slog.ErrorContext(r.Context(), "checkout failed", "err", err, "user_id", uid)
@@ -191,11 +149,6 @@ A feature in a service is not done until an operator can see it fail:
 ## What NOT to Log
 
 > **Normative**: Never log secrets, credentials, PII, or high-cardinality unbounded data.
-
-- Passwords, API keys, tokens, session IDs
-- Full credit card numbers, SSNs
-- Request/response bodies that may contain user data
-- Entire slices or maps of unbounded size
 
 A secret gets its own type that implements `slog.LogValuer`, so every
 attribute that carries it prints `[REDACTED]` whichever handler writes the

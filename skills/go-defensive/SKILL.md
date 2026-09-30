@@ -53,12 +53,6 @@ Reviewing an API boundary?
 
 ---
 
-## Verify Interface Compliance
-
-Route compile-time interface assertions to [go-interfaces](../go-interfaces/SKILL.md).
-Use this skill only to notice API-boundary robustness risk; the interface skill
-owns when an assertion is appropriate and the exact assertion shape.
-
 ## Copy Slices and Maps at Boundaries
 
 Slices and maps contain pointers to underlying data. Copy at API boundaries to
@@ -83,19 +77,6 @@ the non-nil `append` or `make` copy above. See
 
 ## Defer to Clean Up
 
-Use `defer` to clean up resources (files, locks). Avoids missed cleanup on multiple return paths.
-
-```go
-p.Lock()
-defer p.Unlock()
-
-if p.count < 10 {
-  return p.count
-}
-p.count++
-return p.count
-```
-
 `Close` on a written file can report a write that failed late, so its error
 joins the function's result through a named `err`:
 
@@ -113,8 +94,7 @@ func save(name string, r io.Reader) (err error) {
 
 A file that is only read takes `os.ReadFile` or `root.ReadFile` when its whole
 content fits in memory, and the same deferred `errors.Join` when it is
-streamed. Arguments to deferred functions are evaluated when `defer`
-executes, not when the function runs. Multiple defers execute in LIFO order.
+streamed.
 
 ## Struct Field Tags
 
@@ -127,59 +107,36 @@ type User struct {
 }
 ```
 
-Field tags are a **serialization contract** — renaming a struct field without
-updating the tag silently breaks wire compatibility. Treat tags as part of
-the public API for any type that crosses a serialization boundary.
 `encoding/json/v2` does not validate tag options: a copied `inline` or
 `unknown` tag compiles and silently nests or drops data (`embed` is the
 released spelling). Assert the encoded bytes in a test.
 
-## Start Enums at One
-
-An enum's zero value must not pass for a valid member — an unset field then
-reads as a real state at the boundary. [go-style-core](../go-style-core/SKILL.md)
-owns the `iota` form and the exception where zero is the sensible default.
-
-## Time and Embedding
+## Time
 
 Use `time.Time` and `time.Duration` for instants and spans in process, never
 raw integers. On the wire, `encoding/json/v2` (Go 1.27+) has no default
 representation for `time.Duration` and fails to marshal it, so a wire field is
 an integer with the unit in its name or a string parsed with
 `time.ParseDuration` ([TIME-ENUMS-TAGS.md](references/TIME-ENUMS-TAGS.md#json-fields)).
-Embedding a type in a public struct exports its whole method set —
-[go-interfaces](../go-interfaces/SKILL.md#embedding) owns that rule.
 
 ## Avoid Mutable Globals
 
 Inject dependencies instead of mutating package-level variables. This makes
 code testable without global save/restore. The smallest injection is an
-argument:
-
-```go
-func IsExpired(now, expiry time.Time) bool {
-    return now.After(expiry)
-}
-```
-
-The caller passes `time.Now()` and a test passes a fixed instant; code that
-sleeps is tested inside `synctest.Test`, whose clock is fake
+argument: the caller passes `time.Now()` and a test passes a fixed instant;
+code that sleeps is tested inside `synctest.Test`, whose clock is fake
 ([GLOBAL-STATE.md](references/GLOBAL-STATE.md#injecting-time)).
 
 ## Crypto Rand
 
-Do not use `math/rand` or `math/rand/v2` to generate keys — both packages
-document their output as predictable regardless of seeding and unsuitable for
-security-sensitive work.
+Do not use `math/rand` or `math/rand/v2` to generate keys.
 
 ```go
 token := rand.Text() // crypto/rand: at least 128 bits, base32
 ```
 
-For text output, use `crypto/rand.Text` directly, or encode random bytes
-with `encoding/hex` or `encoding/base64`. For raw key material,
-`rand.Read(buf)` has no error to check: it never returns one, and it crashes
-the program if the OS source fails.
+For raw key material, `rand.Read(buf)` has no error to check: it never
+returns one, and it crashes the program if the OS source fails.
 
 ## Confine Filesystem Access
 
@@ -292,8 +249,6 @@ a bug; never on a file read at run time, the environment, or request-time input.
 ## Related Skills
 
 - [go-error-handling](../go-error-handling/SKILL.md): wrapping, sentinels, and typed errors at boundaries; this skill owns panic versus return.
-- [go-concurrency](../go-concurrency/SKILL.md): shared state under mutexes, atomics, channels.
 - [go-interfaces](../go-interfaces/SKILL.md): compile-time interface assertions.
-- [go-data-structures](../go-data-structures/SKILL.md): slice and map internals, pointer aliasing.
 - [go-style-core](../go-style-core/SKILL.md): the `iota` block and whether zero is a valid member.
 - [go-security](../go-security/SKILL.md): untrusted values: injection, SSRF, secrets, TLS; this skill owns the `os.Root` and `crypto/rand` forms.

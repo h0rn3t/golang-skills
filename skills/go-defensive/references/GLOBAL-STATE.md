@@ -4,10 +4,6 @@
 > Authority: advisory
 > Last verified: 2026-09-29
 
-Global state makes programs harder to test, reason about, and maintain.
-Dependency injection is the preferred alternative, but some global state
-is acceptable when used carefully.
-
 ## When Global State Is Acceptable
 
 Not all package-level variables are harmful. Global state is appropriate when
@@ -17,106 +13,6 @@ it is **truly process-wide** and **not worth injecting**:
 - **Compiled-once values** — `regexp.MustCompile(...)` at package level
 - **Registries** — `database/sql.Register`, `image.RegisterFormat`
 - **Singleton infrastructure** — a process-wide metric collector or trace exporter
-
-## Litmus Test for Global Variables
-
-Before adding a package-level variable, ask:
-
-1. **Is it truly process-wide?** If two goroutines or tests might need
-   different values, it should not be global
-2. **Does it prevent testing?** If tests must save/restore the variable or
-   cannot run in parallel because of it, inject it instead
-3. **Could it be a constant?** If the value never changes after init, prefer
-   `const` or an unexported `var` initialized once
-4. **Does it carry mutable state?** Mutable globals are the most dangerous —
-   only acceptable for well-documented, concurrency-safe singletons
-
-## Package State API Pattern: New() + Default()
-
-The standard library pattern provides both a customizable constructor and a
-convenient default. This lets callers use the default for simple cases and
-inject a custom instance for testing or specialized behavior.
-
-**Good**
-```go
-package mylog
-
-type Logger struct {
-    prefix string
-    out    io.Writer
-}
-
-func New(prefix string, out io.Writer) *Logger {
-    return &Logger{prefix: prefix, out: out}
-}
-
-var defaultLogger = New("", os.Stderr)
-
-func Default() *Logger { return defaultLogger }
-
-func (l *Logger) Info(msg string) {
-    fmt.Fprintf(l.out, "%s%s\n", l.prefix, msg)
-}
-
-// Package-level convenience functions delegate to the default instance.
-func Info(msg string) { defaultLogger.Info(msg) }
-```
-
-```go
-// Callers use the default for simple cases
-mylog.Info("starting server")
-
-// Tests or specialized code create custom instances
-logger := mylog.New("[test] ", &buf)
-logger.Info("test message")
-```
-
-Standard library examples of this pattern:
-- `log.New()` + `log.Default()` + `log.Println()`
-- `slog.New()` + `slog.Default()` + `slog.Info()`
-- `flag.NewFlagSet()` + `flag.CommandLine`
-
-## Dependency Injection as the Preferred Alternative
-
-When code needs configurable behavior, accept dependencies as constructor
-parameters or struct fields instead of reading package-level variables.
-
-**Bad**
-```go
-var db *sql.DB
-
-func GetUser(ctx context.Context, id int) (*User, error) {
-    var u User
-    if err := db.QueryRowContext(ctx, "SELECT id FROM users WHERE id = $1", id).Scan(&u.ID); err != nil {
-        return nil, err
-    }
-    return &u, nil // depends on global db
-}
-```
-
-**Good**
-```go
-type UserStore struct {
-    db *sql.DB
-}
-
-func NewUserStore(db *sql.DB) *UserStore {
-    return &UserStore{db: db}
-}
-
-func (s *UserStore) GetUser(ctx context.Context, id int) (*User, error) {
-    var u User
-    if err := s.db.QueryRowContext(ctx, "SELECT id FROM users WHERE id = $1", id).Scan(&u.ID); err != nil {
-        return nil, err
-    }
-    return &u, nil
-}
-```
-
-Benefits of injection:
-- Tests provide mock or in-memory implementations
-- Multiple instances can coexist (e.g., read replica vs primary)
-- Dependencies are explicit in the constructor signature
 
 ## Injecting Time
 
@@ -150,14 +46,3 @@ Code that sleeps or waits on a timer keeps calling `time.Now`, and its test
 runs inside `synctest.Test`, whose fake clock starts at midnight UTC
 2000-01-01 and advances only when every goroutine in the bubble is blocked
 ([go-testing](../../go-testing/SKILL.md#use-the-toolchains-test-apis)).
-
-## Summary
-
-| Situation | Approach |
-|-----------|----------|
-| Process-wide singleton (logger, metrics) | Default instance + `New()` constructor |
-| Compiled-once regex or template | Package-level `var` with `MustCompile` |
-| Registry (database drivers, codecs) | Package-level `Register()` function |
-| Configurable behavior | Dependency injection via constructor |
-| Time-dependent logic | Pass `now time.Time`; sleeping code → `synctest.Test` |
-| Anything tests need to vary | Do not use global state |

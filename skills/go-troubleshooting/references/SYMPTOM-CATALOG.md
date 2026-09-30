@@ -5,8 +5,7 @@
 > Minimum Go: 1.27 baseline
 > Last verified: 2026-09-02; test-order bisection note added 2026-09-18; panic, leak, build, and routing rows rechecked 2026-09-29
 
-Each entry: the symptom as reported → candidate mechanisms → evidence that helps distinguish each → the skill
-that owns the fix. Confirm before fixing; two mechanisms often share a symptom. A stack/profile
+Confirm before fixing; two mechanisms often share a symptom. A stack/profile
 pattern alone rarely proves ownership, causality, or a leak.
 
 ## Contents
@@ -28,20 +27,10 @@ pattern alone rarely proves ownership, causality, or a leak.
 |---|---|---|---|
 | `nil pointer dereference` | Method on a nil receiver; field of a nil struct pointer; a constructor's error ignored so the value is nil | Inspect the faulting operation and inputs in matching source/debugger; printed argument words are only clues | [go-defensive](../../go-defensive/SKILL.md) |
 | `nil pointer dereference` with a non-nil-looking value | Interface holding a typed nil pointer (`var p *T; var i I = p; i != nil`) | `fmt.Printf("%T %v", i, i)` prints the type with `<nil>` | [go-defensive](../../go-defensive/SKILL.md#common-pitfalls) |
-| `index out of range [N] with length M` | Loop bound from a different slice; off-by-one on `len-1`; slice reused after `append` reallocated | `-list` the frame; check which length was used for the bound | [go-data-structures](../../go-data-structures/SKILL.md) |
-| `slice bounds out of range` | `s[a:b]` with `a > b` or `b > cap` from parsed input | Validate the indices from input | [go-security](../../go-security/SKILL.md) (if input-driven) |
-| `assignment to entry in nil map` | `var m map[K]V` written without `make`; struct field map never initialized | Grep the declaration; constructor missing | [go-data-structures](../../go-data-structures/SKILL.md) |
 | `concurrent map writes` / `concurrent map read and map write` | Unsupported concurrent access to a shared map; runtime checks are not a complete race detector | `go test -race` shows the two stacks | [go-concurrency](../../go-concurrency/SKILL.md) |
 | `send on closed channel` | Producer still running after `close`; multiple closers | Trace send/close ownership and ordering; this panic can occur without a data race | [go-concurrency](../../go-concurrency/SKILL.md) |
-| `close of closed channel` / `close of nil channel` | Two owners closing; channel field never made | Who owns the channel — exactly one sender should close | [go-concurrency](../../go-concurrency/SKILL.md) |
 | `sync: negative WaitGroup counter` | More `Done` calls than `Add`: `Done` without `Add`, `Done` twice on one path, or a negative `Add`. `Add` inside the goroutine instead lets `Wait` return early or panics `sync: WaitGroup misuse: Add called concurrently with Wait` | `wg.Go` replaces the pair (Go 1.25+); `go vet` `waitgroup` analyzer | [go-concurrency](../../go-concurrency/SKILL.md) |
-| `sync: unlock of unlocked mutex` | Double `Unlock`; `Unlock` on a copied struct (`go vet` copylocks) | `go vet ./...` | [go-concurrency](../../go-concurrency/SKILL.md) |
-| `interface conversion: X is Y, not Z` | Unchecked type assertion `v.(Z)` | Use `v, ok := x.(Z)` or a type switch | [go-interfaces](../../go-interfaces/SKILL.md) |
-| `integer divide by zero` | Parsed or computed denominator | Table test with zero | [go-defensive](../../go-defensive/SKILL.md) |
 | `all goroutines are asleep - deadlock!` | Every goroutine blocked: unbuffered send with no receiver; `wg.Wait` with a missing `Done`; `Lock` twice on a non-reentrant mutex | The dump printed with the panic lists each wait state | [go-concurrency](../../go-concurrency/SKILL.md) |
-| `too many open files` (as an error, then panics downstream) | `resp.Body`, `*os.File`, `sql.Rows` not closed; goroutine-per-connection with no limit | `lsof -p <pid> \| wc -l` over time; `bodyclose`, `sqlclosecheck` linters | [go-defensive](../../go-defensive/SKILL.md) |
-| `fatal error: concurrent map iteration and map write` | `range` over a map another goroutine writes | Race detector | [go-concurrency](../../go-concurrency/SKILL.md) |
-| `fatal error: stack overflow` / `goroutine stack exceeds 1000000000-byte limit` | Unbounded recursion; `String()` calling `Sprintf("%v", x)` on itself; `MarshalJSON` marshaling its own type | Trace shows the same frame thousands of times | [go-functions](../../go-functions/SKILL.md) |
 | Panic inside `net/http` handler, connection closed | Handler panicked; `http.Server` recovers per connection and logs `http: panic serving` | Server error log; wrap with a recovering middleware that logs the panic value, `debug.Stack()`, and the request ID — `%+v` on a panic value prints no stack | [go-http](../../go-http/SKILL.md) |
 | Truncated or uninformative trace | Capture/log truncation, hidden runtime frames, or missing matching source | Preserve complete panic output and matching binary/source; use `GOTRACEBACK=all` on an authorized subsequent run | this skill |
 
@@ -56,7 +45,6 @@ pattern alone rarely proves ownership, causality, or a leak.
 | | `wg.Wait` forever | One worker returned early without `Done`, or panicked and recovered elsewhere | [go-concurrency](../../go-concurrency/SKILL.md) |
 | | Connection pool exhausted | `db.Stats().WaitCount` climbing; goroutines in `database/sql.(*DB).conn` | [go-database](../../go-database/SKILL.md) |
 | One request never returns | `select` without `ctx.Done()`; `time.After` in a loop; HTTP client with no timeout | Dump shows the goroutine in `select` or `net.(*netFD).Read` for minutes | [go-context](../../go-context/SKILL.md) / [go-http](../../go-http/SKILL.md) |
-| | `context.WithTimeout` created but `cancel` never called (leak, not hang) | `go vet` `lostcancel` | [go-context](../../go-context/SKILL.md) |
 | Shutdown never completes | `srv.Shutdown` waits on an active streaming handler; a worker ignores the shutdown context | Dump during shutdown; `Shutdown` with its own deadline | [go-http](../../go-http/SKILL.md) |
 | CPU 100%, no progress | Spin loop on a condition another goroutine sets without synchronization; `for { select { default: } }` | CPU profile: one frame ~100% | [go-concurrency](../../go-concurrency/SKILL.md) |
 | Slow, but CPU idle | Blocking syscall or network wait; GC assist; lock contention | `go tool trace` — long "Syscall" or "Blocked" bands; block/mutex profile | this skill, then owner |
@@ -90,15 +78,10 @@ and serialization before choosing a runtime capture.
 | Symptom | Mechanism | Confirm | Owner |
 |---|---|---|---|
 | Value sometimes stale or garbled | Data race | `-race` | [go-concurrency](../../go-concurrency/SKILL.md) |
-| Modified copy has no effect | Method with a value receiver mutating; `range` value variable; struct in a map (`m[k].f = v` does not compile, but a copy through a local does) | `go vet` does not catch it; read the receiver | [go-interfaces](../../go-interfaces/SKILL.md) |
 | Slice changes appear elsewhere | Two slices sharing a backing array after `s[:n]` or `append` within capacity | Print `cap` and pointers; `slices.Clone` at the boundary | [go-defensive](../../go-defensive/SKILL.md#common-pitfalls) |
-| Deferred value is wrong | `defer f(x)` evaluated `x` at defer time; closure captured a variable that changed | Trace the value at the `defer` line | [go-defensive](../../go-defensive/SKILL.md) |
 | `errors.Is` never matches | Wrapped with `%v` not `%w`; a new error value each call instead of a sentinel; compared across a JSON/gRPC boundary | `check-errors.sh`; print `%T` of the chain | [go-error-handling](../../go-error-handling/SKILL.md) |
-| JSON field missing or empty | Unexported field; wrong tag; `omitempty` on a zero that is meaningful; `nil` vs empty slice | `json.Marshal` round-trip test | [go-defensive](../../go-defensive/SKILL.md) |
-| Time off by hours / DST | `time.Now()` vs `time.Now().UTC()`; `time.Date` in `Local`; comparing with `==` instead of `Equal` | Print `t.Location()` | [go-defensive](../../go-defensive/SKILL.md) |
 | Rows missing after a loop | `rows.Err()` unchecked; `rows.Next` stopped on a scan error silently | `rowserrcheck` | [go-database](../../go-database/SKILL.md) |
 | Behavior differs after upgrade | `GODEBUG` default changed with the `go` directive; loop variable semantics (1.22); `for range` over a function | `go version -m <binary>` (`build DefaultGODEBUG=…`) or `go list -f '{{.DefaultGODEBUG}}' ./cmd/app` for both builds; `MODERNIZATION.md` release notes | [go-code-refactor](../../go-code-refactor/SKILL.md) |
-| Float comparison fails | `==` on computed floats | Compare with a tolerance; `math.Nextafter` | [go-defensive](../../go-defensive/SKILL.md) |
 
 ---
 
@@ -110,9 +93,7 @@ and serialization before choosing a runtime capture.
 | Fails 1 in N | Race; `time.Sleep`-based ordering; map iteration order assumed | `-race -count=100`; rewrite under `synctest` | [go-testing](../../go-testing/SKILL.md) |
 | Hangs | Goroutine waiting on a channel the test never feeds; `wg.Wait` with a missing `Done` | `-timeout 30s` dump | [go-concurrency](../../go-concurrency/SKILL.md) |
 | `-race` fails only in CI | Faster local machine never interleaves the two accesses | It is a real race; `GOMAXPROCS=1` or `-cpu 1,4` locally | [go-concurrency](../../go-concurrency/SKILL.md) |
-| Passes on macOS, fails on Linux | Case-insensitive filesystem; `/tmp` layout; file permissions; `\r\n`; signal semantics | Run in a container | this skill |
 | Test is green but the bug persists | Test asserts on a mock, not behavior; test edited to match the code | Revert the code; the test must fail | [go-testing](../../go-testing/SKILL.md) |
-| Coverage says the line ran but the branch is wrong | Table test with duplicate cases; `t.Run` names colliding | `-v` shows each subtest once | [go-testing](../../go-testing/SKILL.md) |
 
 ---
 
@@ -121,11 +102,7 @@ and serialization before choosing a runtime capture.
 | Symptom | Mechanism | Confirm | Owner |
 |---|---|---|---|
 | Slow start | Heavy `init`; global regexp compiles; TLS handshakes at boot | `GODEBUG=inittrace=1` | [go-packages](../../go-packages/SKILL.md) |
-| `import cycle not allowed` | Two packages depending on each other's types | `go list -deps` on each; move the shared type to a third package | [go-packages](../../go-packages/SKILL.md) |
 | `undefined: X` after upgrade | A toolchain older than the release that added `X` (an API newer only than the `go` directive still builds; `go vet` `stdversion` reports it), or `X` removed from an upgraded dependency | `go version` where it fails; `grep X $(go env GOROOT)/api/go1.*.txt`; `go list -m <dep>` and `go doc <pkg> X` | [go-code-refactor](../../go-code-refactor/SKILL.md) |
-| Binary works with `go run`, fails as a container | `CGO_ENABLED`, missing CA certificates, `scratch` image without tzdata or `/tmp` | `go version -m ./app`; `ldd ./app` | [go-packages](../../go-packages/SKILL.md) |
-| Binary size doubled | A dependency pulled in `net/http` + `reflect` + a template engine; debug info | `go tool nm -size -sort size`; `-ldflags='-s -w'` | [go-packages](../../go-packages/SKILL.md) |
-| `go.sum` mismatch / checksum error | Proxy or replaced module differs from the recorded hash | `go mod verify`; `GONOSUMDB` scope | [go-packages](../../go-packages/SKILL.md) |
 
 ---
 
@@ -167,8 +144,6 @@ points there, preserve the reproduction and inspect `GODEBUG=gocachetest=1`
 Changes to external C libraries used by cgo are a documented exception to
 build-cache tracking; a targeted rebuild with `-a` may then be appropriate.
 
-Source: [go command: list, workspaces, and caching](https://pkg.go.dev/cmd/go).
-
 ---
 
 ## Environment differences
@@ -176,13 +151,8 @@ Source: [go command: list, workspaces, and caching](https://pkg.go.dev/cmd/go).
 When "it works on my machine", diff these before reading code:
 
 ```bash
-go env GOOS GOARCH GOFLAGS GOMAXPROCS CGO_ENABLED GOTOOLCHAIN
+go env GOOS GOARCH GOFLAGS CGO_ENABLED GOTOOLCHAIN
 go version -m ./app | head            # exact module versions and build settings in the binary
 nproc; ulimit -n; cat /sys/fs/cgroup/memory.max 2>/dev/null
 echo "$TZ" "$LANG"; date +%Z
 ```
-
-A test timeout that fits an 8-core laptop fails on a 2-core runner; a
-`-race` build runs 2–20× slower with 5–10× the memory; a container with
-`memory.max` set and no `GOMEMLIMIT` is OOM-killed while the Go heap looks
-healthy.

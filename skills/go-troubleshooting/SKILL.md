@@ -16,10 +16,10 @@ code version, and a check that could disprove them.
 
 ## Resource Routing
 
-- `references/TICKET-INVESTIGATION.md` - Read for tickets, regressions, tenant-specific failures, environment differences, or an incomplete report; establish the contract, deployed version, evidence, and investigation status.
-- `references/DATA-FLOW-TRACING.md` - Read for wrong/missing results or a failure crossing layers; follow one input through middleware, domain code, SQL/external calls, and serialization to its first invalid transformation.
+- `references/TICKET-INVESTIGATION.md` - Read for tickets, regressions, tenant-specific failures, environment differences, or an incomplete report.
+- `references/DATA-FLOW-TRACING.md` - Read for wrong/missing results or a failure crossing layers.
 - `references/DIAGNOSTIC-TOOLS.md` - Read before capturing profiles, stacks, or traces, using `GODEBUG`/`GOTRACEBACK`, or choosing `pprof`, `dlv`, or the race detector.
-- `references/SYMPTOM-CATALOG.md` - Read for unclear runtime/build symptoms or edits that do not affect behavior; check selected files, build tags, GOMOD/GOWORK, and replacements before routing the fix.
+- `references/SYMPTOM-CATALOG.md` - Read for unclear runtime/build symptoms or edits that do not affect behavior.
 
 ## Scope and Starting Evidence
 
@@ -126,8 +126,6 @@ suspected nil values against the matching source or debugger.
 - `created by` identifies a goroutine's origin, not the cause of its failure.
   `runtime.goexit` is a normal goroutine exit frame, not proof its parent caused
   a panic. Preserve the full panic/defer chain before adding recovery logic.
-- `debug.SetCrashOutput` (Go 1.23+) can preserve future crash output if adding
-  crash capture is in scope; it cannot recover an already lost trace.
 - Go 1.27 prints `runtime/pprof` goroutine labels in traceback headers —
   `goroutine 19 [chan receive] {request_id: "abc-123"}` — which attributes a
   stack to its request or job, for modules whose `go` directive is 1.27 or
@@ -171,7 +169,7 @@ lifetime. For a local hanging test,
   cumulative allocation activity. Compare the same workload and GC phase.
   An allocation stack does not identify every reference retaining an object.
 - A growing map may need bounded retention; first check its intended lifetime
-  and workload. `GOMEMLIMIT` changes GC behavior and does not repair a leak.
+  and workload.
 - RSS growth without heap growth calls for runtime stack/span metrics and
   native/cgo memory evidence. Do not infer a Go heap leak from RSS alone.
 - For file/connection leaks, correlate growing descriptor/pool usage with
@@ -246,11 +244,11 @@ for a one-line bug. Ticket publication requires the user's requested scope.
 
 ## Related Skills
 
-- [go-resilience](../go-resilience/SKILL.md): retry amplification, admission, breakers, fallback once the mechanism is known.
-- [go-database](../go-database/SKILL.md): query, tenant-filter, transaction, pool corrections.
-- [go-http](../go-http/SKILL.md): routing, request/response, client, server corrections.
-- [go-concurrency](../go-concurrency/SKILL.md) and [go-context](../go-context/SKILL.md): races, leaks, lifetimes, deadlocks once identified.
-- [go-data-structures](../go-data-structures/SKILL.md) and [go-defensive](../go-defensive/SKILL.md): collection, aliasing, cleanup corrections.
-- [go-performance](../go-performance/SKILL.md): optimization and benchmarks after the bottleneck is located.
+- [go-resilience](../go-resilience/SKILL.md): retries, overload, fallback.
+- [go-database](../go-database/SKILL.md): query, tenant-filter, pool fixes.
+- [go-http](../go-http/SKILL.md): request, response, client, server fixes.
+- [go-concurrency](../go-concurrency/SKILL.md) and [go-context](../go-context/SKILL.md): races, leaks, deadlocks.
+- [go-data-structures](../go-data-structures/SKILL.md) and [go-defensive](../go-defensive/SKILL.md): aliasing, cleanup.
+- [go-performance](../go-performance/SKILL.md): a located bottleneck.
 - [go-testing](../go-testing/SKILL.md): the regression test.
-- [go-security](../go-security/SKILL.md): debug endpoint and data exposure; [go-linting](../go-linting/SKILL.md): the verification gate.
+- [go-security](../go-security/SKILL.md): debug endpoint exposure; [go-linting](../go-linting/SKILL.md): the gate.

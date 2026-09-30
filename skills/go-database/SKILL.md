@@ -35,10 +35,6 @@ What does the repository already use?
 > **Normative**: `QueryContext`, `QueryRowContext`, `ExecContext`, `BeginTx`.
 > The ctx-less forms are unbounded and `noctx` in the lint gate flags them.
 
-The request context bounds the query to the client's patience; a background
-job gets its own `context.WithTimeout`. [go-context](../go-context/SKILL.md)
-owns placement.
-
 ---
 
 ## `*sql.DB` Is a Pool
@@ -125,14 +121,11 @@ if err := tx.Commit(); err != nil {
 return nil
 ```
 
-- `defer tx.Rollback()` right after `BeginTx`, `Commit` last, and check the
-  `Commit` error — it is where serialization failures surface.
+- Check the `Commit` error — it is where serialization failures surface.
 - Everything inside uses `tx`, never `db`: a `db` call inside a transaction
   takes a second connection and deadlocks the pool at its limit.
 - Keep transactions short: no network calls, no user waits, no logging that
   blocks. Lock order is part of the contract — same order everywhere.
-- A `withTx(ctx, db, func(tx *sql.Tx) error)` helper removes the boilerplate;
-  it is in `references/SQL-PATTERNS.md`.
 
 ---
 
@@ -193,8 +186,4 @@ in [`go-testing/references/INTEGRATION.md`](../go-testing/references/INTEGRATION
 
 - [go-resilience](../go-resilience/SKILL.md): idempotency, replay budgets, atomicity across remote side effects.
 - [go-context](../go-context/SKILL.md): query timeouts and what may outlive the request.
-- [go-error-handling](../go-error-handling/SKILL.md): wrapping driver errors, `sql.ErrNoRows` to a sentinel.
 - [go-http](../go-http/SKILL.md): the handler that calls the repository and maps its errors to status codes.
-- [go-testing](../go-testing/SKILL.md): integration tests against a real database.
-- [go-packages](../go-packages/SKILL.md): before an ORM or a second driver; `//go:embed` migrations.
-- [go-performance](../go-performance/SKILL.md): measuring a slow query before rewriting it.

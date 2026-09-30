@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.26.1] - 2026-09-30
+
 - `go-code-refactor` no longer asks for `export REFACTOR_SKILL_DIR=...` once
   and `$REFACTOR_SKILL_DIR` in every later command: each shell call in Claude
   Code and Codex starts with a fresh environment, so the variable was empty

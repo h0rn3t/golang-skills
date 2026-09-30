@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-09-30
+
 - A second, smaller token pass on the skills every routed session loads.
   SKILL.md bodies shrink by 5.3 KB and references by 5.9 KB (70 reference
   files): an HTTP implement session with a shell loads about 2.9 KB less, and

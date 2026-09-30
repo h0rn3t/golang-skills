@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-09-30
+
 - The skills no longer mention gopls. `go-code-refactor/references/GOPLS.md`
   is deleted (73 reference files); `go-code` drops its "Go navigation: MCP
   first" section, the `navigation:` report line, and the navigation routing

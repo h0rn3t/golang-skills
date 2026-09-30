@@ -18,7 +18,6 @@ code version, and a check that could disprove them.
 
 - `references/TICKET-INVESTIGATION.md` - Read for tickets, regressions, tenant-specific failures, environment differences, or an incomplete report; establish the contract, deployed version, evidence, and investigation status.
 - `references/DATA-FLOW-TRACING.md` - Read for wrong/missing results or a failure crossing layers; follow one input through middleware, domain code, SQL/external calls, and serialization to its first invalid transformation.
-- `../go-code-refactor/references/GOPLS.md` - Read when locating Go declarations, references, implementations, or callers; use its LSP/CLI fallback when MCP tools are absent.
 - `references/DIAGNOSTIC-TOOLS.md` - Read before capturing profiles, stacks, or traces, using `GODEBUG`/`GOTRACEBACK`, or choosing `pprof`, `dlv`, or the race detector.
 - `references/SYMPTOM-CATALOG.md` - Read for unclear runtime/build symptoms or edits that do not affect behavior; check selected files, build tags, GOMOD/GOWORK, and replacements before routing the fix.
 
@@ -60,10 +59,8 @@ code version, and a check that could disprove them.
    capture the artifact below. Inspect values at boundaries before changing code.
    If no reproduction exists, use historical evidence or propose the smallest
    targeted capture; do not guess a patch or instrument everything.
-   Find what reaches the diverging function by its callers, not by grep —
-   `incomingCalls` or `go_symbol_references`, per
-   [GOPLS.md](../go-code-refactor/references/GOPLS.md#which-tool-answers-which-question);
-   each caller is a path the same input may take.
+   List the callers of the diverging function; each caller is a path the
+   same input may take.
 4. **Test a hypothesis.** State mechanism, supporting evidence, and an experiment
    with different predicted outcomes if it is right or wrong. Vary one factor
    at a time. Record the observed result separately from the proposed check.

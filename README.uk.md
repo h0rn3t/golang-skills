@@ -4,7 +4,7 @@
 
 Набір [Agent Skills](https://agentskills.io/) для ідіоматичного та
 production-ready коду на Go 1.27. Пакет містить **24 модульних скіли**,
-**74 довідкових файли**, **11 вбудованих скриптів** і **5 шаблонів-ассетів**.
+**73 довідкових файли**, **11 вбудованих скриптів** і **5 шаблонів-ассетів**.
 Плагін Claude Code також містить агента `go-verify` та хуки маршрутизації й
 перевірки після редагування.
 
@@ -29,8 +29,6 @@ production-ready коду на Go 1.27. Пакет містить **24 моду�
 `.claude-plugin/`. У Go-проєкті хуки виводять драбину стриманості на старті
 сесії та в кожного сабагента; `/go-code ultra <задача>` або `lite mode`
 змінює її рівень до кінця сесії, а `GOLANG_SKILLS_LADDER=off` вимикає її.
-Якщо доступний gopls MCP, скіли шукають невідомі Go-символи та зв’язки через
-нього, а `rg` використовують для буквального пошуку. Далі читають потрібні файли.
 
 ## Встановлення
 
@@ -89,40 +87,6 @@ bunx skills add h0rn3t/golang-skills --all -a codex -a github-copilot -a cursor 
 ```bash
 cp -R skills/go-* ~/.claude/skills/
 ```
-
-### gopls (рекомендовано)
-
-Якщо gopls MCP доступний у поточному чаті, скіли шукають Go-символи та
-семантичні зв’язки через нього. Інакше вони використовують доступний LSP або
-`gopls` CLI. `rg` знаходить буквальний текст і позиції-кандидати; без
-семантичного інструмента references, implementations і callers залишаються
-неперевіреними (`skills/go-code-refactor/references/GOPLS.md` зіставляє кожне
-питання з інструментом). Спершу встановіть бінарник; усі способи нижче беруть
-його з `PATH`:
-
-```bash
-go install golang.org/x/tools/gopls@latest
-```
-
-Claude Code, LSP: нативний інструмент `LSP` (`findReferences`,
-`goToImplementation`, ієрархія викликів, `hover`, `workspaceSymbol`) і
-діагностики компілятора після кожного редагування:
-
-```text
-/plugin install gopls-lsp@claude-plugins-official
-```
-
-MCP: пошук за іменем символу і перейменування (`go_search`,
-`go_symbol_references`, `go_rename_symbol`), яких немає в LSP-інструменті.
-Обидва способи працюють разом:
-
-```bash
-claude mcp add gopls -- gopls mcp
-codex mcp add gopls -- gopls mcp
-```
-
-У хмарних сесіях claude.ai жоден із них не працює, і golang-skills від них не
-залежить.
 
 ## Оновлення
 

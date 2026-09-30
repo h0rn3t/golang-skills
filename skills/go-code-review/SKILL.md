@@ -72,7 +72,7 @@ allowed-tools: Bash(bash:*)
 
 - [ ] **Does it do what it claims?** Trace each changed function from inputs to outputs on the happy path and at the edges — empty, nil, zero, max, concurrent. A wrong result or silent data loss is a Must Fix even when every style row passes
 - [ ] **Invariants**: what the surrounding code assumes — ordering, non-nil, lock held, ctx alive — still holds after the change; name the assumption in the finding
-- [ ] **Callers outside the diff**: for a changed exported signature, behavior, or interface method set, look up references and implementations ([GOPLS.md](../go-code-refactor/references/GOPLS.md#which-tool-answers-which-question)) and read the callers the diff did not touch; one it leaves broken is a Must Fix
+- [ ] **Callers outside the diff**: for a changed exported signature, behavior, or interface method set, look up references and implementations and read the callers the diff did not touch; one it leaves broken is a Must Fix
 - [ ] **Failure paths**: every error branch, timeout, and partial write leaves state a caller can recover from — read each with the failing call moved one line earlier
 
 ---

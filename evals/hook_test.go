@@ -264,24 +264,6 @@ func TestRoutingGate(t *testing.T) {
 		}
 	})
 
-	// The gate does not require gopls (the hook cannot see whether the chat has
-	// MCP), but the first block of a session names the route for the file the
-	// model is about to edit; after that it stays silent.
-	t.Run("the first block names the gopls route once", func(t *testing.T) {
-		t.Parallel()
-		state := t.TempDir()
-		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "s19", "Write",
-			map[string]any{"file_path": "/repo/api/handler.go", "content": handler}))
-		if code != 2 || !strings.Contains(msg, "call go_workspace once and go_file_context on\n/repo/api/handler.go") || !strings.Contains(msg, "command -v gopls") {
-			t.Fatalf("first block: exit %d, stderr %q; want 2 naming go_workspace, go_file_context for the file, and the CLI", code, msg)
-		}
-		code, msg = hookEvent(t, script, state, routingPayload("PreToolUse", "s19", "Write",
-			map[string]any{"file_path": "/repo/api/other.go", "content": handler}))
-		if code != 2 || strings.Contains(msg, "go_workspace") {
-			t.Fatalf("second block in the session: exit %d, stderr %q; want 2 without the gopls line", code, msg)
-		}
-	})
-
 	t.Run("GOLANG_SKILLS_ROUTING_GATE=off turns the gate off", func(t *testing.T) {
 		t.Parallel()
 		code, msg := hookEventEnv(t, script, t.TempDir(), routingPayload("PreToolUse", "s17", "Write",
@@ -835,12 +817,11 @@ func promptEvent(t *testing.T, state, session, cwd, prompt string, env ...string
 }
 
 // TestPromptRouting drives the UserPromptSubmit hook: the two corpus prompts
-// name their router, a prompt without Go stays silent, read-only Go questions
-// get navigation guidance without an edit workflow, a router named in the
-// prompt is selected rather than silenced, Ukrainian and Russian wording
-// route like English, the note is printed once per skill per session with
-// the plugin's exact skill names, and a session that already loaded the skill
-// is left alone.
+// name their router, a prompt without Go and a read-only Go question stay
+// silent, a router named in the prompt is selected rather than silenced,
+// Ukrainian and Russian wording route like English, the note is printed once
+// per skill per session with the plugin's exact skill names, and a session
+// that already loaded the skill is left alone.
 func TestPromptRouting(t *testing.T) {
 	t.Parallel()
 	const implement = "Implement the Go package in ./feed. Every exported declaration is already there with its documentation; write the bodies so the package does what the documentation says. Do not change the exported signatures. Apply the changes to the files."
@@ -929,21 +910,16 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
-	t.Run("read-only Go question gets navigation guidance once", func(t *testing.T) {
+	t.Run("read-only Go question stays silent", func(t *testing.T) {
 		t.Parallel()
 		state, cwd := t.TempDir(), goRepo(t)
-		code, out := promptEvent(t, state, "p5", cwd, "Explain what this Go function does and why it uses a mutex")
-		if code != 0 || !strings.Contains(out, "go_file_context") || !strings.Contains(out, "go_search") {
-			t.Fatalf("question about Go: exit %d, stdout %q; want navigation guidance", code, out)
-		}
-		if strings.Contains(out, "Before the first edit") || strings.Contains(out, "`golang-skills:go-code`") {
-			t.Fatalf("read-only question must not start the edit workflow:\n%s", out)
-		}
-		if _, out := promptEvent(t, state, "p5", cwd, "Where is CreateUser implemented in Go?"); out != "" {
-			t.Fatalf("second question in the same agent context: stdout %q; want silent", out)
-		}
-		if _, out := promptEvent(t, state, "other", cwd, "Where is CreateUser implemented in Go?"); !strings.Contains(out, "go_search") {
-			t.Fatalf("new agent context: stdout %q; want navigation guidance", out)
+		for _, prompt := range []string{
+			"Explain what this Go function does and why it uses a mutex",
+			"Where is CreateUser implemented in Go?",
+		} {
+			if code, out := promptEvent(t, state, "p5", cwd, prompt); code != 0 || out != "" {
+				t.Fatalf("question %q: exit %d, stdout %q; want silent 0", prompt, code, out)
+			}
 		}
 	})
 
@@ -1166,10 +1142,9 @@ func TestPromptRouting(t *testing.T) {
 				t.Errorf("Russian prompt %q: stdout %q; want %s", tc.prompt, out, tc.want)
 			}
 		}
-		// A question stays navigation and does not start the edit router.
-		_, out := promptEvent(t, t.TempDir(), "p19", goRepo(t), "Объясни, как работает эта функция на Go?")
-		if !strings.Contains(out, "go_search") || strings.Contains(out, "Before the first edit") {
-			t.Errorf("Russian question: stdout %q; want navigation guidance only", out)
+		// A question does not start the edit router.
+		if _, out := promptEvent(t, t.TempDir(), "p19", goRepo(t), "Объясни, как работает эта функция на Go?"); out != "" {
+			t.Errorf("Russian question: stdout %q; want silent", out)
 		}
 	})
 
@@ -1236,7 +1211,7 @@ func TestSubagentRouting(t *testing.T) {
 			if code != 0 {
 				t.Fatalf("subagent %d in a Go directory: exit %d, want 0", i, code)
 			}
-			for _, want := range []string{"name `golang-skills:go-code`", "`golang-skills:go-code-refactor`", "before the first edit", "go_search", "go_file_context"} {
+			for _, want := range []string{"name `golang-skills:go-code`", "`golang-skills:go-code-refactor`", "before the first edit"} {
 				if !strings.Contains(out, want) {
 					t.Errorf("subagent %d note must mention %q:\n%s", i, want, out)
 				}

@@ -73,10 +73,10 @@ Two options on the same rung, same size → take the one correct on edge cases.
 Lazy means less code, not a flimsier algorithm.
 
 **A bug fix is a root-cause fix.** A report names a symptom. Before the edit,
-find every caller of the function you are about to touch ([GOPLS.md](GOPLS.md))
-and land the fix where they all route through: one guard in the shared
-function is a smaller diff than a guard in every caller, and patching only the
-path the ticket named leaves the sibling callers broken.
+find every caller of the function you are about to touch and land the fix
+where they all route through: one guard in the shared function is a smaller
+diff than a guard in every caller, and patching only the path the ticket named
+leaves the sibling callers broken.
 [go-troubleshooting](../../go-troubleshooting/SKILL.md) owns the method while
 the cause is still unknown.
 

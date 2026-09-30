@@ -4,6 +4,19 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- The skills no longer mention gopls. `go-code-refactor/references/GOPLS.md`
+  is deleted (73 reference files); `go-code` drops its "Go navigation: MCP
+  first" section, the `navigation:` report line, and the navigation routing
+  row; `go-code-refactor`, `go-code-review`, `go-interfaces`,
+  `go-troubleshooting`, `go-linting`, and `go-error-handling` drop their gopls
+  links and mentions. `CATALOG.md` uses `//go:fix inline` with
+  `go fix -inline` where it named gopls code actions (inline, staged signature
+  change, removing a middle man), per `go tool fix help inline`: the inliner
+  keeps evaluation order and leaves alone a call that needs a function
+  literal, such as a callee with `defer`. The prompt, subagent, and gate hooks
+  print no gopls note, so a read-only Go question now gets no note at all. The
+  READMEs drop the gopls section. `abrun -gopls` is unchanged.
+
 ## [1.25.2] - 2026-09-29
 
 - The prompt hook recognizes a review. A prompt that asks for a review or

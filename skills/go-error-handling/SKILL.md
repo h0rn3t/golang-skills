@@ -113,9 +113,8 @@ if pathErr, ok := errors.AsType[*fs.PathError](err); ok {
 
 With `if err, ok := errors.AsType[*fs.PathError](err); ok`, a following
 `else if` sees that result's typed nil on a failed match, not the original
-error. Do not reuse `err` for the extracted cause in such a chain.
-[gopls `errorsastypeshadow`](https://pkg.go.dev/golang.org/x/tools/gopls/internal/analysis/errorsastypeshadow)
-detects this mistake; test a cause matching the second branch, including wrapping.
+error. Do not reuse `err` for the extracted cause in such a chain. Test a
+cause matching the second branch, including wrapping.
 
 ---
 

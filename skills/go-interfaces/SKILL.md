@@ -149,11 +149,10 @@ Use this pattern when:
 **Don't** add these checks for every interface — only when no other static
 conversion would catch the error.
 
-Before changing an interface's method set, list its implementations —
-`goToImplementation` on the interface, per
-[GOPLS.md](../go-code-refactor/references/GOPLS.md#which-tool-answers-which-question).
-A type matched only through a type assertion or a type switch stops matching
-at run time, and nothing fails to compile.
+Before changing an interface's method set, list its implementations: the
+build reports each one assigned or passed as the interface, but a type
+matched only through a type assertion or a type switch stops matching at run
+time, and nothing fails to compile.
 
 > **Validation**: Use `scripts/check-interface-compliance.sh` when a heuristic
 > scan would help. It lists an exported interface implemented in its own

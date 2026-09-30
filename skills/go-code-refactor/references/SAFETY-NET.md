@@ -59,8 +59,8 @@ and even unexported results still need the build-tag, generated-code,
 
 ## Measuring the blast radius
 
-References first, coverage second — [GOPLS.md](GOPLS.md) owns finding every
-caller semantically. Then measure only those packages:
+References first, coverage second: find every caller of the code you will
+touch, then measure only those packages:
 
 ```bash
 go test -covermode=atomic -coverpkg=./... -coverprofile=cover.out ./...

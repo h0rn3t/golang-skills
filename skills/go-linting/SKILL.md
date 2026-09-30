@@ -103,10 +103,10 @@ modernizers can leave unused imports/variables or discard comments inside a
 rewritten loop. Use the existing gate once on the final code, not a duplicate
 verification cycle.
 
-The toolchain's registered set differs from gopls's independently versioned
-`modernize` suite, which also carries `appendclipped` and `slicesdelete` — not
-`go fix` analyzers, and off by default there because they change nilness or
-zero the old slice tail; never classify them as behavior-preserving swaps.
+The x/tools `modernize` suite, versioned apart from the toolchain, also
+carries `appendclipped` and `slicesdelete`: they are not `go fix` analyzers,
+and they change nilness or zero the old slice tail, so never classify them as
+behavior-preserving swaps.
 Check the installed tool's help before naming flags.
 
 ---

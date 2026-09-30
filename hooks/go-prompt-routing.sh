@@ -14,7 +14,7 @@
 # Go work is a prompt that names Go (the word Go, golang, a .go file, go.mod,
 # goroutines, a go subcommand) or a prompt sent from a directory holding
 # go.mod or *.go files within two levels. A read-only question about Go code
-# gets navigation guidance without loading an edit router.
+# gets no note: it starts no edit router.
 #
 # A prompt naming a router in its text (`use go-code`, `$go-code-refactor`,
 # `/opsx:apply add-auth /go-code`) selects that router instead of silencing
@@ -166,7 +166,7 @@ refactor = re.compile(
     r"messy|bloated|over-?engineer\w*|dead code|too long|hard to follow|monolith\w*|modulari[sz]\w*|"
     r"рефактор\w*|спрост\w*|упрост\w*|почист\w*|переструктур\w*|модерніз\w*|модерниз\w*|монол[иі]т\w*|модуляриз\w*)\b",
     re.I)
-# Work verbs select an edit router; questions receive only navigation guidance.
+# Work verbs select an edit router; questions get no note.
 work = re.compile(
     r"\b(?:implement\w*|write|add|create|build|make|fix\w*|bug\w*|stub\w*|not implemented|fill in|"
     r"реаліз\w*|реализ\w*|напиш\w*|напис\w*|дода\w*|добав\w*|виправ\w*|исправ\w*|створ\w*|созда\w*|зроби|сделай|баг\w*|"
@@ -184,7 +184,7 @@ question = navigate and (prompt.strip().endswith("?") or re.match(
 # condition "before the first edit", which a review never reaches.
 review = re.compile(r"\b(?:review\w*|audit\w*|рев[ьи]ю\w*|ревью\w*)\b", re.I)
 if question:
-    skill, kind = "", "read-only Go code navigation"
+    sys.exit(0)
 elif review.search(prompt):
     skill, kind = "go-code-review", "a Go code review"
 elif refactor.search(prompt):
@@ -192,35 +192,23 @@ elif refactor.search(prompt):
 elif work.search(prompt):
     skill, kind = "go-code", "Go code to write, implement, or fix"
 else:
-    if not navigate:
-        sys.exit(0)
-    skill, kind = "", "read-only Go code navigation"
+    sys.exit(0)
 print((d.get("session_id") or "default").replace("\n", " "))
 print(skill)
 print(kind)
-print("navigate" if not skill else "note")
+print("note")
 for p in target_files()[:40]:
     print(p)
 ')" || exit 0
 [[ -n "$parsed" ]] || exit 0
 { read -r session; read -r skill; read -r kind; read -r mode; mapfile -t files; } <<< "$parsed"
-[[ -n "$skill" || "$mode" == "navigate" ]] || exit 0
+[[ -n "$skill" ]] || exit 0
 
 state="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/${session:-default}"
 has() { # has <file> <skill>
     [[ -f "$1" ]] && grep -qx -- "$2" "$1"
 }
-navigation_note() {
-    [[ -f "$state/gopls-navigation" ]] && return
-    mkdir -p "$state" && : > "$state/gopls-navigation"
-    printf '%s\n' 'When gopls MCP tools are available: use go_workspace once, go_search for unknown Go symbols, go_file_context after reading a relevant Go file, go_package_api for package APIs, and go_symbol_references before changing an existing symbol. After a coherent edit batch, use go_diagnostics. Use rg for literal text, not to reconstruct Go symbol relationships.'
-}
-if [[ "$mode" == "navigate" ]]; then
-    navigation_note
-    exit 0
-fi
 has "$state/loaded" "$skill" && exit 0
-navigation_note
 if [[ "$mode" == "slash" ]]; then
     # The host inserted the skill file and called no tool, so record the load
     # here: go-code-routing.sh gates an edit only for a session whose `loaded`

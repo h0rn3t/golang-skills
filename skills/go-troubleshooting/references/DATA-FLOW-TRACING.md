@@ -12,9 +12,8 @@ suspicious function name or final stack frame is only a starting point.
 
 Start with a route, error string, log field, job type, or symbol from the
 artifact. Use `rg` for narrow discovery, then read definitions and call sites.
-Use language-server definition/references/call hierarchy when available; search
-and source inspection are a valid fallback. Resolve interface implementations,
-router registration, and build/feature branches for the affected deployment.
+Resolve interface implementations, router registration, and build/feature
+branches for the affected deployment.
 
 Typical paths (skip layers the system does not have):
 

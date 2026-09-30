@@ -33,7 +33,6 @@ target project using the resolved absolute script path.
 - `references/STRUCTURAL.md` - Read before moving a type between packages, breaking an import cycle, or changing an exported API: type-alias gradual repair and the deprecation sequence.
 - `references/MODERNIZATION.md` - Read when a hunk adopts a newer API or `go fix -diff` proposes one; sorts Go 1.21–1.27 features into safe, conditional, and report-only.
 - `references/OVER-ENGINEERING.md` - Read when a step adds a helper, type, layer, option, or import (it owns the restraint ladder, the reach-for table, and the ship-then-question write rules), and when the ask is "what can we delete": cut tags, the Go hunt list, and the ranked audit format.
-- `references/GOPLS.md` - Read before renaming, extracting, or inlining anything with more than one caller, or when you need a symbol's callers, implementations, or declaration: MCP-first symbol discovery, gopls navigation (`LSP` tool, MCP, CLI), and safe rename.
 - `scripts/verify-refactor.sh` - Run to capture baseline and final check results, and to count production LOC before and after; use focused checks between edits.
 - `scripts/check-debt.sh` - Run to harvest `Kept:` markers into a ledger and flag the ones naming no ceiling and no fix.
 - `assets/refactor-report.md` - Use as the final report structure.
@@ -80,15 +79,14 @@ radius pushes every transform up a tier except those its Low / zero row allows.
 
 | Tier | Transforms | Required before the step |
 |---|---|---|
-| **Low** | gopls inline; rename of an unexported symbol with no reflection or string-based contract; extract variable or constant; `gofmt -s`; organize imports; guard clauses | Baseline plus the focused check after it |
+| **Low** | `go fix` inline of a `//go:fix inline` function; rename of an unexported symbol with no reflection or string-based contract; extract variable or constant; `gofmt -s`; organize imports; guard clauses | Baseline plus the focused check after it |
 | **Medium** | Extract function or method, inline across packages, adding or removing one parameter, introducing generics, a bulk rewrite ([MECHANICAL.md](references/MECHANICAL.md)) | Tests that provably reach the touched lines |
 | **High** | Signature change across many callers, cross-package moves, package split or merge, breaking an import cycle, a module or layer boundary move (`references/ARCHITECTURE.md`), any exported API change | Full net, and it is a findings-list item unless the user asked for it |
 
-gopls inline preserves behavior or refuses. Rename is compilation-aware, but
-rename may introduce dynamic errors through reflection, templates,
-serialization conventions, or indirect interface assertions; extract may drop
-comments. A refusal is a semantic hazard — investigate it, never hand-edit
-around it ([GOPLS.md](references/GOPLS.md#gotchas)).
+`go fix` inline keeps behavior or leaves the call alone. A rename that
+compiles is not proven safe: rename may introduce dynamic errors through
+reflection, templates, serialization conventions, or indirect interface
+assertions.
 
 ## What "Identical Behavior" Means
 
@@ -327,10 +325,11 @@ For independent packages, follow the host's delegation policy and
 dead code, flatten with early returns, name things after what they mean,
 name magic values, remove duplication that
 has a name, fold branches that differ only in values into one selection
-(see [Remove Duplication to the End](#remove-duplication-to-the-end)). Renames and extractions go through gopls (`references/GOPLS.md`):
-find references semantically first, inspect reflection and string-based uses,
-then let rename refuse compilation hazards such as a directly observed broken
-interface implementation — grep cannot see those semantic references.
+(see [Remove Duplication to the End](#remove-duplication-to-the-end)).
+Before a rename or an extraction, list its uses: the build catches the static
+ones after the edit, but reflection, templates, string-based lookups, and a
+type matched only through an assertion or a type switch fail at run time, so
+search for those by text.
 
 Three cases leave the playbook. A move that crosses a function, type, or package
 boundary is in `references/CATALOG.md`, with its tool and tier. The same edit

@@ -118,4 +118,4 @@ change is a findings-list item (PLAYBOOK §3) unless the user asked for it.
 | Breaking a cycle by moving the producer's concrete type into the consumer | Declare the interface in the consumer, leave the type where it is | Moving the type usually relocates the cycle to whatever else that type depends on |
 | Deprecating and deleting in one change | Deprecate, land, then delete only at the documented compatibility boundary | Callers need a usable migration window; public removal after v1 requires a major version |
 | Bumping to v2 without `/v2` in the module path | Add the suffix to `go.mod` and every import path | Module resolution cannot tell the majors apart, and v1 importers get pulled onto breaking code |
-| Renaming a struct field during the move | Leave the field name alone, or list it as a finding | The `json`/`db` tag silently desyncs from the field, and gopls only guards compilation |
+| Renaming a struct field during the move | Leave the field name alone, or list it as a finding | The `json`/`db` tag silently desyncs from the field, and a clean build says nothing about the wire format |

@@ -11,9 +11,8 @@ against golden files, and thirty scattered manual edits are none of those. The
 tools below are ordered by increasing power. Start at the top and move down only
 when the current one cannot express the rewrite.
 
-Single-symbol work — rename, extract, inline, references — is
-[GOPLS.md](GOPLS.md)'s, and version-driven idiom updates are
-[MODERNIZATION.md](MODERNIZATION.md)'s. This file covers the rest.
+Version-driven idiom updates are [MODERNIZATION.md](MODERNIZATION.md)'s. This
+file covers the rest.
 
 > **Normative**: Never `sed` or `perl` a structural Go change. None of the text
 > tools have grammar awareness, so a pattern that happens to match inside a
@@ -108,9 +107,7 @@ once the replacement exists.
 ## `dave/dst` — when comments must survive
 
 `go/ast` stores comments in a side table keyed by byte offset, so moving,
-reordering, or deleting nodes desyncs them from the code they described. That is
-the root cause of the comment loss that makes gopls's extract action a
-medium-risk transform.
+reordering, or deleting nodes desyncs them from the code they described.
 
 `github.com/dave/dst` attaches comments and blank-line spacing as node-local
 decorations, so a hand-rolled rewrite round-trips them via `decorator.Parse` and

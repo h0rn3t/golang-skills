@@ -4,7 +4,7 @@
 
 AI [Agent Skills](https://agentskills.io/) for writing idiomatic,
 production-quality Go 1.27 code. The pack contains **24 modular skills**,
-**74 reference files**, **11 bundled scripts**, and **5 asset templates**.
+**73 reference files**, **11 bundled scripts**, and **5 asset templates**.
 The Claude Code plugin also ships a `go-verify` agent and hooks for routing and
 post-edit verification.
 
@@ -29,9 +29,7 @@ The plugin includes `agents/go-verify.md`, routing hooks under `hooks/`, and
 the manifests under `.claude-plugin/`. In a Go project the hooks print the
 restraint ladder at session start and into each subagent; `/go-code ultra
 <task>` or `lite mode` changes its level for the session, and
-`GOLANG_SKILLS_LADDER=off` turns it off. For Go navigation, the skills use
-gopls MCP for unknown Go symbols and relationships when available, `rg` for
-literal text, then targeted file reads.
+`GOLANG_SKILLS_LADDER=off` turns it off.
 
 ## Installation
 
@@ -91,38 +89,6 @@ and `assets/` subdirectories:
 ```bash
 cp -R skills/go-* ~/.claude/skills/
 ```
-
-### gopls (recommended)
-
-When available in the current chat, gopls MCP finds unknown Go symbols and
-semantic relationships. Otherwise the skills use a wired LSP tool or the
-`gopls` CLI. `rg` finds literals and candidate positions; without a semantic
-route, references, implementations, and callers remain unverified
-(`skills/go-code-refactor/references/GOPLS.md` maps each question to a tool).
-Install the binary first; every route below runs it from `PATH`:
-
-```bash
-go install golang.org/x/tools/gopls@latest
-```
-
-Claude Code, LSP route: the native `LSP` tool (`findReferences`,
-`goToImplementation`, call hierarchy, `hover`, `workspaceSymbol`) plus
-compiler diagnostics after every edit:
-
-```text
-/plugin install gopls-lsp@claude-plugins-official
-```
-
-MCP route: symbol-name lookup and rename (`go_search`, `go_symbol_references`,
-`go_rename_symbol`), which the LSP tool lacks. The two routes work together:
-
-```bash
-claude mcp add gopls -- gopls mcp
-codex mcp add gopls -- gopls mcp
-```
-
-Neither route runs in claude.ai cloud sessions, and golang-skills does not
-depend on either.
 
 ## Updating
 

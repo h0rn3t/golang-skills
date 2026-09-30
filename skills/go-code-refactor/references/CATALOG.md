@@ -1,15 +1,15 @@
 # Catalog: Smell, Transform, Tool, Risk
 
-> Sources: Fowler, *Refactoring* (2nd ed.); Feathers, *Working Effectively with Legacy Code*; golang.org/x/tools/gopls docs; golang/go#20744, golang/go#65552
+> Sources: Fowler, *Refactoring* (2nd ed.); Feathers, *Working Effectively with Legacy Code*; `go tool fix help inline`; golang/go#20744
 > Authority: advisory — the transform inventory; behavior rules stay in SKILL.md
-> Minimum Go: 1.27 baseline; gopls v0.20+
-> Last verified: 2026-09-06
+> Minimum Go: 1.27 baseline
+> Last verified: 2026-09-30
 
 [PLAYBOOK.md](PLAYBOOK.md) owns the transforms that carry most refactors —
 delete first, flatten, extract, rename, name the magic values. This file is the
 long tail: moves that cross a function, a type, or a package boundary. Each
 entry names the smell that triggers it, what the transform is in Go, the tool
-that performs it, and its row in the risk table
+that performs it where one exists, and its row in the risk table
 ([SKILL.md](../SKILL.md#risk-tiers)).
 
 A transform in this file is a candidate, not a plan. The restraint ladder in
@@ -35,38 +35,35 @@ a type or a layer, and adding one needs a reason the report can carry.
 
 - **Smell**: a one-line forwarding function, or an indirection that has accreted
   no behavior of its own since it was introduced. Both are pure navigation cost.
-- **In Go**: gopls substitutes rather than splices — an argument with a side
-  effect is hoisted into a `var` temporary instead of being duplicated at every
-  use of the parameter, implicit conversions at the call boundary become
-  explicit, and a callee body containing `defer` is wrapped in an immediately
-  invoked function literal so the deferred call still fires at the same point.
-  It cannot inline through a dynamic dispatch (interface method, function value)
-  or a generic call whose type arguments are inferred: `Ident[int](2)` inlines,
-  `Ident(2)` is refused.
-- **Tool**: `gopls codeaction -exec -w -kind=refactor.inline.call file.go:#offset`;
-  without `-w` the CLI prints the edited file and changes nothing, and `-d` in
-  its place previews the diff.
-- **Risk**: low. The one gopls action that preserves behavior or refuses rather
-  than emit a wrong inline; rename guards compilation only
-  ([GOPLS.md](GOPLS.md#gotchas)).
+- **In Go**: mark the function `//go:fix inline` and `go fix` substitutes its
+  body at every call site, in this package and others. The inliner keeps
+  argument evaluation order — an argument it cannot substitute safely is bound
+  in a `var params = args` declaration instead of being duplicated — and it
+  leaves alone a call it could only replace with a function literal (a callee
+  body containing `defer`), a call through an interface method or a function
+  value, and a call from the function's own test (`TestF` keeps calling `F`).
+  Inline what it left by hand, then delete the function once nothing calls it.
+- **Tool**: `go fix -inline -diff ./...` previews, `go fix -inline ./...`
+  applies.
+- **Risk**: low for what `go fix` inlines, which keeps behavior or leaves the
+  call alone; medium for a call inlined by hand.
 
 ## Change function declaration
 
 - **Smell**: a parameter list that outgrew what the function needs, or one
   parameter that stopped being relevant to its job.
-- **In Go**: gopls covers only the narrow cases — drop a parameter nobody passes
-  meaningfully, or swap two adjacent ones. Adding a parameter across every call
-  site is not one action. Stage it instead: write the new variant beside the old
-  one, migrate call sites with an `eg` template
-  ([MECHANICAL.md](MECHANICAL.md)), verify, then delete the old function once
-  nothing calls it. That keeps a wide signature change mechanical and reviewable
-  rather than scattered by hand.
+- **In Go**: no single action changes a signature at every call site. Stage
+  it: write the new variant beside the old one, make the old body one call to
+  the new one and mark it `//go:fix inline` so `go fix` rewrites the call sites
+  (an `eg` template in [MECHANICAL.md](MECHANICAL.md) covers what that body
+  cannot express), verify, then delete the old function once nothing calls it.
+  That keeps a wide signature change mechanical and reviewable rather than
+  scattered by hand.
 - **Tool**:
 
 ```bash
-gopls codeaction -exec -w -kind=refactor.rewrite.removeUnusedParam file.go:#offset
-gopls codeaction -exec -w -kind=refactor.rewrite.moveParamLeft     file.go:#offset
-eg -t template.go -w ./...   # staged migration for an added parameter
+go fix -inline ./...         # the old function marked //go:fix inline
+eg -t template.go -w ./...   # a migration the old body cannot express
 ```
 
 - **Risk**: medium for one parameter and a handful of call sites; high when the
@@ -79,8 +76,8 @@ eg -t template.go -w ./...   # staged migration for an added parameter
   several functions — or a long parameter list where several parameters are
   conceptually one unit.
 - **In Go**: define a struct for the recurring group and take it instead of the
-  loose values. gopls has no action for this yet (golang/go#65552 tracks one),
-  so it is a manual struct plus the signature change above.
+  loose values. No tool performs it: a manual struct plus the signature change
+  above.
 - **Risk**: medium. Whether the struct should instead configure construction is
   [go-functions](../../go-functions/SKILL.md)'s call, not this file's.
 
@@ -88,33 +85,22 @@ eg -t template.go -w ./...   # staged migration for an added parameter
 
 - **Smell**: feature envy — a function reads and writes another package's data
   more than its own — or a type whose responsibilities plainly belong elsewhere.
-- **In Go**: no gopls action moves a symbol across a package boundary. Use the
+- **In Go**: no tool moves a symbol across a package boundary. Use the
   type-alias gradual repair sequence in [STRUCTURAL.md](STRUCTURAL.md): define
   the symbol in its new home, leave an alias or thin wrapper behind, migrate
-  callers incrementally, delete the old name last. Splitting a large file into
-  another file *inside the same package* is a one-shot action and is often
-  enough on its own.
-- **Tool**:
-
-```bash
-gopls codeaction -exec -w -kind=refactor.extract.toNewFile file.go:#start-#end   # -d cannot preview a file not yet created
-```
-
+  callers incrementally, delete the old name last. Moving declarations into
+  another file *inside the same package* changes nothing a caller sees and is
+  often enough on its own.
 - **Risk**: high across packages; low for a same-package file split.
 
 ## Split or merge a package
 
 - **Smell**: a god package, or divergent change — one package keeps changing for
   several unrelated reasons because it hosts several unrelated concerns.
-- **In Go**: gopls has an experimental action that partitions top-level
-  declarations into acyclic components. Read its output as a draft: package
-  boundaries encode API and ownership decisions no tool can see. Merging has no
-  action at all — move the declarations and break the resulting cycle with a
-  consumer-side interface ([STRUCTURAL.md](STRUCTURAL.md)) before reaching for
-  anything larger.
-- **Tool**: `source.splitPackage`, an interactive browser page opened from an
-  editor attached to gopls; the CLI form only prints a URL for a server that
-  exits with the command.
+- **In Go**: package boundaries encode API and ownership decisions no tool can
+  see, so both directions are manual: move the declarations and break the
+  resulting cycle with a consumer-side interface ([STRUCTURAL.md](STRUCTURAL.md))
+  before reaching for anything larger.
 - **Risk**: high. Target layout belongs to
   [go-packages](../../go-packages/SKILL.md).
 
@@ -148,8 +134,9 @@ owns that fold and says when it is finished.
   promotes the delegate's methods onto the outer type, so callers stop chaining.
   Removing a middle man is the inverse: inline the pass-through at each call
   site, then delete it.
-- **Tool**: manual for the embedding decision; `refactor.inline.call` mechanizes
-  the removal once callers are ready.
+- **Tool**: manual for the embedding decision; `//go:fix inline` on the
+  pass-through and `go fix -inline ./...` mechanize the removal once callers
+  are ready.
 - **Risk**: low to medium. Embedding has costs of its own —
   [go-interfaces](../../go-interfaces/SKILL.md) owns that call.
 
@@ -163,8 +150,8 @@ owns that fold and says when it is finished.
   - **Wrap** — rename the original (`Save` → `saveInternal`), then add a method
     with the old name that calls it and adds the new behavior around it. Go has
     no method-wrapping mechanism, so this is a hand-written decorator.
-- **Tool**: `gopls rename` for the rename half; the new code is written and
-  tested like any other.
+- **Tool**: none needed; callers keep the old name, so only the original body
+  moves, and the new code is written and tested like any other.
 - **Risk**: low by construction — that is the point.
   [SAFETY-NET.md](SAFETY-NET.md) says when coverage makes this the right move
   instead of an in-place edit.
@@ -177,8 +164,7 @@ owns that fold and says when it is finished.
   is pure, stable, and cheap. Each read becomes a fresh evaluation, so time,
   randomness, I/O, counters, mutable state, allocation identity, and expensive
   computation must keep the temp's evaluate-once semantics.
-- **Risk**: low only under that guard. Reversible with
-  `refactor.inline.call` at any time.
+- **Risk**: low only under that guard, and reversible at any time.
 
 ---
 

@@ -355,19 +355,6 @@ PreToolUse)
             printf '%s/skills/<name>/SKILL.md whole for each name instead; the gate counts that Read.\n' "$root"
         fi
         [[ -z "$absent_note" ]] || printf '%s\n' "$absent_note"
-        # gopls: the hook cannot see whether this particular chat has MCP, so
-        # it does not block on gopls; it names the route once per session, in
-        # the first block, when the model is already planning its loads.
-        # 2026-09-28, Opus 5.5 low, fetch: 0 gopls calls in 2/2 sessions
-        # with MCP or CLI available ("the files were small enough to read
-        # directly").
-        if [[ ! -f "$state/gopls-hint" ]]; then
-            : > "$state/gopls-hint"
-            printf 'gopls: if go_workspace and go_file_context are in your tool list (a gopls MCP\n'
-            printf 'server, often mcp__gopls__*), call go_workspace once and go_file_context on\n'
-            printf '%s in the same message as the loads; a small package is not an exception.\n' "$path"
-            printf 'Without them but with a shell: command -v gopls, then gopls check or gopls references.\n'
-        fi
         if (( attempt == 1 )) && [[ -n "$fresh" ]]; then
             cat <<'EOF'
 The gate reads the edited text and recognizes some owners only: tests, error

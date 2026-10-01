@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.28.3] - 2026-10-01
+
 The edit hook no longer hides lint findings in symlinked checkouts, and `abrun`
 counts a skill load only when a tool result proves it.
 

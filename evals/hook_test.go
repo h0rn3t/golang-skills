@@ -734,9 +734,15 @@ func TestVetHook(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(filepath.Dir(path), "other.go"), []byte(other), 0o644); err != nil {
 			t.Fatalf("write other.go: %v", err)
 		}
-		code, msg := hookEvent(t, script, t.TempDir(), edited(path))
-		if code != 2 || !strings.Contains(msg, "1 finding(s) in other files") || strings.Contains(msg, "errcheck") {
-			t.Fatalf("finding in other.go: exit %d, stderr %q; want 2 with a count and no finding text", code, msg)
+		alias := filepath.Join(t.TempDir(), "linked package")
+		if err := os.Symlink(filepath.Dir(path), alias); err != nil {
+			t.Fatalf("symlink package directory: %v", err)
+		}
+		for _, editedPath := range []string{path, filepath.Join(alias, "main.go")} {
+			code, msg := hookEvent(t, script, t.TempDir(), edited(editedPath))
+			if code != 2 || !strings.Contains(msg, "1 finding(s) in other files") || strings.Contains(msg, "errcheck") {
+				t.Errorf("finding in other.go through %s: exit %d, stderr %q; want 2 with a count and no finding text", editedPath, code, msg)
+			}
 		}
 	})
 
@@ -762,12 +768,61 @@ func TestVetHook(t *testing.T) {
 		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 			t.Fatalf("write main.go: %v", err)
 		}
-		code, msg := hookEvent(t, script, t.TempDir(), edited(path))
-		if code != 2 || !strings.Contains(msg, "errcheck") || !strings.Contains(msg, path+":12:") {
-			t.Fatalf("new bare write: exit %d, stderr %q; want 2 with an errcheck finding at %s:12", code, msg, path)
+		physical, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			t.Fatalf("resolve main.go: %v", err)
 		}
-		if strings.Contains(msg, path+":6:") {
-			t.Errorf("the committed finding at line 6 predates the session and must not print:\n%s", msg)
+		alias := filepath.Join(t.TempDir(), "linked package")
+		if err := os.Symlink(filepath.Dir(physical), alias); err != nil {
+			t.Fatalf("symlink package directory: %v", err)
+		}
+		for _, tt := range []struct {
+			name string
+			path string
+		}{
+			{name: "physical directory", path: physical},
+			{name: "symlinked directory", path: filepath.Join(alias, "main.go")},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				code, msg := hookEvent(t, script, t.TempDir(), edited(tt.path))
+				if code != 2 || !strings.Contains(msg, "errcheck") || !strings.Contains(msg, physical+":12:") {
+					t.Errorf("new bare write through %s: exit %d, stderr %q; want 2 with an errcheck finding at %s:12", tt.path, code, msg, physical)
+				}
+				if strings.Contains(msg, physical+":6:") {
+					t.Errorf("the committed finding at line 6 predates the session and must not print:\n%s", msg)
+				}
+			})
+		}
+	})
+
+	t.Run("lint infrastructure failures are visible", func(t *testing.T) {
+		t.Parallel()
+		for _, tt := range []struct {
+			name   string
+			status string
+			output string
+			stream string
+		}{
+			{name: "stderr", status: "3", output: "cannot load packages", stream: "2"},
+			{name: "stdout", status: "3", output: "cannot load packages", stream: "1"},
+			{name: "empty failure", status: "3", stream: "2"},
+			{name: "empty exit one", status: "1", stream: "2"},
+			{name: "timeout", status: "124", stream: "2"},
+			{name: "diagnostic with exit one", status: "1", output: "invalid configuration", stream: "2"},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				path := module(t, clean)
+				bin := t.TempDir()
+				stub := "#!/usr/bin/env bash\nif [[ \"$1\" == config ]]; then exit 1; fi\nprintf '%s\\n' \"$LINT_OUTPUT\" >&" + tt.stream + "\nexit \"$LINT_STATUS\"\n"
+				if err := os.WriteFile(filepath.Join(bin, "golangci-lint"), []byte(stub), 0o755); err != nil {
+					t.Fatalf("write golangci-lint stub: %v", err)
+				}
+				code, msg := hookEventEnv(t, script, t.TempDir(), edited(path), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "LINT_STATUS="+tt.status, "LINT_OUTPUT="+tt.output)
+				if code != 2 || !strings.Contains(msg, "golangci-lint") || !strings.Contains(msg, "exit "+tt.status) || (tt.output != "" && !strings.Contains(msg, tt.output)) {
+					t.Errorf("lint failure %s: exit %d, stderr %q; want 2 with lint exit %s and diagnostic %q", tt.name, code, msg, tt.status, tt.output)
+				}
+			})
 		}
 	})
 
@@ -781,6 +836,27 @@ func TestVetHook(t *testing.T) {
 		}
 		if code, msg := hookEvent(t, script, t.TempDir(), edited(path)); code != 0 || msg != "" {
 			t.Fatalf("repository config without errcheck: exit %d, stderr %q; want silent 0", code, msg)
+		}
+	})
+
+	t.Run("repository lint configuration above a symlink wins", func(t *testing.T) {
+		t.Parallel()
+		needLint(t)
+		path := module(t, bareWrite)
+		logical := filepath.Join(t.TempDir(), "logical config")
+		if err := os.Mkdir(logical, 0o755); err != nil {
+			t.Fatalf("create logical directory: %v", err)
+		}
+		alias := filepath.Join(logical, "linked package")
+		if err := os.Symlink(filepath.Dir(path), alias); err != nil {
+			t.Fatalf("symlink package directory: %v", err)
+		}
+		cfg := "version: \"2\"\nlinters:\n  default: none\n  enable:\n    - govet\n"
+		if err := os.WriteFile(filepath.Join(logical, ".golangci.yml"), []byte(cfg), 0o644); err != nil {
+			t.Fatalf("write logical .golangci.yml: %v", err)
+		}
+		if code, msg := hookEvent(t, script, t.TempDir(), edited(filepath.Join(alias, "main.go"))); code != 0 || msg != "" {
+			t.Errorf("repository config above %s without errcheck: exit %d, stderr %q; want silent 0", alias, code, msg)
 		}
 	})
 }

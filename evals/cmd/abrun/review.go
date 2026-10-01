@@ -485,6 +485,7 @@ func printReviewSummary(rep report) {
 		rs := summary.Review
 		if summary.Valid == 0 || rs.Runs == 0 {
 			fmt.Printf("%-24s %5d %6d %5d %7s\n", a.Name, summary.Runs, summary.Errors, 0, "no data")
+			printRoutingSummary(rep, a.Name)
 			continue
 		}
 		ratio := func(num, den int) string {
@@ -509,6 +510,7 @@ func printReviewSummary(rep report) {
 			skill, cost)
 		fmt.Printf("%-24s   %.1f citations/run, evidence markers verified %.1f plausible %.1f /run\n",
 			"", float64(rs.Citations)/float64(rs.Runs), float64(rs.Verified)/float64(rs.Runs), float64(rs.Plausible)/float64(rs.Runs))
+		printRoutingSummary(rep, a.Name)
 	}
 
 	// Per-defect table: rows are defect ids, columns are arms, cells are

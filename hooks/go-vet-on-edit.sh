@@ -128,23 +128,39 @@ if (cd "$dir" && go list -m >/dev/null 2>&1); then
                 lint_args+=(--new-from-rev=HEAD)
             fi
             lint_args+=(.)
-            # golangci-lint config path exits 0 and prints the file when the
-            # repository has one; otherwise the bundled configuration applies.
-            if ! (cd "$dir" && golangci-lint config path >/dev/null 2>&1); then
+            # Обираємо config у логічному каталозі до cd -P. `config path`
+            # пише шлях у stderr, відносно фізичного cwd; явно закріплюємо його,
+            # щоб пошук у фізичному каталозі не обрав іншу конфігурацію.
+            if repo_config="$(cd "$dir" && golangci-lint config path 2>&1)"; then
+                case "$repo_config" in
+                    /*) ;;
+                    *) repo_config="$(cd "$dir" && pwd -P)/$repo_config" ;;
+                esac
+                lint_args+=(--config "$repo_config")
+            else
                 bundled="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}/skills/go-linting/assets/golangci.yml"
                 [[ -f "$bundled" ]] && lint_args+=(--config "$bundled")
             fi
-            lint_out="$(cd "$dir" && timeout 60 golangci-lint "${lint_args[@]}" 2>/dev/null)" || true
-            if [[ -n "$lint_out" ]]; then
-                # Findings are "path:line:col: text (linter)"; keep the edited
-                # file's and count the others.
-                mine="$(printf '%s\n' "$lint_out" | grep -F "$file:" || true)"
-                others="$(printf '%s\n' "$lint_out" | grep -E '^/.*:[0-9]+:[0-9]+: ' | grep -vF "$file:" | wc -l | tr -d ' ')"
+            # Логічний PWD через symlink не збігається з фізичними шляхами
+            # findings: --new-from-rev=HEAD тоді відфільтровує навіть нові дефекти.
+            real="$(cd "$dir" && pwd -P)/$(basename "$file")"
+            lint_status=0
+            lint_out="$(cd -P "$dir" && timeout 60 golangci-lint "${lint_args[@]}" 2>&1)" || lint_status=$?
+            if [[ -n "$lint_out" || "$lint_status" -ne 0 ]]; then
+                # Зберігаємо scope findings для обох варіантів шляху файлу;
+                # діагностика невдалого запуску не є finding іншого файлу.
+                issues="$(printf '%s\n' "$lint_out" | grep -E '^/.*:[0-9]+:[0-9]+: ' || true)"
+                mine="$(printf '%s\n' "$issues" | grep -F -e "$file:" -e "$real:" || true)"
+                others="$(printf '%s\n' "$issues" | grep -E '^/.*:[0-9]+:[0-9]+: ' | grep -vF -e "$file:" -e "$real:" | wc -l | tr -d ' ')"
                 if [[ -n "$mine" ]]; then
                     findings+="$(section "golangci-lint $pkg:" "$mine")"$'\n'
                 fi
                 if [[ "$others" -gt 0 ]]; then
                     findings+="golangci-lint $pkg: $others finding(s) in other files of the package; run golangci-lint run . to list them"$'\n'
+                fi
+                lint_diag="$(printf '%s\n' "$lint_out" | grep -vE '^/.*:[0-9]+:[0-9]+: ' || true)"
+                if [[ "$lint_status" -ne 0 ]] && { [[ "$lint_status" -ne 1 ]] || [[ -n "$lint_diag" || -z "$issues" ]]; }; then
+                    findings+="$(section "golangci-lint $pkg: failed (exit $lint_status):" "${lint_diag:-golangci-lint did not complete successfully}")"$'\n'
                 fi
             fi
         fi

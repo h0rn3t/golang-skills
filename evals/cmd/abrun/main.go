@@ -325,6 +325,8 @@ type result struct {
 	Delta  metrics  `json:"delta"`
 	Build  bool     `json:"build"`
 	Golden bool     `json:"golden"`
+	// CodexSkillEvidence фіксує captured output; nil означає старий звіт або інший runner.
+	CodexSkillEvidence *codexSkillEvidence `json:"codex_skill_evidence,omitempty"`
 	// Review is the review corpus's score; nil on the other corpora. A review
 	// run has no golden test: it is valid when the session ended, the fixture
 	// still builds and was not edited, and there is a review to score.
@@ -1051,14 +1053,15 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 // sessionTurn is what one model invocation leaves behind. It exists because a
 // repair run has two turns and both have to be folded into one result.
 type sessionTurn struct {
-	routing  *routingStats
-	out      []byte
-	skills   []string
-	final    string
-	cost     float64
-	commands int
-	gopls    int
-	err      error
+	routing       *routingStats
+	out           []byte
+	skills        []string
+	final         string
+	cost          float64
+	commands      int
+	gopls         int
+	err           error
+	codexEvidence *codexSkillEvidence
 }
 
 // runSession dispatches one turn to the configured runner.
@@ -1072,8 +1075,19 @@ func runSession(o options, a arm, work, prompt string) sessionTurn {
 		t.out, t.err = copilotSession(o, a, work, prompt)
 		t.skills, t.final, t.cost = parseCopilotStream(t.out)
 	case runnerCodex:
+		inventory, err := codexSkillInventory(a)
+		t.codexEvidence = &codexSkillEvidence{InventoryStatus: "available"}
+		if err != nil {
+			t.codexEvidence.InventoryStatus = "unavailable"
+			t.codexEvidence.InventoryReason = err.Error()
+			t.err = err
+			return t
+		}
+		if len(inventory) == 0 {
+			t.codexEvidence.InventoryStatus = "empty"
+		}
 		t.out, t.err = codexSession(o, a.home, work, prompt)
-		t.skills, t.final, t.cost = parseCodexStream(t.out)
+		t.skills, t.final, t.cost, t.codexEvidence.Reads = parseCodexStream(t.out, inventory)
 		t.commands = codexCommands(t.out)
 	default:
 		t.out, t.err = claudeSession(o, a.dir, work, prompt)
@@ -1091,6 +1105,16 @@ func runSession(o options, a arm, work, prompt string) sessionTurn {
 // spends money of its own; the final message is the latest turn's, since that
 // is the session's own last word on what it did.
 func (r *result) merge(t sessionTurn) {
+	if t.codexEvidence != nil {
+		if r.CodexSkillEvidence == nil {
+			r.CodexSkillEvidence = &codexSkillEvidence{}
+		}
+		if r.CodexSkillEvidence.InventoryStatus != "unavailable" {
+			r.CodexSkillEvidence.InventoryStatus = t.codexEvidence.InventoryStatus
+			r.CodexSkillEvidence.InventoryReason = t.codexEvidence.InventoryReason
+		}
+		r.CodexSkillEvidence.Reads = append(r.CodexSkillEvidence.Reads, t.codexEvidence.Reads...)
+	}
 	if t.err != nil && r.Err == "" {
 		r.Err = t.err.Error()
 	}
@@ -2185,15 +2209,8 @@ type armSummary struct {
 	// afterwards. The second number is the only one that says the loop worked.
 	RepairsFired   int
 	RepairsRescued int
-	// RoutingRuns counts the completed runs with a routing record; the four
-	// after it total what the records say (see routingStats), and Commands
-	// totals shell calls over completed runs.
-	RoutingRuns    int
-	FirstSkill     int
-	StyleCoreFirst int
-	EditBeforeLoad int
-	GateBlocks     int
-	Commands       int
+	// Commands рахує shell tool calls у завершених runs незалежно від success.
+	Commands int
 	// FixBefore and FixAfter total the pending go fix hunks over the valid
 	// runs that could be read at both ends, FixMeasured counts those runs, and
 	// FixClean the ones the toolchain had nothing left to propose for. Runs
@@ -2285,19 +2302,6 @@ func summarizeArm(rep report, name string) armSummary {
 			continue
 		}
 		summary.Commands += r.Commands
-		if rt := r.Routing; rt != nil {
-			summary.RoutingRuns++
-			if rt.FirstTool == "Skill" {
-				summary.FirstSkill++
-			}
-			if slices.Contains(rt.FirstLoads, "go-style-core") {
-				summary.StyleCoreFirst++
-			}
-			if rt.EditBeforeLoad {
-				summary.EditBeforeLoad++
-			}
-			summary.GateBlocks += rt.GateBlocks
-		}
 		if r.Build {
 			summary.Build++
 		}
@@ -2392,6 +2396,7 @@ func printSummary(rep report) {
 		}
 		if summary.Valid == 0 {
 			fmt.Printf("%-24s %5d %6d %5d %8s\n", a.Name, summary.Runs, summary.Errors, 0, "no data")
+			printRoutingSummary(rep, a.Name)
 			continue
 		}
 		mean := func(sum int) float64 { return float64(sum) / float64(summary.Valid) }
@@ -2423,12 +2428,7 @@ func printSummary(rep report) {
 		}
 		fmt.Printf("%-24s   line gate %d/%d, behavior failures %d, counts reported %d/%d\n",
 			"", summary.LineGatePasses, completed, summary.BehaviorFailures, summary.ReportedCounts, completed)
-		if summary.RoutingRuns > 0 {
-			n := summary.RoutingRuns
-			fmt.Printf("%-24s   routing: first tool Skill %d/%d, go-style-core in the first load %d/%d, edit before any load %d/%d, gate blocks %.2f/run, shell calls %.2f/run\n",
-				"", summary.FirstSkill, n, summary.StyleCoreFirst, n, summary.EditBeforeLoad, n,
-				float64(summary.GateBlocks)/float64(n), float64(summary.Commands)/float64(n))
-		}
+		printRoutingSummary(rep, a.Name)
 		fmt.Printf("%-24s   %s\n", "", summary.Readability.line(summary.Valid))
 		if summary.FixMeasured > 0 {
 			fixMean := func(sum int) float64 { return float64(sum) / float64(summary.FixMeasured) }

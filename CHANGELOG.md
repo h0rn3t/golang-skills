@@ -4,6 +4,35 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+The edit hook no longer hides lint findings in symlinked checkouts, and `abrun`
+counts a skill load only when a tool result proves it.
+
+- **Edit hook lint.** `go-vet-on-edit.sh` runs golangci-lint from the physical
+  directory. In a Git project opened through a symlink, `--new-from-rev=HEAD`
+  had filtered out even new findings. The repository's own config is resolved
+  first and passed with `--config`, so it keeps priority after the change of
+  directory. Findings still split into the edited file's lines and a count for
+  other files. A failed lint run and its stderr are now reported instead of
+  reading as a clean result.
+- **Codex `abrun` skill evidence.** A skill counts as loaded only after a
+  successful, completed read whose captured output equals the arm's staged
+  `SKILL.md` exactly. The JSON field `codex_skill_evidence` records full,
+  partial, failed, and unverified reads, byte counts, and inventory
+  availability, repair turns included. Path mentions in `ls` or `echo`,
+  cross-links, and cropped output no longer count as loads, and an
+  unavailable inventory stops the run before the CLI is called. Full captured
+  output does not prove the model retained it.
+- **Claude `abrun` routing evidence.** `routing.confirmed` (version 1) counts
+  only correlated, successful Skill tool results: a request, a failed result,
+  or an unrelated skill does not confirm a Go load. Go edit attempts and
+  successful edits are counted separately, and load order is checked at the
+  edit request. A routing block needs PreToolUse, an explicit exit 2, and the
+  routing gate's own marker. Legacy request metrics stay separate; partial or
+  unmeasured evidence stays out of confirmed denominators, and a review with no
+  Go edit reports N/A. A repair CLI invocation keeps its own routing context.
+  This is Skill tool-result evidence, not a claim about model-visible content
+  or retention; the Read fallback is still partial.
+
 ## [1.28.2] - 2026-10-01
 
 Corrections from a content review of all 24 skills on 1.28.1. Eight reviewers

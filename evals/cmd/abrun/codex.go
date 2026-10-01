@@ -1,11 +1,5 @@
-// The codex runner drives the OpenAI Codex CLI. It differs from the other three
-// in the one place that matters most for reading its results: Codex has no skill
-// tool. Skills reach the model as a listing in the system prompt, and a skill
-// fires when the model decides to read its SKILL.md through the shell. So this
-// runner measures a slightly different question than claude, copilot and
-// opencode do — not "did the model call the skill tool" but "did the model go
-// and read the skill" — and a session that never opens a SKILL.md is a control
-// that happened to see a table of contents.
+// Codex не має skill tool: runner підтверджує повний captured output читання
+// SKILL.md за snapshot staged-копії arm. Це не доводить retention моделлю.
 package main
 
 import (
@@ -16,6 +10,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -209,49 +205,375 @@ func codexEnv(home, dir string) []string {
 	)
 }
 
-// codexEvent is the part of one line of `codex exec --json` the benchmark reads.
+// codexSkillEvidence відрізняє порожній inventory від недоступного та старих звітів.
+type codexSkillEvidence struct {
+	InventoryStatus string           `json:"inventory_status"`
+	InventoryReason string           `json:"inventory_reason,omitempty"`
+	Reads           []codexSkillRead `json:"reads,omitempty"`
+}
+
+// codexSkillRead описує captured output, а не завантаження або retention моделлю.
+type codexSkillRead struct {
+	ItemID        string `json:"item_id,omitempty"`
+	Skill         string `json:"skill"`
+	Path          string `json:"path,omitempty"`
+	Command       string `json:"command"`
+	Status        string `json:"status"`
+	Reason        string `json:"reason"`
+	ReturnedBytes int    `json:"command_output_bytes"`
+	ExpectedBytes int    `json:"expected_file_bytes"`
+	// MatchedBytes — точний збіг bytes конкретного файла; частковий head/sed
+	// може містити внутрішній фрагмент. Загальний output команди рахується окремо.
+	MatchedBytes int `json:"matched_file_bytes"`
+}
+
+// codexSkillInventory читає довірену installed-копію до запуску CLI.
+// Aliases походять тільки з filesystem staged home, ніколи з transcript.
+func codexSkillInventory(a arm) (map[string]string, error) {
+	inventory := map[string]string{}
+	if a.dir == "" {
+		return inventory, nil
+	}
+	if a.home == "" {
+		return nil, fmt.Errorf("codex arm home is missing")
+	}
+	root := filepath.Join(codexHomeDir(a.home), "skills")
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, fmt.Errorf("read staged codex skills: %w", err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() || !strings.HasPrefix(entry.Name(), "go-") {
+			continue
+		}
+		path := filepath.Join(root, entry.Name(), "SKILL.md")
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("snapshot staged skill: %w", err)
+		}
+		if len(body) == 0 {
+			return nil, fmt.Errorf("staged skill %q is empty", path)
+		}
+		physical, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return nil, fmt.Errorf("resolve staged skill: %w", err)
+		}
+		inventory[path] = string(body)
+		if filepath.Base(physical) == "SKILL.md" && filepath.Base(filepath.Dir(physical)) == entry.Name() {
+			inventory[physical] = string(body)
+		}
+	}
+	if len(inventory) == 0 {
+		return nil, fmt.Errorf("staged codex arm has no Go skills")
+	}
+	return inventory, nil
+}
+
+// codexEvent містить лише потрібні поля JSONL lifecycle та command output.
 type codexEvent struct {
 	Type string `json:"type"`
 	Item struct {
-		Type    string `json:"type"`
-		Command string `json:"command"`
-		Text    string `json:"text"`
+		ID       string          `json:"id"`
+		Type     string          `json:"type"`
+		Command  string          `json:"command"`
+		Text     string          `json:"text"`
+		Status   string          `json:"status"`
+		ExitCode json.RawMessage `json:"exit_code"`
+		Output   string          `json:"aggregated_output"`
 	} `json:"item"`
 }
 
-// parseCodexStream pulls the go-* skills the model read and its last message out
-// of a JSONL transcript.
-//
-// Only the command of a shell call is searched, never its output. A session that
-// reads one SKILL.md gets the whole file echoed back into the transcript, and
-// skills cross-reference each other by name, so scanning the output would score
-// every skill a loaded skill mentions as one the model reached for.
-//
-// The cost return is always zero: codex reports token counts, not dollars, so
-// there is no number here that means the same thing as the claude and opencode
-// runners' $/run and a converted one would only look comparable.
-func parseCodexStream(out []byte) (skills []string, final string, cost float64) {
+// parseCodexStream зараховує тільки успішне completed читання повного output.
+// Token usage не конвертується в dollars; cost залишається нульовим.
+func parseCodexStream(out []byte, inventory map[string]string) (skills []string, final string, cost float64, evidence []codexSkillRead) {
 	fired := map[string]bool{}
+	completed := map[string]bool{}
+	pending := map[string]codexEvent{}
+	var order []string
 	for line := range strings.SplitSeq(string(out), "\n") {
-		if !strings.HasPrefix(strings.TrimSpace(line), "{") {
-			continue
-		}
 		var ev codexEvent
 		if json.Unmarshal([]byte(line), &ev) != nil {
 			continue
 		}
-		switch ev.Item.Type {
-		case "command_execution":
-			for _, name := range skillsInPaths(ev.Item.Command) {
-				fired[name] = true
-			}
-		case "agent_message":
+		if ev.Item.Type == "agent_message" {
 			if ev.Type == "item.completed" && ev.Item.Text != "" {
 				final = ev.Item.Text
 			}
+			continue
+		}
+		if ev.Item.Type != "command_execution" {
+			continue
+		}
+		key := ev.Item.ID
+		if key == "" {
+			key = line
+		}
+		if ev.Type == "item.started" {
+			if _, ok := pending[key]; !ok && !completed[key] {
+				pending[key] = ev
+				order = append(order, key)
+			}
+			continue
+		}
+		if ev.Type != "item.completed" || completed[key] {
+			continue
+		}
+		completed[key] = true
+		delete(pending, key)
+		reads := codexReadEvidence(ev, inventory)
+		evidence = append(evidence, reads...)
+		for _, read := range reads {
+			if read.Status == "full_returned_output" {
+				fired[read.Skill] = true
+			}
 		}
 	}
-	return sortedKeys(fired), final, 0
+	for _, key := range order {
+		if ev, ok := pending[key]; ok {
+			evidence = append(evidence, codexReadEvidence(ev, inventory)...)
+		}
+	}
+	return sortedKeys(fired), final, 0, evidence
+}
+
+// codexReadEvidence зв'язує body з operand path та порядком multi-file cat.
+func codexReadEvidence(ev codexEvent, inventory map[string]string) []codexSkillRead {
+	words, ok := codexLiteralWords(ev.Item.Command)
+	if ok && len(words) == 3 && slices.Contains([]string{"/bin/zsh", "zsh", "/bin/bash", "bash", "/bin/sh", "sh"}, words[0]) && words[1] == "-lc" {
+		words, ok = codexLiteralWords(words[2])
+	}
+	var paths []string
+	command := ""
+	if ok && len(words) > 1 {
+		command = filepath.Base(words[0])
+		ok = words[0] == command || words[0] == "/bin/"+command || words[0] == "/usr/bin/"+command
+	}
+	if ok && len(words) > 1 {
+		args := words[1:]
+		switch command {
+		case "cat":
+			if args[0] == "--" {
+				args = args[1:]
+			}
+			for _, arg := range args {
+				if strings.HasPrefix(arg, "-") {
+					ok = false
+					break
+				}
+			}
+			if ok {
+				paths = args
+			}
+		case "head":
+			if len(args) == 3 && (args[0] == "-n" || args[0] == "-c") {
+				n, err := strconv.Atoi(args[1])
+				ok = err == nil && n >= 0
+				args = args[2:]
+			} else if len(args) == 2 && strings.HasPrefix(args[0], "-") {
+				n, err := strconv.Atoi(strings.TrimPrefix(args[0], "-"))
+				ok = err == nil && n >= 0
+				args = args[1:]
+			}
+			if ok && len(args) == 1 && !strings.HasPrefix(args[0], "-") {
+				paths = args
+			}
+		case "sed":
+			if len(args) == 3 && args[0] == "-n" {
+				expr, ends := strings.CutSuffix(args[1], "p")
+				ok = ends && strings.Count(expr, ",") <= 1
+				for part := range strings.SplitSeq(expr, ",") {
+					if part == "$" {
+						continue
+					}
+					for _, digit := range part {
+						if digit < '0' || digit > '9' {
+							ok = false
+						}
+					}
+					n, err := strconv.Atoi(part)
+					if err != nil || n <= 0 {
+						ok = false
+					}
+				}
+				if ok {
+					paths = args[2:]
+				}
+			}
+		}
+	}
+	supported := ok && len(paths) > 0 && (command == "cat" || command == "head" || command == "sed")
+	for _, path := range paths {
+		if filepath.Base(path) != "SKILL.md" {
+			supported = false
+		}
+	}
+	if !supported {
+		var reads []codexSkillRead
+		for _, name := range skillsInPaths(ev.Item.Command) {
+			reads = append(reads, codexSkillRead{ItemID: ev.Item.ID, Skill: name, Command: ev.Item.Command, Status: "unverified", Reason: "unsupported literal read command", ReturnedBytes: len(ev.Item.Output)})
+		}
+		return reads
+	}
+	var combined strings.Builder
+	allTrusted := true
+	for _, path := range paths {
+		body := inventory[path]
+		if body == "" {
+			allTrusted = false
+		}
+		combined.WriteString(body)
+	}
+	// Multi-file bytes можна розділити лише за довіреними operands у їхньому порядку.
+	multiPrefix := allTrusted && strings.HasPrefix(combined.String(), ev.Item.Output)
+	offset := 0
+	var reads []codexSkillRead
+	for _, path := range paths {
+		names := skillsInPaths(path)
+		if len(names) != 1 {
+			continue
+		}
+		expected := inventory[path]
+		read := codexSkillRead{ItemID: ev.Item.ID, Skill: names[0], Path: path, Command: ev.Item.Command, Status: "unverified", Reason: "path absent from staged inventory or expected file empty", ReturnedBytes: len(ev.Item.Output), ExpectedBytes: len(expected)}
+		switch {
+		case expected == "" || !allTrusted:
+		case ev.Item.Output == "":
+			read.Reason = "command returned no captured output"
+		default:
+			output := ev.Item.Output
+			if len(paths) > 1 {
+				if !multiPrefix {
+					read.Reason = "multi-file output does not match staged operands in order"
+					break
+				}
+				end := min(offset+len(expected), len(output))
+				output = output[min(offset, len(output)):end]
+			}
+			if output == expected {
+				read.Status = "full_returned_output"
+				read.Reason = "captured output equals complete staged file"
+				read.MatchedBytes = len(expected)
+			} else if output != "" && (strings.HasPrefix(expected, output) || len(paths) == 1 && command == "sed" && strings.Contains(expected, output)) {
+				read.Status = "partial_returned_output"
+				read.Reason = "captured output matches a staged file fragment"
+				read.MatchedBytes = len(output)
+			} else if strings.HasPrefix(output, "---\nname: "+names[0]+"\n") {
+				for i := 0; i < min(len(expected), len(output)) && expected[i] == output[i]; i++ {
+					read.MatchedBytes++
+				}
+				if read.MatchedBytes > 0 && read.MatchedBytes < len(expected) {
+					read.Status = "partial_returned_output"
+					read.Reason = "captured output contains only a matching prefix"
+				} else {
+					read.MatchedBytes = 0
+					read.Reason = "captured output differs from staged file"
+				}
+			} else {
+				read.Reason = "captured output differs from staged file"
+			}
+		}
+		// Coverage обчислюється незалежно; невдалий або непідтверджений lifecycle
+		// не стає skill load навіть за повного captured body.
+		switch {
+		case ev.Type != "item.completed" || ev.Item.Status != "completed":
+			read.Status = "unverified"
+			read.Reason = "command not completed successfully"
+			if ev.Item.Status == "failed" {
+				read.Status = "failed"
+			}
+		case ev.Item.ID == "":
+			read.Status = "unverified"
+			read.Reason = "command item ID missing"
+		case string(ev.Item.ExitCode) != "0" && string(ev.Item.ExitCode) != `"0"`:
+			read.Status = "unverified"
+			read.Reason = "exit code missing, invalid, or nonzero"
+			var code int
+			if json.Unmarshal(ev.Item.ExitCode, &code) == nil && code != 0 {
+				read.Status = "failed"
+			}
+			var text string
+			if json.Unmarshal(ev.Item.ExitCode, &text) == nil {
+				if n, err := strconv.Atoi(text); err == nil && n != 0 {
+					read.Status = "failed"
+				}
+			}
+		}
+
+		reads = append(reads, read)
+		offset += len(expected)
+	}
+	return reads
+}
+
+// codexLiteralWords підтримує тільки literal words, quotes та backslash.
+// Operators, substitutions і expansions відхиляються; command не виконується.
+func codexLiteralWords(command string) ([]string, bool) {
+	var words []string
+	var word strings.Builder
+	quote := byte(0)
+	active := false
+	for i := 0; i < len(command); i++ {
+		ch := command[i]
+		if quote == '\'' {
+			if ch == quote {
+				quote = 0
+			} else {
+				word.WriteByte(ch)
+			}
+			continue
+		}
+		if ch == '\\' {
+			if i+1 == len(command) {
+				return nil, false
+			}
+			i++
+			next := command[i]
+			if next == '\n' {
+				return nil, false
+			}
+			if quote == '"' && !strings.ContainsRune("\"$\\`", rune(next)) {
+				word.WriteByte('\\')
+			}
+			word.WriteByte(next)
+			active = true
+			continue
+		}
+		if ch == '$' || ch == '`' {
+			return nil, false
+		}
+		if quote == '"' {
+			if ch == quote {
+				quote = 0
+			} else {
+				word.WriteByte(ch)
+			}
+			continue
+		}
+		if ch == '\'' || ch == '"' {
+			quote = ch
+			active = true
+			continue
+		}
+		if ch == ' ' || ch == '\t' {
+			if active {
+				words = append(words, word.String())
+				word.Reset()
+				active = false
+			}
+			continue
+		}
+		if strings.ContainsRune(";|&<>(){}[]*?~\n\r", rune(ch)) {
+			return nil, false
+		}
+		word.WriteByte(ch)
+		active = true
+	}
+	if quote != 0 {
+		return nil, false
+	}
+	if active {
+		words = append(words, word.String())
+	}
+	return words, true
 }
 
 // codexCommands counts the shell calls in a transcript. A session that claims a
@@ -263,7 +585,13 @@ func codexCommands(out []byte) int {
 		if !strings.HasPrefix(strings.TrimSpace(line), "{") {
 			continue
 		}
-		var ev codexEvent
+		// Read metadata не впливають на підрахунок lifecycle attempts.
+		var ev struct {
+			Type string `json:"type"`
+			Item struct {
+				Type string `json:"type"`
+			} `json:"item"`
+		}
 		if json.Unmarshal([]byte(line), &ev) != nil {
 			continue
 		}

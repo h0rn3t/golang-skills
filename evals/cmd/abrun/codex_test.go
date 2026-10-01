@@ -39,35 +39,6 @@ func TestValidateOptionsEffortIsRunnerSpecific(t *testing.T) {
 	}
 }
 
-func TestParseCodexStream(t *testing.T) {
-	// Codex has no skill tool: a skill fires when the model cats its SKILL.md,
-	// and the file body comes back in the same transcript. The go-http mention
-	// below sits in that output and in a fixture path, where a skill the model
-	// never opened must not be scored as one it read.
-	transcript := `Reading additional input from stdin...
-{"type":"thread.started","thread_id":"t1"}
-{"type":"item.completed","item":{"id":"i0","type":"error","message":"Skill descriptions were shortened"}}
-{"type":"item.completed","item":{"id":"i1","type":"command_execution","command":"/bin/zsh -lc 'cat /tmp/h/.codex/skills/go-code-refactor/SKILL.md'","exit_code":"0","aggregated_output":"see go-http/SKILL.md for servers"}}
-{"type":"item.completed","item":{"id":"i2","type":"command_execution","command":"/bin/zsh -lc 'cat /tmp/h/.codex/skills/r0/go-style-core/SKILL.md'","exit_code":"0"}}
-{"type":"item.completed","item":{"id":"i3","type":"command_execution","command":"/bin/zsh -lc 'ls /tmp/w/golang-skills/952e678d/report'","exit_code":"0"}}
-{"type":"item.completed","item":{"id":"i4","type":"agent_message","text":"first pass"}}
-{"type":"item.completed","item":{"id":"i5","type":"agent_message","text":"final answer"}}
-{"type":"item.completed","item":{"id":"i6","type":"agent_
-`
-
-	skills, final, cost := parseCodexStream([]byte(transcript))
-	if want := []string{"go-code-refactor", "go-style-core"}; !reflect.DeepEqual(skills, want) {
-		t.Errorf("parseCodexStream skills = %v, want %v", skills, want)
-	}
-	if final != "final answer" {
-		t.Errorf("parseCodexStream final = %q, want %q", final, "final answer")
-	}
-	// Codex reports token counts, never dollars, so there is no honest $/run.
-	if cost != 0 {
-		t.Errorf("parseCodexStream cost = %v, want 0", cost)
-	}
-}
-
 func TestSkillsInPaths(t *testing.T) {
 	tests := []struct {
 		name string

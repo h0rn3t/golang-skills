@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.28.0] - 2026-10-01
+
 - The idiom card moves into `go-style-core/SKILL.md` as its Current Go Idiom
   Card section, right after Write Current Go; `references/CURRENT-GO.md` is
   gone (69 reference files). Every router loaded go-style-core with the card,

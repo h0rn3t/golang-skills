@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.28.2] - 2026-10-01
+
 Corrections from a content review of all 24 skills on 1.28.1. Eight reviewers
 checked every claim against go1.27.1 (some also against go1.25 and go1.26) and
 golangci-lint 2.13.2. This release carries only the corrections that need no

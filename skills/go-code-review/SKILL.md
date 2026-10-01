@@ -33,8 +33,13 @@ allowed-tools: Bash(bash:*)
    every rule here — except the idiom: an older form kept for consistency with
    the package is a finding ([Write Current Go](../go-style-core/SKILL.md#write-current-go)).
 3. From the project, run `bash <installed-skill-dir>/scripts/pre-review.sh ./...` plus
-   `go fix -diff <packages in the diff>`; a project with no golangci-lint
-   config is linted with the go-linting baseline. Report what the tools find
+   `go fix -diff <packages in the diff>`, writing the path itself into the
+   command: `<installed-skill-dir>` is the base directory the host printed when
+   it loaded this skill, or the directory this SKILL.md was read from (under
+   Codex, `~/.codex/skills/go-code-review` or `~/.agents/skills/go-code-review`);
+   exit 127 means the path is wrong. A project with no golangci-lint
+   config is linted with the go-linting baseline where it is installed; the
+   output's `config` says which configuration ran. Report what the tools find
    before the checklist; never spend review attention on what a tool reports.
    Fix only when the request asks for fixes, and then follow
    [go-code](../go-code/SKILL.md#workflow) steps 2–3 before the first edit:
@@ -85,7 +90,7 @@ allowed-tools: Bash(bash:*)
 
 ## Naming
 
-- [ ] **Package names**: No stuttering (use `chubby.File` not `chubby.ChubbyFile`); avoid `util`, `common`, `misc` → [go-packages](../go-packages/SKILL.md)
+- [ ] **Package names**: No stuttering (use `chubby.File` not `chubby.ChubbyFile`); avoid `util`, `common`, `misc` → [go-naming](../go-naming/SKILL.md)
 - [ ] **Built-in names stay free**: `error`, `string`, `len`, `cap`, `append`, `copy`, `new`, `make` name only the builtins; a local of that name is a finding → [go-style-core](../go-style-core/SKILL.md)
 
 ## Concurrency
@@ -129,7 +134,7 @@ allowed-tools: Bash(bash:*)
 
 ## Logging
 
-- [ ] **Use slog**: New code uses `log/slog`, not `log` or `fmt.Println` for operational logging → [go-logging](../go-logging/SKILL.md)
+- [ ] **Use slog**: a package with no logger uses `log/slog`, not `log` or `fmt.Println`, for operational logging; one already on `log`, zap, or logrus keeps it, and a migration is its own change → [go-logging](../go-logging/SKILL.md)
 - [ ] **Structured fields**: Log messages use static strings with key-value attributes, not fmt.Sprintf → [go-logging](../go-logging/SKILL.md)
 
 ## HTTP
@@ -155,8 +160,8 @@ allowed-tools: Bash(bash:*)
 
 - [ ] **Examples**: Include runnable `Example` functions or tests demonstrating usage → [go-documentation](../go-documentation/SKILL.md)
 - [ ] **Useful test failures**: Messages include what was wrong, inputs, got, and want; order is `got != want` → [go-testing](../go-testing/SKILL.md)
-- [ ] **Real transports**: Prefer `httptest.NewTestServer(t, h)` (Go 1.27+) + real client over mocking HTTP; at a 1.26 directive, `httptest.NewServer(h)` plus `t.Cleanup(srv.Close)` → [go-testing](../go-testing/SKILL.md)
-- [ ] **Test context**: Tests use `t.Context()`, not `context.Background()` → [go-testing](../go-testing/SKILL.md)
+- [ ] **Real transports**: Prefer a test server over mocking HTTP: `httptest.NewTestServer(t, h)` (Go 1.27+) when every request goes through `srv.Client()`, which is the only client that reaches the in-memory server — until `srv.Start()`, `srv.URL` is empty and then `http://example.com`, so another client sends the request to the real host; code under test that builds its own client gets `srv.Start()` first, which listens on loopback and sets `srv.URL`. At a 1.26 directive, `httptest.NewServer(h)` plus `t.Cleanup(srv.Close)` → [go-testing](../go-testing/SKILL.md)
+- [ ] **Test context**: Tests use `t.Context()`, not `context.Background()`; work inside `t.Cleanup` uses `context.WithoutCancel(t.Context())`, since `t.Context()` is canceled before cleanup runs → [go-testing](../go-testing/SKILL.md)
 - [ ] **No sleep-based waits**: Timing tests use `synctest`, not `time.Sleep` → [go-testing](../go-testing/SKILL.md)
 
 ## Related Skills

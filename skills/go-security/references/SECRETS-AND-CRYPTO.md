@@ -2,8 +2,8 @@
 
 > Sources: `crypto/*`, `crypto/tls`, `crypto/subtle`, `net/http` package docs; go.dev/blog/fips140; OWASP Password Storage Cheat Sheet
 > Authority: normative for stdlib API choices; project policy for the argon2 default
-> Minimum Go: 1.24 for `crypto/pbkdf2`, `crypto/hkdf`, `crypto/sha3`, `crypto/mlkem`, `rand.Text`
-> Last verified: 2026-09-29
+> Minimum Go: 1.24 for `crypto/pbkdf2`, `crypto/hkdf`, `crypto/sha3`, `crypto/mlkem`, `rand.Text`; 1.26 for `crypto/hpke`
+> Last verified: 2026-10-01
 
 Rule zero: **do not invent cryptography**. Every primitive below is a stdlib
 or Go-team-maintained call. The job is choosing the right one and handling the
@@ -76,8 +76,10 @@ later and old hashes re-verified. Verify with `subtle.ConstantTimeCompare`.
 ## Tokens, IDs, and nonces
 
 `crypto/rand` for anything an attacker must not predict; `math/rand/v2` for
-everything else (jitter, sampling, shuffles). [go-defensive](../../go-defensive/SKILL.md)
-owns the form; the choice table:
+everything else (jitter, sampling, shuffles), where `gosec` G404 still fires:
+suppress it on that line with the reason, as
+[go-linting](../../go-linting/SKILL.md#nolint-directives) shows.
+[go-defensive](../../go-defensive/SKILL.md) owns the form; the choice table:
 
 | Need | Call |
 |---|---|
@@ -89,11 +91,14 @@ owns the form; the choice table:
 A token that must expire carries its expiry server-side (a store lookup) or
 inside a signed payload (HMAC) — never trust a client-supplied expiry. When
 the payload is a signed token the client presents (JWT, PASETO, a cookie you
-signed), verification takes a fixed algorithm allowlist and your key: nothing
-in the token — `alg`, `kid`, `jku`, `x5u` — selects the key or turns
-verification off (`alg: none`), and `exp` is checked against the server
-clock. A token that must be revocable before `exp` carries an ID looked up
-server-side.
+signed), verification takes a fixed algorithm allowlist and keys you already
+hold. `kid` only chooses among those keys, each bound to one algorithm, and
+never names a file, URL, or query; `alg`, `jku`, and `x5u` in the token never
+select a key or turn verification off (`alg: none`). A token without `exp`
+is rejected — libraries accept one unless told to require it — `exp` is
+checked against the server clock, and `iss` and `aud` against fixed values,
+so a token minted for another service fails. A token that must be revocable
+before `exp` carries an ID looked up server-side.
 
 ---
 
@@ -194,7 +199,7 @@ included, is [go-http](../../go-http/SKILL.md#server-construction)'s.
 
 | Sink | Defense |
 |---|---|
-| `%v` / `%+v` on a config struct | `String()` method that omits secret fields; or a separate `Redacted()` view |
+| Logs, `fmt`, JSON — including a struct field holding the secret | The secret type in [go-logging](../../go-logging/SKILL.md#what-not-to-log) |
 | Panics and crash dumps | `debug.SetCrashOutput` goes to a file with restricted permissions, not stdout |
 
 ---
@@ -204,5 +209,5 @@ included, is [go-http](../../go-http/SKILL.md#server-construction)'s.
 | Avoid | Use | Since |
 |---|---|---|
 | `cipher.NewOFB`, `NewCFB*` | AEAD (`NewGCMWithRandomNonce`, or `NewGCM` for an existing nonce format) or `NewCTR` + HMAC | Go 1.24 deprecates |
-| `rsa.EncryptPKCS1v15` for new designs | `rsa.EncryptOAEP` or a KEM (`crypto/mlkem`, `crypto/ecdh`) | Go 1.26 |
+| `rsa.EncryptPKCS1v15` for new designs | `rsa.EncryptOAEP` for an existing RSA format; for a new one, `crypto/hpke` (Go 1.26+) `Seal`/`Open` with `hpke.MLKEM768X25519()`, never a hand-built KEM + KDF + AEAD | Go 1.26 |
 | `golang.org/x/crypto/{sha3,hkdf,pbkdf2}` | `crypto/{sha3,hkdf,pbkdf2}` | Go 1.24 |

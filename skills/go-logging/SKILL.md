@@ -16,7 +16,10 @@ description: Use when choosing a logging approach, configuring slog, writing str
 
 ## Choosing a Logger
 
-> **Normative**: Use `log/slog` for new Go code.
+> **Normative**: Use `log/slog` for new Go code in a package with no logger
+> yet. A package already on zap, zerolog, or logrus keeps it
+> ([House Style Wins](../go-style-core/SKILL.md#house-style-wins)); replacing
+> it is a migration [go-packages](../go-packages/SKILL.md) owns.
 
 Do not introduce a third-party logging library unless profiling shows `slog`
 is a bottleneck in your hot path.
@@ -100,8 +103,9 @@ Log through the `*Context` variants (`slog.InfoContext`, `slog.ErrorContext`)
 so the context reaches `Handler.Handle`. That call alone adds nothing:
 `TextHandler` and `JSONHandler` ignore the context. A trace or request ID
 reaches the record only from a logger already enriched with it, or from a
-handler that reads it out of the context. For the enriched-logger approach,
-see [LOGGING-PATTERNS.md](references/LOGGING-PATTERNS.md).
+handler that reads it out of the context; that handler re-wraps `WithAttrs`
+and `WithGroup`, or every logger built with `With` drops the field. Both forms
+are in [LOGGING-PATTERNS.md](references/LOGGING-PATTERNS.md#context-attributes).
 
 ---
 
@@ -133,7 +137,12 @@ A feature in a service is not done until an operator can see it fail:
   (histograms aggregate across instances; summaries do not). Keep the query
   that reads a metric next to its declaration.
 - **Cardinality** — label values stay bounded (method, route pattern, status);
-  never user IDs, full URLs, or request bodies.
+  never user IDs, full URLs, or request bodies. The route label is the
+  `Pattern` field (Go 1.23+) of the `*Request` the mux received, read after
+  it returns: after `next.ServeHTTP(w, r2)` with `r2 := r.WithContext(ctx)`,
+  that is `r2.Pattern`, while the middleware's own `r.Pattern` stays empty.
+  `cmp.Or(r2.Pattern, "unmatched")` (Go 1.22+) labels a request no pattern
+  matched.
 - **Logs** — structured key-value records carrying the request or trace ID,
   which needs the enriched logger or context handler described above.
 - **Dashboards and alerts** — a metric nobody queries is not observability:
@@ -150,22 +159,31 @@ A feature in a service is not done until an operator can see it fail:
 
 > **Normative**: Never log secrets, credentials, PII, or high-cardinality unbounded data.
 
-A secret gets its own type that implements `slog.LogValuer`, so every
-attribute that carries it prints `[REDACTED]` whichever handler writes the
-record — `slog.Info("login", "token", tok)` logs the token as `[REDACTED]`:
+A secret gets its own type, and every way a value is printed returns
+`[REDACTED]`: `slog` calls `LogValue` only on an attribute's own value, while a
+struct, slice, or map that holds the secret goes through `fmt` (`TextHandler`,
+`%v`, `%#v`, an error built with `%s`) or `encoding/json` (`JSONHandler`,
+`json.Marshal`):
 
 ```go
-// Token is a credential; LogValue keeps it out of every log record.
+// Token is a credential; no log record, format verb, or JSON encoding shows it.
 type Token string
 
-func (Token) LogValue() slog.Value { return slog.StringValue("[REDACTED]") }
+func (Token) LogValue() slog.Value         { return slog.StringValue("[REDACTED]") }
+func (Token) String() string               { return "[REDACTED]" }
+func (Token) GoString() string             { return "[REDACTED]" }
+func (Token) MarshalText() ([]byte, error) { return []byte("[REDACTED]"), nil }
 ```
+
+A struct with a secret field gets its redaction from the field's type, so a
+`Config` holding a `Token` logs whole. The one site that must send the secret
+converts with `string(tok)`.
 
 ---
 
 ## Related Skills
 
 - [go-error-handling](../go-error-handling/SKILL.md): log or return, the handle-once pattern.
-- [go-context](../go-context/SKILL.md): request-scoped values and loggers in context.
+- [go-context](../go-context/SKILL.md): which request-scoped values a context may carry.
 - [go-performance](../go-performance/SKILL.md): hot-path logging and allocations in log calls.
 - [go-code-review](../go-code-review/SKILL.md): reviewing logging in a PR.

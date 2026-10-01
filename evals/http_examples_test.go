@@ -226,23 +226,57 @@ func TestFanOut(t *testing.T) {
 }
 
 // The redaction type in go-logging's What NOT to Log is the form go-security
-// routes to: no stdlib handler, attribute form, or group may print the secret.
+// routes to: no stdlib handler, attribute form, group, nested value, format
+// verb, or JSON encoder may print the secret.
 func TestLoggingExampleRedaction(t *testing.T) {
 	code := exampleBlock(t, "skills/go-logging/SKILL.md", "## What NOT to Log")
 	runExampleTest(t, `package example
-import ("bytes"; "log/slog"; "strings"; "testing")
+import ("bytes"; jsonv1 "encoding/json"; json "encoding/json/v2"; "fmt"; "log/slog"; "strings"; "testing")
 `+code+`
+type Config struct { Host string; Token Token }
 func TestRedacted(t *testing.T) {
  tok := Token("s3cr3t")
+ cfg := Config{Host: "db", Token: tok}
  var buf bytes.Buffer
  for _, h := range []slog.Handler{slog.NewJSONHandler(&buf, nil), slog.NewTextHandler(&buf, nil)} {
   logger := slog.New(h)
   logger.Info("login", "token", tok)
   logger.With("token", tok).Info("with")
   logger.Info("group", slog.Group("auth", "token", tok))
+  logger.Info("config", "cfg", cfg)
+  logger.Info("tokens", "tokens", []Token{tok})
+  logger.Info("denied", "err", fmt.Errorf("login with %s: denied", tok))
  }
- if got := buf.String(); strings.Contains(got, "s3cr3t") || strings.Count(got, "[REDACTED]") != 6 {
-  t.Errorf("log output leaks the token or misses a redaction:\n%s", got)
+ fmt.Fprintf(&buf, "%v %#v\n", cfg, cfg)
+ for _, marshal := range []func(any) ([]byte, error){jsonv1.Marshal, func(v any) ([]byte, error) { return json.Marshal(v) }} {
+  b, err := marshal(cfg)
+  if err != nil { t.Fatal(err) }
+  buf.Write(b)
+ }
+ if got := buf.String(); strings.Contains(got, "s3cr3t") || strings.Count(got, "[REDACTED]") != 16 {
+  t.Errorf("output leaks the token or misses a redaction:\n%s", got)
+ }
+ if string(tok) != "s3cr3t" { t.Errorf("string(tok) = %q, want the secret for the one site that sends it", string(tok)) }
+}
+`)
+}
+
+// The context-reading handler in LOGGING-PATTERNS.md keeps its field on every
+// logger derived with With and WithGroup, not only on the root logger.
+func TestLoggingContextHandlerExample(t *testing.T) {
+	code := exampleBlock(t, "skills/go-logging/references/LOGGING-PATTERNS.md", "### Context Attributes")
+	runExampleTest(t, `package example
+import ("bytes"; "context"; "log/slog"; "strings"; "testing")
+`+code+`
+func TestTraceID(t *testing.T) {
+ var buf bytes.Buffer
+ ctx := context.WithValue(t.Context(), traceIDKey{}, "abc123")
+ logger := slog.New(traceHandler{slog.NewJSONHandler(&buf, nil)})
+ logger.InfoContext(ctx, "root")
+ logger.With("request_id", "r1").InfoContext(ctx, "with")
+ logger.WithGroup("req").InfoContext(ctx, "group")
+ if got := buf.String(); strings.Count(got, "abc123") != 3 {
+  t.Errorf("trace_id missing from a derived logger:\n%s", got)
  }
 }
 `)

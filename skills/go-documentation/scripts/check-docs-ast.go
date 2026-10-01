@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const version = "1.3.0"
+const version = "1.4.0"
 
 // standardMethods implement a standard interface whose documentation covers
 // them. It is revive exported's commonMethods (v1.15.0); revive also skips
@@ -36,15 +36,17 @@ type parseError struct {
 }
 
 type parsedFile struct {
-	path string
-	file *ast.File
+	path      string
+	file      *ast.File
+	generated bool // a "Code generated ... DO NOT EDIT." file, which the gate skips too
 }
 
 type packageInfo struct {
-	name      string
-	firstFile string
-	firstLine int
-	hasDoc    bool
+	name        string
+	firstFile   string // the first handwritten file, where a missing package comment is reported
+	firstLine   int
+	handwritten bool
+	hasDoc      bool
 }
 
 func usage() {
@@ -55,15 +57,20 @@ USAGE
 
 DESCRIPTION
     Reports exported packages, types, functions, methods, constants, and
-    variables without a doc comment. Like revive's exported rule, it skips
-    package main, _test.go files, methods of unexported types, and the methods
-    Error, Read, ServeHTTP, String, Write, and Unwrap. Unlike the go-linting
-    gate, whose revive excludes internal/ and cmd/, it reports those too.
+    variables without a doc comment. As revive's exported rule reads it, a
+    comment that holds only directives or only a Deprecated: paragraph is
+    missing; a package comment starts with "Package <name>", and a command's
+    names the command in its first three words. Like revive's exported rule,
+    it skips package main, _test.go files, methods of unexported types, and
+    the methods Error, Read, ServeHTTP, String, Write, and Unwrap. Like the
+    go-linting gate, it skips generated files (a "Code generated ... DO NOT
+    EDIT." line); unlike the gate, whose revive excludes internal/ and cmd/,
+    it reports those too.
     As go ./... does, it skips vendor and testdata directories and directories
     or files whose names begin with "." or "_".
 
     Exits 0 if everything is documented, 1 if symbols lack docs, 2 on a usage
-    error or when a file does not parse. The other files are still checked;
+    error, when the helper does not build, or when a file does not parse. The other files are still checked;
     --json then adds "status":"parse_error" and a "parse_errors" list.
 
 OPTIONS
@@ -113,7 +120,7 @@ func main() {
 			parseErrors = append(parseErrors, parseError{File: path, Message: err.Error()})
 			continue
 		}
-		parsed = append(parsed, parsedFile{path: path, file: file})
+		parsed = append(parsed, parsedFile{path: path, file: file, generated: ast.IsGenerated(file)})
 	}
 
 	// Nothing imports package main, so outside --strict it has no API to document.
@@ -124,24 +131,30 @@ func main() {
 	packages := map[string]*packageInfo{}
 	for _, pf := range parsed {
 		key := packageKey(pf.path, pf.file.Name.Name)
-		line := fset.Position(pf.file.Package).Line
 		info, ok := packages[key]
 		if !ok {
-			info = &packageInfo{name: pf.file.Name.Name, firstFile: pf.path, firstLine: line}
+			info = &packageInfo{name: pf.file.Name.Name}
 			packages[key] = info
 		}
-		if pf.path < info.firstFile {
+		if isPackageDoc(pf.file.Doc, pf.file.Name.Name, pf.path) {
+			info.hasDoc = true
+		}
+		if pf.generated {
+			continue
+		}
+		if line := fset.Position(pf.file.Package).Line; !info.handwritten || pf.path < info.firstFile {
 			info.firstFile = pf.path
 			info.firstLine = line
 		}
-		if pf.file.Doc != nil {
-			info.hasDoc = true
-		}
+		info.handwritten = true
 	}
 
 	missing := []missingDoc{}
 	reportedPackage := map[string]bool{}
 	for _, pf := range parsed {
+		if pf.generated {
+			continue
+		}
 		key := packageKey(pf.path, pf.file.Name.Name)
 		info := packages[key]
 		if !info.hasDoc && !reportedPackage[key] {
@@ -357,7 +370,7 @@ func findMissingDeclDocs(fset *token.FileSet, pf parsedFile, strict bool) []miss
 				continue
 			}
 			if ast.IsExported(d.Name.Name) || strict {
-				if d.Doc == nil {
+				if docText(d.Doc) == "" {
 					kind := "function"
 					if d.Recv != nil {
 						kind = "method"
@@ -375,7 +388,7 @@ func findMissingDeclDocs(fset *token.FileSet, pf parsedFile, strict bool) []miss
 				switch s := spec.(type) {
 				case *ast.TypeSpec:
 					if ast.IsExported(s.Name.Name) || strict {
-						if s.Doc == nil && d.Doc == nil {
+						if docText(s.Doc) == "" && docText(d.Doc) == "" {
 							missing = append(missing, missingDoc{
 								File: pf.path,
 								Line: fset.Position(s.Pos()).Line,
@@ -389,7 +402,7 @@ func findMissingDeclDocs(fset *token.FileSet, pf parsedFile, strict bool) []miss
 						if !ast.IsExported(name.Name) && !strict {
 							continue
 						}
-						if s.Doc == nil && d.Doc == nil {
+						if docText(s.Doc) == "" && docText(d.Doc) == "" {
 							missing = append(missing, missingDoc{
 								File: pf.path,
 								Line: fset.Position(name.Pos()).Line,
@@ -403,6 +416,42 @@ func findMissingDeclDocs(fset *token.FileSet, pf parsedFile, strict bool) []miss
 		}
 	}
 	return missing
+}
+
+// docText returns a doc comment's text, or "" when the comment holds only
+// directives or opens with a Deprecated: paragraph: revive exported reads both
+// as a missing comment.
+func docText(cg *ast.CommentGroup) string {
+	if cg == nil {
+		return ""
+	}
+	text := strings.TrimSpace(cg.Text())
+	if strings.HasPrefix(text, "Deprecated:") {
+		return ""
+	}
+	return text
+}
+
+// isPackageDoc reports whether the comment on a package clause is a package
+// comment: "Package name ..." for a library, and for a command its name, the
+// directory's, within the first three words ("Gofmt formats ...", "The
+// seed_generator command ..."). A copyright header is neither.
+func isPackageDoc(cg *ast.CommentGroup, name, path string) bool {
+	words := strings.Fields(docText(cg))
+	if name != "main" {
+		return len(words) >= 2 && words[0] == "Package" && strings.TrimRight(words[1], ".,:;") == name
+	}
+	dir := path
+	if abs, err := filepath.Abs(path); err == nil {
+		dir = abs
+	}
+	command := filepath.Base(filepath.Dir(dir))
+	for _, w := range words[:min(3, len(words))] {
+		if strings.EqualFold(strings.TrimRight(w, ".,:;"), command) {
+			return true
+		}
+	}
+	return false
 }
 
 func receiverName(expr ast.Expr) string {

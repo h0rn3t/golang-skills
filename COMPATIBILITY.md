@@ -76,7 +76,7 @@ scope for this repository.
 |---|---|
 | `uuid` (`New`, `NewV4`, `NewV7`, `Parse`, `MustParse`, `Nil`, `Max`, `Compare`) | `github.com/google/uuid` for the common cases |
 | `encoding/json/v2` + `encoding/json/jsontext` | `encoding/json` for new code that needs its semantics or streaming |
-| `httptest.NewTestServer(tb, handler)` (in-memory; reached only via `srv.Client()`) | `httptest.NewServer` + `defer srv.Close()` |
+| `httptest.NewTestServer(tb, handler)` (in-memory through `srv.Client()`; loopback after `srv.Start()`; without `Start`, `srv.URL` is `http://example.com` once `Client()` runs, so any other client reaches the real host) | `httptest.NewServer` + `defer srv.Close()` |
 | `synctest.Sleep` | Real sleeps inside `synctest.Test` bubbles |
 | `strings.CutLast`, `bytes.CutLast` | `LastIndex` + manual slicing |
 | `url.URL.Clone`, `url.Values.Clone` | Hand-written deep copies at boundaries |
@@ -96,6 +96,7 @@ scope for this repository.
 | `slog.NewMultiHandler(handlers...)` | Hand-written fan-out handlers |
 | `testing.TB.ArtifactDir()` | Ad-hoc temp dirs for test output that must survive the run |
 | `bytes.Buffer.Peek` | Read-then-unread dances |
+| `crypto/hpke` (`Seal`, `Open`, `MLKEM768X25519`) | A hand-assembled KEM + KDF + AEAD for public-key encryption; `rsa.EncryptPKCS1v15` in new formats |
 
 ### Go 1.25
 
@@ -106,7 +107,7 @@ scope for this repository.
 | `slog.GroupAttrs(key, attrs...)` | `slog.Group` with `any` varargs |
 | `http.NewCrossOriginProtection()` | Hand-rolled CSRF origin checks |
 | `runtime.SetDefaultGOMAXPROCS()` | Manual `GOMAXPROCS` math; 1.25 makes the default cgroup-aware when the main module's `go` directive is 1.25+ (an older directive builds with `containermaxprocs=0`) |
-| `testing.TB.Output()`, `TB.Attr()` | `fmt.Println` in tests, untyped metadata in failure text |
+| `testing.TB.Output()`, `TB.Attr()` | Output of a logger or command under test written to stdout/stderr (`slog.NewTextHandler(t.Output(), nil)`; `fmt.Println` in a test is `t.Log`), untyped metadata in failure text |
 
 ### Go 1.24
 
@@ -121,6 +122,7 @@ scope for this repository.
 | `omitzero` struct tag option | `omitempty` plus a custom `IsZero` |
 | `slog.DiscardHandler` | Hand-written no-op handlers |
 | `t.Chdir()` | `os.Chdir` plus a restore in cleanup |
+| top-level `math/rand.Seed` is a no-op (GODEBUG `randseednop`) | `rand.New(rand.NewPCG(...))` from `math/rand/v2` for a fixed sequence |
 
 ### Go 1.18–1.23
 
@@ -132,7 +134,7 @@ the typed atomics `atomic.Bool`, `atomic.Int64`, `atomic.Pointer[T]` (1.19);
 `Max`/`Min`, `Reverse`, `Compact`, `Clip` and `maps.DeleteFunc`,
 `sync.OnceFunc`/`OnceValue`/`OnceValues`, `context.AfterFunc`,
 `WithoutCancel`, `WithTimeoutCause`/`WithDeadlineCause` (1.21); `cmp.Or`,
-`slices.Concat`, `sql.Null[T]`, `reflect.TypeFor`, `http.ServeMux` method and
+`slices.Concat`, `math/rand/v2` (`IntN`, `N`, `NewPCG`), `sql.Null[T]`, `reflect.TypeFor`, `http.ServeMux` method and
 wildcard patterns with `r.PathValue`, `http.ServeFileFS` and
 `http.FileServerFS`, `testing/slogtest` (1.22); `iter.Seq` with the iterator
 forms in `slices` (`All`, `Values`, `Collect`, `Sorted`, `AppendSeq`) and

@@ -71,12 +71,20 @@ if ! [[ "$LIMIT" =~ ^[0-9]+$ ]]; then
 fi
 
 json_escape() {
-    local s="$1"
+    local s="$1" c r i
     s="${s//\\/\\\\}"
     s="${s//\"/\\\"}"
     s="${s//$'\t'/\\t}"
     s="${s//$'\r'/}"
     s="${s//$'\n'/\\n}"
+    # JSON forbids the rest of U+0001-U+001F raw (a bash string holds no NUL).
+    if [[ "$s" == *[[:cntrl:]]* ]]; then
+        for i in 1 2 3 4 5 6 7 8 11 12 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31; do
+            printf -v c "\\$(printf '%03o' "$i")"
+            printf -v r '\\u%04x' "$i"
+            s="${s//"$c"/"$r"}"
+        done
+    fi
     printf '%s' "$s"
 }
 
@@ -104,7 +112,8 @@ find_go_files() {
 }
 
 # One awk pass per file batch. A marker runs from the "Kept:" line through the
-# comment lines directly under it, so Ceiling/Fix may sit on a later line.
+# comment lines directly under it, so Ceiling/Fix may sit on a later line; a
+# comment line that opens with its own "Kept:" starts the next marker.
 AWK_HARVEST='
 function emit(   note) {
     inm = 0
@@ -119,7 +128,7 @@ function emit(   note) {
 FNR == 1 && inm { emit() }
 {
     if (inm) {
-        if ($0 ~ /^[ \t]*\/\//) {
+        if ($0 ~ /^[ \t]*\/\// && $0 !~ /^[ \t]*\/\/[ \t]*Kept:/) {
             c = $0
             sub(/^[ \t]*\/\/[ \t]?/, "", c)
             mtext = mtext " " c

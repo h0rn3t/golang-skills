@@ -34,7 +34,7 @@ Untrusted value arrives (request, env, file, DB row written by others)
 ├─ becomes an outbound URL?  → hostname allowlist by whole label; block private ranges (SSRF)
 ├─ becomes a redirect?       → one leading "/", none of "//", "\", control characters
 ├─ is compared to a secret?  → crypto/subtle.ConstantTimeCompare
-├─ is logged?                → redact; LogValuer (go-logging owns the form)
+├─ is logged?                → a secret type that redacts in every sink (go-logging owns the form)
 └─ is returned in an error?  → status + generic text; detail stays server-side
 ```
 
@@ -47,11 +47,11 @@ once — not at every call site downstream, where it is forgotten.
 |---|---|---|
 | SQL injection | `QueryContext(ctx, q, args...)` placeholders; identifiers from a `switch` over known names | `gosec` G201/G202 |
 | Foreign row by ID | `WHERE id = $1 AND org_id = $2` with the caller's tenant as a parameter; a foreign ID is `sql.ErrNoRows` | review |
-| Command injection | `exec.CommandContext(ctx, "gzip", "--keep", "--", name)`: argv, no shell, `--` before input | `gosec` G204 |
+| Command injection | `exec.CommandContext(ctx, "gzip", "--keep", "--", name)`: argv, no shell, `--` before input | `gosec` G204, which fires on this safe form too: suppress it on that line with the reason, as in [Injection](#injection) |
 | XSS | `html/template` (contextual escaping) | `gosec` G203 (unsafe `template.HTML`) |
 | Path traversal | `root.Open(name)` on an `os.Root` opened once at startup ([go-defensive](../go-defensive/SKILL.md#confine-filesystem-access) owns the form) | review — `gosec` G304 fires on every variable path, so the bundled config excludes it |
 | Upload served inline | `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, a `Content-Type` you derived; or a separate origin | review |
-| SSRF | Hostname allowlist by whole label: `host == d` or `strings.HasSuffix(host, "."+d)`; else a `net.Dialer.Control` that rejects, on the dialed address, `netip.Addr.IsPrivate()`/loopback and the CGNAT and NAT64 prefixes those methods miss ([INJECTION.md](references/INJECTION.md#arbitrary-public-destinations)) | review |
+| SSRF | Hostname allowlist by whole label: `host == d` or `strings.HasSuffix(host, "."+d)`, re-checked on every redirect in `CheckRedirect`; else a `net.Dialer.Control` that rejects, on the dialed address, `netip.Addr.IsPrivate()`/loopback and the CGNAT and NAT64 prefixes those methods miss ([INJECTION.md](references/INJECTION.md#arbitrary-public-destinations)) | review |
 | Open redirect | One leading `/`; reject `//`, `\`, and control characters; or an allowlist of hosts | review |
 | Predictable tokens | `crypto/rand.Text()` / `rand.Read` | `gosec` G404 |
 | Timing leak on compare | `subtle.ConstantTimeCompare(a, b) == 1` | review |
@@ -60,7 +60,7 @@ once — not at every call site downstream, where it is forgotten.
 | `MinVersion` | Leave unset (1.2 is the default) unless the service is TLS 1.3-only | `gosec` G402 |
 | `CurvePreferences` | No list is the default; a list that omits the ML-KEM hybrids is a finding | review |
 | CSRF | `http.NewCrossOriginProtection().Handler(mux)` | review |
-| Secret in log | `slog.LogValuer` returning `"[REDACTED]"` | review |
+| Secret in a log, `fmt`, or JSON | The secret type in [go-logging](../go-logging/SKILL.md#what-not-to-log), also when it is a struct field | review |
 | Known CVE in deps | `govulncheck ./...` (gate) | gate |
 
 `gosec` is in the baseline `.golangci.yml`; a finding it raises is a gate
@@ -76,7 +76,7 @@ data. String assembly is what turns data into code.
 out, err := exec.Command("sh", "-c", "git log "+ref).Output()
 
 // ✓ Good — argv, no shell; option parsing ends before ref, so "--output=x" stays a revision
-out, err := exec.CommandContext(ctx, "git", "log", "--end-of-options", ref, "--").Output()
+out, err := exec.CommandContext(ctx, "git", "log", "--end-of-options", ref, "--").Output() //nolint:gosec // G204: fixed program, argv, options end before ref
 ```
 
 `--end-of-options` is git's spelling, because `--` already separates
@@ -88,8 +88,10 @@ argument built from input, as in the Quick Reference row.
 - Read secrets from the environment or a mounted file at startup; never from
   a literal, a flag default, or a committed config. Fail fast when missing.
 - Verify a signed token the client presents (JWT, a signed cookie) with a
-  fixed algorithm allowlist and your key; `alg`, `kid`, or `jku` inside the
-  token never choose either, and `exp` is checked against the server clock.
+  fixed algorithm allowlist and keys you already hold: `kid` only chooses
+  among those keys, and `alg`, `jku`, or `x5u` inside the token never choose
+  either. Reject a token without `exp`, check `exp` against the server clock,
+  and check `iss` and `aud` against fixed values.
 - Keep secrets out of errors: never `fmt.Errorf("auth %s: %w", token, err)`.
 
 Key derivation, TLS defaults, and cookie flags in
@@ -111,8 +113,11 @@ http.SetCookie(w, &http.Cookie{
 
 - `net/http/pprof` and `expvar` mount on a separate internal listener, never on
   the public mux — they leak heap contents and goroutine stacks.
-- `X-Forwarded-For` is client-writable and append-only: read its **last**
-  entry, and only when a known proxy set it; otherwise `r.RemoteAddr`.
+- `X-Forwarded-For` is client-writable and append-only: join every
+  `r.Header.Values("X-Forwarded-For")` line and take the rightmost entry that
+  is not one of your own proxies; `r.Header.Get` returns only the first line,
+  which the client wrote when a proxy adds its own. With no proxy in front,
+  `r.RemoteAddr`.
 
 ## Review Mode
 

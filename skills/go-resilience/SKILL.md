@@ -71,6 +71,8 @@ loop owns the budget, the wait, and cancellation:
 
 ```go
 // retry makes at most attempts calls, with capped, jittered backoff between them.
+// ctx's deadline is the only elapsed-time bound: without one, a server delay of
+// any length is slept out, so callers give ctx a deadline.
 func retry(ctx context.Context, attempts int, base, maxWait time.Duration,
     attempt func(context.Context) (retryAfter time.Duration, retryable bool, err error)) error {
     for i := range attempts {
@@ -79,7 +81,7 @@ func retry(ctx context.Context, attempts int, base, maxWait time.Duration,
             return err
         }
         wait := min(base<<min(i, 20), maxWait) // an uncapped shift overflows to a negative wait
-        wait = wait/2 + rand.N(wait/2+1) // jitter within [wait/2, wait]
+        wait = wait/2 + rand.N(wait/2+1) //nolint:gosec // G404: retry jitter, not a secret; within [wait/2, wait]
         wait = max(wait, retryAfter)     // Retry-After is a lower bound
         if d, ok := ctx.Deadline(); ok && time.Until(d) <= wait {
             return err // the wait outlasts the budget: stop now, do not sleep it out

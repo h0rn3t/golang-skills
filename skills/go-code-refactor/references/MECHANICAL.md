@@ -3,7 +3,7 @@
 > Sources: `gofmt` docs; golang.org/x/tools/cmd/eg; github.com/uber-go/gopatch; golang.org/x/tools/go/analysis; golang.org/x/tools/cmd/deadcode; github.com/dave/dst
 > Authority: advisory — tool selection; the behavior promise stays in SKILL.md
 > Minimum Go: 1.27 baseline
-> Last verified: 2026-09-06
+> Last verified: 2026-10-01
 
 When the same edit recurs across many call sites, hand-editing each one is the
 wrong instrument: a generated rewrite is reviewable, re-runnable, and testable
@@ -94,7 +94,9 @@ For a rewrite too specific for the three above, write an `analysis.Analyzer`:
 `Run(pass)` walks the type-checked AST and reports
 `analysis.Diagnostic{SuggestedFixes: ...}` at each match. Test it against
 `.golden` files with `analysistest.RunWithSuggestedFixes`, then ship it as a
-`singlechecker` binary or run it through `go vet -vettool=<path>`.
+`singlechecker` binary or apply it with `go fix -fixtool=<path> -diff ./...`
+and then without `-diff` (Go 1.26+). `go vet -vettool=<path>` only reports
+the diagnostics.
 
 ## `dave/dst` — when comments must survive
 
@@ -106,10 +108,13 @@ comments — it is a dependency, and the ladder in
 ## After every bulk rewrite
 
 ```bash
-goimports -w .     # even after a tool that claims to manage imports itself
-deadcode ./...     # find what the rewrite orphaned
+goimports -w cache.go store.go   # the files the rewrite touched; `.` would sweep vendor/ and testdata/
+deadcode -test ./...             # what the rewrite orphaned; without -test a library has no main package
 ```
 
-A `deadcode` verdict on code using assembly, `go:linkname`, or reflection-driven
-dispatch is a strong hint, not a proof. Then run the repository gate: a rewrite
-that touched thirty files earns the full check, not the focused one.
+`goimports` and `deadcode` are `golang.org/x/tools/cmd/...` binaries, not part
+of the Go distribution; where one is not installed, run it as
+`go run golang.org/x/tools/cmd/deadcode@latest`. A `deadcode` verdict on code
+using assembly, `go:linkname`, or reflection-driven dispatch is a strong hint,
+not a proof. Then run the repository gate: a rewrite that touched thirty files
+earns the full check, not the focused one.

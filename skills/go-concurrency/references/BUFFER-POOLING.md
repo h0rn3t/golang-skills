@@ -2,7 +2,7 @@
 
 > Sources: source/effective-go/effective_go.html (A leaky buffer)
 > Authority: advisory
-> Last verified: 2026-09-29
+> Last verified: 2026-10-01
 
 Use a buffered channel as a free list to reuse allocated buffers, avoiding
 repeated allocations. This "leaky buffer" pattern uses `select` with `default`
@@ -34,8 +34,11 @@ func putBuffer(b *bytes.Buffer) {
 
 ## Production Alternative
 
-For production code, consider `sync.Pool` which provides similar functionality
-with better integration into the garbage collector:
+For a measured allocation hot spot
+([go-performance](../../go-performance/SKILL.md#benchmarking-and-profiling)),
+`sync.Pool` provides similar functionality with better integration into the
+garbage collector. Whatever leaves the function is copied out before the buffer
+goes back, because the next `getBuffer` reuses its array:
 
 ```go
 var bufferPool = sync.Pool{
@@ -54,6 +57,13 @@ func putBuffer(b *bytes.Buffer) {
     }
     b.Reset()
     bufferPool.Put(b)
+}
+
+func render(name string) []byte {
+    buf := getBuffer()
+    defer putBuffer(buf)
+    fmt.Fprintf(buf, "hello %s", name)
+    return bytes.Clone(buf.Bytes()) // not buf.Bytes(): putBuffer hands this array to the next caller
 }
 ```
 

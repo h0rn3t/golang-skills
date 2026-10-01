@@ -2,8 +2,8 @@
 
 > Sources: https://go.dev/doc/comment (Go 1.19 doc comment syntax)
 > Authority: normative
-> Minimum Go: doc links, `#` headings, and list syntax 1.19
-> Last verified: 2026-09-29
+> Minimum Go: doc links, `#` headings, and list syntax 1.19; `go doc -http` 1.25
+> Last verified: 2026-10-01
 
 ## Godoc Formatting
 
@@ -79,8 +79,8 @@ owns it.
 > **Advisory**: Preview documentation before and during code review.
 
 ```bash
-go doc -all .                                   # terminal rendering, Go 1.19+ syntax
-go install golang.org/x/pkgsite/cmd/pkgsite@latest && pkgsite   # the pkg.go.dev view
+go doc -all .    # terminal rendering, Go 1.19+ syntax
+go doc -http     # the pkg.go.dev view in a browser, pkgsite pinned by the toolchain (Go 1.25+)
 ```
 
 Both render the syntax above.

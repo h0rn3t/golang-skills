@@ -28,10 +28,9 @@
     {
       "query": "How should I name this Go package that handles user authentication?",
       "should_trigger": [
-        "go-naming",
-        "go-packages"
+        "go-naming"
       ],
-      "notes": "Package naming touches both skills",
+      "notes": "Package names are go-naming's (docs/RULE_OWNERSHIP.md); go-packages routes package names there",
       "set": "train"
     },
     {
@@ -366,20 +365,27 @@
     },
     {
       "query": "Build a complete Go REST API microservice with user authentication, PostgreSQL database, and Redis caching",
-      "should_trigger": [],
-      "notes": "Near-miss negative: mentions Go but is an architecture/infrastructure task, too broad for any single style skill",
+      "should_trigger": [
+        "go-code"
+      ],
+      "notes": "Writing Go with no single topic is what the router claims; it was a negative before go-code existed, and the prompt hook names go-code for it",
       "set": "train"
     },
     {
       "query": "Set up a Go project with a Dockerfile, Makefile, and GitHub Actions CI/CD pipeline",
-      "should_trigger": [],
-      "notes": "Near-miss negative: Go-adjacent but is purely infrastructure/DevOps tooling",
+      "should_trigger": [
+        "go-linting"
+      ],
+      "notes": "CI pipeline shape for a Go service belongs to go-linting (docs/RULE_OWNERSHIP.md); quality eval 45 grades the same shape",
       "set": "validation"
     },
     {
       "query": "Convert this Python Flask REST API to idiomatic Go with the same endpoints and behavior",
-      "should_trigger": [],
-      "notes": "Near-miss negative: mentions Go but is a language migration task, not Go style guidance",
+      "should_trigger": [
+        "go-code",
+        "go-http"
+      ],
+      "notes": "Writing Go endpoints from another framework's: go-code routes the task and go-http claims a REST API even when the user names a framework",
       "set": "train"
     },
     {
@@ -396,8 +402,10 @@
     },
     {
       "query": "Help me debug a segfault in my Go CGO code that wraps a C shared library",
-      "should_trigger": [],
-      "notes": "Near-miss negative: Go code but CGO/FFI debugging is not covered by any Go style skill",
+      "should_trigger": [
+        "go-troubleshooting"
+      ],
+      "notes": "A crash with an unknown cause is go-troubleshooting's, which postdates this eval's old negative label",
       "set": "validation"
     },
     {
@@ -542,8 +550,10 @@
     },
     {
       "query": "Write a Go function that parses a CSV file into structs",
-      "should_trigger": [],
-      "notes": "Negative control: no HTTP or database involved",
+      "should_trigger": [
+        "go-code"
+      ],
+      "notes": "New Go code with no HTTP or database involved goes to the router, like the duration-parser eval; it was a negative control for go-http and go-database",
       "set": "train"
     },
     {

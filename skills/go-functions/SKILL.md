@@ -83,9 +83,27 @@ func drain(q *Queue) { ... }           // *Queue: Queue has pointer receivers
 
 Functions that accept a format string end in `f`, so the caller knows to pass
 one. `go vet` finds a wrapper that forwards its format to `fmt` whatever its
-name; a function that keeps the format instead is checked only when listed in
-`go vet -printf.funcs=Name`, and only if the name ends in `f`. Declare format
-strings as `const` when used outside `Printf` calls.
+name. A function that keeps the format instead (a recorder, a deferred logger)
+carries the marker the `printf` analyzer documents, so a plain `go vet ./...`
+checks its calls:
+
+```go
+func Recordf(format string, args ...any) {
+    if false {
+        _ = fmt.Sprintf(format, args...) // enable printf checking
+    }
+    entries = append(entries, entry{format, args})
+}
+```
+
+Declare format strings as `const` when used outside `Printf` calls. A message
+that is not a constant is not a format: from a `go 1.24` directive, `go vet`
+reports `fmt.Errorf(msg)` as `non-constant format string`.
+
+```go
+return errors.New(msg) // or fmt.Errorf("%s", msg); never fmt.Errorf(msg)
+t.Fatal(msg)           // the non-f form, not t.Fatalf(msg)
+```
 
 Prefer `%q` over `%s` with manual quoting when formatting strings for logging
 or error messages — it safely escapes special characters and wraps in quotes:
@@ -124,6 +142,6 @@ them. Implementation and tradeoffs live in the constructor reference above.
 
 - [go-error-handling](../go-error-handling/SKILL.md): error returns in multi-return functions.
 - [go-naming](../go-naming/SKILL.md): function, method, and getter names.
-- [go-interfaces](../go-interfaces/SKILL.md): when the option abstraction itself needs design.
+- [go-interfaces](../go-interfaces/SKILL.md): consumer-side interface placement and compile-time assertions; option types, the `Option` interface included, stay here.
 - [go-documentation](../go-documentation/SKILL.md): constructors, defaults, `With*` functions.
 - [go-style-core](../go-style-core/SKILL.md): general formatting and line length; signature wrapping is owned here.

@@ -7,8 +7,9 @@ description: Use when investigating a bug or ticket in a Go service whose cause 
 
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
 > `runtime/trace.FlightRecorder` Go 1.25+; `debug.SetCrashOutput` Go 1.23+;
-> `testing/synctest` Go 1.25+; `GOTRACEBACK`, `GODEBUG`, `net/http/pprof`,
-> and `go tool pprof` are long-standing.
+> `testing/synctest` Go 1.25+; the `goroutineleak` profile needs a Go 1.27
+> toolchain; `GOTRACEBACK`, `GODEBUG`, `net/http/pprof`, and `go tool pprof`
+> are long-standing.
 
 Find the mechanism that explains the observed failure. Treat the ticket's
 proposed cause as a hypothesis; tie conclusions to an affected request, data,
@@ -102,7 +103,7 @@ unknown. It is not a fix, and the report says which of the two it is.
 | Stage/prod/CI only | Running revision, effective settings, schema and matching control | A difference with a causal path to the failure |
 | Panic | Complete panic message and trace; `GOTRACEBACK=all` for a subsequent authorized run | Faulting operation and how its inputs arrived there |
 | Hang / no response | Existing admin `/debug/pprof/goroutine?debug=2` | Wait dependencies, lock owners, and missing progress |
-| Goroutine leak | `/debug/pprof/goroutineleak?debug=1` (Go 1.27+), else comparable goroutine dumps/counts over time | Goroutines the runtime proved can no longer unblock; stacks persisting beyond their intended lifetime |
+| Goroutine leak | `/debug/pprof/goroutineleak?debug=1` on a binary built by a Go 1.27 toolchain, else comparable goroutine dumps/counts over time | Goroutines the runtime proved can no longer unblock; stacks persisting beyond their intended lifetime |
 | Memory grows | Comparable heap profiles and GC/runtime/process memory metrics | Retained allocations vs churn vs memory outside the Go heap |
 | CPU pegged | Bounded CPU profile under the affected workload | Hot call paths and whether they make progress |
 | Latency spikes | Execution trace or available `FlightRecorder` snapshot | Scheduling, GC, synchronization, syscall delays |
@@ -144,15 +145,17 @@ curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=2' > 
 curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutineleak?debug=1' > leaks.txt
 ```
 
-The `goroutineleak` profile (Go 1.27+) replaces the count-comparison ritual for
-the cases it covers: it lists goroutines blocked on a primitive that can never
-unblock again, decided by GC reachability rather than by inference. What it
-reports is a leak. What it omits may still be one — a goroutine waiting on a
-channel a live object could theoretically still use is reachable, so an empty
-profile narrows the search instead of ending it. Two cautions: `debug=1` gives
-leaked stacks only, while `debug=2` falls back to dumping every goroutine; and
-reading the profile forces a leak-detecting GC cycle, so capture it
-deliberately rather than scraping it on an interval.
+The `goroutineleak` profile replaces the count-comparison ritual for the cases
+it covers: it lists goroutines blocked on a primitive that can never unblock
+again, decided by GC reachability rather than by inference. What it reports is
+a leak. What it omits may still be one — a goroutine waiting on a channel a
+live object could theoretically still use is reachable, so an empty profile
+narrows the search instead of ending it. It follows the toolchain that built
+the binary, not the `go` directive: Go 1.27 toolchain (1.26 needs
+`GOEXPERIMENT=goroutineleakprofile`; without it the endpoint answers 404
+`Unknown profile`). Debug levels, the forced GC cycle each read runs, and the
+nil-guarded in-process form are in
+[DIAGNOSTIC-TOOLS.md](references/DIAGNOSTIC-TOOLS.md#stack-dumps).
 
 A blocked goroutine can be an idle worker. Compare equivalent workload windows
 and expected lifetimes. Use full stacks to find the creator and wait partners;

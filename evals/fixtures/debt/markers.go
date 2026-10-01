@@ -5,8 +5,8 @@ import "os"
 
 // Open opens name for reading.
 func Open(name string) (*os.File, error) {
-	// Kept: the defer stays inside the loop. Hoisting it into a helper would
-	// close files one iteration earlier, which is observable.
+	// Kept: the defer stays inside the loop. Hoisting the body into a helper
+	// would close each file as its iteration ends, which is observable.
 	// Ceiling: descriptors accumulate for the worker's lifetime.
 	// Fix: close explicitly per iteration, in its own commit.
 	return os.Open(name)

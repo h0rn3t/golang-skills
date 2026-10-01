@@ -1,8 +1,8 @@
 # Printf, Stringer, and Custom Formatting
 
-> Sources: https://pkg.go.dev/fmt; source/uber-go-style/style.md (Printf-style Functions)
+> Sources: https://pkg.go.dev/fmt; `go tool vet help printf` and the analyzer's doc.go; source/uber-go-style/style.md (Printf-style Functions)
 > Authority: normative for `fmt` verb semantics; naming advice advisory
-> Last verified: 2026-09-29
+> Last verified: 2026-10-01
 
 Deep reference for Go's `fmt` printing verbs, the `Stringer` and `GoStringer`
 interfaces, custom `Format()` methods, and common pitfalls.
@@ -102,6 +102,14 @@ const msg = "unexpected values %v, %v\n"
 fmt.Printf(msg, 1, 2)
 ```
 
+A message that is not a constant is not a format: a `%` inside it misformats.
+From a `go 1.24` directive, `go vet` reports `fmt.Errorf(msg)` as
+`non-constant format string in call to fmt.Errorf`:
+
+```go
+return errors.New(msg) // or fmt.Errorf("%s", msg); never fmt.Errorf(msg)
+```
+
 ---
 
 ## Naming Printf-style Functions
@@ -115,12 +123,22 @@ func Wrapf(err error, format string, args ...any) error
 ```
 
 A function that keeps the format instead of forwarding it — a recorder, a
-deferred logger — is invisible to that detection. List it for vet, which
-checks a listed name as `Printf`-like only when it ends in `f`:
+deferred logger — is invisible to that detection. Give it the marker the
+`printf` analyzer documents; a plain `go vet ./...`, the gate's own command,
+then checks every call:
 
-```bash
-go vet -printf.funcs=Recordf,Statusf
+```go
+func Recordf(format string, args ...any) {
+    if false {
+        _ = fmt.Sprintf(format, args...) // enable printf checking
+    }
+    entries = append(entries, entry{format, args})
+}
 ```
+
+The legacy `go vet -printf.funcs=Recordf` flag does the same only on runs
+that pass it; a listed name ending in `f` is checked as `Printf`-like, any
+other as `Print`-like.
 
 ---
 
@@ -268,8 +286,8 @@ to the underlying primitive type first. `go vet` reports the call:
 | `%q` | Use for human-readable string output |
 | `%+v` | Struct fields with names |
 | `%#v` | Go-syntax representation; customize via `GoStringer` |
-| Format string storage | Declare as `const` outside Printf calls |
-| Printf function names | End with `f` so callers pass a format; vet finds a forwarding wrapper by any name, a listed `-printf.funcs` name only if it ends in `f` |
+| Format string storage | Declare as `const` outside Printf calls; a non-constant message goes through `errors.New(msg)` or `"%s"` (`go vet`, Go 1.24 directive) |
+| Printf function names | End with `f` so callers pass a format; vet finds a forwarding wrapper by any name, a non-forwarding one through the `if false { _ = fmt.Sprintf(format, args...) }` marker |
 | `Stringer` | Implement `String() string` for `%v`/`%s` output |
 | `GoStringer` | Implement `GoString() string` for `%#v` output |
 | `Formatter` | Implement `Format(fmt.State, rune)` for full verb control |

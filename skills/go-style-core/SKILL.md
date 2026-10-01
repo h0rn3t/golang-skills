@@ -86,18 +86,21 @@ written before is looked up with `go doc` first, never written from memory:
 `golang.org/x/exp/maps` returned. Without a shell, the owner skill's example is
 the source, and a symbol no skill shows is reported, not invented.
 
-Write the older form only when one of three things is true, and name which in
-the report: the current form does not compile at the `go` directive (`go vet`'s
-`stdversion` reports library symbols; `COMPATIBILITY.md` lists the language
-features); it changes observable behavior (the tiers in
+Write the older form only when one of four things is true, and name which in
+the report: the current form is not available at the `go` directive
+(`COMPATIBILITY.md` lists the language features); it changes observable
+behavior (the tiers in
 [MODERNIZATION.md](../go-code-refactor/references/MODERNIZATION.md) say which
-swaps do); or it does not fit the code at hand. The directive is the `go`
-line of the module's `go.mod` — language 1.16 when the line is missing; a
+swaps do); it does not fit the code at hand; or an explicit user or repository
+instruction requires the older form ([House Style Wins](#house-style-wins)).
+The directive is the `go` line of the module's `go.mod` — language 1.16 when the line is missing; a
 `go.work` directive does not raise a member module's version — and neither a
 `toolchain` line, `GOTOOLCHAIN`, nor an installed newer Go raises it or
 authorizes a version bump; respect build constraints and the CI toolchains.
-A form newer than the directive fails with `requires go1.NN or later (-lang
-was set to go1.MM; check go.mod)`.
+A language form newer than the directive fails to compile with `requires
+go1.NN or later (-lang was set to go1.MM; check go.mod)`; a library symbol
+newer than it builds, and only `go vet` (`stdversion`) reports it:
+`strings.CutLast requires go1.27 or later (module is go1.26)`.
 
 The rule covers idioms — language features and standard-library APIs — not
 dependencies: the logger, assertion library, router, or ORM the package already
@@ -113,7 +116,7 @@ lists the standard-library replacements beyond the automated modernizers.
 
 ## Current Go Idiom Card
 
-> Sources: Go release notes 1.13–1.27; `$GOROOT/api/go1.*.txt`; `go tool fix help`; `go doc encoding/json/v2`; JetBrains go-modern-guidelines `guidelines.json` at `155dc7c` (54 items, cross-checked one by one 2026-09-13). Last verified: 2026-09-29.
+> Sources: Go release notes 1.13–1.27; `$GOROOT/api/go1.*.txt`; `go tool fix help`; `go doc encoding/json/v2`; JetBrains go-modern-guidelines `guidelines.json` at `155dc7c` (54 items, cross-checked one by one 2026-09-13). Last verified: 2026-10-01.
 
 One line per idiom: the form an older habit produces, the form the directive
 allows, and the trap. A row newer than the module's `go` directive does not
@@ -150,7 +153,9 @@ which of these swaps change behavior when *existing* code is rewritten;
 | `sort.Slice(s, func(i, j int) bool {...})` | `slices.SortFunc(s, func(a, b T) int { return cmp.Compare(a.Key, b.Key) })` (Go 1.21) — the comparator returns `int`, not `bool`; both are unstable, and `sort.SliceStable` becomes `slices.SortStableFunc` |
 | `sort.Ints`, `sort.Strings` | `slices.Sort` (Go 1.21) |
 | a shallow copy loop, `append([]T(nil), s...)` | `slices.Clone`, `maps.Clone` (Go 1.21) — preserve nilness, capacity when observable, and nested aliasing; under `encoding/json` v1, `make` plus `copy` when `[]` must encode |
-| index, max, min, reverse, dedupe, filter loops | `slices.Index`, `slices.Max`, `slices.Min`, `slices.Reverse`, `slices.Compact`, `slices.DeleteFunc` (Go 1.21) — `Compact` drops adjacent duplicates only, so sort first; `DeleteFunc` edits in place, so it runs on `slices.Clone(s)` when `s` is kept |
+| index, max, min, reverse, dedupe, filter loops | `slices.Index`, `slices.Max`, `slices.Min`, `slices.Reverse`, `slices.Compact`, `slices.DeleteFunc` (Go 1.21) — `Compact` drops adjacent duplicates only, so sort first |
+| a max or min loop that returns zero for no input | `if len(s) == 0 { return 0 }` before `slices.Max(s)` or `slices.Min(s)` — both panic on an empty slice |
+| a reverse, dedupe, or filter loop that builds a new slice | `slices.Reverse`, `slices.Compact`, and `slices.DeleteFunc` edit in place, so they run on `slices.Clone(s)` when `s` is kept |
 | merging or filtering a map by hand | `maps.Copy`, `maps.DeleteFunc` (Go 1.21) |
 | `s = s[:len(s):len(s)]` | `slices.Clip` (Go 1.21) |
 | a slice built only to be ranged over | a function returning `iter.Seq[T]` (Go 1.23); `slices.Collect` when a slice is needed after all |
@@ -178,13 +183,14 @@ which of these swaps change behavior when *existing* code is rewritten;
 | Habit | Write at the directive |
 |---|---|
 | `wg.Add(1)` and `go func() { defer wg.Done() }()` | `wg.Go(f)` (Go 1.25) |
-| a goroutine parked on `ctx.Done()` to run cleanup | `stop := context.AfterFunc(ctx, f)` and `defer stop()` (Go 1.21) — without `stop`, each registration on a long-lived context stays live until the context ends |
+| a goroutine that interrupts a blocking call while this function runs | `stop := context.AfterFunc(ctx, f)` and `defer stop()` (Go 1.21) — without `stop`, each registration on a long-lived context stays live until the context ends |
+| a goroutine parked on `ctx.Done()` to run cleanup whenever the context ends, after this function returns | `context.AfterFunc(ctx, f)` (Go 1.21), its `stop` kept by the owner and called from its `Close` — a `defer stop()` here deregisters the cleanup at return, and it never runs |
 | `cancel()` that loses the reason | `context.WithCancelCause`, `context.Cause` (Go 1.20); `context.WithTimeoutCause`, `context.WithDeadlineCause` (Go 1.21) |
 | `sync.Once` plus a result field and a getter | `sync.OnceFunc`, `sync.OnceValue`, `sync.OnceValues` (Go 1.21) |
 | an `int32` flag with `atomic.LoadInt32`; `unsafe.Pointer` with `atomic.StorePointer` | `atomic.Bool`, `atomic.Int64`, `atomic.Pointer[T]` (Go 1.19) — in an existing struct, the new field makes every by-value copy of that struct a `go vet` copylocks finding; `atomic.Value` differs from `atomic.Pointer[T]` in nil handling |
 | a mutex around one counter or flag | `atomic.Int64`, `atomic.Bool` (Go 1.19) — only with no compound invariant |
 | `time.Now().Sub(start)`, `deadline.Sub(time.Now())` | `time.Since(start)`; `time.Until(deadline)` (Go 1.8) |
-| `time.NewTicker` with `defer t.Stop()` in the process's own main loop, run by `main` itself | `for range time.Tick(d)` (Go 1.23) — an unreferenced ticker is collected since 1.23, so the old warning against `time.Tick` is over there; a spawned goroutine keeps `time.NewTicker` plus `select` on its stop channel or `ctx.Done()`, as does a loop that calls `Stop` or `Reset` |
+| `time.NewTicker` with `defer t.Stop()` in the process's own main loop, run by `main` itself | `for range time.Tick(d)` (Go 1.23) — an unreferenced ticker is collected since 1.23, so the old warning against `time.Tick` is over there; `Tick` returns nil for `d <= 0`, so the loop blocks forever where `NewTicker` panicked: a configured `d` is checked `> 0` first; a spawned goroutine keeps `time.NewTicker` plus `select` on its stop channel or `ctx.Done()`, as does a loop that calls `Stop` or `Reset` |
 
 ### Types, HTTP, JSON
 
@@ -195,8 +201,9 @@ which of these swaps change behavior when *existing* code is rewritten;
 | a new router dependency; `strings.TrimPrefix(r.URL.Path, "/users/")` | `mux.HandleFunc("GET /users/{id}", h)` and `r.PathValue("id")` (Go 1.22) — a package already on a router module keeps it |
 | `omitempty` on a struct, bool, number or `time.Time` field | `omitzero` (Go 1.24) — `omitempty` stays for strings, slices and maps; on an existing field the wire changes |
 | a new UUID dependency for creating and parsing | the standard `uuid` package (Go 1.27) — a package already on a UUID module keeps it until a migration is asked for |
+| `math/rand` with `rand.Seed(1)` for a fixed sequence; `rand.Intn(n)` | `import "math/rand/v2"`: `rand.IntN(n)`, `rand.N(d)` (Go 1.22); a fixed sequence is its own generator, `rand.New(rand.NewPCG(1, 2))` — top-level `rand.Seed` is a no-op at a `go 1.24` or later directive, so a seeded run comes out random |
 | `*u` copied by hand; `url.Values` copied in a loop | `u.Clone()`, `v.Clone()` (Go 1.27) — only when the old copy's depth matches; shallow-to-deep is a semantic fix, not a refactor ([MODERNIZATION.md](../go-code-refactor/references/MODERNIZATION.md#urlurlclone--urlvaluesclone--go-127)) |
-| `encoding/json` in a package with no JSON yet; `json.NewEncoder(w).Encode(v)` | `import json "encoding/json/v2"` (Go 1.27): `json.Marshal`, `json.MarshalWrite(w, v)`, `json.UnmarshalRead(r, &v)` — nil slices encode as `[]` and nil maps as `{}`, so no `make` for the wire; duplicate names are rejected; `MarshalWrite` adds no newline; a package already on `encoding/json` stays on it until a migration is asked for |
+| `encoding/json` in a package with no JSON yet; `json.NewEncoder(w).Encode(v)` | `import json "encoding/json/v2"` (Go 1.27): `json.Marshal`, `json.MarshalWrite(w, v)`, `json.UnmarshalRead(r, &v)` — nil slices encode as `[]` and nil maps as `{}`, so no `make` for the wire; duplicate names are rejected; `MarshalWrite` adds no newline; `Marshal` fails where v1 did not — invalid UTF-8 in any string, a `time.Duration` field (no default representation) — and returns partial bytes with the error, so the error is checked before anything is written; a package already on `encoding/json` stays on it until a migration is asked for |
 
 ### Tests and benchmarks
 
@@ -206,7 +213,7 @@ which of these swaps change behavior when *existing* code is rewritten;
 | `for i := 0; i < b.N; i++` | `for b.Loop()` (Go 1.24) — `b.N` is unknown until the loop ends, so a fixture sized by `b.N` is restructured, not translated |
 | `os.Chdir` with a restore in cleanup; a hand-made temp dir | `t.Chdir` (Go 1.24); `t.TempDir` (Go 1.15) |
 | `time.Sleep` to let goroutines settle | `synctest.Test` and `synctest.Wait` (Go 1.25) |
-| `httptest.NewServer` with `defer srv.Close()` | `httptest.NewTestServer(t, h)` (Go 1.27) — an in-memory server reached only through `srv.Client()` |
+| `httptest.NewServer` with `defer srv.Close()` | `httptest.NewTestServer(t, h)` (Go 1.27) — in-memory, closed by `t.Cleanup`, and reached only through `srv.Client()`: `srv.URL` is empty until that call and `http://example.com` after it, so any other client reaches the real host; code that dials `srv.URL` with its own client calls `srv.Start()` first (loopback; the cleanup stays) |
 
 ## Reduce Nesting
 
@@ -239,16 +246,21 @@ completed check.
 
 ### The Edit Hook Record
 
-Where the Claude Code plugin is installed, a hook runs `gofmt`, `go vet`,
-`go fix -diff`, the package's tests, and `golangci-lint` after every edit of a
-`.go` file and prints only the checks that failed, scoped to the edited file
-(in a git checkout, lint to issues new since HEAD); it never blocks. A finding
-it prints is fixed before the next step, not reported around. Without a shell
-tool its output is the whole check record: a check it printed and a later edit
-cleared is `<check> pass (hook)`. Before the hook has printed once in the
-session, a check it never printed is `unavailable (no shell)` — silence cannot
-be told from a hook that is not installed; after that, its silence following
-the final edit is the session's clean run.
+Where the Claude Code plugin is installed, a hook runs after every edit of a
+`.go` file and prints only what failed; it never blocks. It runs `gofmt` on
+the file and `go vet`, `go fix -diff`, `go test -short` (no `-race`), and
+`golangci-lint` on the file's package: vet and test output covers the whole
+package, fix hunks and lint findings in other files of the package arrive as a
+count, and in a git checkout lint counts only issues new since HEAD. It skips a
+check without a word — lint when `golangci-lint` is not on PATH, tests in a
+package with no test files, everything outside a module. A finding in code the
+diff touched is fixed before the next step, not reported around; one in code
+the diff did not touch is pre-existing: report it, do not fix it. Without a
+shell tool its output is the whole check record, check by check:
+`<check> pass (hook)` only for a check the hook has printed for the package of
+the final edit earlier in the session and not after that edit. Any other check
+is `unavailable (no shell)`, since silence cannot be told from a check that
+never ran; `test -race` always is.
 
 ## Related Skills
 

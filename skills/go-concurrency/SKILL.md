@@ -7,7 +7,8 @@ description: Use when writing concurrent Go code with goroutines, channels, or m
 
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `sync.WaitGroup.Go`
 > and `testing/synctest` require Go 1.25+; typed atomics (`atomic.Bool`) are
-> stdlib since Go 1.19.
+> stdlib since Go 1.19; the `goroutineleak` profile follows the toolchain that
+> builds the binary, not the `go` directive (Go 1.27 toolchain).
 
 ## Resource Routing
 
@@ -49,10 +50,16 @@ errors or cancel tasks. For variable-size input or sibling cancellation on
 error, use the bounded `errgroup` pattern in `references/ADVANCED-PATTERNS.md`.
 
 **Test for leaks** with `synctest.Test` (Go 1.25+), which fails when a goroutine
-started in its bubble is still blocked once the test function returns, or write
-`pprof.Lookup("goroutineleak").WriteTo(w, 1)` (Go 1.27+) in the tested process
-and read the stacks. Keep [go.uber.org/goleak](https://pkg.go.dev/go.uber.org/goleak)
-where the project already uses it; do not add the module for this.
+started in its bubble is still *durably* blocked once the test function
+returns: on a channel made in the bubble, `sync.Cond.Wait`, a bubble
+`WaitGroup.Wait`, or `time.Sleep`. A goroutine stuck in `Mutex.Lock`, in I/O,
+or on a channel made outside the bubble makes `Test` hang until `-timeout`
+instead. Outside a bubble, read the `goroutineleak` profile in the tested
+process — Go 1.27 toolchain (1.26 needs `GOEXPERIMENT=goroutineleakprofile`);
+[DIAGNOSTIC-TOOLS.md](../go-troubleshooting/references/DIAGNOSTIC-TOOLS.md#stack-dumps)
+has the nil-guarded form and what it misses. Keep
+[go.uber.org/goleak](https://pkg.go.dev/go.uber.org/goleak) where the project
+already uses it; do not add the module for code a bubble can host.
 
 ## Share by Communicating
 
@@ -106,7 +113,7 @@ library.
 ## Related Skills
 
 - [go-resilience](../go-resilience/SKILL.md): bulkhead admission, backpressure, rate scope, recovery budgets.
-- [go-context](../go-context/SKILL.md): cancellation, deadlines, request-scoped values through goroutines.
+- [go-context](../go-context/SKILL.md): deriving contexts, deadlines, cancel causes, request-scoped values.
 - [go-error-handling](../go-error-handling/SKILL.md): errors from goroutines, errgroup.
 - [go-defensive](../go-defensive/SKILL.md): shared state at API boundaries, defer for cleanup.
 - [go-interfaces](../go-interfaces/SKILL.md): receiver types for types holding sync primitives.

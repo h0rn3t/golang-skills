@@ -2,10 +2,9 @@
 
 > Sources: source/google-go-styleguide/best-practices.md (Test Structure, Test Doubles); https://pkg.go.dev/testing#hdr-Main
 > Authority: advisory
-> Last verified: 2026-09-10
+> Last verified: 2026-10-01
 
-Detailed reference for TestMain, acceptance testing, real transport testing,
-and tests against a real database.
+TestMain, acceptance testing, real transports, and a real database in tests.
 
 ---
 
@@ -115,15 +114,15 @@ func TestAPIIntegration(t *testing.T) {
 }
 ```
 
-Using the production client with a test server ensures your test exercises as
-much real code as possible, avoiding the complexity of imitating client
-behavior. `httptest.NewTestServer` (Go 1.27+) registers its own cleanup and
-serves over an in-memory network, which is what makes it usable inside a
-`synctest` bubble. That network is reachable only through `srv.Client()`: the
-server's URL is `http://example.com`, so a constructor that builds its own
-client from the URL alone reaches the real example.com and never the handler.
-Take an `*http.Client` as a parameter — the design this section is arguing for
-anyway — or stay on `httptest.NewServer`, which listens on loopback.
+The production client with a test server exercises as much real code as
+possible. `httptest.NewTestServer` (Go 1.27+) registers its own cleanup and
+serves over an in-memory network, usable inside a `synctest` bubble and
+reachable only through `srv.Client()`: its URL is `http://example.com`, so a
+constructor that builds its own client from the URL alone reaches the real
+example.com. Take an `*http.Client` as a parameter, or, when the code under
+test dials `srv.URL` itself, call `srv.Start()` before the first request: the
+same server then listens on loopback, `srv.URL` names `127.0.0.1`, and its
+cleanup stays registered.
 
 ---
 
@@ -142,6 +141,8 @@ import (
     "database/sql"
     "os"
     "testing"
+
+    _ "github.com/jackc/pgx/v5/stdlib" // registers "pgx" in this test binary; main's import does not reach it
 )
 
 // openTestDB opens the database named by TEST_DATABASE_URL and skips the test
@@ -152,7 +153,7 @@ func openTestDB(t *testing.T) *sql.DB {
     if dsn == "" {
         t.Skip("TEST_DATABASE_URL is not set")
     }
-    db, err := sql.Open("pgx", dsn) // the driver the module already imports
+    db, err := sql.Open("pgx", dsn)
     if err != nil {
         t.Fatalf("sql.Open: %v", err)
     }

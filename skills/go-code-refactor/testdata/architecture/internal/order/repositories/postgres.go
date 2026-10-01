@@ -21,23 +21,19 @@ func NewOrderStore(db *sql.DB) *OrderStore { return &OrderStore{db: db} }
 // CreateWithAudit inserts the order and its audit line in one transaction.
 // Both statements run on the transaction, never on the pool; a failed second
 // write rolls the first back, and a commit failure is returned, not hidden.
-func (s *OrderStore) CreateWithAudit(ctx context.Context, o models.Order, audit string) (err error) {
+func (s *OrderStore) CreateWithAudit(ctx context.Context, o models.Order, audit string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin: %w", err)
 	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback() // the first error is the one to report
-		}
-	}()
-	if _, err = tx.ExecContext(ctx, `INSERT INTO orders (id, customer, total_cents) VALUES ($1, $2, $3)`, o.ID, o.Customer, o.Total()); err != nil {
+	defer tx.Rollback() // no-op after Commit; a panic before Commit still releases the connection
+	if _, err := tx.ExecContext(ctx, `INSERT INTO orders (id, customer, total_cents) VALUES ($1, $2, $3)`, o.ID, o.Customer, o.Total()); err != nil {
 		return fmt.Errorf("insert order: %w", err)
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO order_audit (order_id, note) VALUES ($1, $2)`, o.ID, audit); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO order_audit (order_id, note) VALUES ($1, $2)`, o.ID, audit); err != nil {
 		return fmt.Errorf("insert audit: %w", err)
 	}
-	if err = tx.Commit(); err != nil {
+	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit: %w", err)
 	}
 	return nil

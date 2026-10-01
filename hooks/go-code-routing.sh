@@ -44,8 +44,8 @@
 # The owner hints below are heuristics: regular expressions over the edited
 # text that recognize the decision-bearing forms of thirteen owners (error
 # wrapping, goroutines, context creation or a Context field, SQL, slog,
-# exec/templates, a deferred closure or recover, type parameters, interfaces,
-# main, retries, HTTP, tests).
+# exec/templates/crypto, a deferred closure or recover, type parameters, a
+# non-empty interface, main, retries, HTTP, tests).
 # Routine syntax — a plain fmt.Errorf("%v"), r.Context(), a ctx parameter
 # passed on, defer f.Close() / mu.Unlock() / cancel(), an http.StatusOK in a
 # comment, make([]T, n), append — must not fire. The bare defer and
@@ -127,19 +127,19 @@ import re
 # contract test in the 2026-09-10 runs.
 # Heuristics, one decision-bearing pattern per owner. go-code/SKILL.md owns
 # the routing decision; keep each regex narrow enough that ordinary syntax
-# (fmt.Errorf with %v, r.Context(), http.StatusOK, "<-" inside a string)
-# does not name an owner.
+# (fmt.Errorf with %v, r.Context(), http.StatusOK, "<-" inside a string, an
+# empty interface{}, a sha256 content hash) does not name an owner.
 OWNER_PATTERNS = [
-    ("go-http", r"\bnet/http\b|\bhttp\.(Handle|HandleFunc|Server\b|Client\b|NewServeMux|NewRequest|ResponseWriter|Error|ListenAndServe|Redirect|StatusCode)"),
+    ("go-http", r"\bnet/http\b|\bhttp\.(Handle|HandleFunc|Server\b|Client\b|NewServeMux|NewRequest|ResponseWriter|Error|ListenAndServe|Redirect)"),
     ("go-error-handling", r"fmt\.Errorf\([^)]*%w|\berrors\.(Is|As|AsType|Join|New)\("),
     ("go-concurrency", r"\bgo\s+func\b|\bgo\s+[A-Za-z_]\w*\(|\bmake\(chan\b|\bchan\s|\bsync\.(Mutex|RWMutex|WaitGroup|Once|Map)\b"),
     ("go-context", r"\bcontext\.(Background|TODO|With[A-Za-z]+|AfterFunc)\b|^\s+\w+\s+context\.Context\s*(//.*)?$"),
     ("go-database", r"database/sql|\bsql\.(Open|DB|Tx|Rows|Null)\b|\bpgx(pool)?\."),
     ("go-logging", r"\bslog\."),
-    ("go-security", r"os/exec|html/template|text/template|\bcrypto/|\bexec\.Command|\bhttp\.(SetCookie|Cookie)\b|\bfilepath\.Join\("),
-    ("go-defensive", r"\bdefer\s+func\b|\brecover\(\)|\bunsafe\."),
+    ("go-security", r"os/exec|html/template|text/template|\bcrypto/(?!(?:sha256|sha3|sha512)\b)|\bexec\.Command|\bhttp\.(SetCookie|Cookie)\b|\bfilepath\.Join\("),
+    ("go-defensive", r"\bdefer\s+func\b|\brecover\(\)"),
     ("go-generics", r"\[[A-Z][A-Za-z0-9]*\s+(any|comparable|~|[A-Za-z]+\.[A-Za-z]+)\b"),
-    ("go-interfaces", r"\binterface\s*\{"),
+    ("go-interfaces", r"\binterface\s*\{\s*[^\s}]"),
     ("go-packages", r"^package main\b|\bfunc main\("),
     ("go-resilience", r"x/time/rate|\bbackoff\b|\bRetry-After\b"),
 ]
@@ -320,9 +320,6 @@ deferred closures, type parameters, interfaces, main, retries, HTTP. The routing
 go-code/SKILL.md decides, including the owners the gate cannot see, and the
 gate's silence is not a passing result.
 EOF
-        elif (( attempt == 1 )) && [[ -z "$missing" ]]; then
-            printf 'Its older rows apply at every go directive, and the gate'"'"'s silence is not a\n'
-            printf 'passing result.\n'
         fi
     } >&2
     exit 2

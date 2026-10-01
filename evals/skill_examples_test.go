@@ -47,6 +47,30 @@ func TestAllowedHost(t *testing.T) {
 		}
 	}
 }
+func TestPartnerClientRedirect(t *testing.T) {
+	internal := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer internal.Close()
+	_, port, _ := net.SplitHostPort(internal.Listener.Addr().String())
+	partner := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://localhost:"+port+"/", http.StatusFound)
+	}))
+	defer partner.Close()
+	resp, err := partnerClient("127.0.0.1").Get(partner.URL)
+	if err == nil {
+		resp.Body.Close()
+		t.Fatal("redirect off the allowlist was followed")
+	}
+	if !strings.Contains(err.Error(), "not allowlisted") {
+		t.Errorf("Get error = %v, want the redirect refused", err)
+	}
+	loop := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/", http.StatusFound)
+	}))
+	defer loop.Close()
+	if _, err := partnerClient("127.0.0.1").Get(loop.URL); err == nil || !strings.Contains(err.Error(), "stopped after 10 redirects") {
+		t.Errorf("redirect loop error = %v, want the 10-hop cap", err)
+	}
+}
 func TestPublicClient(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	defer srv.Close()

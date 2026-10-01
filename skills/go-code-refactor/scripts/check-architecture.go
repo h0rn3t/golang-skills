@@ -375,7 +375,7 @@ type options struct {
 }
 
 func parseArgs(args []string) (options, error) {
-	o := options{root: ".", limit: -1}
+	o := options{root: "."} // limit 0 shows every violation, as in the other bundled scripts
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
@@ -504,7 +504,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	found := check(cfg, modulePath, pkgs, o.includeTests)
 	kept, suppressed := applyKnown(cfg.Known, found)
 	rep.Total, rep.Suppressed = len(kept), suppressed
-	if o.limit >= 0 && len(kept) > o.limit {
+	if o.limit > 0 && len(kept) > o.limit {
 		kept, rep.Truncated = kept[:o.limit], true
 	}
 	rep.Violations = kept

@@ -74,24 +74,24 @@ non-nil interface
 ### Matching a typed error
 
 Use `errors.AsType[T]` (Go 1.26+) — it returns the value instead of writing
-through a pointer. `go fix -errorsastype ./...` rewrites the old form.
+through a pointer. `go fix -errorsastype ./...` (Go 1.27 toolchain) rewrites
+the old form.
 
 ### Matching multiple typed errors
 
-Keep the original `err` visible to every branch; name each extracted cause:
+Keep the original `err` visible to every check; name each extracted cause:
 
 ```go
 if pathErr, ok := errors.AsType[*fs.PathError](err); ok {
     return pathErr.Path
-} else if linkErr, ok := errors.AsType[*os.LinkError](err); ok {
+}
+if linkErr, ok := errors.AsType[*os.LinkError](err); ok {
     return linkErr.New
 }
 ```
 
-With `if err, ok := errors.AsType[*fs.PathError](err); ok`, a following
-`else if` sees that result's typed nil on a failed match, not the original
-error. Do not reuse `err` for the extracted cause in such a chain. Test a
-cause matching the second branch, including wrapping.
+Never name the extracted cause `err`: in an `else if` chain the next check
+receives the typed nil, and `AsType` panics unwrapping it.
 
 ---
 
@@ -110,7 +110,8 @@ audiences — the operator reading a log line and the caller matching with
 `errors.Is` — and `fmt.Errorf("resolve %q: %w", sku, err)` serves both where
 `%v` serves only the first.
 
-> **Validation**: Run `bash scripts/check-errors.sh` to detect common
+> **Validation**: From the project, run
+> `bash <installed-skill-dir>/scripts/check-errors.sh ./...` to detect common
 > anti-patterns. The [go-linting](../go-linting/SKILL.md) gate covers the
 > rest and runs once, at the end of the task, not again here.
 

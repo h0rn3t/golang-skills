@@ -7,9 +7,11 @@
 # go-code-refactor in 1 of 4 refactor sessions. This hook sees the prompt
 # itself, so it does not depend on the matcher.
 #
+#   over-engineering  -> go-code-refactor  (over-engineered, dead code, what can we delete)
 #   review wording    -> go-code-review    (review, audit, ...)
-#   refactor wording  -> go-code-refactor  (refactor, clean up, simplify, ...)
+#   refactor wording  -> go-code-refactor  (refactor, clean up, simplify, split, ...)
 #   other Go work     -> go-code           (implement, write, add, fix, ...)
+#   prose edits       -> no note           (translate into a human language, grammar)
 #
 # Go work is a prompt that names Go (the word Go, golang, a .go file, go.mod,
 # goroutines, a go subcommand) or a prompt sent from a directory holding
@@ -87,9 +89,10 @@ mention = None if slash else re.search(
 # asks for new code gets go-testing without a condition; "if you write or edit
 # a test" left 43 of 73 implement gate blocks to go-testing on 2026-09-30
 # (abrun low, both 5.5 models): the model judged it would write no test, then
-# wrote the contract test first. A fix keeps the condition.
+# wrote the contract test first. A fix keeps the condition. `implement` counts
+# as a verb only: "one implementation" in a design question is not new code.
 new_code = re.search(
-    r"\b(?:implement\w*|write|add|create|build|stub\w*|not implemented|fill in|"
+    r"\b(?:implement(?:s|ed|ing)?|write|add|create|build|stub\w*|not implemented|fill in|"
     r"реаліз\w*|реализ\w*|напиш\w*|напис\w*|дода\w*|добав\w*|створ\w*|созда\w*|допиш\w*|заполн\w*)\b",
     prompt, re.I) is not None
 
@@ -161,6 +164,17 @@ if mention:
         print(p)
     sys.exit(0)
 
+# Translating or copy-editing prose that mentions Go is not Go work: "Translate
+# this bug report into Ukrainian only" used to reach go-code through `bug`.
+# Translating code into Go names no human language and still routes.
+human_language = (r"\b(?:english|ukrainian|russian|german|french|spanish|polish|"
+                  r"англ\w*|українськ\w*|російськ\w*|німецьк\w*|русск\w*|украинск\w*|немецк\w*)")
+prose_edit = re.search(r"\b(?:grammar|proofread\w*)\b", prompt, re.I) or (
+    re.search(r"\b(?:translat\w*|переклад\w*|перекла\w*|перевед\w*|перевод\w*)", prompt, re.I)
+    and re.search(human_language, prompt, re.I))
+if prose_edit:
+    sys.exit(0)
+
 # A prompt that does not name Go counts as Go work only when the working
 # directory holds Go and the prompt names a code element; "add a line to the
 # README" in a Go repository must not fire.
@@ -174,12 +188,22 @@ if not names_go(prompt):
 
 refactor = re.compile(
     r"\b(?:refactor\w*|clean(?:\s|-)?up|simplif\w*|restructur\w*|moderni[sz]\w*|tidy(?:\s|-)?up|reads? better|"
-    r"messy|bloated|over-?engineer\w*|dead code|too long|hard to follow|monolith\w*|modulari[sz]\w*|"
+    r"messy|mess|bloated|over-?engineer\w*|over-?abstract\w*|dead code|too long|hard to follow|monolith\w*|modulari[sz]\w*|"
+    r"(?:more\s+|make\s+(?:it|this|the\s+code)\s+)readable|readability|unreadable|"
+    r"split(?:ting)?\s+(?:this|the|that|it)\s+(?:[\w-]+\s+)?(?:function|method|file|package|handler|type|struct)\w*|"
+    r"into\s+smaller\s+(?:ones|functions|methods|pieces|parts|files|packages)|"
+    r"extract\w*\s+(?:an?\s+|the\s+)?(?:helper|function|method|interface|package|type)|"
     r"рефактор\w*|спрост\w*|упрост\w*|почист\w*|переструктур\w*|модерніз\w*|модерниз\w*|монол[иі]т\w*|модуляриз\w*)\b",
+    re.I)
+# An audit for what can stop existing is the over-engineering audit of
+# go-code-refactor (docs/RULE_OWNERSHIP.md), not a review: its wording is checked before
+# the review words, which "Audit this Go repo for over-engineering" matched.
+subtract = re.compile(
+    r"\b(?:over-?engineer\w*|over-?abstract\w*|dead code|what (?:can|could|should) (?:we|i|be) (?:delete|remove|cut)\w*)\b",
     re.I)
 # Work verbs select an edit router; questions get no note.
 work = re.compile(
-    r"\b(?:implement\w*|write|add|create|build|make|fix\w*|bug\w*|stub\w*|not implemented|fill in|"
+    r"\b(?:implement(?:s|ed|ing)?|write|add|create|build|make|fix\w*|bug\w*|stub\w*|not implemented|fill in|"
     r"реаліз\w*|реализ\w*|напиш\w*|напис\w*|дода\w*|добав\w*|виправ\w*|исправ\w*|створ\w*|созда\w*|зроби|сделай|баг\w*|"
     r"почин\w*|поправ\w*|допиш\w*|заполн\w*)\b",
     re.I)
@@ -196,6 +220,8 @@ question = navigate and (prompt.strip().endswith("?") or re.match(
 review = re.compile(r"\b(?:review\w*|audit\w*|рев[ьи]ю\w*|ревью\w*)\b", re.I)
 if question:
     sys.exit(0)
+elif subtract.search(prompt):
+    skill, kind = "go-code-refactor", "a behavior-preserving refactor"
 elif review.search(prompt):
     skill, kind = "go-code-review", "a Go code review"
 elif refactor.search(prompt):

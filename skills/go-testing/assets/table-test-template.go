@@ -3,6 +3,7 @@ package example
 import "testing"
 
 func TestExample(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		give string
@@ -13,6 +14,7 @@ func TestExample(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := Example(tt.give)
 			if got != tt.want {
 				t.Errorf("Example(%q) = %q, want %q", tt.give, got, tt.want)

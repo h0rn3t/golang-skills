@@ -67,13 +67,14 @@ Build in a loop with `strings.Builder`, calling `Grow(n)` first when the final s
 ## Benchmarking and Profiling
 
 A change made for speed beyond the defaults above (`strconv` for primitive
-conversions, capacity when the final size is known) needs a baseline saved
-before the edit and a comparison after it, run serially on the same machine
-and toolchain — concurrent runs share CPUs and contaminate `ns/op`:
+conversions, capacity when the final size is known, `strings.Builder` in a
+loop) needs a baseline saved before the edit and a comparison after it, run
+serially on the same machine and toolchain — concurrent runs share CPUs and
+contaminate `ns/op`. Run from the project:
 
 ```bash
-bash scripts/bench-compare.sh --save before.txt ./path/to/pkg      # before the edit
-bash scripts/bench-compare.sh --baseline before.txt ./path/to/pkg  # after it
+bash "<installed-skill-dir>/scripts/bench-compare.sh" --save "${TMPDIR:-/tmp}/before.txt" ./path/to/pkg      # before the edit
+bash "<installed-skill-dir>/scripts/bench-compare.sh" --baseline "${TMPDIR:-/tmp}/before.txt" ./path/to/pkg  # after it
 ```
 
 > **Validation**: keep the change only for a delta `benchstat` calls

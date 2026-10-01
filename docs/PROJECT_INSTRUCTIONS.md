@@ -29,11 +29,12 @@ the other clients. The plugin's hooks enforce the same order:
 
 - `hooks/go-prompt-routing.sh` names the router for a prompt that asks for Go
   work, including a prompt that only names a router (`use go-code`,
-  `/opsx:apply add-auth /go-code`), with the exact Skill names and the card's
-  installed path.
+  `/opsx:apply add-auth /go-code`), with the exact Skill names: the router
+  and `go-style-core` in one line, then `go-testing` and the owners the
+  target's code points at; a review prompt gets `go-code-review` alone.
 - `hooks/go-code-routing.sh` holds every `.go` edit until a router,
-  `go-style-core`, the owners the edit's content points at, and one whole
-  Read of the card are recorded. A session with no router is told which one to
+  `go-style-core` (which carries the idiom card), and the owners the edit's
+  content points at are recorded. A session with no router is told which one to
   load. A retry without the loads is blocked again; a third retry of the same
   edit with nothing loaded in between stops the session with the reason
   instead of a third block. A skill missing from the plugin copy is reported,
@@ -51,8 +52,8 @@ with `go-code`, `go-code-refactor`, and `go-style-core`.
 
 ## Clients without these hooks
 
-Codex, GitHub Copilot, Cursor, and any other client that reads the skills
-from a directory. In `AGENTS.md`, or the file the client reads for project
+Codex, opencode, GitHub Copilot, Cursor, and any other client that reads the
+skills from a directory. In `AGENTS.md`, or the file the client reads for project
 instructions:
 
 ```markdown

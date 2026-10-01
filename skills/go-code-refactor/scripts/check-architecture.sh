@@ -17,7 +17,7 @@ OPTIONS
     -h, --help         Show this help message
     -v, --version      Show version
     --json             Output results as JSON
-    --limit N          Show at most N violations (default: all)
+    --limit N          Show at most N violations (0 = all, default: all)
     --include-tests    Also check TestImports and XTestImports
     --config FILE      architecture.json to use (default: <module-root>/architecture.json)
 
@@ -49,13 +49,31 @@ if ! mkdir -p "$CACHE_ROOT"; then
     CACHE_ROOT="${TMPDIR:-/tmp}/golang-skills-cache"
     mkdir -p "$CACHE_ROOT"
 fi
+CACHE_ROOT="$(cd "$CACHE_ROOT" && pwd)"
 
 SRC="$SCRIPT_DIR/check-architecture.go"
-STAMP="$(cksum "$SRC" | awk '{print $1 "-" $2}')"
+# The helper parses with the toolchain that builds it. It is built with the
+# toolchain the target project selects when that one resolves (else the local
+# one), outside the project so its go.mod, go.work, and GOFLAGS cannot break a
+# standard-library-only build, and the cache key names that toolchain, so a Go
+# upgrade rebuilds it. A helper that does not build is an environment error (2).
+WANT_GO="$(go env GOVERSION 2>/dev/null)" || WANT_GO=""
+BUILD_ENV=(env GOWORK=off GOFLAGS= "GOTOOLCHAIN=${WANT_GO:-local}")
+if ! GOVERSION="$(cd "$CACHE_ROOT" && "${BUILD_ENV[@]}" go env GOVERSION 2>/dev/null)"; then
+    BUILD_ENV=(env GOWORK=off GOFLAGS= GOTOOLCHAIN=local)
+    if ! GOVERSION="$(cd "$CACHE_ROOT" && "${BUILD_ENV[@]}" go env GOVERSION)"; then
+        echo "error: go env GOVERSION failed" >&2
+        exit 2
+    fi
+fi
+STAMP="$(cksum "$SRC" | awk '{print $1 "-" $2}')-$GOVERSION"
 BIN="$CACHE_ROOT/check-architecture-$STAMP"
 
 if [[ ! -x "$BIN" ]]; then
-    GOCACHE="${GOCACHE:-$CACHE_ROOT/go-build}" go build -o "$BIN" "$SRC"
+    if ! (cd "$CACHE_ROOT" && "${BUILD_ENV[@]}" GOCACHE="${GOCACHE:-$CACHE_ROOT/go-build}" go build -o "$BIN" "$SRC"); then
+        echo "error: could not build $SRC" >&2
+        exit 2
+    fi
 fi
 
 exec "$BIN" "$@"

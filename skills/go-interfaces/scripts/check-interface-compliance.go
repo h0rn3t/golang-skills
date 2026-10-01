@@ -8,14 +8,16 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 )
 
-const version = "1.3.0"
+const version = "1.4.0"
 
 type ifaceInfo struct {
 	Name string `json:"name"`
@@ -96,21 +98,24 @@ func main() {
 		os.Exit(2)
 	}
 
-	sourceFiles := make([]sourceFile, 0, len(files))
+	// Test files are scanned only with --include-test, generated files never;
+	// both are still type-checked with their package.
+	allFiles := make([]sourceFile, 0, len(files))
+	scanned := 0
 	for _, path := range files {
-		isTest := strings.HasSuffix(path, "_test.go")
-		if isTest && !opts.includeTest {
-			continue
-		}
-		pkgName, err := packageName(path)
+		pkgName, generated, err := packageClause(path)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: parse package %s: %v\n", path, err)
 			os.Exit(2)
 		}
-		sourceFiles = append(sourceFiles, sourceFile{path: path, pkgName: pkgName, includeInScan: true})
+		include := (!strings.HasSuffix(path, "_test.go") || opts.includeTest) && !generated
+		if include {
+			scanned++
+		}
+		allFiles = append(allFiles, sourceFile{path: path, pkgName: pkgName, includeInScan: include})
 	}
 
-	if len(sourceFiles) == 0 {
+	if scanned == 0 {
 		out := result{
 			Interfaces: []ifaceInfo{},
 			Missing:    []ifaceInfo{},
@@ -120,25 +125,15 @@ func main() {
 		return
 	}
 
-	allFiles := make([]sourceFile, 0, len(files))
-	for _, path := range files {
-		pkgName, err := packageName(path)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: parse package %s: %v\n", path, err)
-			os.Exit(2)
-		}
-		include := !strings.HasSuffix(path, "_test.go") || opts.includeTest
-		allFiles = append(allFiles, sourceFile{path: path, pkgName: pkgName, includeInScan: include})
-	}
-
 	groups := groupByPackage(allFiles)
+	exports := listExports(opts.target)
 	assertions := map[string]map[string]bool{}
-	var interfaces []ifaceInfo
+	interfaces := []ifaceInfo{}
 	localImpl := map[string]map[string]bool{}
 	returned := map[string]map[string]string{}
 
 	for _, group := range groups {
-		groupAssertions, groupInterfaces, groupImpls, groupReturned, err := analyzePackage(group)
+		groupAssertions, groupInterfaces, groupImpls, groupReturned, err := analyzePackage(group, exports)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(2)
@@ -244,7 +239,7 @@ func emit(out result, jsonOutput bool) {
 	fmt.Printf("Total: %d interface(s) to question\n", out.CountMissing)
 }
 
-func analyzePackage(group packageGroup) (map[string]bool, []ifaceInfo, map[string]bool, map[string]string, error) {
+func analyzePackage(group packageGroup, exports exportIndex) (map[string]bool, []ifaceInfo, map[string]bool, map[string]string, error) {
 	fset := token.NewFileSet()
 	parsed := make([]*ast.File, 0, len(group.files))
 	fileByAST := map[*ast.File]sourceFile{}
@@ -258,12 +253,13 @@ func analyzePackage(group packageGroup) (map[string]bool, []ifaceInfo, map[strin
 	}
 
 	info := &types.Info{
-		Defs:  map[*ast.Ident]types.Object{},
-		Uses:  map[*ast.Ident]types.Object{},
-		Types: map[ast.Expr]types.TypeAndValue{},
+		Defs:      map[*ast.Ident]types.Object{},
+		Uses:      map[*ast.Ident]types.Object{},
+		Types:     map[ast.Expr]types.TypeAndValue{},
+		Instances: map[*ast.Ident]types.Instance{},
 	}
 	conf := types.Config{
-		Importer: importer.Default(),
+		Importer: exports.importerFor(fset, group.dir),
 		Error:    func(error) {},
 	}
 	_, _ = conf.Check(group.key, fset, parsed, info)
@@ -326,27 +322,25 @@ func analyzePackage(group packageGroup) (map[string]bool, []ifaceInfo, map[strin
 
 	impls := map[string]bool{}
 	for _, iface := range interfaces {
-		ifaceType, ok := iface.obj.Type().Underlying().(*types.Interface)
-		if !ok {
-			continue
-		}
-		ifaceType.Complete()
-		if ifaceType.NumMethods() == 0 {
-			continue
-		}
-		for _, typeName := range typeNames {
-			if typeName == iface.obj {
+		for _, ifaceType := range interfaceForms(iface.obj, info) {
+			ifaceType.Complete()
+			if ifaceType.NumMethods() == 0 || impls[iface.Name] {
 				continue
 			}
-			if !typeBelongsToScannedFile(typeName, group.files, fset) {
-				continue
-			}
-			if _, ok := typeName.Type().Underlying().(*types.Interface); ok {
-				continue
-			}
-			if implements(typeName.Type(), ifaceType) {
-				impls[iface.Name] = true
-				break
+			for _, typeName := range typeNames {
+				if typeName == iface.obj {
+					continue
+				}
+				if !typeBelongsToScannedFile(typeName, group.files, fset) {
+					continue
+				}
+				if _, ok := typeName.Type().Underlying().(*types.Interface); ok {
+					continue
+				}
+				if implements(typeName.Type(), ifaceType) {
+					impls[iface.Name] = true
+					break
+				}
 			}
 		}
 	}
@@ -373,7 +367,7 @@ func staticConversions(files []*ast.File, info *types.Info, interfaces []ifaceIn
 			return
 		}
 		for _, iface := range interfaces {
-			if types.Identical(target, iface.obj.Type()) {
+			if sameInterface(target, iface.obj) {
 				converted[iface.Name] = true
 			}
 		}
@@ -507,7 +501,7 @@ func underlying(t types.Type) types.Type {
 func returnedInterfaces(files []*ast.File, scanned map[*ast.File]bool, info *types.Info, interfaces []ifaceInfo) map[string]string {
 	match := func(t types.Type) string {
 		for _, iface := range interfaces {
-			if types.Identical(t, iface.obj.Type()) {
+			if sameInterface(t, iface.obj) {
 				return iface.Name
 			}
 		}
@@ -570,6 +564,44 @@ func typeBelongsToScannedFile(typeName *types.TypeName, files []sourceFile, fset
 	return false
 }
 
+// interfaceForms returns the interface types to test implementations against:
+// the declared interface, or for a generic one each instantiation the package
+// names, since a method set written in terms of T matches no concrete type.
+func interfaceForms(obj *types.TypeName, info *types.Info) []*types.Interface {
+	decl, ok := types.Unalias(obj.Type()).(*types.Named)
+	if !ok || decl.TypeParams().Len() == 0 {
+		if iface, ok := obj.Type().Underlying().(*types.Interface); ok {
+			return []*types.Interface{iface}
+		}
+		return nil
+	}
+	var forms []*types.Interface
+	for _, inst := range info.Instances {
+		named, ok := inst.Type.(*types.Named)
+		if !ok || named.Origin() != decl.Origin() {
+			continue
+		}
+		if iface, ok := named.Underlying().(*types.Interface); ok {
+			forms = append(forms, iface)
+		}
+	}
+	return forms
+}
+
+// sameInterface reports whether t is the interface obj declares or, for a
+// generic interface, one of its instantiations.
+func sameInterface(t types.Type, obj *types.TypeName) bool {
+	if types.Identical(t, obj.Type()) {
+		return true
+	}
+	named, ok := types.Unalias(t).(*types.Named)
+	if !ok || named.TypeArgs().Len() == 0 {
+		return false
+	}
+	decl, ok := types.Unalias(obj.Type()).(*types.Named)
+	return ok && decl.TypeParams().Len() > 0 && named.Origin() == decl.Origin()
+}
+
 func implements(t types.Type, iface *types.Interface) bool {
 	if types.Implements(t, iface) {
 		return true
@@ -615,13 +647,71 @@ func groupByPackage(files []sourceFile) []packageGroup {
 	return groups
 }
 
-func packageName(path string) (string, error) {
+// packageClause parses the package clause and the comments before it, where
+// the "Code generated ... DO NOT EDIT." marker lives.
+func packageClause(path string) (name string, generated bool, err error) {
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, parser.PackageClauseOnly)
+	file, err := parser.ParseFile(fset, path, nil, parser.PackageClauseOnly|parser.ParseComments)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
-	return file.Name.Name, nil
+	return file.Name.Name, ast.IsGenerated(file), nil
+}
+
+// exportIndex maps import paths to the export data `go list -export` wrote
+// for the scanned module, so a module-local type in a method signature is a
+// real type instead of an invalid one that any other invalid type matches.
+type exportIndex struct {
+	files map[string]string // import path -> export data file
+	dirs  map[string]bool   // absolute directories of the packages go list saw
+}
+
+// listExports runs go list once for the target. Outside a module, or where go
+// list fails, the index stays empty and importerFor falls back to
+// importer.Default, which resolves the standard library only.
+func listExports(target string) exportIndex {
+	idx := exportIndex{files: map[string]string{}, dirs: map[string]bool{}}
+	dir, pattern := target, "./..."
+	if base, ok := strings.CutSuffix(target, "/..."); ok {
+		dir = base
+		if dir == "" {
+			dir = "."
+		}
+	} else if info, err := os.Stat(target); err == nil && !info.IsDir() {
+		dir, pattern = filepath.Dir(target), "."
+	}
+	cmd := exec.Command("go", "list", "-e", "-export", "-deps", "-test",
+		"-f", "{{.ImportPath}}\t{{.Dir}}\t{{.Export}}", pattern)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GOPROXY=off") // never download to resolve an import
+	out, _ := cmd.Output()                        // with -e, a partial listing is still usable
+	for line := range strings.Lines(string(out)) {
+		fields := strings.Split(strings.TrimSuffix(line, "\n"), "\t")
+		// Test variants ("p [p.test]") carry test-only declarations.
+		if len(fields) != 3 || strings.Contains(fields[0], " ") {
+			continue
+		}
+		if fields[1] != "" {
+			idx.dirs[filepath.Clean(fields[1])] = true
+		}
+		if fields[2] != "" {
+			idx.files[fields[0]] = fields[2]
+		}
+	}
+	return idx
+}
+
+func (idx exportIndex) importerFor(fset *token.FileSet, dir string) types.Importer {
+	abs, err := filepath.Abs(dir)
+	if err != nil || !idx.dirs[abs] {
+		return importer.Default()
+	}
+	return importer.ForCompiler(fset, "gc", func(path string) (io.ReadCloser, error) {
+		if file, ok := idx.files[path]; ok {
+			return os.Open(file)
+		}
+		return nil, fmt.Errorf("no export data for %s", path)
+	})
 }
 
 func findGoFiles(target string) ([]string, error) {
@@ -655,20 +745,25 @@ func walkGoFiles(root string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() {
-			switch d.Name() {
-			case ".git", "vendor":
+		if path != root && ignored(d.Name()) {
+			if d.IsDir() {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if strings.HasSuffix(path, ".go") {
+		if !d.IsDir() && strings.HasSuffix(path, ".go") {
 			files = append(files, path)
 		}
 		return nil
 	})
 	sort.Strings(files)
 	return files, err
+}
+
+// ignored reports a directory or file name that go ./... leaves out
+// (go help packages): vendor, testdata, and names that begin with "." or "_".
+func ignored(name string) bool {
+	return name == "vendor" || name == "testdata" || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")
 }
 
 func parseArgs(args []string) (options, error) {

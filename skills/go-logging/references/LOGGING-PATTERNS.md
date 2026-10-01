@@ -3,7 +3,7 @@
 > Sources: https://pkg.go.dev/log/slog; https://go.dev/blog/slog
 > Authority: advisory
 > Minimum Go: `log/slog` 1.21; `slog.DiscardHandler` 1.24; `slog.NewMultiHandler` 1.26
-> Last verified: 2026-09-10
+> Last verified: 2026-10-01
 
 ## Contents
 
@@ -34,6 +34,37 @@ level.Set(slog.LevelDebug)
 
 Use `logger.With` for fixed fields; a custom handler is only needed when fields
 must be extracted dynamically from each call's context.
+
+### Context Attributes
+
+A handler that reads a trace or request ID out of the context wraps the real
+one and re-wraps in `WithAttrs` and `WithGroup`: the promoted methods return
+the inner handler, so every logger built with `With` would drop the field:
+
+```go
+type traceIDKey struct{}
+
+// traceHandler adds the trace ID that middleware stored in the context.
+type traceHandler struct{ slog.Handler }
+
+func (h traceHandler) Handle(ctx context.Context, r slog.Record) error {
+    if id, ok := ctx.Value(traceIDKey{}).(string); ok {
+        r.AddAttrs(slog.String("trace_id", id))
+    }
+    return h.Handler.Handle(ctx, r)
+}
+
+func (h traceHandler) WithAttrs(as []slog.Attr) slog.Handler {
+    return traceHandler{h.Handler.WithAttrs(as)}
+}
+
+func (h traceHandler) WithGroup(name string) slog.Handler {
+    return traceHandler{h.Handler.WithGroup(name)}
+}
+```
+
+The field reaches the record only through a `*Context` call. Under an open
+`WithGroup`, it lands inside that group.
 
 ### Multi-Handler (Fan-Out)
 
@@ -110,7 +141,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
         ctx := context.WithValue(r.Context(), loggerKey{}, logger)
         next.ServeHTTP(rw, r.WithContext(ctx))
 
-        logger.Info("request completed",
+        logger.InfoContext(r.Context(), "request completed",
             "status", rw.status,
             "elapsed_ms", time.Since(start).Milliseconds(),
         )

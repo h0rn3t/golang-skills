@@ -19,7 +19,15 @@ DESCRIPTION
 
     golangci-lint runs with the project's configuration; without one it
     runs with the go-linting baseline (../../go-linting/assets/golangci.yml
-    beside this skill) when that file is installed.
+    beside this skill) when that file is installed, and otherwise with
+    golangci-lint's own defaults, which leave revive, godot, gosec, and
+    modernize off. The output names which of the three ran (config:
+    project, baseline, or defaults).
+
+    With --new-from-rev REV, golangci-lint reports only issues new since the
+    git revision REV, and gofmt checks only the .go files under the path that
+    changed since REV (untracked files included); go vet still runs on the
+    whole path.
 
     A missing golangci-lint, or one that exits with an error rather than
     findings (exit code other than 0 or 1), is reported as unavailable (the
@@ -35,6 +43,8 @@ OPTIONS
     --strict         Fail if golangci-lint is not installed or cannot run
     --force          Accepted and ignored (a missing linter is reported as unavailable by default)
     --limit N        Max items reported per section (0 = unlimited, default: 0)
+    --new-from-rev REV
+                     Report only lint issues and gofmt files new since REV
 
 ARGUMENTS
     path             Package pattern to check (default: ./...)
@@ -45,16 +55,26 @@ EXAMPLES
     bash $SCRIPT_NAME --json ./cmd/server/...
     bash $SCRIPT_NAME --strict ./...
     bash $SCRIPT_NAME --json --limit 10 ./...
+    bash $SCRIPT_NAME --new-from-rev origin/main ./internal/cache/...
 EOF
 }
 
 json_escape() {
-    local s="$1"
+    local s="$1" c r i
     s="${s//\\/\\\\}"
     s="${s//\"/\\\"}"
     s="${s//$'\t'/\\t}"
     s="${s//$'\r'/}"
     s="${s//$'\n'/\\n}"
+    # JSON forbids the rest of U+0001-U+001F raw (a bash string holds no NUL);
+    # colored tool output carries ESC, for one.
+    if [[ "$s" == *[[:cntrl:]]* ]]; then
+        for i in 1 2 3 4 5 6 7 8 11 12 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31; do
+            printf -v c "\\$(printf '%03o' "$i")"
+            printf -v r '\\u%04x' "$i"
+            s="${s//"$c"/"$r"}"
+        done
+    fi
     printf '%s' "$s"
 }
 
@@ -62,6 +82,7 @@ JSON_OUTPUT=false
 STRICT=false
 LIMIT=0
 TARGET=""
+NEW_FROM_REV=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -77,6 +98,22 @@ while [[ $# -gt 0 ]]; do
             fi
             LIMIT="$2"
             shift 2
+            ;;
+        --new-from-rev)
+            if [[ $# -lt 2 || -z "$2" ]]; then
+                echo "error: --new-from-rev requires a git revision" >&2
+                exit 2
+            fi
+            NEW_FROM_REV="$2"
+            shift 2
+            ;;
+        --new-from-rev=*)
+            NEW_FROM_REV="${1#--new-from-rev=}"
+            if [[ -z "$NEW_FROM_REV" ]]; then
+                echo "error: --new-from-rev requires a git revision" >&2
+                exit 2
+            fi
+            shift
             ;;
         -*)           echo "error: unknown option: $1" >&2; usage >&2; exit 2 ;;
         *)            TARGET="$1"; shift ;;
@@ -100,11 +137,34 @@ if ! command -v gofmt &>/dev/null; then
     exit 2
 fi
 
+if [[ -n "$NEW_FROM_REV" ]]; then
+    if ! command -v git &>/dev/null || ! git rev-parse --verify --quiet "${NEW_FROM_REV}^{commit}" >/dev/null 2>&1; then
+        echo "error: --new-from-rev: not a git revision in this checkout: $NEW_FROM_REV" >&2
+        exit 2
+    fi
+fi
+
 GOFMT_STATUS="pass"
 GOFMT_FINDINGS=()
 GOFMT_DIR="${TARGET%%/...}"
 GOFMT_DIR="${GOFMT_DIR:-.}"
-UNFORMATTED=$(gofmt -l "$GOFMT_DIR" 2>&1 | grep -v -e '^vendor/' -e '/vendor/') || true
+if [[ -n "$NEW_FROM_REV" ]]; then
+    # Only the .go files under the path that changed since REV, untracked
+    # ones included; a deleted file has nothing left to format.
+    CHANGED=()
+    while IFS= read -r f; do
+        [[ "$f" == *.go && -f "$f" ]] && CHANGED+=("$f")
+    done < <({
+        git diff --name-only --relative --diff-filter=d "$NEW_FROM_REV" -- "$GOFMT_DIR"
+        git ls-files --others --exclude-standard -- "$GOFMT_DIR"
+    } 2>/dev/null | sort -u)
+    UNFORMATTED=""
+    if [[ ${#CHANGED[@]} -gt 0 ]]; then
+        UNFORMATTED=$(gofmt -l "${CHANGED[@]}" 2>&1 | grep -v -e '^vendor/' -e '/vendor/') || true
+    fi
+else
+    UNFORMATTED=$(gofmt -l "$GOFMT_DIR" 2>&1 | grep -v -e '^vendor/' -e '/vendor/') || true
+fi
 if [[ -n "$UNFORMATTED" ]]; then
     GOFMT_STATUS="fail"
     while IFS= read -r f; do
@@ -122,6 +182,7 @@ LINT_STATUS="unavailable"
 LINT_REASON="not installed"
 LINT_OUTPUT=""
 LINT_BASELINE=false
+LINT_CONFIG=""
 if command -v golangci-lint &>/dev/null; then
     LINT_ARGS=(run)
     # golangci-lint looks for a config in the working directory and from the
@@ -135,10 +196,19 @@ if command -v golangci-lint &>/dev/null; then
         fi
     done
     BASELINE="$SCRIPT_DIR/../../go-linting/assets/golangci.yml"
-    if ! $HAS_CONFIG && [[ -f "$BASELINE" ]]; then
+    if $HAS_CONFIG; then
+        LINT_CONFIG="project"
+    elif [[ -f "$BASELINE" ]]; then
         # Paths would otherwise be relative to the baseline's directory.
         LINT_ARGS+=(--config "$BASELINE" --path-mode=abs)
         LINT_BASELINE=true
+        LINT_CONFIG="baseline"
+    else
+        # A single-skill install has no go-linting beside it.
+        LINT_CONFIG="defaults"
+    fi
+    if [[ -n "$NEW_FROM_REV" ]]; then
+        LINT_ARGS+=(--new-from-rev="$NEW_FROM_REV")
     fi
     # Exit 1 is findings; any other non-zero exit (no Go files, a go
     # directive newer than the linter, a broken config) is an environment
@@ -223,7 +293,7 @@ if $JSON_OUTPUT; then
     $LINT_TRUNCATED && LINT_TRUNC=',"truncated":true'
 
     cat <<EOF
-{"gofmt":{"status":"$GOFMT_STATUS","files":$GOFMT_JSON$GOFMT_TRUNC},"govet":{"status":"$GOVET_STATUS","output":"$GOVET_ESC"$GOVET_TRUNC},"golangci_lint":{"status":"$LINT_STATUS","output":"$LINT_ESC"$LINT_TRUNC},"passed":$( [[ $FAILED -eq 0 ]] && echo true || echo false )}
+{"gofmt":{"status":"$GOFMT_STATUS","files":$GOFMT_JSON$GOFMT_TRUNC},"govet":{"status":"$GOVET_STATUS","output":"$GOVET_ESC"$GOVET_TRUNC},"golangci_lint":{"status":"$LINT_STATUS","config":"$LINT_CONFIG","output":"$LINT_ESC"$LINT_TRUNC},"passed":$( [[ $FAILED -eq 0 ]] && echo true || echo false )}
 EOF
 else
     echo "=== gofmt ==="
@@ -266,6 +336,8 @@ else
     echo ""
     echo "=== golangci-lint ==="
     $LINT_BASELINE && echo "No project config: linted with the go-linting baseline"
+    [[ "$LINT_CONFIG" == "defaults" ]] && echo "No project config and no go-linting baseline: linted with golangci-lint defaults; revive, godot, gosec, and modernize did not run"
+    [[ -n "$NEW_FROM_REV" ]] && echo "Only issues new since $NEW_FROM_REV"
     [[ "$LINT_STATUS" == "unavailable" ]] && echo "Unavailable ($LINT_REASON)"
     if [[ "$LINT_STATUS" == "pass" ]]; then
         echo "OK"

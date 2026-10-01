@@ -448,18 +448,22 @@ func TestRoutingGate(t *testing.T) {
 
 	// The hints are heuristics for decision-bearing forms. Routine syntax that
 	// go-code's router says does not trigger a load — fmt.Errorf with %v, an
-	// http constant in a comment — must leave the gate silent.
+	// http constant in a comment, the empty interface{} spelling, a sha256
+	// content hash, unsafe.Sizeof (go-defensive has no unsafe rule) — must
+	// leave the gate silent.
 	t.Run("routine syntax names no owner", func(t *testing.T) {
 		t.Parallel()
 		state := t.TempDir()
 		for _, skill := range []string{"go-code", "go-style-core"} {
 			hookEvent(t, script, state, routingPayload("PostToolUse", "s6", "Skill", map[string]any{"skill": skill}))
 		}
-		routine := "package store\n\n// Save maps a miss to http.StatusOK.\nfunc (s *Store) Save() error {\n\treturn fmt.Errorf(\"x: %v\", err)\n}\n"
+		routine := "package store\n\nimport (\n\t\"crypto/sha256\"\n\t\"unsafe\"\n)\n\n// Save maps a miss to http.StatusOK.\n" +
+			"func (s *Store) Save(m map[string]interface{}) error {\n\ts.etag = sha256.Sum256(s.body)\n\tn := unsafe.Sizeof(s.etag)\n" +
+			"\treturn fmt.Errorf(\"x: %v (%d)\", err, n)\n}\n"
 		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "s6", "Write",
 			map[string]any{"file_path": "/repo/store/save.go", "content": routine}))
 		if code != 0 || msg != "" {
-			t.Fatalf("fmt.Errorf(%%v) and http.StatusOK in a comment: exit %d, stderr %q; want silent 0", code, msg)
+			t.Fatalf("fmt.Errorf(%%v), http.StatusOK in a comment, interface{}, sha256, unsafe.Sizeof: exit %d, stderr %q; want silent 0", code, msg)
 		}
 	})
 
@@ -510,6 +514,10 @@ func TestRoutingGate(t *testing.T) {
 				"package x\n\nfunc run() (err error) {\n\tdefer func() {\n\t\tif r := recover(); r != nil {\n\t\t\terr = fmt.Errorf(\"panic: %v\", r)\n\t\t}\n\t}()\n\treturn work()\n}\n", "go-defensive"},
 			{"context stored in a struct", "s11", "/repo/x/worker.go",
 				"package x\n\ntype Worker struct {\n\tctx  context.Context\n\tjobs []Job\n}\n", "go-context"},
+			{"interface with methods", "s13", "/repo/x/store.go",
+				"package x\n\ntype Store interface {\n\tGet(id string) (string, error)\n}\n", "go-interfaces"},
+			{"constant-time compare", "s14", "/repo/x/token.go",
+				"package x\n\nimport \"crypto/subtle\"\n\nfunc eq(a, b []byte) bool { return subtle.ConstantTimeCompare(a, b) == 1 }\n", "go-security"},
 		}
 		for _, tc := range cases {
 			tc := tc
@@ -917,6 +925,51 @@ func TestPromptRouting(t *testing.T) {
 		_, out := promptEvent(t, t.TempDir(), "p13", t.TempDir(), "Our Go monolith has one models package that every other package imports — propose how to modularize it")
 		if !strings.Contains(out, "`golang-skills:go-code-refactor`") {
 			t.Fatalf("monolith/modularize: stdout %q; want go-code-refactor", out)
+		}
+	})
+
+	// Trigger evals that expect go-code-refactor: "a mess" and "make it
+	// readable" used to reach go-code through `make`, "split" named no router,
+	// the over-engineering audit matched the review word "audit" first, and
+	// "one implementation" counted as new code.
+	t.Run("refactor wording from the trigger evals", func(t *testing.T) {
+		t.Parallel()
+		for _, prompt := range []string{
+			"This handler is a mess — can you make it readable?",
+			"Split this 200-line function into smaller ones",
+			"Audit this Go repo for over-engineering — what can we delete?",
+			"We have a UserRepository interface with one implementation and a util package — is this over-abstracted?",
+		} {
+			_, out := promptEvent(t, t.TempDir(), "p23", goRepo(t), prompt)
+			if !strings.Contains(out, "`golang-skills:go-code-refactor`") {
+				t.Errorf("%q: stdout %q; want go-code-refactor", prompt, out)
+			}
+			if strings.Contains(out, "go-code-review") || strings.Contains(out, "new code starts with its contract test") {
+				t.Errorf("%q names a review or new code:\n%s", prompt, out)
+			}
+		}
+	})
+
+	// Prose that mentions Go is not Go work; `bug` in "bug report" used to
+	// send a translation request to go-code.
+	t.Run("translation and copy editing stay silent", func(t *testing.T) {
+		t.Parallel()
+		for _, prompt := range []string{
+			`Translate this bug report into Ukrainian only: "The Go service drops invoice rows on stage".`,
+			`Improve the grammar of this sentence only: "our Go service need retry with backoff".`,
+		} {
+			if code, out := promptEvent(t, t.TempDir(), "p24", goRepo(t), prompt); code != 0 || out != "" {
+				t.Errorf("%q: exit %d, stdout %q; want silent 0", prompt, code, out)
+			}
+		}
+		// Words that only look like refactor or prose wording keep their router.
+		for _, prompt := range []string{
+			"Write a Go function that splits a string on commas",
+			"Add a Go helper that formats byte counts in a human-readable form",
+		} {
+			if _, out := promptEvent(t, t.TempDir(), "p24", t.TempDir(), prompt); !strings.Contains(out, "`golang-skills:go-code`") || strings.Contains(out, "go-code-refactor") {
+				t.Errorf("%q: stdout %q; want go-code", prompt, out)
+			}
 		}
 	})
 

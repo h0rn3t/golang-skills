@@ -3,7 +3,7 @@
 > Sources: `$GOROOT/api/go1.2*.txt`; `go tool fix help`; Go spec; package docs; JetBrains go-modern-guidelines `guidelines.json` at `155dc7c` (all 54 items cross-checked 2026-09-13; the write-time card is go-style-core's Current Go Idiom Card)
 > Authority: normative for tier placement; project policy for what may ride in a refactor
 > Minimum Go: gated by the `go` directive in `go.mod`, not the installed toolchain
-> Last verified: 2026-09-13
+> Last verified: 2026-10-01
 
 Check version claims against the installed toolchain using `COMPATIBILITY.md`.
 For existing code, work Tier 1, then conditional Tier 2; report Tier 3 changes
@@ -23,8 +23,10 @@ and the required contract rather than refactor equivalence.
 ## Start with `go fix`
 
 Since Go 1.26, `go fix` hosts modernizers that rewrite code to current idioms.
-A default run includes `hostport`, whose hunks are Tier 2: keep them only where
-IPv6 cannot reach the code, or leave them out with `-hostport=false`. Scope
+A default run includes `hostport` and `omitzero`, whose hunks are Tier 2: keep
+`hostport` hunks only where IPv6 cannot reach the code and `omitzero` hunks only
+where every marshaler of the type is `encoding/json` v1, or leave them out with
+`-hostport=false` and `-omitzero=false`. Scope
 follows [Scope mechanical modernization](../SKILL.md#3-scope-mechanical-modernization).
 `go tool fix help` is authoritative; the analyzers the
 [idiom card](../../go-style-core/SKILL.md#current-go-idiom-card) does not show:
@@ -34,7 +36,7 @@ follows [Scope mechanical modernization](../SKILL.md#3-scope-mechanical-moderniz
 | `newexpr` | A `&v` pointer helper (`func intPtr(v int) *int { return &v }`) and its calls become `new(v)` / `new(4)` (Go 1.26+); a temp-then-address form stays a hand edit |
 | `slicesbackward` | `for i, v := range slices.Backward(s)` instead of a backward index loop (Go 1.23+) |
 | `unsafefuncs` | `unsafe.Add(p, n)` instead of `unsafe.Pointer(uintptr(p) + n)` |
-| `omitzero` | Deletes `omitempty` from a struct-typed field, where it has no effect; the `omitzero` tag (Go 1.24+) it offers instead omits a zero struct, a behavior change `go fix` does not apply |
+| `omitzero` | Deletes `omitempty` from a struct-typed field: a no-op under `encoding/json` v1, a wire change under `encoding/json/v2`, whose `omitempty` omits a struct that encodes as `{}`; the `omitzero` tag (Go 1.24+) it offers instead omits a zero struct, a behavior change `go fix` does not apply |
 
 `atomictypes`, `embedlit`, `errorsastype`, `slicesbackward`, and `unsafefuncs`
 are new in Go 1.27; the same release renamed `waitgroup` to `waitgroupgo` and
@@ -62,25 +64,30 @@ on existing code, and the `go fix` analyzer where one exists.
 - **`strings.CutLast`, `bytes.CutLast`** (Go 1.27): check what the old `-1`
   branch returned before folding it into `ok` — if it returned anything other
   than `(s, "")`, the swap needs an explicit `if !ok`.
-- **Redundant type arguments** (Go 1.27): inference now applies to conversions
-  to matching function types, so `Fold(combine[int])` becomes `Fold(combine)`.
+- **Redundant type arguments in a conversion or a composite-literal element**
+  (Go 1.27): `Folder(combine[int])` becomes `Folder(combine)` and
+  `S{f: combine[int]}` becomes `S{f: combine}`, only at a `go 1.27` directive.
+  The compiler does not gate this inference, so at `go 1.26` the shorter form
+  builds on a 1.27 toolchain and fails on go1.26. A call argument
+  (`Fold(xs, combine)`) has inferred since Go 1.21.
 - **`strings.SplitSeq`, `FieldsSeq`, `FieldsFuncSeq`** (Go 1.24): only when the
   slice is not indexed, re-ranged, or kept — otherwise it is a rewrite, not a
   swap. `strings.Lines` is **not** a drop-in: it keeps each trailing newline.
 - **`for i := range n`** (Go 1.22): only when the body does not mutate `i` or
   `n`; `range n` evaluates `n` once. `go fix -rangeint`.
-- **Delete `x := x`** (Go 1.22): a mechanical delete under a `go` directive
-  below 1.22 is a real bug. `go fix -forvar`.
+- **Delete `x := x`** (Go 1.22): in a `range` loop, the only form
+  `go fix -forvar` rewrites; in a three-clause loop only when the body never
+  assigns the copy, since the copy keeps those writes off the loop counter. A
+  mechanical delete under a `go` directive below 1.22 is a real bug.
 - **`min`, `max`, `clear`** (Go 1.21): float helpers need a NaN and signed-zero
   check first. Replace a delete loop with `clear(m)` only when no key can hold
   a NaN, through an array, struct, or interface included: the loop cannot
   delete a NaN key and `clear` can, making that a Tier 3 fix. `go fix -minmax`.
 - **`cmp.Or`** (Go 1.22): not for expensive or side-effecting fallbacks.
 - **Test-only conveniences**: `t.Context()`, `t.Chdir()`, `slog.DiscardHandler`,
-  `b.Loop()` (Go 1.24); `synctest.Sleep`, `httptest.NewTestServer` (Go 1.27).
-  Preserve what the test observes — cancellation and cleanup timing, clock
-  behavior, transport coverage: `httptest.NewTestServer` has no listener for
-  anything else to dial. See [go-testing](../../go-testing/SKILL.md).
+  `b.Loop()` (Go 1.24); `synctest.Sleep` (Go 1.27). Preserve what the test
+  observes — cancellation and cleanup timing, clock behavior.
+  `httptest.NewTestServer` is Tier 2. See [go-testing](../../go-testing/SKILL.md).
 
 ### `url.URL.Clone` / `url.Values.Clone` — Go 1.27
 
@@ -117,6 +124,11 @@ because for equal keys the output order is observable.
   behavior, and the exposed error tree. Even with identical text, `Join` can
   make `errors.Is`/`errors.AsType` match causes previously hidden by the string.
   Apply only when all observable error behavior is preserved; otherwise Tier 3.
+- **`errors.Is(err, X)` over `err == X`; `errors.AsType[*T](err)` over
+  `err.(*T)`.** Identical only when no producer wraps `X` or the `*T` and no
+  error in the chain has an `Is` or `As` method. Otherwise the swap starts
+  matching errors the old comparison missed, which is a bug fix: Tier 3, as
+  [PLAYBOOK.md](PLAYBOOK.md#5-error-handling-in-an-existing-codebase) lists it.
 - **`net.JoinHostPort` over `fmt.Sprintf("%s:%d", host, port)`.** Identical for
   IPv4 and hostnames; for IPv6 the old form produced an unusable address, so if
   IPv6 can reach this code the swap is a **bug fix** — Tier 3. `go vet` flags
@@ -130,6 +142,13 @@ because for equal keys the output order is observable.
 - **`testing/synctest`** for concurrency tests. Additive, and it makes flaky
   time-based tests deterministic — but it virtualizes the clock inside the
   bubble, so a test that measured real durations behaves differently.
+- **`httptest.NewTestServer(t, h)` over `httptest.NewServer(h)`** (Go 1.27).
+  The server is in memory and only `srv.Client()` reaches it. `srv.URL` is `""`
+  until `Client()` runs and `http://example.com` after, so any other client,
+  including one the code under test builds itself, sends the request to the
+  real host. Condition: every request goes through `srv.Client()`. Code that
+  dials `srv.URL` with its own client calls `srv.Start()` first, which listens
+  on loopback and sets `srv.URL` to that address.
 - **Generic methods (Go 1.27).** A package-level helper that conceptually
   belongs to one type can now live on it: `stream.Map(s, f)` becomes
   `s.Map(f)`. Condition: the helper is unexported or the package is internal —
@@ -154,8 +173,18 @@ one-line rationale so the user can schedule them.
   routing is observable.
 - **Adding `context.Context` plumbing.** The single most common "improvement"
   that changes cancellation behavior end to end. Its own piece of work.
-- **Bumping the `go` directive.** Enables new language semantics *and* new vet
-  diagnostics at once. Its own change, never a rider.
+- **Bumping the `go` directive.** Enables new language semantics, new vet
+  diagnostics, and every `GODEBUG` default that changed between the old and
+  new version at once: at 1.24 `rand.Seed` becomes a no-op (`randseednop`)
+  and RSA keys under 1024 bits fail (`rsa1024min`); at 1.25 TLS stops
+  accepting SHA-1 signatures (`tlssha1`). Diff
+  `go list -f '{{.DefaultGODEBUG}}' ./cmd/...` before and after; only main
+  packages carry the field. Its own change, never a rider.
+  - **`GOMAXPROCS` follows the container CPU limit from a `go 1.25` directive**
+    (`containermaxprocs`, `updatemaxprocs`), not from a toolchain bump alone.
+    Under a CPU limit, effective parallelism changes, which changes
+    timing-dependent behavior. `runtime.SetDefaultGOMAXPROCS()` restores the
+    default after an override.
 
 ## Deprecated APIs and replacements
 
@@ -165,7 +194,9 @@ The target module must support the replacement; report unproven Tier 2 swaps.
 
 | Deprecated | Deprecated in | Use instead | Tier |
 |---|---|---|---|
-| `math/rand.Seed`, `math/rand.Read` — the package itself is not deprecated | 1.20 | `math/rand/v2` (1.22): different API, and a different value sequence for the same seed | 3 |
+| `math/rand.Seed` with a random seed (`time.Now().UnixNano()`) — the package itself is not deprecated | 1.20 | Delete the call: the generator seeds itself since 1.20, and at a `go` directive of 1.24 or later `Seed` is a no-op (`randseednop`); Tier 2 where a `godebug randseednop=0` line restores it | 1 |
+| `math/rand.Seed(k)` with a fixed `k` | 1.20 | `r := rand.New(rand.NewSource(k))`, which keeps the v1 sequence; at a `go` directive of 1.24 or later the call is already a no-op, so code that relies on the sequence is a live bug and a finding | 3 |
+| `math/rand.Read` | 1.20 | `crypto/rand.Read`; `(*rand.ChaCha8).Read` from `math/rand/v2` (1.23) when the stream must be deterministic — `math/rand/v2` has no package-level `Read` | 3 |
 | `crypto/elliptic` key-agreement helpers (`GenerateKey`, `Marshal`, `Unmarshal`, `Curve` arithmetic) | 1.21 | `crypto/ecdh` (1.20); custom-curve arithmetic has no replacement | 3 |
 | `reflect.SliceHeader`, `reflect.StringHeader` | 1.21 | `unsafe.Slice`, `unsafe.String` — recheck what keeps the backing memory alive | 2 |
 | `reflect.PtrTo` | 1.22 | `reflect.PointerTo` | 1 |
@@ -187,9 +218,6 @@ Attribute before rewriting. Verified against go1.27.0:
   error messages can differ — a test asserting a JSON error string breaks with
   no diff from you. `GOEXPERIMENT=nojsonv2` restores the old backend while you
   confirm the cause.
-- **`GOMAXPROCS` is cgroup-aware since Go 1.25.** Under a container CPU limit,
-  effective parallelism changes, which changes timing-dependent behavior.
-  `runtime.SetDefaultGOMAXPROCS()` restores the default after an override.
 - **Seven `GODEBUG` keys were removed in Go 1.27** (`asynctimerchan`,
   `gotypesalias`, `tlsunsafeekm`, `tlsrsakex`, `tls3des`, `tls10server`,
   `x509keypairleaf`). A `godebug` line or `//go:debug` comment pinning any of
@@ -204,16 +232,18 @@ on that toolchain in an isolated checkout, preserving the user's working tree.
 
 ## Tools worth running once
 
-To check leaks, write `pprof.Lookup("goroutineleak").WriteTo(w, 1)` in the
-tested process (Go 1.27+) or use the existing `goleak` harness: writing the
-profile is what triggers detection, so `Count` alone and a passing `go test`
-prove nothing. Read the stacks; an empty profile still misses leaks that are
-blocked on a reachable channel or mutex.
+To check leaks on a Go 1.27 toolchain, write the `goroutineleak` profile in
+the tested process —
+`if p := pprof.Lookup("goroutineleak"); p != nil { _ = p.WriteTo(w, 1) }`,
+since `Lookup` returns nil where the toolchain has no such profile — or use the
+existing `goleak` harness: writing the profile is what triggers detection, so
+`Count` alone and a passing `go test` prove nothing. Read the stacks; an empty
+profile still misses leaks that are blocked on a reachable channel or mutex.
 
 | Tool | What it finds |
 |---|---|
-| `go vet ./...` | `waitgroup` (misplaced `wg.Add`), `hostport` (the IPv6 address bug), `stdversion` (stdlib symbols newer than the `go` directive) |
-| `go fix -diff -buildtag -plusbuild <pkgs>` | `buildtag`: malformed `//go:build` or `// +build` directives; `plusbuild`: obsolete `// +build` lines the `//go:build` form made redundant (Go 1.17+) — hygiene, not modernization |
-| `bash scripts/verify-refactor.sh leaks ./...` | Runs tests but reports leak verification as incomplete (exit 3 if tests pass); it does not collect a profile |
+| `go vet ./...` | `waitgroup` (misplaced `wg.Add`), `hostport` (the IPv6 address bug), `stdversion` (stdlib symbols newer than the `go` directive), `buildtag` (misplaced or mismatched `//go:build` and `// +build` lines) |
+| `go fix -diff -plusbuild <pkgs>` | `plusbuild`: deletes obsolete `// +build` lines the `//go:build` form made redundant (Go 1.17+) — hygiene, not modernization; `go fix` prints fixes only, so `buildtag` findings come from `go vet` |
+| `bash "<installed-skill-dir>/scripts/verify-refactor.sh" leaks ./...` | Runs tests but reports leak verification as incomplete (exit 3 if tests pass); it does not collect a profile |
 | `GODEBUG=checkfinalizers=1` | Finalizer and cleanup misuse (Go 1.25+) |
-| `golangci-lint run` | Expect the finding count to drop after the refactor; report before and after |
+| `golangci-lint run` | Expect the finding count to drop after the refactor; report before and after. A finding whose fix changes behavior, such as an `errorlint` report on `err == X`, stays a finding, not a hunk |

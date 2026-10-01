@@ -3,7 +3,7 @@
 > Sources: `go doc runtime`; `$GOROOT/doc/godebug.md`; go.dev/doc/diagnostics; go.dev/doc/articles/race_detector; Go Wiki CodeReviewComments; runtime panic messages as printed by Go 1.27
 > Authority: advisory — candidate mechanisms; ordering is not a measured likelihood
 > Minimum Go: 1.27 baseline
-> Last verified: 2026-09-02; test-order bisection note added 2026-09-18; panic, leak, build, and routing rows rechecked 2026-09-29
+> Last verified: 2026-10-01
 
 Confirm before fixing; two mechanisms often share a symptom. A stack/profile
 pattern alone rarely proves ownership, causality, or a leak.
@@ -28,7 +28,7 @@ pattern alone rarely proves ownership, causality, or a leak.
 | `nil pointer dereference` | Method on a nil receiver; field of a nil struct pointer; a constructor's error ignored so the value is nil | Inspect the faulting operation and inputs in matching source/debugger; printed argument words are only clues | [go-defensive](../../go-defensive/SKILL.md) |
 | `nil pointer dereference` with a non-nil-looking value | Interface holding a typed nil pointer (`var p *T; var i I = p; i != nil`) | `fmt.Printf("%T %v", i, i)` prints the type with `<nil>` | [go-defensive](../../go-defensive/SKILL.md#common-pitfalls) |
 | `concurrent map writes` / `concurrent map read and map write` | Unsupported concurrent access to a shared map; runtime checks are not a complete race detector | `go test -race` shows the two stacks | [go-concurrency](../../go-concurrency/SKILL.md) |
-| `send on closed channel` | Producer still running after `close`; multiple closers | Trace send/close ownership and ordering; this panic can occur without a data race | [go-concurrency](../../go-concurrency/SKILL.md) |
+| `send on closed channel` | Producer still running after `close`; multiple closers | Trace send/close ownership and ordering; this panic can occur without a data race. The fix is one closer on the sending side, after every sender is done (`go func() { wg.Wait(); close(out) }()`), never the receiver, never a `closed` flag checked before the send | this skill |
 | `sync: negative WaitGroup counter` | More `Done` calls than `Add`: `Done` without `Add`, `Done` twice on one path, or a negative `Add`. `Add` inside the goroutine instead lets `Wait` return early or panics `sync: WaitGroup misuse: Add called concurrently with Wait` | `wg.Go` replaces the pair (Go 1.25+); `go vet` `waitgroup` analyzer | [go-concurrency](../../go-concurrency/SKILL.md) |
 | `all goroutines are asleep - deadlock!` | Every goroutine blocked: unbuffered send with no receiver; `wg.Wait` with a missing `Done`; `Lock` twice on a non-reentrant mutex | The dump printed with the panic lists each wait state | [go-concurrency](../../go-concurrency/SKILL.md) |
 | Panic inside `net/http` handler, connection closed | Handler panicked; `http.Server` recovers per connection and logs `http: panic serving` | Server error log; wrap with a recovering middleware that logs the panic value, `debug.Stack()`, and the request ID — `%+v` on a panic value prints no stack | [go-http](../../go-http/SKILL.md) |
@@ -56,15 +56,15 @@ pattern alone rarely proves ownership, causality, or a leak.
 
 | Symptom | Mechanism | Confirm | Owner |
 |---|---|---|---|
-| Goroutine count rises | Goroutine waiting after its owner finished; worker has no effective termination path | `/debug/pprof/goroutineleak?debug=1` (Go 1.27+) lists goroutines that can never unblock; else comparable dumps show growth beyond the expected lifetime — inspect the growing stack and its owner | [go-concurrency](../../go-concurrency/SKILL.md) |
+| Goroutine count rises | Goroutine waiting after its owner finished; worker has no effective termination path | `/debug/pprof/goroutineleak?debug=1` on a binary built by a Go 1.27 toolchain ([DIAGNOSTIC-TOOLS](DIAGNOSTIC-TOOLS.md#stack-dumps)) lists goroutines that can never unblock; else comparable dumps show growth beyond the expected lifetime — inspect the growing stack and its owner | [go-concurrency](../../go-concurrency/SKILL.md) |
 | | HTTP client body not closed → connection goroutines held | `bodyclose` linter; dump shows `net/http.(*persistConn)` stacks | [go-http](../../go-http/SKILL.md) |
 | Heap `inuse` rises, GC runs | Map used as a cache without eviction; slice of pointers retaining everything; global `append` | `pprof -sample_index=inuse_space -top`; `gctrace` live heap climbs | [go-data-structures](../../go-data-structures/SKILL.md) |
 | | Subslice `s[:n]` of a large buffer keeps the whole array alive | Look for `bytes` held from a read buffer; `slices.Clone` the part you keep | [go-data-structures](../../go-data-structures/SKILL.md) |
 | | `sync.Pool` of huge buffers; `bytes.Buffer` grown once and pooled | `inuse` at `bytes.(*Buffer).grow` | [go-concurrency](../../go-concurrency/SKILL.md) |
-| | Timer/ticker per request without `Stop` (pre-Go 1.23 kept them alive until fire) | Heap at `time.NewTimer`, and the binary was built with a toolchain < 1.27 — 1.27 removed `asynctimerchan`, so the old behavior is unreachable whatever the `go` directive says | [go-context](../../go-context/SKILL.md) |
+| | Timer/ticker per request without `Stop` (pre-Go 1.23 kept them alive until fire) | Heap at `time.NewTimer`, and the binary was built with a toolchain < 1.27 — 1.27 removed `asynctimerchan`, so the old behavior is unreachable whatever the `go` directive says | [go-style-core](../../go-style-core/SKILL.md#context-sync-time) (`time.Tick` row) |
 | RSS high, heap `inuse` low | Goroutine stacks (thousands of goroutines × stack size); CGO/`mmap`; runtime not yet returning memory | `MemStats.StackInuse`, `Sys - HeapSys`; `madvdontneed=0` in the process's `GODEBUG` (the Linux default is 1) keeps freed pages in RSS until memory pressure — RSS shape only | [go-concurrency](../../go-concurrency/SKILL.md) if stacks |
 | GC constantly running | Allocation rate high, not a leak | `alloc_space` top; `gctrace` shows frequent, small heaps | [go-performance](../../go-performance/SKILL.md) |
-| OOM-killed with modest heap | `GOMEMLIMIT` unset in a memory-capped container; GC targets 2× live heap | Set `GOMEMLIMIT` ~ 90% of the cgroup limit; confirm with `gctrace` | [go-performance](../../go-performance/SKILL.md) |
+| OOM-killed with modest heap | `GOMEMLIMIT` unset in a memory-capped container; GC targets 2× live heap | Set `GOMEMLIMIT` ~ 90% of the cgroup limit; confirm with `gctrace` | this skill ([`GOMEMLIMIT`](DIAGNOSTIC-TOOLS.md#environment-knobs)) |
 | File descriptors rise | `os.Open` without `Close` on the error path; `Rows` not closed; listeners per request | `lsof`; `sqlclosecheck`; a missing `defer` right after the open | [go-defensive](../../go-defensive/SKILL.md) |
 
 ---
@@ -79,7 +79,7 @@ and serialization before choosing a runtime capture.
 |---|---|---|---|
 | Value sometimes stale or garbled | Data race | `-race` | [go-concurrency](../../go-concurrency/SKILL.md) |
 | Slice changes appear elsewhere | Two slices sharing a backing array after `s[:n]` or `append` within capacity | Print `cap` and pointers; `slices.Clone` at the boundary | [go-defensive](../../go-defensive/SKILL.md#common-pitfalls) |
-| `errors.Is` never matches | Wrapped with `%v` not `%w`; a new error value each call instead of a sentinel; compared across a JSON/gRPC boundary | `check-errors.sh`; print `%T` of the chain | [go-error-handling](../../go-error-handling/SKILL.md) |
+| `errors.Is` never matches | Wrapped with `%v` not `%w`; a new error value each call instead of a sentinel; compared across a JSON/gRPC boundary | go-error-handling's `bash <installed-skill-dir>/scripts/check-errors.sh ./...`, run from the project; print `%T` of the chain | [go-error-handling](../../go-error-handling/SKILL.md) |
 | Rows missing after a loop | `rows.Err()` unchecked; `rows.Next` stopped on a scan error silently | `rowserrcheck` | [go-database](../../go-database/SKILL.md) |
 | Behavior differs after upgrade | `GODEBUG` default changed with the `go` directive; loop variable semantics (1.22); `for range` over a function | `go version -m <binary>` (`build DefaultGODEBUG=…`) or `go list -f '{{.DefaultGODEBUG}}' ./cmd/app` for both builds; `MODERNIZATION.md` release notes | [go-code-refactor](../../go-code-refactor/SKILL.md) |
 

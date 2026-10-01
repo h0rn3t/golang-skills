@@ -2,7 +2,7 @@
 
 > Sources: https://pkg.go.dev/context; source/golang-wiki/CodeReviewComments.md (Contexts)
 > Authority: advisory; `context` API semantics follow the package documentation
-> Last verified: 2026-09-29
+> Last verified: 2026-10-01
 
 Common patterns for deriving, checking, and propagating `context.Context`.
 
@@ -49,14 +49,17 @@ Use `context.Background()` only for functions that are **never request-specific*
 
 ```go
 func main() {
+    if err := run(); err != nil {
+        log.Fatal(err) // exits: a defer in main would not run
+    }
+}
+
+func run() error {
     // Bind the process lifetime to signals here, not with a hand-rolled
     // signal channel and goroutine.
     ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
     defer stop()
-
-    if err := run(ctx); err != nil {
-        log.Fatal(err)
-    }
+    return serve(ctx)
 }
 ```
 
@@ -200,7 +203,14 @@ func handler(w http.ResponseWriter, r *http.Request) {
         http.Error(w, "internal error", http.StatusInternalServerError)
         return
     }
-    _ = json.MarshalWrite(w, result) // encoding/json/v2; a failed write is the client's disconnect
+    body, err := json.Marshal(result) // encoding/json/v2; an encode error must still get a 500
+    if err != nil {
+        slog.ErrorContext(ctx, "encode result", "err", err)
+        http.Error(w, "internal error", http.StatusInternalServerError)
+        return
+    }
+    w.Header().Set("Content-Type", "application/json")
+    _, _ = w.Write(body) // headers are sent; a failed write is the client's disconnect
 }
 ```
 
@@ -223,22 +233,23 @@ The `r.Context()` is cancelled when:
 ### Use Unexported Key Types
 
 ```go
-type contextKey struct{}
-
-var userIDKey contextKey
+type userIDKey struct{} // one type per key: every value of one empty struct type is the same key
 
 func WithUserID(ctx context.Context, id string) context.Context {
-    return context.WithValue(ctx, userIDKey, id)
+    return context.WithValue(ctx, userIDKey{}, id)
 }
 
 func UserIDFromContext(ctx context.Context) (string, bool) {
-    id, ok := ctx.Value(userIDKey).(string)
+    id, ok := ctx.Value(userIDKey{}).(string)
     return id, ok
 }
 ```
 
-Using an unexported struct type as the key prevents collisions with keys from
-other packages — even if they use the same string or int value.
+An unexported key type prevents collisions with keys from other packages —
+even if they use the same string or int value. Inside the package, a second
+key gets its own type (`type tenantIDKey struct{}`): a second
+`var tenantIDKey contextKey` of a shared empty type equals the first, and the
+tenant ID overwrites the user ID.
 
 ### Provide Accessor Functions
 
@@ -262,5 +273,5 @@ place to change the implementation.
 | Default | Pass context even if you think you don't need it |
 | `defer cancel()` | Defer immediately after `WithTimeout`/`WithCancel`/`WithDeadline` outside a loop |
 | Derived context in a loop | Call its cancel at the end of each iteration, or the iteration in its own function with `defer cancel()` |
-| Value keys | Use unexported struct types, provide accessor functions |
+| Value keys | One unexported struct type per key, provide accessor functions |
 | Cancellation check | `ctx.Err()` before expensive ops; `select` on `ctx.Done()` in loops |

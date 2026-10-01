@@ -101,29 +101,30 @@ the syntax it gets right.
   not. Give every "except when" its own row or line that shows the code to
   write, and keep the sentence for the reader who wants the reason. Retain
   any supporting model-run output outside this repository.
-- **State a rule's scope in the rule.** Claude Sonnet 5 and Claude Opus 5
-  follow an instruction literally, at `low` and `medium` effort especially,
-  and do not carry it from one item to the next: write "every function in
-  the diff" where that is meant, and name what the rule does not cover in
-  the same sentence.
+- **State a rule's scope in the rule.** Write for a literal reader: an
+  instruction is applied as written, at `low` and `medium` effort especially,
+  and is not carried from one item to the next (the pattern behind the
+  2026-09 runs). Write "every function in the diff" where that is meant, and
+  name what the rule does not cover in the same sentence.
 - **A reason slot is a template.** A rule that lets a declaration stand
   "when it isolates X" is filled in with X for the declaration it was meant
   to prevent: in the 2026-09-10 three-arm run every `feed` budget line that
   kept a package-level wire type quoted the budget's own reason back. Prefer
   a count that must not grow, or the form to take instead, over a rationale
   the model supplies.
-- **State verification once.** Claude Opus 5 verifies without being told; a
-  second "check again" instruction adds work and report length with no new
-  evidence. The gate lives in `go-linting`; a skill names what to run and
+- **State verification once.** A capable agent verifies without being told
+  (2026-09 runs); a second "check again" instruction adds work and report
+  length with no new evidence. The gate lives in `go-linting`; a skill names what to run and
   what the report carries, not how carefully to look.
 
 These defaults incorporate [OpenAI's GPT-6 Astra prompting guidance](https://developers.openai.com/api/docs/guides/latest-model/gpt-6-astra.md#prompting-best-practices)
 on instruction priority, follow-through, communication, delegation, and bounded
-verification, and Anthropic's guides to [prompting Claude Sonnet 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5),
-[prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5),
-and [prompting Claude Fable 5.1](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1)
-on literal instruction following, positive examples over prohibitions,
-verbosity, over-verification, progress updates, and tool-call batching. A
+verification, and Anthropic's Claude prompting guides on literal instruction
+following, positive examples over prohibitions, verbosity, over-verification,
+progress updates, and tool-call batching (as consulted in 2026-09: the guides
+for [Claude Sonnet 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5),
+[Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5),
+and [Claude Fable 5.1](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1)). A
 mandatory action is a numbered workflow step, not one bullet among the
 "Read when" entries of Resource Routing; the skill-authoring guide's
 "Use workflows for complex tasks" is the source. They are shared rules for GPT-6 and Claude,

@@ -14,12 +14,17 @@ import (
 	"strings"
 )
 
-const version = "1.4.0"
+const version = "1.5.0"
 
 type finding struct {
 	File    string `json:"file"`
 	Line    int    `json:"line"`
 	Rule    string `json:"rule"`
+	Message string `json:"message"`
+}
+
+type parseError struct {
+	File    string `json:"file"`
 	Message string `json:"message"`
 }
 
@@ -37,6 +42,15 @@ func usage() {
 
 USAGE
     bash check-errors.sh [options] [path]
+
+    Reports text matching on err.Error() (==, !=, switch, and strings.Contains,
+    HasPrefix, HasSuffix, EqualFold, Index) and an error that is both logged
+    and returned. Skips _test.go and generated files and, as go ./... does,
+    vendor and testdata directories and names that begin with "." or "_".
+
+    Exits 0 if nothing is found, 1 on findings, 2 on a usage error or when a
+    file does not parse. The other files are still checked; --json then adds
+    "status":"parse_error" and a "parse_errors" list.
 
 OPTIONS
     -h, --help       Show this help message
@@ -79,11 +93,12 @@ func main() {
 	}
 
 	findings := []finding{}
+	var parseErrors []parseError
 	for _, file := range files {
 		fileFindings, err := analyzeFile(file, opts.checkBareReturn)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: parse %s: %v\n", file, err)
-			os.Exit(2)
+			parseErrors = append(parseErrors, parseError{File: file, Message: err.Error()})
+			continue
 		}
 		findings = append(findings, fileFindings...)
 	}
@@ -107,10 +122,15 @@ func main() {
 
 	if opts.jsonOutput {
 		out := struct {
-			Findings  []finding `json:"findings"`
-			Total     int       `json:"total"`
-			Truncated bool      `json:"truncated"`
-		}{Findings: findings, Total: total, Truncated: truncated}
+			Findings    []finding    `json:"findings"`
+			Total       int          `json:"total"`
+			Truncated   bool         `json:"truncated"`
+			Status      string       `json:"status,omitempty"`
+			ParseErrors []parseError `json:"parse_errors,omitempty"`
+		}{Findings: findings, Total: total, Truncated: truncated, ParseErrors: parseErrors}
+		if len(parseErrors) > 0 {
+			out.Status = "parse_error"
+		}
 		data, err := json.Marshal(out)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: marshal JSON: %v\n", err)
@@ -118,32 +138,53 @@ func main() {
 		}
 		fmt.Println(string(data))
 	} else {
-		if total == 0 {
-			fmt.Println("No error handling anti-patterns found.")
-			return
-		}
-		fmt.Println("Error handling anti-patterns found:")
-		fmt.Println()
-		for _, item := range findings {
-			fmt.Printf("  %s:%d  [%s] %s\n", item.File, item.Line, item.Rule, item.Message)
-		}
-		if truncated {
-			fmt.Printf("  ... and %d more (use --limit to adjust)\n", total-opts.limit)
-		}
-		fmt.Println()
-		fmt.Printf("Total: %d finding(s)\n", total)
+		printText(findings, parseErrors, total, truncated, opts.limit)
 	}
 
+	if len(parseErrors) > 0 {
+		os.Exit(2)
+	}
 	if total > 0 {
 		os.Exit(1)
 	}
 }
 
+func printText(shown []finding, parseErrors []parseError, total int, truncated bool, limit int) {
+	if len(parseErrors) > 0 {
+		fmt.Println("Malformed Go files:")
+		fmt.Println()
+		for _, pe := range parseErrors {
+			fmt.Printf("  %s  %s\n", pe.File, pe.Message)
+		}
+		fmt.Println()
+	}
+	switch {
+	case total == 0 && len(parseErrors) == 0:
+		fmt.Println("No error handling anti-patterns found.")
+	case total > 0:
+		fmt.Println("Error handling anti-patterns found:")
+		fmt.Println()
+		for _, item := range shown {
+			fmt.Printf("  %s:%d  [%s] %s\n", item.File, item.Line, item.Rule, item.Message)
+		}
+		if truncated {
+			fmt.Printf("  ... and %d more (use --limit to adjust)\n", total-limit)
+		}
+		fmt.Println()
+		fmt.Printf("Total: %d finding(s)\n", total)
+	}
+}
+
+// analyzeFile reports the findings in one file; a generated file has none,
+// since its author is the generator.
 func analyzeFile(path string, checkBareReturn bool) ([]finding, error) {
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
+	file, err := parser.ParseFile(fset, path, nil, parser.ParseComments|parser.SkipObjectResolution)
 	if err != nil {
 		return nil, err
+	}
+	if ast.IsGenerated(file) {
+		return nil, nil
 	}
 
 	var findings []finding
@@ -156,14 +197,14 @@ func analyzeFile(path string, checkBareReturn bool) ([]finding, error) {
 			}
 			line := fset.Position(node.Pos()).Line
 			switch {
-			case isErrorCall(node.X) && isStringLiteral(node.Y):
+			case isErrorCall(node.X) && isTextOperand(node.Y):
 				findings = append(findings, finding{
 					File:    path,
 					Line:    line,
 					Rule:    "string-error-compare",
 					Message: "comparing err.Error() to string; use errors.Is or errors.AsType instead",
 				})
-			case isStringLiteral(node.X) && isErrorCall(node.Y):
+			case isTextOperand(node.X) && isErrorCall(node.Y):
 				findings = append(findings, finding{
 					File:    path,
 					Line:    line,
@@ -171,14 +212,23 @@ func analyzeFile(path string, checkBareReturn bool) ([]finding, error) {
 					Message: "comparing string to err.Error(); use errors.Is or errors.AsType instead",
 				})
 			}
+		case *ast.SwitchStmt:
+			if node.Tag != nil && isErrorCall(node.Tag) {
+				findings = append(findings, finding{
+					File:    path,
+					Line:    fset.Position(node.Pos()).Line,
+					Rule:    "string-error-compare",
+					Message: "switching on err.Error(); use errors.Is or errors.AsType instead",
+				})
+			}
 		case *ast.CallExpr:
 			line := fset.Position(node.Pos()).Line
-			if isStringsContainsErrorCall(node) {
+			if name, ok := stringsMatchOnErrorText(node); ok {
 				findings = append(findings, finding{
 					File:    path,
 					Line:    line,
 					Rule:    "string-error-compare",
-					Message: "using strings.Contains on err.Error(); use errors.Is or errors.AsType instead",
+					Message: fmt.Sprintf("using strings.%s on err.Error(); use errors.Is or errors.AsType instead", name),
 				})
 			}
 		case *ast.BlockStmt:
@@ -255,21 +305,40 @@ func isErrorCall(expr ast.Expr) bool {
 	return ok && sel.Sel.Name == "Error"
 }
 
-func isStringLiteral(expr ast.Expr) bool {
-	lit, ok := expr.(*ast.BasicLit)
-	return ok && lit.Kind == token.STRING
+// isTextOperand reports the other side of a comparison with err.Error() that
+// makes it text matching: a string literal, a named string constant or
+// variable (`notFoundMsg`, `pkg.Msg`), or another error's text. nil, true, and
+// false are left out: an Error method that returns a value, not a string, is
+// compared with them.
+func isTextOperand(expr ast.Expr) bool {
+	switch e := expr.(type) {
+	case *ast.BasicLit:
+		return e.Kind == token.STRING
+	case *ast.Ident:
+		return e.Name != "nil" && e.Name != "true" && e.Name != "false"
+	case *ast.SelectorExpr:
+		return true
+	}
+	return isErrorCall(expr)
 }
 
-func isStringsContainsErrorCall(call *ast.CallExpr) bool {
+// stringsMatchOnErrorText reports a strings call that matches err.Error()
+// text, such as strings.HasPrefix(err.Error(), "dial"), and the function name.
+func stringsMatchOnErrorText(call *ast.CallExpr) (string, bool) {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok || sel.Sel.Name != "Contains" {
-		return false
+	if !ok {
+		return "", false
+	}
+	switch sel.Sel.Name {
+	case "Contains", "HasPrefix", "HasSuffix", "EqualFold", "Index":
+	default:
+		return "", false
 	}
 	pkg, ok := sel.X.(*ast.Ident)
-	if !ok || pkg.Name != "strings" || len(call.Args) == 0 {
-		return false
+	if !ok || pkg.Name != "strings" {
+		return "", false
 	}
-	return containsErrorCall(call.Args[0])
+	return sel.Sel.Name, slices.ContainsFunc(call.Args, containsErrorCall)
 }
 
 func containsErrorCall(expr ast.Expr) bool {
@@ -287,31 +356,67 @@ func containsErrorCall(expr ast.Expr) bool {
 	return found
 }
 
+// isLogCallWithErr reports a logger call that carries err in its arguments or
+// in a call it is chained from. The receiver is the logger itself
+// (`slog.Error`, `logger.Warn`), a field holding it (`s.logger.Error`,
+// `h.log.Printf`), or a chain that starts there (`logger.With("op", op).Error`,
+// `slog.Default().Error`, zerolog's `log.Error().Err(err).Msg`).
 func isLogCallWithErr(call *ast.CallExpr) bool {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok {
 		return false
 	}
-	// The receiver is the logger itself (`slog.Error`, `logger.Warn`) or a
-	// field holding it (`s.logger.Error`, `h.log.Printf`).
+	carriesErr := func(args []ast.Expr) bool {
+		return slices.ContainsFunc(args, func(arg ast.Expr) bool { return containsIdent(arg, "err") })
+	}
+	withErr := carriesErr(call.Args)
+	methods := []string{sel.Sel.Name}
+	receiver := sel.X
+	for {
+		inner, ok := receiver.(*ast.CallExpr)
+		if !ok {
+			break
+		}
+		innerSel, ok := inner.Fun.(*ast.SelectorExpr)
+		if !ok {
+			return false
+		}
+		withErr = withErr || carriesErr(inner.Args)
+		methods = append(methods, innerSel.Sel.Name)
+		receiver = innerSel.X
+	}
+	if !withErr {
+		return false
+	}
 	var name string
-	switch x := sel.X.(type) {
+	switch x := receiver.(type) {
 	case *ast.Ident:
 		name = x.Name
 	case *ast.SelectorExpr:
 		name = x.Sel.Name
 	}
-	switch strings.ToLower(name) {
+	return isLogger(strings.ToLower(name), methods)
+}
+
+// isLogger reports a receiver named as a logger. A short or suffixed name
+// (`l`, `lg`, `auditLog`, `reqLogger`) counts only with a logging method in
+// the chain, since `l` also names lists and listeners.
+func isLogger(name string, methods []string) bool {
+	switch name {
 	case "log", "logger", "slog":
-	default:
+		return true
+	}
+	if name != "l" && name != "lg" && !strings.HasSuffix(name, "log") && !strings.HasSuffix(name, "logger") {
 		return false
 	}
-	for _, arg := range call.Args {
-		if containsIdent(arg, "err") {
-			return true
+	return slices.ContainsFunc(methods, func(m string) bool {
+		for _, prefix := range []string{"Debug", "Info", "Warn", "Error", "Print", "Log", "Msg"} {
+			if strings.HasPrefix(m, prefix) {
+				return true
+			}
 		}
-	}
-	return false
+		return false
+	})
 }
 
 func containsIdent(expr ast.Expr, name string) bool {
@@ -373,17 +478,21 @@ func findGoFiles(target string) ([]string, error) {
 	return nil, fmt.Errorf("path not found: %s", target)
 }
 
+// walkGoFiles returns the non-test Go files beneath root, skipping what
+// go ./... skips: vendor, testdata, and names that begin with "." or "_".
 func walkGoFiles(root string) ([]string, error) {
 	var files []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() {
-			switch d.Name() {
-			case ".git", "vendor":
+		if path != root && ignored(d.Name()) {
+			if d.IsDir() {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if d.IsDir() {
 			return nil
 		}
 		if strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
@@ -393,6 +502,12 @@ func walkGoFiles(root string) ([]string, error) {
 	})
 	sort.Strings(files)
 	return files, err
+}
+
+// ignored reports a directory or file name that go ./... leaves out
+// (go help packages).
+func ignored(name string) bool {
+	return name == "vendor" || name == "testdata" || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")
 }
 
 func parseArgs(args []string) (options, error) {

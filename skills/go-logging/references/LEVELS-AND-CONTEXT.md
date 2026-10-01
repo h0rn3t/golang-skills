@@ -3,7 +3,7 @@
 > Sources: https://pkg.go.dev/log/slog; https://google.github.io/styleguide/go/best-practices#logging
 > Authority: advisory
 > Minimum Go: `log/slog` 1.21; `slog.NewMultiHandler` 1.26
-> Last verified: 2026-09-10
+> Last verified: 2026-10-01
 
 ## Contents
 
@@ -101,7 +101,7 @@ slog.Info("users loaded", "count", len(users))
 | User ID (opaque) | Yes | — |
 | HTTP method, path, status | Yes | — |
 | Error messages | Yes | — |
-| Passwords / tokens | **Never** | A secret type whose `LogValue` returns `[REDACTED]` ([go-logging](../SKILL.md#what-not-to-log)) |
+| Passwords / tokens | **Never** | A secret type whose `LogValue`, `String`, `GoString`, and `MarshalText` return `[REDACTED]` ([go-logging](../SKILL.md#what-not-to-log)) |
 | Full request body | **No** | Log content length and type |
 | PII (email, name) | **Avoid** | Log opaque user ID |
 | Large collections | **No** | Log count or summary |

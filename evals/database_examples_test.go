@@ -100,27 +100,38 @@ func TestMissingAccount(t *testing.T) {
 }
 
 // The real-database helper in go-testing's INTEGRATION.md skips without a DSN
-// and closes the pool it opened; a fake "pgx" driver stands in for the one the
-// module already imports. The file carries the integration build tag, so the
-// module is tested with it.
+// and closes the pool it opened. Its own blank import registers the driver in
+// the test binary: a local stub of github.com/jackc/pgx/v5/stdlib registers a
+// fake "pgx", and nothing else does, so a helper without that import fails with
+// "unknown driver". The file carries the integration build tag, so the module
+// is tested with it.
 func TestTestingExampleRealDatabaseHelper(t *testing.T) {
 	code := exampleBlock(t, "skills/go-testing/references/INTEGRATION.md", "## Real Databases")
 	dir := t.TempDir()
 	for name, content := range map[string]string{
-		"go.mod":     "module example\n\ngo 1.27\n",
-		"db_test.go": code,
-		"use_test.go": `//go:build integration
+		"go.mod":     "module example\n\ngo 1.27\n\nrequire github.com/jackc/pgx/v5 v5.0.0\n\nreplace github.com/jackc/pgx/v5 => ./pgx\n",
+		"pgx/go.mod": "module github.com/jackc/pgx/v5\n\ngo 1.27\n",
+		"pgx/stdlib/stdlib.go": `// Package stdlib stands in for pgx's database/sql adapter: it registers "pgx".
+package stdlib
 
-package store_test
-import ("database/sql"; "database/sql/driver"; "errors"; "testing")
-var closes int
+import ("database/sql"; "database/sql/driver"; "errors")
+
+// Closes counts the connections the pool closed.
+var Closes int
+
 type fakeDriver struct{}
 type fakeConn struct{}
 func (fakeDriver) Open(string) (driver.Conn, error) { return fakeConn{}, nil }
 func (fakeConn) Prepare(string) (driver.Stmt, error) { return nil, errors.New("unused") }
-func (fakeConn) Close() error { closes++; return nil }
+func (fakeConn) Close() error { Closes++; return nil }
 func (fakeConn) Begin() (driver.Tx, error) { return nil, errors.New("unused") }
 func init() { sql.Register("pgx", fakeDriver{}) }
+`,
+		"db_test.go": code,
+		"use_test.go": `//go:build integration
+
+package store_test
+import ("testing"; "github.com/jackc/pgx/v5/stdlib")
 func TestOpenTestDB(t *testing.T) {
  t.Run("unset", func(t *testing.T) {
   t.Setenv("TEST_DATABASE_URL", "")
@@ -131,11 +142,15 @@ func TestOpenTestDB(t *testing.T) {
   t.Setenv("TEST_DATABASE_URL", "fake")
   if openTestDB(t) == nil { t.Fatal("openTestDB returned nil") }
  })
- if closes != 1 { t.Errorf("connections closed after the subtests = %d, want 1", closes) }
+ if stdlib.Closes != 1 { t.Errorf("connections closed after the subtests = %d, want 1", stdlib.Closes) }
 }
 `,
 	} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -3,7 +3,7 @@
 > Sources: `go doc runtime`, `go doc runtime/pprof`, `go doc runtime/trace`, `go doc testing`; `$GOROOT/doc/godebug.md`; go.dev/doc/diagnostics; go.dev/doc/articles/race_detector; github.com/go-delve/delve docs
 > Authority: normative for flags and env vars; advisory for the workflows
 > Minimum Go: 1.27 baseline; per-item versions inline
-> Last verified: 2026-09-02; signal, profiling-cost, and memory-limit notes rechecked 2026-09-05; bisect and shuffle notes added 2026-09-18, rechecked with the race, GODEBUG, and vendor notes 2026-09-29
+> Last verified: 2026-10-01
 
 Commands to run, grouped by what they capture. Every example assumes
 an existing, access-controlled `net/http/pprof` listener on `127.0.0.1:6060`
@@ -57,10 +57,16 @@ finding for [go-security](../../go-security/SKILL.md).
 curl -fsS --max-time 10 'http://127.0.0.1:6060/debug/pprof/goroutine?debug=1' # grouped counts
 ```
 
-On `goroutineleak` (Go 1.27+), the plain endpoint returns a pprof profile for
-`go tool pprof`. Every read runs a leak-detecting GC cycle first, so
-`Profile.Count()` reports the last cycle's number and stays at zero until the
-profile has been read once — take the total from the output.
+The `goroutineleak` profile follows the toolchain that built the binary, not
+the `go` directive: Go 1.27 toolchain (1.26 needs
+`GOEXPERIMENT=goroutineleakprofile`; otherwise the endpoint answers 404
+`Unknown profile` and `pprof.Lookup` returns nil). `debug=1` lists leaked
+stacks only; `debug=2` falls back to dumping every goroutine, the leaked ones
+marked `(leaked)`; the plain endpoint returns a pprof profile for
+`go tool pprof`. Every read runs a leak-detecting GC cycle first, so capture it
+deliberately rather than scraping it on an interval, and `Profile.Count()`
+reports the last cycle's number and stays at zero until the profile has been
+read once — take the total from the output.
 
 Programmatic (requires existing instrumentation or an authorized code change):
 
@@ -69,8 +75,10 @@ buf := make([]byte, 1<<20)
 n := runtime.Stack(buf, true)            // true = all goroutines
 os.Stderr.Write(buf[:n])
 
-pprof.Lookup("goroutine").WriteTo(w, 2)      // same as ?debug=2, from inside the process
-pprof.Lookup("goroutineleak").WriteTo(w, 1)  // Go 1.27+: leaked goroutines only
+pprof.Lookup("goroutine").WriteTo(w, 2)  // same as ?debug=2, from inside the process
+if p := pprof.Lookup("goroutineleak"); p != nil { // nil on a 1.26 toolchain without the GOEXPERIMENT
+    p.WriteTo(w, 1)                      // leaked goroutines only
+}
 ```
 
 Grouping a `debug=2` dump by top frame:

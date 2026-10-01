@@ -12,3 +12,7 @@ type Widget struct{}
 func (this *Widget) GetName() string {
 	return ""
 }
+
+type Account struct{ order int }
+
+func (a *Account) GetOrder() int { return a.order }

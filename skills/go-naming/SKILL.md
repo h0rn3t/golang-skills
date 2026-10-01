@@ -22,8 +22,9 @@ grows with the distance between declaration and use. Go names are shorter
 than in most languages. The reader knows the conventions — MixedCaps,
 lowercase packages, `-er` interfaces, short consistent receivers, no `Get`
 prefix, initialisms in one case — so this skill carries the decisions and
-`references/` the rules. A package is a short, lowercase, singular noun;
-a layer directory is plural: `handlers`, `services`, `repositories`, `models`.
+`references/` the rules. A package name is short, lowercase, and a single
+word; layer directories take the plural layer names `handlers`, `services`,
+`repositories`, `models`.
 
 ---
 

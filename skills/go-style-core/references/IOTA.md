@@ -2,7 +2,7 @@
 
 > Sources: source/uber-go-style/style.md (Start Enums at One); source/google-go-styleguide/decisions.md (Constant naming)
 > Authority: advisory
-> Last verified: 2026-09-10
+> Last verified: 2026-10-01
 
 ## Start Enums at One
 
@@ -43,17 +43,20 @@ perms := Read | Write
 
 ## String Representation
 
-An enum whose values reach logs or `%v` output gets a generated `String()`.
-`stringer` comes from `golang.org/x/tools`, tracked by a `tool` directive
-(`go get -tool golang.org/x/tools/cmd/stringer`, Go 1.24) rather than a
-`tools.go` of blank imports; `go generate ./...` writes `operation_string.go`:
+An enum whose values reach logs or `%v` output gets a `String()`: generated
+by `stringer` where `go.mod` already tracks it
+(`tool golang.org/x/tools/cmd/stringer`) or the task asks for it; otherwise a
+hand-written switch, since `go get -tool` adds `golang.org/x/tools` to `go.mod`
+(a new module on the [dependency ladder](../../go-packages/SKILL.md#dependency-ladder)).
+The tracked tool (Go 1.24) replaces a `tools.go` of blank imports, and
+`go generate ./...` writes `operation_string.go`:
 
 ```go
 //go:generate go tool stringer -type=Operation
 type Operation int
 ```
 
-Write the switch by hand only when the text differs from the constant names.
+Write the switch by hand too when the text differs from the constant names.
 
 ## Grouping Rules
 

@@ -27,10 +27,10 @@ allowed-tools: Bash(bash:*)
 
 | Instead of | Use | Since |
 |---|---|---|
-| `context.Background()` in a test | `t.Context()` | 1.24 |
-| `httptest.NewServer` + `defer srv.Close()` | `httptest.NewTestServer(t, h)` — registers cleanup | 1.27 |
+| `context.Background()` in a test | `t.Context()`; work inside `t.Cleanup` uses `context.WithoutCancel(t.Context())`, since `t.Context()` is cancelled before cleanups run | 1.24 |
+| `httptest.NewServer` + `defer srv.Close()` | `httptest.NewTestServer(t, h)` — registers cleanup; only `srv.Client()` reaches it until `srv.Start()` (below) | 1.27 |
 | Real waits for timeout paths | `synctest.Sleep` inside a bubble (fake clock), from the test goroutine only: it calls `synctest.Wait`, which panics with `wait already in progress` when two goroutines reach it at once, so a goroutine the code under test starts sleeps with `time.Sleep` | 1.27 |
-| `fmt.Println` in a test | `t.Output()` — interleaves correctly under `-parallel` | 1.25 |
+| A logger or command under test writing to `os.Stdout`/`os.Stderr` | `slog.New(slog.NewTextHandler(t.Output(), nil))` — printed with its test, on failure or `-v`; a `fmt.Println` in the test itself is `t.Log` | 1.25 |
 | Ad-hoc temp dir for output to keep | `t.ArtifactDir()` with `go test -artifacts -outputdir=DIR` — otherwise removed after the test | 1.26 |
 
 ```go
@@ -51,8 +51,15 @@ func TestFetch(t *testing.T) {
 `synctest` bubble — and only `srv.Client()` reaches it. Its `srv.URL` is
 `http://example.com` (empty until the first `Client()` call starts the server),
 so code that builds its own client from that URL talks to the real
-example.com instead of the handler. When the code under test cannot be handed
-an `*http.Client`, keep `httptest.NewServer`.
+example.com instead of the handler. When the code under test dials `srv.URL`
+with a client of its own, `srv.Start()` puts the same server on loopback and
+keeps the registered cleanup and the handler-panic failure:
+
+```go
+srv := httptest.NewTestServer(t, http.HandlerFunc(handle))
+srv.Start() // FetchURL builds its own client: listen on 127.0.0.1
+got, err := FetchURL(t.Context(), srv.URL)
+```
 
 Inside a `synctest.Test` bubble the clock is fake and starts at 2000-01-01 UTC;
 time advances only when every goroutine in the bubble is durably blocked. That
@@ -173,7 +180,7 @@ if gotErr := err != nil; gotErr != tt.wantErr {
 
 ## Related Skills
 
-- [go-error-handling](../go-error-handling/SKILL.md): `errors.Is`/`errors.AsType` and sentinels under test.
-- [go-interfaces](../go-interfaces/SKILL.md): test doubles implemented at the consumer side.
-- [go-naming](../go-naming/SKILL.md): test, subtest, and helper names.
+- [go-error-handling](../go-error-handling/SKILL.md): designing the sentinels and error types a test matches.
+- [go-interfaces](../go-interfaces/SKILL.md): test doubles implemented at the consumer side; their names are [TEST-ORGANIZATION.md](references/TEST-ORGANIZATION.md#test-double-naming-conventions)'s.
+- [go-naming](../go-naming/SKILL.md): the identifiers a test declares.
 - [go-linting](../go-linting/SKILL.md): linters alongside tests in CI.

@@ -1,7 +1,7 @@
 > Sources: https://pkg.go.dev/database/sql; https://go.dev/doc/database; https://pkg.go.dev/github.com/jackc/pgx/v5
 > Authority: advisory
 > Minimum Go: 1.22 for `sql.Null[T]`
-> Last verified: 2026-09-01 against go1.27.0
+> Last verified: 2026-10-01 against go1.27.1
 
 # SQL Patterns
 
@@ -13,7 +13,7 @@ func openDB(ctx context.Context, dsn string) (*sql.DB, error) {
     if err != nil {
         return nil, fmt.Errorf("open db: %w", err)
     }
-    db.SetMaxOpenConns(25)
+    db.SetMaxOpenConns(25) // max_connections minus headroom, divided by the processes sharing the server
     db.SetMaxIdleConns(25)
     db.SetConnMaxLifetime(30 * time.Minute)
     db.SetConnMaxIdleTime(5 * time.Minute)

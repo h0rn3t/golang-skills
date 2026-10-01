@@ -3,7 +3,7 @@
 > Sources: `os/exec`, `html/template`, `net/netip`, `net/url` package docs; OWASP Go-SCP
 > Authority: normative for the stdlib defenses; advisory for the allowlist shapes
 > Minimum Go: 1.24 for `os.Root`; everything else long-standing
-> Last verified: 2026-09-29
+> Last verified: 2026-10-01
 
 ## Contents
 
@@ -72,7 +72,7 @@ exec.Command("sh", "-c", "convert "+name+" out.png")
 exec.Command(r.FormValue("tool"), "--version")
 
 // ✓ Good — fixed program, input is data, "--" stops option parsing
-cmd := exec.CommandContext(ctx, "gzip", "--keep", "--", name)
+cmd := exec.CommandContext(ctx, "gzip", "--keep", "--", name) //nolint:gosec // G204: fixed program, argv, "--" before input
 cmd.Env = []string{"PATH=/usr/bin"} // do not inherit secrets from os.Environ()
 ```
 
@@ -121,12 +121,11 @@ w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[str
 
 [go-defensive](../../go-defensive/SKILL.md#confine-filesystem-access) owns
 the `os.Root` form, the archive loop, and `filepath.IsLocal`. The threat-model
-half: a lexical check does not confine a path. `filepath.Clean` keeps a
-leading `..`, so `filepath.Join(base, filepath.Clean("../../etc/passwd"))` is
-`/etc/passwd`, and no lexical check (`strings.Contains(p, "..")`,
-`filepath.IsLocal`) sees a symlink inside `base` that points outside it.
-`os.OpenRoot` resolves every component inside the directory, so those cases
-return an error instead of a file.
+half: a lexical check does not confine a path. No lexical check
+(`filepath.Clean`, `strings.Contains(p, "..")`, `filepath.IsLocal`) sees a
+symlink inside the directory that points outside it. `os.OpenRoot` resolves
+every component inside the directory, so a `..` escape and an escaping
+symlink return an error instead of a file.
 
 One more sink:
 
@@ -146,11 +145,29 @@ syntax, not intent.
 
 Where the set of legitimate hosts is known, an **allowlist of hostnames** is
 the defense. It matches whole labels, and every URL the handler fetches goes
-through it — a second URL derived from the same record is the same input:
+through it — a redirect target, and a second URL derived from the same record,
+are the same input:
 
 ```go
 func allowedHost(host, domain string) bool {
     return host == domain || strings.HasSuffix(host, "."+domain)
+}
+
+// partnerClient re-checks every redirect: an open redirect on an allowed host
+// would otherwise reach any address.
+func partnerClient(domain string) *http.Client {
+    return &http.Client{
+        Timeout: 10 * time.Second,
+        CheckRedirect: func(req *http.Request, via []*http.Request) error {
+            if len(via) >= 10 { // a custom CheckRedirect replaces the default 10-hop cap
+                return fmt.Errorf("stopped after %d redirects", len(via))
+            }
+            if !allowedHost(req.URL.Hostname(), domain) {
+                return fmt.Errorf("redirect to %s: host not allowlisted", req.URL.Host)
+            }
+            return nil
+        },
+    }
 }
 ```
 

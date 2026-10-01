@@ -39,6 +39,7 @@ linters:
         - (*database/sql.Tx).Rollback
         - (io.ReadCloser).Close
     revive:
+      # Only the rules listed here run: a rules list replaces revive's defaults.
       rules:
         # go-documentation: imported API only; internal/ and cmd/ are excluded below
         - name: exported

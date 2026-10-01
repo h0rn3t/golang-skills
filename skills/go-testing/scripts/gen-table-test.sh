@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 
 usage() {
@@ -15,12 +15,15 @@ DESCRIPTION
     Outputs a table-driven test file for the given function and package.
     By default writes to stdout; use --output to write to a file.
 
-    Exits 0 on success, 2 on error.
+    Exits 0 on success, 2 on a usage error (a missing --output value, an
+    extra argument, an invalid name) or an existing --output file without
+    --force.
 
 OPTIONS
     -h, --help           Show this help message
     -v, --version        Show version
-    --output FILE        Write to FILE instead of stdout
+    --output FILE        Write to FILE instead of stdout; a FILE that starts
+                         with "-" takes a "./" prefix
     --force              Allow --output to overwrite an existing file
     --parallel           Include t.Parallel() in generated test
     --json               Output structured JSON metadata to stdout; without
@@ -40,14 +43,28 @@ EXAMPLES
 EOF
 }
 
+# json_escape escapes a string for a JSON string literal: backslash, quote, and
+# every control character below 0x20 (a bash string cannot hold 0x00).
 json_escape() {
-    local s="$1"
+    local s="$1" out="" c code i
     s="${s//\\/\\\\}"
     s="${s//\"/\\\"}"
-    s="${s//$'\t'/\\t}"
-    s="${s//$'\r'/}"
-    s="${s//$'\n'/\\n}"
-    printf '%s' "$s"
+    for (( i = 0; i < ${#s}; i++ )); do
+        c="${s:i:1}"
+        case "$c" in
+            $'\t') out+='\t' ;;
+            $'\n') out+='\n' ;;
+            $'\r') out+='\r' ;;
+            *)
+                printf -v code '%d' "'$c"
+                if (( code < 32 )); then
+                    printf -v c '\\u%04x' "$code"
+                fi
+                out+="$c"
+                ;;
+        esac
+    done
+    printf '%s' "$out"
 }
 
 OUTPUT=""
@@ -60,7 +77,12 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help)    usage; exit 0 ;;
         -v|--version) echo "$SCRIPT_NAME v$VERSION"; exit 0 ;;
-        --output)     OUTPUT="${2:?error: --output requires a file path}"; shift 2 ;;
+        --output)
+            if [[ $# -lt 2 || "$2" == -* ]]; then
+                echo "error: --output requires a file path" >&2
+                exit 2
+            fi
+            OUTPUT="$2"; shift 2 ;;
         --force)      FORCE=true; shift ;;
         --parallel)   PARALLEL=true; shift ;;
         --json)       JSON_OUTPUT=true; shift ;;
@@ -71,6 +93,12 @@ done
 
 if [[ ${#POSITIONAL[@]} -lt 2 ]]; then
     echo "error: FuncName and package are required" >&2
+    usage >&2
+    exit 2
+fi
+
+if [[ ${#POSITIONAL[@]} -gt 2 ]]; then
+    echo "error: unexpected argument: ${POSITIONAL[2]}" >&2
     usage >&2
     exit 2
 fi
@@ -131,7 +159,7 @@ EOF
 }
 
 if [[ -n "$OUTPUT" ]]; then
-    OUTPUT_DIR="$(dirname "$OUTPUT")"
+    OUTPUT_DIR="$(dirname -- "$OUTPUT")"
     if [[ ! -d "$OUTPUT_DIR" ]]; then
         echo "error: directory '$OUTPUT_DIR' does not exist" >&2
         exit 2

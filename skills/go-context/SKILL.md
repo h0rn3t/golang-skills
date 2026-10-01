@@ -75,6 +75,6 @@ its own timeout.
 
 - [go-resilience](../go-resilience/SKILL.md): total and attempt time budgets, cancellation-aware backoff, durable retry ownership.
 - [go-concurrency](../go-concurrency/SKILL.md): goroutine cancellation, select timeouts, errgroup.
-- [go-error-handling](../go-error-handling/SKILL.md): wrapping or returning `ctx.Err()`.
+- Returning `ctx.Err()` or `context.Cause(ctx)`: [Cancellation With a Reason](#cancellation-with-a-reason) above.
 - [go-interfaces](../go-interfaces/SKILL.md): APIs that take context alongside interfaces.
 - [go-logging](../go-logging/SKILL.md): loggers and request IDs carried in context.

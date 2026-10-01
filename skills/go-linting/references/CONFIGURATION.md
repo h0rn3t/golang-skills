@@ -2,11 +2,11 @@
 
 > Sources: golangci-lint v2 configuration schema and linter catalogue; source/uber-go-style/style.md (Linting); GitHub Actions docs; `go help testflag`
 > Authority: project policy for the baseline config and the CI pipeline shape; tool behavior follows golangci-lint 2.13.2 and go1.27.1
-> Last verified: 2026-09-30
+> Last verified: 2026-10-01
 
 ## Setup Procedure
 
-1. Create `.golangci.yml` with `scripts/setup-lint.sh` or copy `assets/golangci.yml`
+1. Create `.golangci.yml` from the target module with `bash <installed-skill-dir>/scripts/setup-lint.sh`, or copy `assets/golangci.yml`
 2. `golangci-lint config verify --config .golangci.yml` — validate the schema first
 3. `golangci-lint run ./...`
 4. Fix category by category (formatting, vet, style); re-run until clean
@@ -27,9 +27,14 @@ teach instead of leaving it to review attention; the comments in
 
 Opt-in, not in the baseline: `contextcheck` (context lost mid-chain; noisy on
 deliberate breaks) and `testifylint` (only in repositories that use testify).
-Left off after a noise check on five codebases: `revive`'s `unused-parameter`,
-which fires on the `w, r` a handler type fixes, and `iface`'s `unused` and
-`identical`, which fire on exported interfaces a library offers its callers.
+`revive` runs only the rules listed under `settings.revive.rules`: a rules list
+replaces revive's default set, so its other defaults — `context-as-argument`,
+`package-comments`, `unexported-return`, and `blank-imports` among them — do
+not run in the baseline (staticcheck covers dot imports, error-return order,
+`errors.New(fmt.Sprintf(...))`, and built-in context-key types). Left out after
+a noise check on five codebases: `revive`'s `unused-parameter`, which fires on
+the `w, r` a handler type fixes, and `iface`'s `unused` and `identical`, which
+fire on exported interfaces a library offers its callers.
 Left off because it contradicts a skill: `prealloc`, which reports every
 `var out []T` filled by `append` in a loop, hot path or not, and whose fix
 turns a nil result (`null` under `encoding/json` v1) into an empty one —

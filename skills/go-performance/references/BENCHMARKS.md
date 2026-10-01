@@ -3,7 +3,7 @@
 > Sources: https://pkg.go.dev/testing#hdr-Benchmarks; https://pkg.go.dev/golang.org/x/perf/cmd/benchstat
 > Authority: advisory; `testing.B` semantics normative
 > Minimum Go: `b.Loop` 1.24
-> Last verified: 2026-09-29
+> Last verified: 2026-10-01
 
 ## Contents
 
@@ -72,9 +72,13 @@ func BenchmarkConvert(b *testing.B) {
 ## Using benchstat for Comparison
 
 ```bash
-go install golang.org/x/perf/cmd/benchstat@latest
-benchstat old.txt new.txt
+go get -tool golang.org/x/perf/cmd/benchstat@latest   # pinned in go.mod, per go-packages
+go tool benchstat old.txt new.txt
 ```
+
+`bench-compare.sh` runs `go tool benchstat` when `go.mod` declares the tool,
+otherwise a `benchstat` on `PATH`; with neither it prints raw lines and says
+the comparison was skipped.
 
 ### Interpreting benchstat Output
 

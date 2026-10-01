@@ -126,7 +126,7 @@ git pull
 rm -rf ~/.claude/skills/go-* && cp -R skills/go-* ~/.claude/skills/
 ```
 
-For Codex, use `~/.agents/skills/` as the target directory.
+For Codex, use `~/.codex/skills/` (the global path in the table above) or the project's `.agents/skills/` as the target directory.
 
 ## Project Instructions
 

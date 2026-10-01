@@ -2,7 +2,7 @@
 
 > Sources: source/effective-go/effective_go.html (Panic, Recover); source/uber-go-style/style.md (Do not Panic)
 > Authority: advisory
-> Last verified: 2026-09-29
+> Last verified: 2026-10-01
 
 ## Panic Guidelines
 
@@ -94,3 +94,46 @@ func Parse(in string) (_ *Node, err error) {
 
 **Key**: The type check `p.(*syntaxError)` ensures only *our* panics are caught.
 Unexpected panics (nil pointer, etc.) propagate normally.
+
+## Recover in Goroutines and Middleware
+
+`net/http` recovers a handler's panic, logs it, and closes the connection; a
+goroutine you start is outside that, and its panic ends the process unless its
+own deferred function recovers. `recover` returns nil unless the deferred
+function calls it directly: `defer handlePanic()` works, a closure that calls
+`handlePanic()` does not.
+
+```go
+go func() {
+    defer func() {
+        if p := recover(); p != nil {
+            logger.Error("worker panic", "panic", p, "stack", string(debug.Stack()))
+        }
+    }()
+    work(ctx)
+}()
+```
+
+A recovery middleware re-panics `http.ErrAbortHandler`.
+`httputil.ReverseProxy` panics with it when the backend body fails mid-copy;
+a middleware that swallows it and writes a 500 hands the client a truncated
+body that reads as a complete response:
+
+```go
+func recoverer(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        defer func() {
+            p := recover()
+            if p == nil {
+                return
+            }
+            if err, ok := p.(error); ok && errors.Is(err, http.ErrAbortHandler) {
+                panic(p) // keep the abort: the client must see a broken response
+            }
+            slog.ErrorContext(r.Context(), "handler panic", "panic", p, "stack", string(debug.Stack()))
+            http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+        }()
+        next.ServeHTTP(w, r)
+    })
+}
+```

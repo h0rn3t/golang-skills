@@ -4,6 +4,138 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+Corrections from a content review of all 24 skills on 1.28.1. Eight reviewers
+checked every claim against go1.27.1 (some also against go1.25 and go1.26) and
+golangci-lint 2.13.2. This release carries only the corrections that need no
+model measurement: wrong facts, examples that teach the wrong code, script
+bugs, broken routes, and stale docs. Wording meant to change model behavior
+waits for `abrun`: the Contract Table and go-testing scope, Declaration Budget
+against gocyclo, crutch cuts, descriptions, and the subagent note.
+
+- **Examples that taught wrong code.**
+  - go-logging's redaction form leaked a secret held in a struct field, a
+    slice, `%#v`, JSON, or an error string. slog calls `LogValue` only on an
+    attribute's own value. The secret type now also implements `String`,
+    `GoString`, and `MarshalText`, and go-security routes to it.
+  - go-database's transfer locked rows in call order, so two opposite
+    transfers deadlocked. It now locks with `SELECT … ORDER BY id FOR UPDATE`.
+  - The INTEGRATION.md database helper had no driver import, so it failed in
+    integration CI with `unknown driver "pgx"`.
+  - go-context's keys shared one empty struct type, so a second key equalled
+    the first.
+  - The buffer pool returned bytes that the next `getBuffer` overwrote.
+  - The architecture fixture rolled back only when a named `err` was set.
+  - The doc template deferred `Close` on a written file.
+- **JSON v2 leftovers.**
+  - Delete Pass no longer calls `json.Marshal` of a built document infallible.
+    v2 fails on invalid UTF-8 and on `time.Duration`, and returns partial
+    bytes with the error.
+  - go-http's and go-context's handlers marshal before `WriteHeader`.
+  - MODERNIZATION.md files the default `go fix` `omitzero` hunk as Tier 2.
+    Under v2 it changes the wire (`{"id":1}` → `{"id":1,"inner":{}}`).
+  - JSON-V2.md's migration table gains the string-tag, HTML-escaping,
+    pointer-receiver `MarshalJSON`, and `[N]byte` rows.
+  - go-data-structures notes that `slices.Concat` returns nil, and covers nil
+    maps.
+- **Idiom card exceptions.**
+  - `slices.Max`/`Min` panic on an empty slice.
+  - `Reverse`/`Compact` edit in place.
+  - `AfterFunc` gets two rows. `defer stop()` deregisters cleanup that must
+    outlive the function.
+  - `time.Tick` returns nil for `d <= 0`.
+  - New `math/rand/v2` row: `Seed` is a no-op since 1.24.
+  - `httptest.NewTestServer` is reached only through `srv.Client()`. Its URL
+    is `http://example.com`, and `srv.Start()` gives loopback.
+  - Write Current Go gains the explicit-instruction exit, and separates
+    language gating from `stdversion`.
+- **Edit hook record.** A check is `pass (hook)` only once the hook has
+  printed it. Tests run `-short` without `-race`. Output covers the package,
+  and pre-existing findings are reported, not fixed.
+- **MODERNIZATION.md.**
+  - `err == X` → `errors.Is` is Tier 2 when nothing wraps X.
+  - Redundant type arguments apply only at a `go 1.27` directive.
+  - A directive bump diffs `DefaultGODEBUG`.
+  - The rand row is split three ways.
+  - `x := x` deletion is safe in range loops.
+  - Tool commands are corrected: `go fix -fixtool`, `deadcode -test`,
+    `goimports` on touched files.
+- **Security.**
+  - The SSRF allowlist re-checks every redirect.
+  - X-Forwarded-For reads all header lines.
+  - JWT checks `iss`, `aud`, and a required `exp`; `kid` chooses only among
+    keys the server holds.
+  - `crypto/hpke` (Go 1.26) replaces hand-built KEMs.
+  - The gosec directives sit on the G404 and G204 example lines.
+  - PANIC-RECOVER.md gains the goroutine and middleware forms, and the
+    middleware re-panics `http.ErrAbortHandler`.
+- **Other content fixes.**
+  - Fixed facts:
+    - synctest fails only on durably blocked goroutines.
+    - `goroutineleak` is nil on a 1.26 toolchain.
+    - `OnceValues` caches the error.
+    - Printf wrappers use vet's marker, and vet reports non-constant format
+      strings.
+    - `t.Output()` versus `t.Log`.
+    - Package names are single words, not singular nouns.
+    - The float and time pitfalls are corrected.
+  - New forms:
+    - the slog context handler that survives `With`;
+    - the `r.Pattern` route label;
+    - transport tuning on a `DefaultTransport` clone;
+    - pool sizing per process;
+    - pgx native rules.
+  - Lint and logging:
+    - The gate lints with the bundled config when the repository has none.
+    - CONFIGURATION.md states that a revive rules list replaces revive's
+      defaults.
+    - The house-style exception to "use slog" is restored.
+  - Routes:
+    - `Related Skills` loops are broken.
+    - Routes that pointed at sections that do not exist are fixed.
+    - Duplicated rows are cut from OVER-ENGINEERING.md's reach-for table.
+- **Scripts.**
+  - All five AST wrappers build their helper outside the target project, with
+    the toolchain the project selects (else the local one). They key the cache
+    on that `GOVERSION` and exit 2 when the helper does not build. A helper
+    cached under 1.26 used to reject 1.27 generic methods.
+  - check-errors, check-interface-compliance, check-naming, check-docs, and
+    verify-refactor skip vendor, testdata, `.`/`_` directories, and generated
+    files.
+  - check-errors reports a file that does not parse as `parse_error` and
+    finds more string-matching and logger forms.
+  - check-interface-compliance resolves module packages through
+    `go list -export`, which removes a false "implemented" verdict. It matches
+    generic interfaces and emits `[]`, not `null`.
+  - check-docs counts a comment that holds only directives or only
+    `Deprecated:` as missing.
+  - check-naming fixes the getter exception boundary.
+  - setup-lint no longer writes beside an existing `.golangci.yaml/.toml/.json`.
+  - pre-review gains `--new-from-rev` and reports which config ran.
+  - bench-compare uses `go tool benchstat` and never saves a failed run.
+  - check-debt splits adjacent `Kept:` markers.
+  - check-architecture treats `--limit 0` as unlimited.
+  - verify-refactor's result directory carries a `.gitignore`.
+  - Usage errors exit 2, and control characters are escaped in JSON.
+  - Script paths in SKILL.md are written as `<installed-skill-dir>/…`, run
+    from the project.
+- **Hooks and evals.**
+  - The prompt hook sends "readable", "split", "extract", and over-engineering
+    prompts to go-code-refactor. `implement` counts only as a verb. A
+    translation or copy-edit prompt gets no note.
+  - The gate no longer requires an owner for `interface{}`, `unsafe.`,
+    `sha256`, or `StatusCode`, and its dead branch is gone.
+  - Six stale trigger-eval labels are corrected (#3, #45–47, #50, #68); the
+    count is unchanged.
+- **Docs.**
+  - PROJECT_INSTRUCTIONS no longer describes the removed card Read, and names
+    opencode.
+  - RULE_OWNERSHIP drops 26 stale route-from names and adds rows for
+    generics, receiver type, nil versus empty, and the review procedure.
+  - COMPATIBILITY.md is corrected for NewTestServer, `t.Output`, hpke, and
+    `math/rand/v2`.
+  - RELEASE_CHECKLIST runs `-race -shuffle=on` and `bash -n hooks/*.sh`.
+  - The Codex manual-install path matches the README table.
+
 ## [1.28.1] - 2026-10-01
 
 - The `fetch` implement fixture's golden partner fills `resp.Status`

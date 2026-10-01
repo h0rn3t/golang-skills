@@ -3,7 +3,7 @@
 > Sources: https://go.dev/doc/jsonv2-migration; `go doc encoding/json/v2`; `go doc encoding/json.DefaultOptionsV1`
 > Authority: advisory for API choice; package documentation for semantics
 > Minimum Go: 1.27
-> Last verified: 2026-09-10 against go1.27.1
+> Last verified: 2026-10-01 against go1.27.1
 
 Use `encoding/json/v2` for new code when its semantics fit the contract.
 Preserve existing wire formats when refactoring. An import change can compile
@@ -54,12 +54,18 @@ the complete-buffer approach in [go-http](../SKILL.md#bounded-response-bodies).
 | Area | v2 default | Compatibility option when required |
 |---|---|---|
 | Nil non-byte slices and maps | `[]` and `{}` | `FormatNilSliceAsNull(true)`, `FormatNilMapAsNull(true)` |
-| Struct field matching | Case-sensitive | `MatchCaseInsensitiveNames(true)` |
+| Struct field matching | Case-sensitive | `MatchCaseInsensitiveNames(true)` with `jsonv1.MatchCaseSensitiveDelimiter(true)`: the first alone also ignores `_` and `-`, so `user_id` fills `UserID`, which v1 rejects |
 | Unknown object members | Ignored | `RejectUnknownMembers(true)` to reject them |
-| Duplicate names and invalid UTF-8 | Rejected | Preserve legacy acceptance only when required by the existing contract |
+| Duplicate names and invalid UTF-8 | Rejected | `jsontext.AllowDuplicateNames(true)`, `jsontext.AllowInvalidUTF8(true)`, only when the existing contract accepts them |
 | Map order | Unspecified | `Deterministic(true)` for sorted keys |
 | `omitempty` | Omits empty JSON values, not Go zero numbers/bools | Review tags; use `omitzero` when Go zero values are intended |
 | `time.Duration` | No default representation: marshal and unmarshal fail with a `SemanticError` | `jsonv1.FormatDurationAsNano(true)` restores v1 nanoseconds; a new field takes a wire form from [go-defensive](../../go-defensive/references/TIME-ENUMS-TAGS.md#json-fields) |
+| `string` option on a string or bool field | Runtime `SemanticError` (invalid use of `string` tag option) | `jsonv1.StringifyWithLegacySemantics(true)`, or drop the option |
+| `<`, `>`, `&` in strings | Written as is; v1 writes `\u003c`, `\u003e`, `\u0026` | `jsontext.EscapeForHTML(true)` |
+| `MarshalJSON` on a pointer receiver | Called on non-addressable values too, where v1 skipped it | `jsonv1.CallMethodsWithLegacySemantics(true)` |
+| `[N]byte` arrays | Base64 string; v1 writes an array of numbers | `jsonv1.FormatByteArrayAsArray(true)` |
+
+`go doc encoding/json` ("Migrating to v2") lists every difference and its option.
 
 For staged migration, import `jsonv1 "encoding/json"` and
 `json "encoding/json/v2"`:

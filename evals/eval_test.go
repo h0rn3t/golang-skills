@@ -529,18 +529,21 @@ func TestScriptFunctional(t *testing.T) {
 		if err := json.Unmarshal(out, &result); err != nil {
 			t.Fatalf("parse JSON: %v\n%s", err, out)
 		}
-		if result.Total != 5 {
-			t.Fatalf("expected exactly 5 naming violations, got %d\n%s", result.Total, out)
+		if result.Total != 6 {
+			t.Fatalf("expected exactly 6 naming violations, got %d\n%s", result.Total, out)
 		}
 		requireFinding(t, result.Violations, "evals/fixtures/naming/violations.go", 1, "bad-package-name", "too generic")
 		requireFinding(t, result.Violations, "evals/fixtures/naming/violations.go", 3, "screaming-const", "BAD_NAME")
 		requireFinding(t, result.Violations, "evals/fixtures/naming/violations.go", 6, "screaming-const", "ALSO_BAD")
 		requireFinding(t, result.Violations, "evals/fixtures/naming/violations.go", 12, "get-prefix", "GetName")
 		requireFinding(t, result.Violations, "evals/fixtures/naming/violations.go", 12, "bad-receiver", "this")
+		// "Or" opens the accessor's name here, not a word of its own as in GetOrDefault.
+		requireFinding(t, result.Violations, "evals/fixtures/naming/violations.go", 18, "get-prefix", "GetOrder")
 
 		// The clean tree also holds a Get method with parameters (a lookup,
-		// not an accessor) and violations under testdata/ and _draft/, which
-		// go ./... skips and so must the script.
+		// not an accessor), a generated file whose protoc-style getter and
+		// enum constant are not the author's to rename, and violations under
+		// testdata/ and _draft/, which go ./... skips and so must the script.
 		clean := filepath.Join(fixturesDir, "naming", "clean")
 		out = runCommand(t, 0, "bash", script, "--json", clean)
 		var cleanResult struct {
@@ -622,6 +625,8 @@ func TestScriptFunctional(t *testing.T) {
 			t.Fatalf("path-before-flag --json output is not valid JSON:\n%s", out)
 		}
 
+		// The documented package also holds an sqlc-style generated file with
+		// undocumented exported names, which the gate skips and so must the script.
 		documented := filepath.Join(fixturesDir, "docs", "documented")
 		out = runCommand(t, 0, "bash", script, "--json", documented)
 		var cleanResult struct {
@@ -683,6 +688,24 @@ func TestScriptFunctional(t *testing.T) {
 		}
 		requireDocMissing(t, methodsResult.Missing, "evals/fixtures/docs/methods/methods.go", 19, "function", "New")
 		requireDocMissing(t, methodsResult.Missing, "evals/fixtures/docs/methods/methods.go", 23, "method", "MarshalJSON")
+
+		// revive exported reads a comment that holds only a Deprecated:
+		// paragraph or only a directive as missing, and a copyright header on
+		// the package clause is not a package comment.
+		out = runCommand(t, 1, "bash", script, "--json", filepath.Join(fixturesDir, "docs", "doconly"))
+		var docOnlyResult struct {
+			Missing []jsonFinding `json:"missing"`
+			Total   int           `json:"total"`
+		}
+		if err := json.Unmarshal(out, &docOnlyResult); err != nil {
+			t.Fatalf("parse doconly docs JSON: %v\n%s", err, out)
+		}
+		if docOnlyResult.Total != 3 {
+			t.Fatalf("header, Deprecated-only, and directive-only comments should be 3 findings, got %d\n%s", docOnlyResult.Total, out)
+		}
+		requireDocMissing(t, docOnlyResult.Missing, "evals/fixtures/docs/doconly/doconly.go", 2, "package", "doconly")
+		requireDocMissing(t, docOnlyResult.Missing, "evals/fixtures/docs/doconly/doconly.go", 5, "function", "Old")
+		requireDocMissing(t, docOnlyResult.Missing, "evals/fixtures/docs/doconly/doconly.go", 8, "function", "Directive")
 
 		malformedDir := t.TempDir()
 		malformed := filepath.Join(malformedDir, "bad.go")
@@ -867,6 +890,79 @@ func TestScriptFunctional(t *testing.T) {
 		if emptyResult.Total != 0 || emptyResult.Truncated || emptyResult.Status != "no_go_files" {
 			t.Fatalf("unexpected no-Go errors result: %#v\n%s", emptyResult, out)
 		}
+
+		// Text matching beyond == on a literal, logger chains, and the walk:
+		// testdata, "_" and "." directories, and generated files are skipped as
+		// go ./... skips them, and a file that does not parse is reported while
+		// the rest are still checked.
+		walkDir := t.TempDir()
+		forms := "package forms\n\nimport (\n\t\"fmt\"\n\t\"log/slog\"\n\t\"strings\"\n)\n\n" +
+			"const notFoundMsg = \"not found\"\n\ntype svc struct{ logger *slog.Logger }\n\n" +
+			"type response struct{}\n\nfunc (response) Error() any { return nil }\n\n" +
+			"func Switch(err error) int {\n\tswitch err.Error() { // switch\n\tcase \"not found\":\n\t\treturn 404\n\t}\n\treturn 500\n}\n\n" +
+			"func Prefix(err error) bool { return strings.HasPrefix(err.Error(), \"dial\") } // prefix\n\n" +
+			"func Const(err error) bool { return err.Error() == notFoundMsg } // const\n\n" +
+			"func Value(r response) bool { return r.Error() != nil } // value\n\n" +
+			"func (s *svc) Chain(err error) error {\n\tif err != nil {\n\t\ts.logger.With(\"op\", \"chain\").Error(\"chain\", \"err\", err) // chain\n\t\treturn err\n\t}\n\treturn nil\n}\n\n" +
+			"func Short(l *slog.Logger, err error) error {\n\tif err != nil {\n\t\tl.Error(\"short\", \"err\", err) // short\n\t\treturn fmt.Errorf(\"short: %w\", err)\n\t}\n\treturn nil\n}\n"
+		lineOf := func(marker string) int {
+			before, _, ok := strings.Cut(forms, "// "+marker+"\n")
+			if !ok {
+				t.Fatalf("forms fixture has no %q marker", marker)
+			}
+			return strings.Count(before, "\n") + 1
+		}
+		skipped := "package skipped\n\nfunc f(err error) bool { return err.Error() == \"x\" }\n"
+		for name, content := range map[string]string{
+			"forms.go":           forms,
+			"broken.go":          "package forms\n\nfunc Broken( {\n",
+			"gen.go":             "// Code generated by mockgen. DO NOT EDIT.\n\n" + skipped,
+			"testdata/found.go":  skipped,
+			"testdata/bad.go":    "package bad\n\nfunc (\n",
+			"_examples/found.go": skipped,
+			".hidden/found.go":   skipped,
+		} {
+			path := filepath.Join(walkDir, filepath.FromSlash(name))
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatalf("mkdir for %s: %v", name, err)
+			}
+			if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+				t.Fatalf("write %s: %v", name, err)
+			}
+		}
+		out = runCommandStdout(t, 2, "bash", script, "--json", walkDir)
+		var walkResult struct {
+			Findings    []jsonFinding `json:"findings"`
+			Total       int           `json:"total"`
+			Status      string        `json:"status"`
+			ParseErrors []struct {
+				File string `json:"file"`
+			} `json:"parse_errors"`
+		}
+		if err := json.Unmarshal(out, &walkResult); err != nil {
+			t.Fatalf("parse walk JSON: %v\n%s", err, out)
+		}
+		if walkResult.Total != 5 || walkResult.Status != "parse_error" || len(walkResult.ParseErrors) != 1 || !strings.HasSuffix(walkResult.ParseErrors[0].File, "broken.go") {
+			t.Fatalf("want 5 findings in forms.go and broken.go as the one parse error, got %#v\n%s", walkResult, out)
+		}
+		requireFinding(t, walkResult.Findings, "forms.go", lineOf("switch"), "string-error-compare", "switching on err.Error()")
+		requireFinding(t, walkResult.Findings, "forms.go", lineOf("prefix"), "string-error-compare", "strings.HasPrefix")
+		requireFinding(t, walkResult.Findings, "forms.go", lineOf("const"), "string-error-compare", "comparing err.Error()")
+		requireFinding(t, walkResult.Findings, "forms.go", lineOf("chain"), "log-and-return", "logged")
+		requireFinding(t, walkResult.Findings, "forms.go", lineOf("short"), "log-and-return", "logged")
+
+		// The helper builds outside the target module: a target whose go.mod
+		// does not parse still gets its findings, with a fresh helper cache.
+		brokenMod := t.TempDir()
+		for name, content := range map[string]string{
+			"go.mod": "module broken\n\ngo 1.27\n\nrequire (\n",
+			"p.go":   "package p\n\nimport \"log\"\n\nfunc f(err error) error {\n\tif err != nil {\n\t\tlog.Printf(\"f: %v\", err)\n\t\treturn err\n\t}\n\treturn nil\n}\n",
+		} {
+			if err := os.WriteFile(filepath.Join(brokenMod, name), []byte(content), 0o644); err != nil {
+				t.Fatalf("write %s: %v", name, err)
+			}
+		}
+		runCommandInDir(t, brokenMod, 1, "env", "XDG_CACHE_HOME="+t.TempDir(), "bash", script, "--json", ".")
 	})
 
 	t.Run("CheckInterfaceCompliance", func(t *testing.T) {
@@ -894,13 +990,44 @@ func TestScriptFunctional(t *testing.T) {
 		goodDir := filepath.Join(fixturesDir, "interfaces", "good")
 		out = runCommand(t, 0, "bash", script, "--json", goodDir)
 		var goodResult struct {
-			CountMissing int `json:"count_missing"`
+			CountInterfaces int `json:"count_interfaces"`
+			CountMissing    int `json:"count_missing"`
 		}
 		if err := json.Unmarshal(out, &goodResult); err != nil {
 			t.Fatalf("parse good JSON: %v\n%s", err, out)
 		}
 		if goodResult.CountMissing != 0 {
 			t.Fatalf("all-good interface fixture produced %d missing checks\n%s", goodResult.CountMissing, out)
+		}
+		// good/ also holds a generated file, a _draft directory, and a testdata
+		// file that does not parse; like go ./..., the script reads none of them.
+		if goodResult.CountInterfaces != 1 {
+			t.Fatalf("good fixture should list only good.go's interface, got %d\n%s", goodResult.CountInterfaces, out)
+		}
+
+		// Imports of the module's own packages resolve: a method returning
+		// model.Other does not implement an interface that wants model.Item, and
+		// the correctly implemented Store is still the returned_by case. A
+		// generic interface is matched through the instantiation the package
+		// returns.
+		for _, tc := range []struct{ dir, file, name, returnedBy string }{
+			{"modlocal", "evals/fixtures/interfaces/modlocal/store/store.go", "Store", "NewStore"},
+			{"generic", "evals/fixtures/interfaces/generic/generic.go", "Getter", "NewGetter"},
+		} {
+			out = runCommand(t, 1, "bash", script, "--json", filepath.Join(fixturesDir, "interfaces", tc.dir))
+			var got struct {
+				Missing []struct {
+					File       string `json:"file"`
+					Name       string `json:"name"`
+					ReturnedBy string `json:"returned_by"`
+				} `json:"missing"`
+			}
+			if err := json.Unmarshal(out, &got); err != nil {
+				t.Fatalf("parse %s JSON: %v\n%s", tc.dir, err, out)
+			}
+			if len(got.Missing) != 1 || !pathHasSuffix(got.Missing[0].File, tc.file) || got.Missing[0].Name != tc.name || got.Missing[0].ReturnedBy != tc.returnedBy {
+				t.Fatalf("%s fixture: want only %s returned_by %s, got %#v\n%s", tc.dir, tc.name, tc.returnedBy, got.Missing, out)
+			}
 		}
 
 		// go-interfaces' Bad case: the producer declares the interface and an
@@ -1128,6 +1255,21 @@ func TestScriptFunctional(t *testing.T) {
 			t.Fatalf("write setup-lint empty go.mod: %v", err)
 		}
 		runCommandInDir(t, emptyDir, 2, "bash", script, "--json")
+
+		// An existing config in any spelling golangci-lint reads is not
+		// overwritten without --force, two positional arguments are a usage
+		// error, and --dry-run --json is JSON.
+		yamlDir := t.TempDir()
+		for name, content := range map[string]string{"go.mod": "module setuplintyaml\n\ngo 1.27\n", ".golangci.yaml": "version: \"2\"\n"} {
+			if err := os.WriteFile(filepath.Join(yamlDir, name), []byte(content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		runCommandInDir(t, yamlDir, 2, "bash", script, "--json")
+		runCommand(t, 2, "bash", script, "a", "b", "--dry-run")
+		if out := runCommand(t, 0, "bash", script, "--dry-run", "--json"); !json.Valid(out) {
+			t.Fatalf("setup-lint --dry-run --json is not JSON:\n%s", out)
+		}
 	})
 
 	t.Run("PreReview", func(t *testing.T) {
@@ -1249,6 +1391,21 @@ func TestScriptFunctional(t *testing.T) {
 		}
 		runCommand(t, 1, "bash", script, "-n", "1", filepath.Join(fixturesDir, "bench", "nobench"))
 		runCommand(t, 2, "bash", script, "-n", "nope", filepath.Join(fixturesDir, "bench"))
+
+		// A flag without its value and a baseline with no Benchmark lines are
+		// usage errors; --save never stores a run that found no benchmarks.
+		runCommand(t, 2, "bash", script, "--count")
+		tmp := t.TempDir()
+		emptyBaseline := filepath.Join(tmp, "empty.txt")
+		if err := os.WriteFile(emptyBaseline, []byte("FAIL\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		runCommand(t, 2, "bash", script, "--baseline", emptyBaseline, filepath.Join(fixturesDir, "bench"))
+		saved := filepath.Join(tmp, "saved.txt")
+		runCommand(t, 1, "bash", script, "-n", "1", "--save", saved, filepath.Join(fixturesDir, "bench", "nobench"))
+		if _, err := os.Stat(saved); err == nil {
+			t.Fatalf("--save wrote %s for a run with no benchmarks", saved)
+		}
 	})
 
 	t.Run("CheckDebt", func(t *testing.T) {
@@ -1328,6 +1485,17 @@ func TestScriptFunctional(t *testing.T) {
 		}
 
 		runCommand(t, 2, "bash", script, "--json", filepath.Join(fixturesDir, "does-not-exist"))
+
+		// A comment line that opens with Kept: starts its own marker, so a
+		// marker naming a fix does not lend it to the one above it.
+		adjacent := t.TempDir()
+		src := "package adj\n\n// F does nothing.\nfunc F() {\n\t// Kept: first shortcut.\n\t// Kept: second shortcut.\n\t// Ceiling: never past one call.\n\t// Fix: inline it.\n}\n"
+		if err := os.WriteFile(filepath.Join(adjacent, "adj.go"), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if got := parse(t, runCommand(t, 1, "bash", script, "--json", adjacent)); got.Total != 2 || got.NoTrigger != 1 {
+			t.Fatalf("adjacent Kept: markers: want total 2, no_trigger 1, got %#v", got)
+		}
 	})
 
 	t.Run("VerifyRefactor", func(t *testing.T) {

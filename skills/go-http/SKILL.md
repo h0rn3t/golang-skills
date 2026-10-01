@@ -109,9 +109,15 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
         http.Error(w, "internal error", http.StatusInternalServerError)
         return
     }
+    body, err := json.Marshal(user) // before any header, so an encode error is still a 500
+    if err != nil {
+        slog.ErrorContext(r.Context(), "encode user", "err", err)
+        http.Error(w, "internal error", http.StatusInternalServerError)
+        return
+    }
     w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(http.StatusCreated)
-    _ = json.MarshalWrite(w, user) // headers are sent; an encode or write error can no longer change the status
+    _, _ = w.Write(body) // headers are sent; a failed write is the client's disconnect
 }
 ```
 
@@ -129,19 +135,16 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
   with no matches is written as it is, with no `make([]T, 0, n)`; that line
   belongs to a package on v1, or under `FormatNilSliceAsNull(true)`
   ([JSON-V2.md](references/JSON-V2.md#defaults-that-can-change-the-contract)).
-- A value no v2 decode has validated — database text, which can hold invalid
-  UTF-8, or a type with its own `MarshalJSON` — is marshalled first with
-  `json.Marshal` and written after, so its error still gets a 500.
+- A response body is marshalled with `json.Marshal` before the first header,
+  as above. v2 fails at encode time on a `time.Duration` field (no default
+  representation), invalid UTF-8 in stored text, or a `MarshalJSON` error;
+  `json.MarshalWrite(w, v)` after `WriteHeader` sends the status with a
+  truncated body and nowhere to report the error.
 - A write whose error has nowhere to go is discarded in the open with its
-  reason on the line, never bare:
-
-  ```go
-  _, _ = w.Write(body) // headers are sent; a failed write is the client's disconnect
-  ```
-
-  `errcheck` reads a bare `w.Write`, `io.WriteString(w, …)`,
-  `json.MarshalWrite(w, v)`, or `json.NewEncoder(w).Encode(v)` as a finding,
-  and `//nolint:errcheck` is not a way out: `gosec` G104 reports the same line.
+  reason on the line, as the example's last line is, never bare. `errcheck`
+  reads a bare `w.Write`, `io.WriteString(w, …)`, `json.MarshalWrite(w, v)`,
+  or `json.NewEncoder(w).Encode(v)` as a finding, and `//nolint:errcheck` is
+  not a way out: `gosec` G104 reports the same line.
 
 ### Mapping errors to status codes
 
@@ -195,7 +198,16 @@ For graceful shutdown, `signal.NotifyContext` owns the lifetime;
   tuned `*http.Transport` and one `*http.Client{Timeout: d, Transport: t}` per
   dependency, built once and reused. The Transport owns the connection pool: a
   `Client` with a nil `Transport` shares `http.DefaultTransport`, which keeps
-  two idle connections per host (`http.DefaultMaxIdleConnsPerHost`).
+  two idle connections per host (`http.DefaultMaxIdleConnsPerHost`). Tune a
+  clone of it; a `&http.Transport{...}` literal drops `ProxyFromEnvironment`
+  and the dial, TLS-handshake, and idle-connection timeouts (the SSRF dialer in
+  [go-security](../go-security/SKILL.md) drops the proxy on purpose):
+
+  ```go
+  t := http.DefaultTransport.(*http.Transport).Clone()
+  t.MaxIdleConnsPerHost = 32
+  client := &http.Client{Timeout: 10 * time.Second, Transport: t}
+  ```
 - `http.NewRequestWithContext(ctx, ...)` — the ctx-less form is unbounded;
   `noctx` in the lint gate flags it.
 - `defer resp.Body.Close()` right after the `err != nil` return, on every
@@ -237,3 +249,5 @@ return json.Unmarshal(body, dst)
 - [go-concurrency](../go-concurrency/SKILL.md): server goroutine and shared state.
 - [go-security](../go-security/SKILL.md): input naming files, URLs or commands;
   cookies, SSRF, and error disclosure.
+- [go-data-structures](../go-data-structures/SKILL.md): nil versus empty slices
+  and maps before they reach the encoder.

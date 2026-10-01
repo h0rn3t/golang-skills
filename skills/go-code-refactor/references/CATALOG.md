@@ -3,7 +3,7 @@
 > Sources: Fowler, *Refactoring* (2nd ed.); Feathers, *Working Effectively with Legacy Code*; `go tool fix help inline`; golang/go#20744
 > Authority: advisory — the transform inventory; behavior rules stay in SKILL.md
 > Minimum Go: 1.27 baseline
-> Last verified: 2026-09-30
+> Last verified: 2026-10-01
 
 [PLAYBOOK.md](PLAYBOOK.md) owns the transforms that carry most refactors —
 delete first, flatten, extract, rename, name the magic values. This file is the
@@ -22,13 +22,14 @@ a type or a layer, and adding one needs a reason the report can carry.
 - **Smell**: a one-line forwarding function, or an indirection that has accreted
   no behavior of its own since it was introduced. Both are pure navigation cost.
 - **In Go**: mark the function `//go:fix inline` and `go fix` substitutes its
-  body at every call site, in this package and others. The inliner keeps
-  argument evaluation order — an argument it cannot substitute safely is bound
-  in a `var params = args` declaration instead of being duplicated — and it
-  leaves alone a call it could only replace with a function literal (a callee
-  body containing `defer`), a call through an interface method or a function
-  value, and a call from the function's own test (`TestF` keeps calling `F`).
-  Inline what it left by hand, then delete the function once nothing calls it.
+  body at every call site, in this package and others. It keeps argument
+  evaluation order by leaving a call alone rather than duplicating or
+  reordering an argument: a call that would need a `var params = args`
+  binding (off by default) or a function literal (a callee body containing
+  `defer`), a call through an interface method or a function value, and a call
+  from the function's own test (`TestF` keeps calling `F`). Inline what it left
+  by hand, binding each argument with a side effect (`Old(next(), 2)`) to a
+  local first, then delete the function once nothing calls it.
 - **Tool**: `go fix -inline -diff ./...` previews, `go fix -inline ./...`
   applies.
 - **Risk**: low for what `go fix` inlines, which keeps behavior or leaves the

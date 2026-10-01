@@ -2,7 +2,7 @@
 
 > Sources: https://go.dev/ref/spec#Switch_statements; source/effective-go/effective_go.html (Switch)
 > Authority: normative
-> Last verified: 2026-09-10
+> Last verified: 2026-10-01
 
 ## No Automatic Fallthrough
 
@@ -37,5 +37,5 @@ exit the loop from a case, always use a labeled break.
 
 ## Type Switches
 
-For type switches (`switch v := x.(type)`), see
-[go-interfaces](../../go-interfaces/SKILL.md): Type Switch.
+Type switches (`switch v := x.(type)`) belong to go-interfaces, with
+[type assertions](../../go-interfaces/SKILL.md#type-assertions-comma-ok-idiom).

@@ -2,8 +2,8 @@
 
 > Sources: source/google-go-styleguide/best-practices.md; source/uber-go-style/style.md; [Go comparison rules](https://go.dev/ref/spec#Comparison_operators); [Go compatibility](https://go.dev/doc/go1compat)
 > Authority: project policy
-> Minimum Go: any supported Go version
-> Last verified: 2026-09-10
+> Minimum Go: 1.26 (`new(expr)`); `slog.DiscardHandler` 1.24
+> Last verified: 2026-10-01
 
 Both functional options and config structs solve the same problem — optional
 configuration for constructors — but they have different trade-offs. Choose
@@ -54,12 +54,12 @@ constructor. Zero values serve as defaults, or provide a `DefaultConfig()`.
 type Config struct {
     Timeout  time.Duration // zero = no timeout
     MaxRetry int           // zero = no retries
-    Logger   *log.Logger   // nil = discard
+    Logger   *slog.Logger  // nil = discard
 }
 
 func NewClient(addr string, cfg Config) *Client {
     if cfg.Logger == nil {
-        cfg.Logger = log.New(io.Discard, "", 0)
+        cfg.Logger = slog.New(slog.DiscardHandler)
     }
     return &Client{addr: addr, cfg: cfg}
 }
@@ -90,6 +90,16 @@ but the desired default is 30s), use a pointer field or a sentinel value:
 type Config struct {
     Timeout *time.Duration // nil = use default (30s), zero = no timeout
 }
+
+func NewClient(addr string, cfg Config) *Client {
+    if cfg.Timeout == nil {
+        cfg.Timeout = new(30 * time.Second) // Go 1.26+: new(expr)
+    }
+    return &Client{addr: addr, cfg: cfg}
+}
+
+c := NewClient(addr, Config{Timeout: new(5 * time.Second)})
+off := NewClient(addr, Config{Timeout: new(time.Duration(0))}) // new(0) is *int
 ```
 
 ## Comparison

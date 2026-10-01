@@ -133,12 +133,15 @@ time, and nothing fails to compile.
 
 > **Validation**: Use `scripts/check-interface-compliance.sh` when a heuristic
 > scan would help. It lists an exported interface implemented in its own
-> package when no assignment, return, argument, composite-literal element,
-> send, or conversion already checks the pair, and one an exported function
-> returns while no function in the package takes it as a parameter (the Bad
-> case above; `returned_by` in `--json`). Ask first whether a consumer needs
-> the interface, then review the conditions above. A finding is not a
-> requirement to add an assertion.
+> package when nothing in the package converts a value to the interface (an
+> assignment, return, argument, composite-literal element, send, or
+> conversion), and one an exported function returns while no function or
+> method in the package takes it as a parameter (the Bad case above;
+> `returned_by` in `--json`). A generic interface is matched through the
+> instantiations the package names; generated files and what `go ./...` skips
+> (`testdata`, `vendor`, `_` and `.` names) are not scanned. Ask first whether
+> a consumer needs the interface, then review the conditions above. A finding
+> is not a requirement to add an assertion.
 
 ---
 
@@ -158,4 +161,4 @@ reallocated, and small immutable structs or basic types;
 - [go-error-handling](../go-error-handling/SKILL.md): implementing `error`, custom error types, `errors.As` matching.
 - [go-generics](../go-generics/SKILL.md): whether generics are needed or an interface suffices.
 - [go-functions](../go-functions/SKILL.md): interface-based Option patterns for constructors.
-- [go-defensive](../go-defensive/SKILL.md): assertions as part of an API-boundary hardening pass.
+- [go-defensive](../go-defensive/SKILL.md): a typed nil stored in an interface and the other API-boundary pitfalls; compile-time assertions stay here.

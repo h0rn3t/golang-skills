@@ -46,7 +46,8 @@ Reviewing an API boundary?
 | Bare `x.(T)` assertion | Comma-ok unless a mismatch is a programming error that should panic ([go-interfaces](../go-interfaces/SKILL.md#type-assertions-comma-ok-idiom)); reflection code prefers `reflect.TypeAssert[T]` (Go 1.25+) |
 | `append` aliasing | Both slices share the backing array while capacity allows. `s[:len(s):len(s)]` only caps capacity so the next `append` reallocates — existing elements still alias; `slices.Clone(s)` is the copy (see [go-data-structures](../go-data-structures/SKILL.md)) |
 | `int64` to `int32` without a bounds check | Values wrap silently; compare against `math.MaxInt32`/`math.MinInt32` first |
-| Float `==` | Use an epsilon comparison; exact money math needs integer units or `math/big` |
+| Float `==` | A relative tolerance, `math.Abs(a-b) <= tol*max(math.Abs(a), math.Abs(b))` — a fixed epsilon is wrong at large and tiny magnitudes; money in integer minor units or `big.Rat`, never `float64` or `big.Float` (binary: ten `0.1`s do not sum to `1`) |
+| `time.Time` `==`, or as a map key | `==` also compares the `Location` and the monotonic reading, so it fails after a JSON or database round trip or `t.In(loc)`: compare with `t.Equal(u)`; a key stores `t.UTC().Round(0)` or `t.UnixNano()` |
 | `defer` in a loop | Calls fire at function exit, not per iteration — extract the body (behavior note in [go-code-refactor](../go-code-refactor/references/BEHAVIOR-TRAPS.md)) |
 | Nil channel | Send and receive block forever, so an unmade channel field is a hang, not an error — a deliberate `nil` in a `select` is the idiom for disabling that case (channel ownership: [go-concurrency](../go-concurrency/SKILL.md)) |
 | Integer division by zero | Panics; guard the divisor (float division yields `Inf`/`NaN` instead) |
@@ -107,9 +108,8 @@ type User struct {
 }
 ```
 
-`encoding/json/v2` does not validate tag options: a copied `inline` or
-`unknown` tag compiles and silently nests or drops data (`embed` is the
-released spelling). Assert the encoded bytes in a test.
+JSON v2 tag options (`embed`, not the experimental `inline`) are in
+[JSON-V2.md](../go-http/references/JSON-V2.md).
 
 ## Time
 

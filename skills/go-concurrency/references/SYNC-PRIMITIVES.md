@@ -3,7 +3,7 @@
 > Sources: source/uber-go-style/style.md (Zero-value Mutexes are Valid, Do not embed mutexes, Atomic); https://pkg.go.dev/sync/atomic
 > Authority: advisory
 > Minimum Go: typed atomics (`atomic.Int64`) 1.19; `sync.OnceFunc`/`OnceValue`/`OnceValues` 1.21
-> Last verified: 2026-09-29
+> Last verified: 2026-10-01
 
 ## Don't Embed Mutexes
 
@@ -37,7 +37,10 @@ var config = sync.OnceValue(load)
 
 If the wrapped function panics, every later call panics with the same value,
 so one-time work that can fail returns its error — `sync.OnceValues` carries
-`(T, error)`.
+`(T, error)`. The error is cached like the value: every later call gets the
+first failure. Work whose failure can be transient (a dial, a token fetch)
+keeps a mutex-guarded field that stores only a success, so the next call
+retries.
 
 ---
 

@@ -14,7 +14,7 @@ allowed-tools: Bash(bash:*)
 - `scripts/check-docs.sh` - Run when checking exported functions, types, methods, constants, and packages for missing doc comments.
 - `scripts/check-docs-ast.go` - Implementation helper invoked by `check-docs.sh`; patch this when changing documentation analysis behavior.
 - `assets/doc-template.go` - Use when starting a documented package or exported API.
-- `references/CONVENTIONS.md` - Read when documenting parameters, context behavior, concurrency safety, cleanup, errors, or named results.
+- `references/CONVENTIONS.md` - Read when documenting parameters, context behavior, concurrency safety, cleanup, errors, named results, or a deprecation.
 - `references/EXAMPLES.md` - Read when adding runnable examples or package examples.
 - `references/FORMATTING.md` - Read when formatting Godoc lists, paragraphs, links, and code blocks.
 
@@ -44,7 +44,7 @@ func Encode(w io.Writer, req *Request) { ...
 Unexported names, and exported names under `internal/` or `cmd/`, get a doc
 comment when their behavior is not obvious from the signature.
 
-> **Validation**: `scripts/check-docs.sh` lists exported names without a doc comment outside `package main`, skipping methods of unexported types and the methods revive skips (`Error`, `Read`, `ServeHTTP`, `String`, `Write`, `Unwrap`). Unlike the gate it also reports `internal/` and `cmd/`, where a finding is advisory. Run it once at the end of the task, beside the [go-linting](../go-linting/SKILL.md) gate, which does not run it.
+> **Validation**: `scripts/check-docs.sh` lists exported names without a doc comment outside `package main` — a comment of only directives or only a `Deprecated:` paragraph counts as none — skipping generated files, methods of unexported types, and the methods revive skips (`Error`, `Read`, `ServeHTTP`, `String`, `Write`, `Unwrap`). Unlike the gate it also reports `internal/` and `cmd/`, where a finding is advisory. Run it once at the end of the task, beside the [go-linting](../go-linting/SKILL.md) gate, which does not run it.
 
 ---
 
@@ -107,6 +107,6 @@ Examples appear in Godoc attached to the documented element. `go doc -ex
 ## Related Skills
 
 - [go-naming](../go-naming/SKILL.md): the identifiers the comments describe.
-- [go-testing](../go-testing/SKILL.md): runnable `Example` functions.
+- [go-testing](../go-testing/SKILL.md): the tests beside the examples; `Example` functions are [EXAMPLES.md](references/EXAMPLES.md)'s.
 - [go-linting](../go-linting/SKILL.md): linters that enforce doc comment presence.
 - [go-style-core](../go-style-core/SKILL.md): verbosity against clarity and concision.

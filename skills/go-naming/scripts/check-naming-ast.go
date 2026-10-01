@@ -18,7 +18,7 @@ import (
 	"strings"
 )
 
-const version = "2.1.0"
+const version = "2.2.0"
 
 type violation struct {
 	File    string `json:"file"`
@@ -41,7 +41,7 @@ type options struct {
 var (
 	screamingName   = regexp.MustCompile(`^[A-Z][A-Z0-9]*_[A-Z0-9_]+$`)
 	getterName      = regexp.MustCompile(`^Get([A-Z][A-Za-z0-9]*)$`)
-	getterException = regexp.MustCompile(`^(By|From|Or|With|All)`)
+	getterException = regexp.MustCompile(`^(By|From|Or|With|All)([A-Z0-9]|$)`) // GetByID, not GetOrder
 	genericPackages = map[string]bool{
 		"util": true, "utils": true, "helper": true, "helpers": true,
 		"common": true, "misc": true, "shared": true, "base": true, "lib": true,
@@ -63,18 +63,20 @@ DESCRIPTION
         base, or lib
       - Receivers named "this" or "self"
 
-    Skips _test.go files and, as go ./... does, vendor and testdata
-    directories and directories or files whose names begin with "." or "_".
+    Skips _test.go files, even one named as the path; generated files (a
+    "Code generated ... DO NOT EDIT." line), as the go-linting gate does; and,
+    as go ./... does, vendor and testdata directories and directories or
+    files whose names begin with "." or "_".
 
-    Exits 0 if no violations found, 1 if violations found, 2 on a usage error
-    or when a file does not parse. The other files are still checked; --json
+    Exits 0 if no violations found, 1 if violations found, 2 on a usage
+    error, when the helper does not build, or when a file does not parse. The other files are still checked; --json
     then adds "status":"parse_error" and a "parse_errors" list.
 
 OPTIONS
     -h, --help       Show this help message
     -v, --version    Show version
     --json           Output results as JSON
-    --limit N        Show at most N results (default: all)
+    --limit N        Show at most N results (default: all); --limit=N too
 
 ARGUMENTS
     path             Directory, ./... pattern, or Go file (default: current directory)
@@ -114,9 +116,13 @@ func main() {
 	var parseErrors []parseError
 	fset := token.NewFileSet()
 	for _, path := range files {
-		f, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
+		f, err := parser.ParseFile(fset, path, nil, parser.ParseComments|parser.SkipObjectResolution)
 		if err != nil {
 			parseErrors = append(parseErrors, parseError{File: path, Message: err.Error()})
+			continue
+		}
+		// Generated code (protoc-gen-go's GetX getters) is not the author's to rename.
+		if ast.IsGenerated(f) {
 			continue
 		}
 		all = append(all, check(fset, path, f)...)
@@ -216,6 +222,14 @@ func parseArgs(args []string) (options, error) {
 			opts.limit = n
 			i++
 		default:
+			if value, ok := strings.CutPrefix(a, "--limit="); ok {
+				n, err := strconv.Atoi(value)
+				if err != nil || n < 0 {
+					return opts, fmt.Errorf("--limit must be a non-negative integer, got: %s", value)
+				}
+				opts.limit = n
+				continue
+			}
 			if strings.HasPrefix(a, "-") {
 				return opts, fmt.Errorf("unknown option: %s", a)
 			}
@@ -238,7 +252,7 @@ func findGoFiles(target string) ([]string, error) {
 		return nil, fmt.Errorf("path not found: %s", target)
 	}
 	if !info.IsDir() {
-		if strings.HasSuffix(dir, ".go") {
+		if strings.HasSuffix(dir, ".go") && !strings.HasSuffix(dir, "_test.go") {
 			return []string{dir}, nil
 		}
 		return nil, nil

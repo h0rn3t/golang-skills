@@ -23,12 +23,15 @@ DESCRIPTION
       loc-baseline  Record the starting production LOC, before the first edit
       loc-diff      Recount the same path and compare against that record
 
-    Results are written under .refactor-verify/ in the working directory.
+    Results are written under .refactor-verify/ in the working directory,
+    which carries its own .gitignore so the records stay out of a commit.
 
     The check modes say nothing about size and the loc modes say nothing about
     behavior. Physical LOC counts every line of the non-test *.go files, blank
     lines and comments included; code LOC counts only the lines holding at
     least one Go token, so a deleted comment cannot pay for a line of code.
+    Like ./..., the count skips vendor/ and testdata/, directories and files
+    whose names start with . or _, nested modules, and generated files.
 
     Exits 0 if all checks pass (or the diff is empty, or neither LOC count
     grew), 1 if a check failed, the diff is non-empty, or a count grew,
@@ -61,12 +64,21 @@ EOF
 }
 
 json_escape() {
-    local s="$1"
+    local s="$1" c r i
     s="${s//\\/\\\\}"
     s="${s//\"/\\\"}"
     s="${s//$'\t'/\\t}"
     s="${s//$'\r'/}"
     s="${s//$'\n'/\\n}"
+    # JSON forbids the rest of U+0001-U+001F raw (a bash string holds no NUL);
+    # colored test output carries ESC, for one.
+    if [[ "$s" == *[[:cntrl:]]* ]]; then
+        for i in 1 2 3 4 5 6 7 8 11 12 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31; do
+            printf -v c "\\$(printf '%03o' "$i")"
+            printf -v r '\\u%04x' "$i"
+            s="${s//"$c"/"$r"}"
+        done
+    fi
     printf '%s' "$s"
 }
 
@@ -144,6 +156,9 @@ fi
 
 mkdir -p "$OUT_DIR" || { echo "error: cannot create $OUT_DIR" >&2; exit 2; }
 OUT_ABS="$(cd "$OUT_DIR" && pwd)" || { echo "error: cannot resolve $OUT_DIR" >&2; exit 2; }
+# The records are scratch state in the user's tree: a "*" ignore file keeps
+# them, and itself, out of a `git add -A`.
+[[ -e "$OUT_ABS/.gitignore" ]] || printf '*\n' >"$OUT_ABS/.gitignore" 2>/dev/null || true
 
 # ------------------------------------------------------------------ loc modes
 # The counter is a Go program because the second number needs the Go scanner:
@@ -179,6 +194,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"go/ast"
+	"go/parser"
 	"go/scanner"
 	"go/token"
 	"os"
@@ -190,7 +207,8 @@ import (
 // convention travels with every result: a line count is only checkable
 // against the rule that produced it.
 const convention = "physical: every line of the non-test *.go files, blank lines and comments included\n" +
-	"code: only the lines holding at least one Go token"
+	"code: only the lines holding at least one Go token\n" +
+	"skipped, as ./... skips them: vendor/, testdata/, names starting with . or _, nested modules, generated files"
 
 type fileCount struct {
 	Path     string `json:"path"`
@@ -200,13 +218,14 @@ type fileCount struct {
 }
 
 type counts struct {
-	Root       string      `json:"root"`
-	Physical   int         `json:"physical"`
-	Code       int         `json:"code"`
-	Files      int         `json:"files"`
-	TestFiles  int         `json:"test_files"`
-	ScanErrors int         `json:"scan_errors"`
-	Detail     []fileCount `json:"detail"`
+	Root           string      `json:"root"`
+	Physical       int         `json:"physical"`
+	Code           int         `json:"code"`
+	Files          int         `json:"files"`
+	TestFiles      int         `json:"test_files"`
+	GeneratedFiles int         `json:"generated_files"`
+	ScanErrors     int         `json:"scan_errors"`
+	Detail         []fileCount `json:"detail"`
 }
 
 func main() {
@@ -251,6 +270,8 @@ func fail(msg string) {
 // count walks root and counts every non-test *.go file under it. Test files are
 // counted but contribute no lines: adding a characterization test is part of a
 // refactor, and moving code into a test is not a way to shrink the package.
+// What ./... leaves out stays out: re-vendoring a dropped dependency or a new
+// testdata fixture would otherwise move the count by more than the refactor.
 func count(root string) (counts, error) {
 	c := counts{Root: root}
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
@@ -258,7 +279,25 @@ func count(root string) (counts, error) {
 			return err
 		}
 		name := d.Name()
-		if d.IsDir() || !strings.HasSuffix(name, ".go") {
+		if path != root && (strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.IsDir() {
+			if path == root {
+				return nil
+			}
+			if name == "vendor" || name == "testdata" {
+				return filepath.SkipDir
+			}
+			if _, err := os.Stat(filepath.Join(path, "go.mod")); err == nil {
+				return filepath.SkipDir // a nested module is not this module's code
+			}
+			return nil
+		}
+		if !strings.HasSuffix(name, ".go") {
 			return nil
 		}
 		if strings.HasSuffix(name, "_test.go") {
@@ -268,6 +307,10 @@ func count(root string) (counts, error) {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
+		}
+		if generated(path, data) {
+			c.GeneratedFiles++
+			return nil
 		}
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
@@ -288,6 +331,13 @@ func count(root string) (counts, error) {
 	})
 	sort.Slice(c.Detail, func(i, j int) bool { return c.Detail[i].Path < c.Detail[j].Path })
 	return c, err
+}
+
+// generated reports a file carrying the "Code generated ... DO NOT EDIT."
+// header; one that does not parse that far is counted.
+func generated(path string, data []byte) bool {
+	f, err := parser.ParseFile(token.NewFileSet(), path, data, parser.PackageClauseOnly|parser.ParseComments)
+	return err == nil && ast.IsGenerated(f)
 }
 
 // lineCount counts physical lines. A trailing line without a newline counts
@@ -353,7 +403,7 @@ func report(c counts, saved string, asJSON bool) {
 		return
 	}
 	fmt.Printf("--- loc baseline (%s) ---\n", c.Root)
-	fmt.Printf("physical %d, code %d, production files %d, test files %d\n", c.Physical, c.Code, c.Files, c.TestFiles)
+	fmt.Printf("physical %d, code %d, production files %d, test files %d, generated files %d\n", c.Physical, c.Code, c.Files, c.TestFiles, c.GeneratedFiles)
 	fmt.Println(convention)
 	warn(c)
 	if saved != "" {

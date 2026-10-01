@@ -5,6 +5,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"example.com/shop/internal/order"
@@ -39,6 +40,7 @@ func placeOrder(svc *services.Service) http.HandlerFunc {
 		case errors.Is(err, models.ErrEmptyOrder):
 			http.Error(w, "an order needs at least one line", http.StatusUnprocessableEntity)
 		case err != nil:
+			slog.ErrorContext(r.Context(), "place order", "err", err)
 			http.Error(w, "internal error", http.StatusInternalServerError)
 		default:
 			w.WriteHeader(http.StatusCreated)
@@ -53,6 +55,7 @@ func orderSummary(svc *services.Service) http.HandlerFunc {
 		case errors.Is(err, order.ErrNotFound):
 			http.Error(w, "unknown order", http.StatusNotFound)
 		case err != nil:
+			slog.ErrorContext(r.Context(), "order summary", "err", err)
 			http.Error(w, "internal error", http.StatusInternalServerError)
 		default:
 			w.Header().Set("Content-Type", "application/json")

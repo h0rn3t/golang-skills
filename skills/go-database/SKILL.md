@@ -28,6 +28,11 @@ What does the repository already use?
                         Preload/Joins instead of a query per row
 ```
 
+pgx native means one `*pgxpool.Pool` per process from `pgxpool.New(ctx, dsn)`
+— a `*pgx.Conn` is not safe for concurrent use — and rows read with
+`pgx.CollectRows(rows, pgx.RowToStructByName[T])`, which closes them and
+returns their error.
+
 ---
 
 ## Every Query Carries a Context
@@ -47,7 +52,7 @@ lifetime:
 
 | Setting | Why |
 |---|---|
-| `SetMaxOpenConns` | Below the server's `max_connections` minus headroom for other clients |
+| `SetMaxOpenConns` | Per process: the server's `max_connections` minus admin headroom, divided by every process that shares it at peak — replicas during a rolling deploy, workers, migration jobs |
 | `SetMaxIdleConns` | Same as max open, or connections churn under load |
 | `SetConnMaxLifetime` | Rotate through load balancers and credential changes |
 | `SetConnMaxIdleTime` | Release idle connections back to the server |
@@ -96,6 +101,13 @@ if err != nil {
     return fmt.Errorf("begin: %w", err)
 }
 defer tx.Rollback() // no-op after Commit; the ErrTxDone it returns is expected
+
+// Both rows locked in id order, whichever way the money moves: opposite
+// transfers that lock from-then-to deadlock each other.
+const lock = `SELECT id FROM accounts WHERE id IN ($1, $2) ORDER BY id FOR UPDATE`
+if _, err := tx.ExecContext(ctx, lock, from, to); err != nil {
+    return fmt.Errorf("lock accounts: %w", err)
+}
 
 // RETURNING turns a missing account into sql.ErrNoRows; a bare ExecContext
 // succeeds on zero rows and would commit the debit alone.

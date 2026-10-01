@@ -3,7 +3,7 @@
 > Sources: source/google-go-styleguide/decisions.md; source/google-go-styleguide/best-practices.md; source/golang-wiki/CodeReviewComments.md
 > Authority: normative
 > Minimum Go: any supported Go version
-> Last verified: 2026-06-19
+> Last verified: 2026-10-01
 
 ## Contents
 
@@ -192,11 +192,15 @@ Don't name results just to enable naked returns. Clarity > brevity.
 > **Advisory**: Use the `// Deprecated:` comment to mark symbols as deprecated.
 
 The `Deprecated:` paragraph must appear in the doc comment immediately before
-the symbol. It should state what to use instead.
+the symbol, after a summary line. It should state what to use instead. A
+comment that holds only the `Deprecated:` paragraph, or only directives, counts
+as missing for revive `exported` and `check-docs.sh`.
 
 **Standard format:**
 
 ```
+// NewThingV1 creates a Thing with the v1 defaults.
+//
 // Deprecated: Use NewThing instead.
 ```
 
@@ -210,6 +214,20 @@ easy to spot.
 //
 // Deprecated: Use [Size] instead, which returns an exact count.
 func EstimateSize(r io.Reader) (int64, error)
+```
+
+A deprecated function whose body is one call to its replacement also carries
+`//go:fix inline` (Go 1.26+), so `go fix -inline ./...` rewrites every caller;
+[CATALOG.md](../../go-code-refactor/references/CATALOG.md#inline-function) owns
+what the inliner keeps and leaves:
+
+```go
+// Square returns x*x.
+//
+// Deprecated: Use [Pow] with 2 instead.
+//
+//go:fix inline
+func Square(x float64) float64 { return Pow(x, 2) }
 ```
 
 **Type deprecation:**

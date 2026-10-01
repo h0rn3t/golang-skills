@@ -164,11 +164,15 @@ line a reviewer sends back:
 - A field, header, or option set to what the library uses when it is
   absent: `MaxHeaderBytes: 1 << 20` is `http.DefaultMaxHeaderBytes`,
   `Content-Type: text/plain; charset=utf-8` before `w.Write([]byte("ok"))` is
-  what the writer sniffs, and `false`, `0`, `nil`, or `""` in a keyed literal
-  is the zero value. The line says nothing its absence does not.
-- A failure branch, or a `fmt.Errorf` wrap, on a call that cannot fail for a
-  value the function built itself — `json.Marshal` of its own document. The
-  error is returned as it is (`return json.Marshal(doc)`). A write whose
+  what the writer sniffs for a body the code fixes — a body that carries
+  input keeps its `Content-Type` ([go-security](../go-security/SKILL.md)) —
+  and `false`, `0`, `nil`, or `""` in a keyed literal is the zero value. The
+  line says nothing its absence does not.
+- A `fmt.Errorf` wrap that only restates the call: `return json.Marshal(doc)`.
+  The failure branch stays, since `json.Marshal` fails on input (invalid
+  UTF-8 or a `time.Duration` under v2, NaN under v1) and a handler keeps its
+  500; a branch on a call documented never to fail — `(*bytes.Buffer).Write`,
+  `(*strings.Builder).WriteString`, `hash.Hash.Write` — goes. A write whose
   error has nowhere to go is discarded in the open, `_, _ = w.Write(body)`
   with its reason, never bare: `errcheck` in the gate reads a bare call as a
   finding, and the reason on that line is not a comment to delete.
@@ -245,19 +249,23 @@ Select checks with [go-linting](../go-linting/SKILL.md#verification-gate) for
 the requested scope; a repository gate replaces the defaults rather than
 joining them. Bundled scripts add evidence the gate lacks:
 
-- Error handling: `../go-error-handling/scripts/check-errors.sh`.
-- Exported API documentation: `../go-documentation/scripts/check-docs.sh`.
+- Error handling: `<installed-skill-dir>/../go-error-handling/scripts/check-errors.sh`.
+- Exported API documentation: `<installed-skill-dir>/../go-documentation/scripts/check-docs.sh`.
 - Before submitting: [go-code-review](../go-code-review/SKILL.md).
+
+`<installed-skill-dir>` is the directory the host loaded this file from; each
+command runs from the project with that path written out.
 
 Run routine checks inline. The report carries only results observed for the
 current diff and scope, each as `pass`, `fail`, `unavailable (reason)`, or
-`skipped (reason)` per go-linting; a hook's silence is not one of them.
+`skipped (reason)` per go-linting; a hook's silence counts only as the
+[edit hook record](../go-style-core/SKILL.md#the-edit-hook-record) says.
 
 ## Route Before The First Edit
 
 The third column adds owners only under its stated condition. Prefer the
-narrower owner when topics overlap; ordinary identifier creation alone does
-not require `go-naming` or `go-documentation`.
+narrower owner when topics overlap; a local or unexported identifier alone
+does not require `go-naming` or `go-documentation`.
 
 | Task touches | Skill | Also load |
 |---|---|---|
@@ -274,13 +282,13 @@ not require `go-naming` or `go-documentation`.
 | loop/switch mechanics or statement scoping decisions | [go-style-core references](../go-style-core/SKILL.md#resource-routing) | — |
 | type parameters, constraints, generic methods | [go-generics](../go-generics/SKILL.md) | — |
 | `slog`, log levels, request-scoped fields, metrics and trace correlation | [go-logging](../go-logging/SKILL.md) | [go-security](../go-security/SKILL.md) if a secret or PII could reach a log line |
-| `defer` cleanup, boundary copies, mutable globals, nil/aliasing/overflow traps | [go-defensive](../go-defensive/SKILL.md) | — |
+| panic/recover and `Must` helpers, a deferred closure or a written file's `Close`, boundary copies, mutable globals, nil/aliasing/overflow traps | [go-defensive](../go-defensive/SKILL.md) | — |
 | hot paths, allocations, benchmarks | [go-performance](../go-performance/SKILL.md) | [go-troubleshooting](../go-troubleshooting/SKILL.md) if the cause of slowness is unknown |
 | package layout, imports, dependencies | [go-packages](../go-packages/SKILL.md) | — |
 | restructuring or deleting existing code | [go-code-refactor](../go-code-refactor/SKILL.md) | — |
 | linter config, CI checks | [go-linting](../go-linting/SKILL.md) | — |
 | HTTP handlers, routing, middleware, servers, clients | [go-http](../go-http/SKILL.md) | [go-error-handling](../go-error-handling/SKILL.md); [go-security](../go-security/SKILL.md) if input reaches a file, shell, URL, or template |
-| SQL queries, transactions, repositories, migrations | [go-database](../go-database/SKILL.md) | [go-error-handling](../go-error-handling/SKILL.md); [go-security](../go-security/SKILL.md) if identifiers come from input |
+| SQL queries, transactions, repositories, migrations | [go-database](../go-database/SKILL.md) | [go-error-handling](../go-error-handling/SKILL.md); [go-security](../go-security/SKILL.md) if a request value picks a row by ID or names a column, table, or sort order |
 | untrusted input, secrets, tokens, TLS, cookies | [go-security](../go-security/SKILL.md) | [go-defensive](../go-defensive/SKILL.md) |
 | retries, idempotency, circuit breakers, overload, backpressure, fallback | [go-resilience](../go-resilience/SKILL.md) | the HTTP, SQL, context, or concurrency owner when its mechanics change |
 | ticket, wrong result, environment regression, panic, hang, leak, flaky test; cause unknown | [go-troubleshooting](../go-troubleshooting/SKILL.md) | the owner of the mechanism once found |

@@ -3,7 +3,7 @@
 > Sources: github.com/DietrichGebert/ponytail; Go CodeReviewComments; `$GOROOT/api/go1.2*.txt`
 > Authority: project policy for the ladder and the write rules; version claims checked against the api files
 > Minimum Go: 1.27 baseline (`COMPATIBILITY.md`); each table row names its own minimum
-> Last verified: 2026-09-03 against go1.27.1
+> Last verified: 2026-10-01 against go1.27.1
 
 **The restraint ladder**, **Reach For What Go Ships**, and **Ship, Then
 Question** are normative whenever Go code is written, on any task.
@@ -85,22 +85,22 @@ Rungs 3 and 4, made concrete: before writing a loop, helper, wrapper, or type,
 find its row and write the right-hand column. Versions are the minimum `go`
 directive — `go vet`'s `stdversion` analyzer flags a newer symbol. On existing
 code a swap may be observable; `MODERNIZATION.md` says what each can change.
-Rows already on the
-[idiom card](../../go-style-core/SKILL.md#current-go-idiom-card) are not
-repeated here.
+The [idiom card](../../go-style-core/SKILL.md#current-go-idiom-card) already
+carries `for i := range n`, `iter.Seq`, `cmp.Or`, `slices.Sorted(maps.Keys(m))`,
+`slices.SortFunc`, the `slices` and `maps` loop helpers, `errors.Join`,
+`errors.AsType[T]`, `wg.Go`, `context.AfterFunc`, `omitzero`, the stdlib
+`uuid`, `t.TempDir`, `t.Chdir`, and `t.Context()`, each with its trap; read
+those rows there. This table lists only what the card does not.
 
 **Language**
 
 | Instead of writing | Reach for |
 |---|---|
-| A three-clause loop over an index only | `for i := range n` (Go 1.22) → [go-style-core](../../go-style-core/SKILL.md) |
-| A walker taking a callback, a channel-fed generator, a slice built only to be ranged | A function returning `iter.Seq[T]` / `iter.Seq2[K, V]`, consumed with `for v := range seq` (Go 1.23) → [go-style-core](../../go-style-core/SKILL.md) |
-| An `if`/`else` chain of fallbacks | `cmp.Or(a, b, c)` (Go 1.22) — it evaluates every argument |
 | Copies of one function that differ only in a type | One generic function, or a generic method (Go 1.27) — [go-generics](../../go-generics/SKILL.md) owns the threshold; two rhyming copies can be cheaper than a type parameter |
 | A struct with one method plus a constructor, to satisfy a one-method interface | A function type carrying the method, `http.HandlerFunc` style → [go-interfaces](../../go-interfaces/references/EMBEDDING.md) |
 | Forwarding methods that all call the same field | Embed the type — [go-interfaces](../../go-interfaces/SKILL.md) owns the exported-struct caveat |
-| A hand-written `String()` switch for an enum | `//go:generate go tool stringer -type=T` — `golang.org/x/tools`, tracked by a `tool` directive in `go.mod` (Go 1.24) instead of a `tools.go` of blank imports → [go-style-core](../../go-style-core/SKILL.md) |
-| A hand-written marshaler or field mapper | Struct tags; `omitzero` in new code (Go 1.24) → [go-defensive](../../go-defensive/SKILL.md) |
+| A hand-written `String()` switch for an enum | `//go:generate go tool stringer -type=T` where `go.mod` already tracks it (`tool golang.org/x/tools/cmd/stringer`, Go 1.24) or the task asks for it; otherwise a hand-written switch → [go-style-core](../../go-style-core/SKILL.md) |
+| A hand-written marshaler or field mapper | Struct tags → [go-defensive](../../go-defensive/SKILL.md) |
 | An asset loader, a file read at start-up, a static-file handler | `//go:embed` with `embed.FS`; `http.FileServerFS` (Go 1.22) → [go-packages](../../go-packages/SKILL.md) |
 | A runtime `GOOS`/`GOARCH` switch | A build tag |
 | `(T, error)` boxed in a struct with a `get`/`unwrap` method | Return the two values; box only where one value is required, such as a map value |
@@ -109,8 +109,7 @@ repeated here.
 
 | Instead of writing | Reach for |
 |---|---|
-| A `sort.Slice` comparator; `sort.Strings` after a collect loop | `slices.SortFunc` with `cmp.Compare`; `slices.Sorted(maps.Keys(m))` (Go 1.23) |
-| Collect, dedupe, reverse, concat, min/max loops | `slices.Compact`, `Reverse`, `Max`/`Min` (Go 1.21), `Concat` (Go 1.22), `Collect` (Go 1.23); `maps.Keys`, `Values`, `Collect` (Go 1.23) → [go-data-structures](../../go-data-structures/SKILL.md) |
+| A loop concatenating slices | `slices.Concat` (Go 1.22) → [go-data-structures](../../go-data-structures/SKILL.md) |
 | `map[T]bool` used only for membership | `map[T]struct{}` |
 | Per-type nullable wrappers | `sql.Null[T]` (Go 1.22) → [go-database](../../go-database/SKILL.md) |
 
@@ -118,12 +117,10 @@ repeated here.
 
 | Instead of writing | Reach for |
 |---|---|
-| A multi-error accumulator | `errors.Join`; `fmt.Errorf` with several `%w` |
+| A multi-error accumulator over a fixed set of errors | `fmt.Errorf` with several `%w` (Go 1.20) |
 | A wrapping error type that only carries context | `fmt.Errorf("...: %w", err)` and `errors.Is` → [go-error-handling](../../go-error-handling/SKILL.md) |
-| `errors.As` with a declared target variable | `errors.AsType[T]` (Go 1.26) |
-| `wg.Add(1)` / `go func() { defer wg.Done() }()` | `wg.Go(f)` (Go 1.25) → [go-concurrency](../../go-concurrency/SKILL.md) |
-| A `WaitGroup`, an error channel, and first-error logic; a semaphore channel | `errgroup.Group` and `SetLimit` (`golang.org/x/sync`: a new module on the dependency ladder unless `go.mod` already has it) |
-| A goroutine parked on `ctx.Done()` to run cleanup; a detached copy of a context | `context.AfterFunc`, `context.WithoutCancel` → [go-context](../../go-context/SKILL.md) |
+| A `WaitGroup`, an error channel, and first-error logic; a semaphore channel | `errgroup.Group` and `SetLimit` (`golang.org/x/sync`: a new module on the dependency ladder unless `go.mod` already has it) → [go-concurrency](../../go-concurrency/SKILL.md) |
+| A detached copy of a context | `context.WithoutCancel` → [go-context](../../go-context/SKILL.md) |
 
 **I/O, HTTP, tests, logging**
 
@@ -133,9 +130,9 @@ repeated here.
 | Path-traversal guards around `filepath.Join` | `os.Root` (Go 1.24) → [go-defensive](../../go-defensive/SKILL.md) |
 | Hand-rolled body limits and CSRF origin checks | `http.MaxBytesReader`; `http.NewCrossOriginProtection` (Go 1.25) → [go-security](../../go-security/SKILL.md) |
 | Hand-parsed `os.Args` | `flag`, before any CLI module → [go-packages](../../go-packages/SKILL.md) |
-| A random-string generator; a UUID module for `New`/`Parse` | `crypto/rand.Text()` (Go 1.24); stdlib `uuid` (Go 1.27) |
+| A random-string generator | `crypto/rand.Text()` (Go 1.24) |
 | A fan-out or no-op log handler | `slog.NewMultiHandler` (Go 1.26), `slog.DiscardHandler` (Go 1.24) → [go-logging](../../go-logging/SKILL.md) |
-| N near-identical test functions; hand-rolled teardown, temp dirs, env and cwd restore | One table with `t.Run`; `t.Cleanup`, `t.TempDir`, `t.Setenv`, `t.Chdir` (Go 1.24), `t.Context()` (Go 1.24) → [go-testing](../../go-testing/SKILL.md) |
+| N near-identical test functions; hand-rolled teardown and env restore | One table with `t.Run`; `t.Cleanup`, `t.Setenv` → [go-testing](../../go-testing/SKILL.md) |
 
 `go fix -diff` applies the rows it has modernizers for; the rest are yours.
 
@@ -217,8 +214,9 @@ Ordered by how much usually comes out.
   [go-packages](../../go-packages/SKILL.md).
 
 **Hand-rolled standard library** — every row of
-[Reach For What Go Ships](#reach-for-what-go-ships), read as a cut: the left
-column is the finding, the right column the replacement.
+[Reach For What Go Ships](#reach-for-what-go-ships) and of the
+[idiom card](../../go-style-core/SKILL.md#current-go-idiom-card), read as a
+cut: the left column is the finding, the right column the replacement.
 
 **Flexibility nobody asked for**
 

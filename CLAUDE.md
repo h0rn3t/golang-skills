@@ -82,7 +82,7 @@ Claude Code:
 - `go-code-routing.sh`: PostToolUse on `Skill|Read` records loaded skills;
   PreToolUse on `Edit|Write` blocks (exit 2) every `.go` edit until a router
   (without one, the entry router `prompted` names, else `go-code`),
-  `go-style-core`, the owners, and a whole card Read are in `loaded`.
+  `go-style-core` (which carries the idiom card), and the owners are in `loaded`.
   `reminded` is only a log: a retry without loads is blocked again, and the
   third stalled retry of the same edit returns JSON `continue: false`. A skill
   with no SKILL.md in the plugin copy is reported, not required;

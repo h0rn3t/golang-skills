@@ -197,8 +197,10 @@ qualifying improvement exists.
 ### 1. Orient
 
 Scripts run from the target project by full path: `<installed-skill-dir>`
-below is the base directory the host printed when it loaded this skill
-(`~/.agents/skills/go-code-refactor` under Codex). Write the path itself into
+below is the base directory the host printed when it loaded this skill, or,
+where no tool loads it, the directory this SKILL.md was read from (under
+Codex, `~/.codex/skills/go-code-refactor` or
+`~/.agents/skills/go-code-refactor`). Write the path itself into
 each command — every shell call starts with a fresh environment, so a
 variable exported in one call is empty in the next. Exit 127 from the first
 script means the path is wrong.
@@ -335,7 +337,7 @@ in the code, not only in the report. `Kept:` / `Ceiling:` / `Fix:` are fixed
 prefixes, so the markers stay greppable:
 
 ```go
-// Kept: defer stays inside the loop; hoisting it closes files one iteration earlier.
+// Kept: defer stays inside the loop; hoisting the body closes each file as its iteration ends.
 // Ceiling: descriptors accumulate for the worker's lifetime.
 // Fix: close explicitly per iteration, in its own commit.
 ```

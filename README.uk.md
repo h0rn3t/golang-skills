@@ -124,7 +124,7 @@ git pull
 rm -rf ~/.claude/skills/go-* && cp -R skills/go-* ~/.claude/skills/
 ```
 
-Для Codex цільова директорія — `~/.agents/skills/`.
+Для Codex цільова директорія — `~/.codex/skills/` (глобальний шлях із таблиці вище) або `.agents/skills/` проєкту.
 
 ## Інструкції для проєкту
 

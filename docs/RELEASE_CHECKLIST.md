@@ -17,7 +17,9 @@ Run the release validation commands from the repository root:
 ```bash
 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
 
-(cd evals && go test -count=1 ./...)
+(cd evals && go test -count=1 -race -shuffle=on ./...)
+
+bash -n hooks/*.sh
 
 golangci-lint config verify --config skills/go-linting/assets/golangci.yml
 ```

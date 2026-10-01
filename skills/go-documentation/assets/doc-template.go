@@ -2,14 +2,17 @@
 //
 // # Getting Started
 //
-// Open a [Log], append to it, and close it when done:
+// Open a [Log], append to it, and close it when done; Close reports a write
+// that failed late, so its error is returned too:
 //
 //	l, err := example.Open("app.log")
 //	if err != nil {
 //		return err
 //	}
-//	defer l.Close()
-//	return l.Append("started")
+//	if err := l.Append("started"); err != nil {
+//		return errors.Join(err, l.Close())
+//	}
+//	return l.Close()
 package example
 
 import (

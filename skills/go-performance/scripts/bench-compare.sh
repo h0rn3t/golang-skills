@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="1.3.0"
+VERSION="1.4.0"
 SCRIPT_NAME="$(basename "$0")"
 
 usage() {
@@ -15,17 +15,22 @@ DESCRIPTION
     Wrapper around 'go test -bench' that runs benchmarks multiple times and
     optionally compares results against a saved baseline using benchstat.
 
-    Results can be saved to a file for future comparison. If benchstat is
-    installed and a baseline is provided, a statistical comparison is shown.
+    Results can be saved to a file for future comparison; --save writes only
+    a run whose status is ok. With a baseline, the comparison uses
+    'go tool benchstat' when go.mod declares the tool, else a benchstat on
+    PATH; with neither, raw result lines are shown and the comparison is
+    reported as skipped.
 
 EXIT CODES
     0    Benchmarks ran successfully
     1    go test failed (compilation error, test failure, no benchmarks found)
-    2    Usage error (missing arguments, bad flags, file exists without --force)
+    2    Usage error (missing arguments or option values, bad flags, file
+         exists without --force, baseline missing or without Benchmark lines)
 
     With --json the object carries "status" (ok | no_benchmarks | error) and
     "exit_code", this script's exit code; "go_exit_code" is go test's own.
     "benchmarks_found" counts result lines: one per benchmark per --count run.
+    Usage errors exit 2 before any benchmark runs and print no JSON.
 
 OPTIONS
     -h, --help           Show this help message
@@ -55,13 +60,31 @@ EOF
 }
 
 json_escape() {
-    local s="$1"
+    local s="$1" i hex c rep
     s="${s//\\/\\\\}"
     s="${s//\"/\\\"}"
     s="${s//$'\t'/\\t}"
     s="${s//$'\r'/}"
     s="${s//$'\n'/\\n}"
+    # Any other control character (an ANSI color in b.Log output, say) would
+    # make the JSON invalid; bash strings cannot hold NUL.
+    for ((i = 1; i < 32; i++)); do
+        printf -v hex '%02x' "$i"
+        printf -v c "\\x$hex"
+        if [[ $s == *"$c"* ]]; then
+            printf -v rep '\\u%04x' "$i"
+            s="${s//"$c"/"$rep"}"
+        fi
+    done
     printf '%s' "$s"
+}
+
+# Exit 2 when an option that takes a value is last or given an empty one.
+need_arg() {
+    if [[ -z ${2-} ]]; then
+        echo "error: $1 requires a value" >&2
+        exit 2
+    fi
 }
 
 # Pass go test output through with at most LIMIT benchmark result lines
@@ -93,15 +116,15 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help)      usage; exit 0 ;;
         -v|--version)   echo "$SCRIPT_NAME v$VERSION"; exit 0 ;;
-        -n|--count)     COUNT="${2:?error: --count requires a number}"; shift 2 ;;
-        -b|--baseline)  BASELINE="${2:?error: --baseline requires a file path}"; shift 2 ;;
-        -s|--save)      SAVE="${2:?error: --save requires a file path}"; shift 2 ;;
-        -f|--filter)    FILTER="${2:?error: --filter requires a regex}"; shift 2 ;;
+        -n|--count)     need_arg "$1" "${2-}"; COUNT="$2"; shift 2 ;;
+        -b|--baseline)  need_arg "$1" "${2-}"; BASELINE="$2"; shift 2 ;;
+        -s|--save)      need_arg "$1" "${2-}"; SAVE="$2"; shift 2 ;;
+        -f|--filter)    need_arg "$1" "${2-}"; FILTER="$2"; shift 2 ;;
         --json)         JSON_OUTPUT=true; shift ;;
         --benchmem)     BENCHMEM=true; shift ;;
         --no-benchmem)  BENCHMEM=false; shift ;;
         --force)        FORCE=true; shift ;;
-        --limit)        LIMIT="${2:?error: --limit requires a number}"; shift 2 ;;
+        --limit)        need_arg "$1" "${2-}"; LIMIT="$2"; shift 2 ;;
         -*)             echo "error: unknown option: $1" >&2; usage >&2; exit 2 ;;
         *)              PACKAGE="$1"; shift ;;
     esac
@@ -129,14 +152,26 @@ if [[ -n "$BASELINE" && ! -f "$BASELINE" ]]; then
     exit 2
 fi
 
+# A baseline without result lines (a failed run saved by an earlier version)
+# would let the comparison "pass" with nothing compared.
+if [[ -n "$BASELINE" ]] && ! grep -qE '^Benchmark' "$BASELINE"; then
+    echo "error: baseline has no Benchmark result lines: $BASELINE" >&2
+    exit 2
+fi
+
 if [[ -n "$SAVE" && -f "$SAVE" ]] && ! $FORCE; then
     echo "error: save target already exists: $SAVE (use --force to overwrite)" >&2
     exit 2
 fi
 
-HAS_BENCHSTAT=false
-if command -v benchstat &>/dev/null; then
-    HAS_BENCHSTAT=true
+# Prefer the version go.mod pins (go get -tool), then a benchstat on PATH.
+BENCHSTAT=()
+if [[ -n "$BASELINE" ]]; then
+    if go tool -n benchstat &>/dev/null; then
+        BENCHSTAT=(go tool benchstat)
+    elif command -v benchstat &>/dev/null; then
+        BENCHSTAT=(benchstat)
+    fi
 fi
 
 BENCH_ARGS=(-bench "$FILTER" -count "$COUNT" -run '^$')
@@ -144,7 +179,8 @@ if $BENCHMEM; then
     BENCH_ARGS+=(-benchmem)
 fi
 
-TMPFILE=$(mktemp "${TMPDIR:-/tmp}/bench-XXXXXX.txt")
+# The X's must be trailing: BSD mktemp leaves any other template literal.
+TMPFILE=$(mktemp "${TMPDIR:-/tmp}/bench.XXXXXX")
 trap 'rm -f "$TMPFILE"' EXIT
 
 log "Running benchmarks: go test ${BENCH_ARGS[*]} $PACKAGE"
@@ -170,25 +206,45 @@ if $TRUNCATED; then
     log "Note: $BENCH_COUNT benchmark result lines found, showing the first $LIMIT (--limit $LIMIT)"
 fi
 
+# STATUS names the outcome so a JSON consumer cannot mistake go test's exit 0
+# on a package without benchmarks for success; exit_code below is FINAL_EXIT,
+# the code this script exits with, never go test's.
+FINAL_EXIT=0
+STATUS="ok"
+if [[ $GO_EXIT -ne 0 ]]; then
+    FINAL_EXIT=1
+    STATUS="error"
+elif [[ $BENCH_COUNT -eq 0 ]]; then
+    FINAL_EXIT=1
+    STATUS="no_benchmarks"
+fi
+
+# Only a successful run becomes a baseline; SAVED stays empty otherwise.
+SAVED=""
 if [[ -n "$SAVE" ]]; then
-    cp "$TMPFILE" "$SAVE"
     log ""
-    log "Results saved to: $SAVE"
+    if [[ $STATUS == ok ]]; then
+        cp "$TMPFILE" "$SAVE"
+        SAVED="$SAVE"
+        log "Results saved to: $SAVE"
+    else
+        log "Results not saved to $SAVE: status $STATUS"
+    fi
 fi
 
 if [[ -n "$BASELINE" ]]; then
     log ""
     log "=== Comparison with baseline: $BASELINE ==="
     log ""
-    if $HAS_BENCHSTAT; then
+    if [[ ${#BENCHSTAT[@]} -gt 0 ]]; then
         if $JSON_OUTPUT; then
-            benchstat "$BASELINE" "$TMPFILE" >&2 || true
+            "${BENCHSTAT[@]}" "$BASELINE" "$TMPFILE" >&2 || true
         else
-            benchstat "$BASELINE" "$TMPFILE" || true
+            "${BENCHSTAT[@]}" "$BASELINE" "$TMPFILE" || true
         fi
     else
-        log "note: install benchstat for statistical comparison:"
-        log "  go install golang.org/x/perf/cmd/benchstat@latest"
+        log "note: benchstat not found; statistical comparison skipped. Pin it in the project:"
+        log "  go get -tool golang.org/x/perf/cmd/benchstat@latest"
         log ""
         log "--- Baseline ---"
         if $JSON_OUTPUT; then
@@ -206,22 +262,11 @@ if [[ -n "$BASELINE" ]]; then
     fi
 fi
 
-# STATUS names the outcome so a JSON consumer cannot mistake go test's exit 0
-# on a package without benchmarks for success; exit_code below is FINAL_EXIT,
-# the code this script exits with, never go test's.
-FINAL_EXIT=0
-STATUS="ok"
-if [[ $GO_EXIT -ne 0 ]]; then
-    FINAL_EXIT=1
-    STATUS="error"
-    if ! $JSON_OUTPUT; then
+if ! $JSON_OUTPUT; then
+    if [[ $STATUS == error ]]; then
         log ""
         log "error: go test exited with code $GO_EXIT"
-    fi
-elif [[ $BENCH_COUNT -eq 0 ]]; then
-    FINAL_EXIT=1
-    STATUS="no_benchmarks"
-    if ! $JSON_OUTPUT; then
+    elif [[ $STATUS == no_benchmarks ]]; then
         log ""
         log "error: no benchmarks found matching filter: $FILTER"
     fi
@@ -233,7 +278,7 @@ if $JSON_OUTPUT; then
     escaped_package=$(json_escape "$PACKAGE")
     escaped_filter=$(json_escape "$FILTER")
     escaped_baseline=$(json_escape "$BASELINE")
-    escaped_save=$(json_escape "$SAVE")
+    escaped_save=$(json_escape "$SAVED")
     escaped_output=$(json_escape "$BENCH_OUTPUT")
 
     printf '{"count":%d,' "$COUNT"

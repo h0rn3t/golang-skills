@@ -14,8 +14,8 @@ whether Go work is finished.
 
 ## Resource Routing
 
-- `scripts/setup-lint.sh` - Run when generating a `.golangci.yml`, validating the first lint pass, or producing JSON metadata.
-- `assets/golangci.yml` - Use as the v2 golangci-lint baseline for established projects.
+- `scripts/setup-lint.sh` - Run from the target module as `bash <installed-skill-dir>/scripts/setup-lint.sh [local-prefix]` when generating a `.golangci.yml`, validating the first lint pass, or producing JSON metadata.
+- `assets/golangci.yml` - Use as the v2 golangci-lint baseline for established projects, and as the gate's lint config where the repository has none.
 - `references/CONFIGURATION.md` - Read for any linter configuration, CI, or first-lint setup task.
 
 ## Verification Gate
@@ -30,7 +30,7 @@ go build ./...
 go vet ./...          # includes stdversion, printf, lostcancel, waitgroup
 go test -race ./...
 go fix -diff ./...    # preview only
-golangci-lint run ./...
+golangci-lint run ./...   # no repository config: add --config <installed-skill-dir>/assets/golangci.yml
 govulncheck ./...     # dependency CVEs
 ```
 
@@ -49,6 +49,12 @@ Gate rules:
   package arguments (for example `go fix -diff ./internal/store`). An empty
   package list means skip; do not fall back to the current package or `./...`.
   Separate pre-existing findings from new ones; do not rewrite unrelated code.
+- `golangci-lint config path` exits non-zero when the repository has no lint
+  config; lint with the bundled baseline then. Without it golangci-lint runs
+  five default linters: none of the `noctx`, `bodyclose`, `rowserrcheck`,
+  `sqlclosecheck`, `gosec`, or `sloglint` checks the skills name runs, and
+  `errcheck` reports the deferred `rows.Close`, `tx.Rollback`, and
+  `resp.Body.Close` the baseline excludes.
 - Use `-race` for concurrency changes and wherever the repository requires it.
   Inspect a `make test` recipe before using it: a plain `go test` is not evidence
   of a race check. Retain its setup and use a race-enabled equivalent if needed.

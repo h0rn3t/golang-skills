@@ -176,6 +176,10 @@ func TestArchitectureFixtureAndChecker(t *testing.T) {
 		if rep := runArchCheck(t, 1, dir); len(rep.Violations) != 1 || rep.Violations[0].Rule != "unclassified" {
 			t.Fatalf("violations = %+v, want one unclassified package", rep.Violations)
 		}
+		// --limit 0 lists everything, as it does for every other bundled script.
+		if rep := runArchCheck(t, 1, "--limit", "0", dir); len(rep.Violations) != 1 {
+			t.Fatalf("--limit 0 listed %d violations, want all 1: %+v", len(rep.Violations), rep)
+		}
 		runArchCheck(t, 2, "--limit", "nope", dir)
 		if err := os.Remove(filepath.Join(dir, "architecture.json")); err != nil {
 			t.Fatal(err)

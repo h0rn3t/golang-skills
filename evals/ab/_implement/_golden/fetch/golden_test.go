@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -44,7 +45,11 @@ func (p *goldenPartner) RoundTrip(req *http.Request) (*http.Response, error) {
 	if status == 0 {
 		return nil, goldenErrTransport
 	}
+	// A real transport fills Status too ("503 Service Unavailable"); without
+	// it, an error built from resp.Status lost the code and failed the
+	// message check in about 80% of Opus 5.5 low sessions in every tree.
 	resp := &http.Response{
+		Status:     fmt.Sprintf("%d %s", status, http.StatusText(status)),
 		StatusCode: status,
 		Header:     http.Header{},
 		Body:       io.NopCloser(strings.NewReader(`{"id":"o-7","sku":"sku-1","amount":250}`)),

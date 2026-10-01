@@ -4,6 +4,24 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- The `fetch` implement fixture's golden partner fills `resp.Status`
+  ("503 Service Unavailable"), as a real transport does. Without it, an error
+  built from `resp.Status` lost the code and failed
+  `TestGetOrderGivesUpWithinAttempts` in about 80% of Opus 5.5 low sessions in
+  every tree, a harness artifact read as noise in every Opus run; all 12 kept
+  trees that had failed it pass with the fixed golden.
+- `abrun` reads each claude session's routing from its trace and records it
+  per result (`routing`: the first tool called, the skills in the first
+  Skill-bearing message, an edit before any load, gate blocks). The arm
+  summary prints it in one line with shell calls per run. The 1.28.0 note
+  wording was chosen on exactly these counts, read until now by scratch
+  scripts; on the kept 1.28.0 traces the line reproduces them.
+- 1.28.0's prompt note, measured on Sonnet 5.5 (implement, `-shell go`, low,
+  n=2, against v1.27.1): parity — golden 100%/100%, lint equal, cost $0.285
+  vs $0.275, every session opening with a Skill call that carries
+  go-style-core in both trees, 0.36 gate blocks per session in both. That
+  release had measured the final wording on Opus 5.5 only.
+
 ## [1.28.0] - 2026-10-01
 
 - The idiom card moves into `go-style-core/SKILL.md` as its Current Go Idiom

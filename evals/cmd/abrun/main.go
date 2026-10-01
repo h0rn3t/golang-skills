@@ -410,6 +410,8 @@ type result struct {
 	// Commands counts the shell calls across every turn: the codex runner's
 	// shell, and Bash in a claude session run with -shell or -gopls cli.
 	Commands int `json:"commands,omitempty"`
+	// Routing is how a claude session reached its skills, from its trace.
+	Routing *routingStats `json:"routing,omitempty"`
 	// Trace is the retained JSONL transcript, written for every runner and kept
 	// with -keep. A final message claiming a measurement is checkable against
 	// the commands the session actually ran.
@@ -1049,6 +1051,7 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 // sessionTurn is what one model invocation leaves behind. It exists because a
 // repair run has two turns and both have to be folded into one result.
 type sessionTurn struct {
+	routing  *routingStats
 	out      []byte
 	skills   []string
 	final    string
@@ -1077,6 +1080,8 @@ func runSession(o options, a arm, work, prompt string) sessionTurn {
 		t.skills, t.final, t.cost = parseClaudeStream(t.out)
 		t.gopls = goplsCalls(t.out)
 		t.commands = claudeCommands(t.out)
+		routing := claudeRouting(t.out)
+		t.routing = &routing
 	}
 	return t
 }
@@ -1097,6 +1102,12 @@ func (r *result) merge(t sessionTurn) {
 	sort.Strings(r.Skills)
 	r.Cost += t.cost
 	r.Commands += t.commands
+	if t.routing != nil {
+		if r.Routing == nil {
+			r.Routing = &routingStats{}
+		}
+		r.Routing.add(*t.routing)
+	}
 	r.GoplsCalls += t.gopls
 	if t.final != "" {
 		r.Output = t.final
@@ -2174,6 +2185,15 @@ type armSummary struct {
 	// afterwards. The second number is the only one that says the loop worked.
 	RepairsFired   int
 	RepairsRescued int
+	// RoutingRuns counts the completed runs with a routing record; the four
+	// after it total what the records say (see routingStats), and Commands
+	// totals shell calls over completed runs.
+	RoutingRuns    int
+	FirstSkill     int
+	StyleCoreFirst int
+	EditBeforeLoad int
+	GateBlocks     int
+	Commands       int
 	// FixBefore and FixAfter total the pending go fix hunks over the valid
 	// runs that could be read at both ends, FixMeasured counts those runs, and
 	// FixClean the ones the toolchain had nothing left to propose for. Runs
@@ -2263,6 +2283,20 @@ func summarizeArm(rep report, name string) armSummary {
 		if r.Err != "" {
 			summary.Errors++
 			continue
+		}
+		summary.Commands += r.Commands
+		if rt := r.Routing; rt != nil {
+			summary.RoutingRuns++
+			if rt.FirstTool == "Skill" {
+				summary.FirstSkill++
+			}
+			if slices.Contains(rt.FirstLoads, "go-style-core") {
+				summary.StyleCoreFirst++
+			}
+			if rt.EditBeforeLoad {
+				summary.EditBeforeLoad++
+			}
+			summary.GateBlocks += rt.GateBlocks
 		}
 		if r.Build {
 			summary.Build++
@@ -2389,6 +2423,12 @@ func printSummary(rep report) {
 		}
 		fmt.Printf("%-24s   line gate %d/%d, behavior failures %d, counts reported %d/%d\n",
 			"", summary.LineGatePasses, completed, summary.BehaviorFailures, summary.ReportedCounts, completed)
+		if summary.RoutingRuns > 0 {
+			n := summary.RoutingRuns
+			fmt.Printf("%-24s   routing: first tool Skill %d/%d, go-style-core in the first load %d/%d, edit before any load %d/%d, gate blocks %.2f/run, shell calls %.2f/run\n",
+				"", summary.FirstSkill, n, summary.StyleCoreFirst, n, summary.EditBeforeLoad, n,
+				float64(summary.GateBlocks)/float64(n), float64(summary.Commands)/float64(n))
+		}
 		fmt.Printf("%-24s   %s\n", "", summary.Readability.line(summary.Valid))
 		if summary.FixMeasured > 0 {
 			fixMean := func(sum int) float64 { return float64(sum) / float64(summary.FixMeasured) }

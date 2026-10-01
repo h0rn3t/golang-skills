@@ -1,8 +1,8 @@
 # Project Instructions Template
 
 A short block for a work project's instruction file, so the first Go edit
-starts from the router, `go-style-core`, and the idiom card instead of
-depending on the model to pick them. Paste the block for the client the team
+starts from the router and `go-style-core`, which carries the idiom card,
+instead of depending on the model to pick them. Paste the block for the client the team
 uses; a team on several clients keeps both, one per file.
 
 ## Claude Code with the plugin
@@ -16,8 +16,7 @@ Before the first edit of a `.go` file, in one message:
 
 1. Load the router with the Skill tool: `golang-skills:go-code` to write or
    fix Go, `golang-skills:go-code-refactor` for a behavior-preserving refactor.
-2. Load `golang-skills:go-style-core` and Read its `references/CURRENT-GO.md`
-   whole, with no offset or limit.
+2. Load `golang-skills:go-style-core`; it carries the idiom card.
 3. Load only the owner skills the router's "Route Before The First Edit" table
    names for this task, never the whole pack.
 
@@ -64,8 +63,7 @@ The golang-skills pack is installed in `<skills>` (for example
 
 1. The router: `<skills>/go-code/SKILL.md` to write or fix Go, or
    `<skills>/go-code-refactor/SKILL.md` for a behavior-preserving refactor.
-2. `<skills>/go-style-core/SKILL.md` and
-   `<skills>/go-style-core/references/CURRENT-GO.md`.
+2. `<skills>/go-style-core/SKILL.md`, which carries the idiom card.
 3. Only the owner skills the router's routing table names for this task,
    never the whole pack.
 

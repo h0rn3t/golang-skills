@@ -50,11 +50,10 @@
 # one at a time; a session that has the list before its first edit loads them
 # without a block. Test files stay out of the scan.
 #
-# For go-code and go-code-refactor the note also names the idiom card by its
-# installed path, since the gate requires one whole Read of it before the
-# first .go edit and no skill wording made Sonnet 5 medium read it (0/24 on
-# 2026-09-18): named here, the Read can land in the same message as the
-# go-style-core load instead of costing a gate block.
+# The idiom card is a section of go-style-core's SKILL.md, so the
+# go-style-core load carries it. It used to be a reference this note named by
+# path for a whole Read the gate required, since no skill wording made
+# Sonnet 5 medium read it (0/24 on 2026-09-18).
 set -u
 
 input="$(cat)"
@@ -267,47 +266,55 @@ owners=""
 if (( ${#files[@]} > 0 )); then
     owners="$(bash "$(dirname "${BASH_SOURCE[0]}")/go-code-routing.sh" --hints "${files[@]}" 2>/dev/null)" || owners=""
 fi
+# The router line names go-style-core the way it names the router: "load the
+# X skill (Skill tool, name X)". Opus 5.5 low acts on that line and treats the
+# next as optional. On 2026-09-30/10-01 (implement, -shell go):
+#   - go-style-core on the next line, the card Read gone: loaded with the
+#     router in 1 of 14 sessions, gate blocks 2.71 per session;
+#   - two skills in the router line without that phrasing, or one list after
+#     the classification line: 3 of 14 and 7 of 12 sessions explored through
+#     Bash first and edited before any load;
+#   - each skill on the next line with its own (Skill tool, name ...):
+#     go-style-core first-message in 10 of 21;
+#   - both skills in the router line, this form: 21 of 21 with go-style-core
+#     and go-testing in the first message, 0.43 blocks per session, cost at
+#     v1.27.1's level (n=3).
+# A slash command has already inserted the router, so its line starts at
+# go-style-core.
+tt="\`$(q go-testing)\` (Skill tool, name \`$(q go-testing)\`)"
 if [[ "$mode" == "slash" ]]; then
-    line="Load \`$(q go-style-core)\`"
+    line="Load \`$(q go-style-core)\` (Skill tool, name \`$(q go-style-core)\`)"
+    sep="; "
+    owners_lead=", and the owners its code points at: "
 else
-    line="Load \`$(q go-style-core)\` with it"
+    line="Load with them"
+    sep=" "
+    owners_lead=" the owners its code points at: "
 fi
 if [[ -n "$owners" ]]; then
     list=""
     for o in $owners; do list+="\`$(q "$o")\`, "; done
-    line+=", and the owners its code points at: ${list%, }"
+    line+="${owners_lead}${list%, }"
+    sep="; "
 fi
-# The idiom card, at the path this plugin copy carries it; the edit gate
-# requires one whole Read of it, and names it again if this note is not
-# followed.
-card=""
-if [[ "$skill" != "go-code-review" ]]; then
-    card="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)/skills/go-style-core/references/CURRENT-GO.md"
-    [[ -f "$card" ]] || card=""
-fi
-# One sentence carries the loads and the card: named in a sentence of its own
-# ("in the same message as the go-style-core load"), the card pulled
-# go-style-core off the owners' turn and cost 3.22 Skill turns a session
-# against 2.44 (2026-09-18, Sonnet 5 medium, n=3).
 if [[ "$skill" == "go-code" && "$newcode" == "new" ]]; then
-    line+="; \`$(q go-testing)\`, since new code starts with its contract test"
+    line+="${sep}$tt too, since new code starts with its contract test"
 else
-    line+="; \`$(q go-testing)\` if you write or edit a test"
+    line+="${sep}$tt if you write or edit a test"
 fi
-[[ -z "$card" ]] || line+="; and Read the idiom card whole (no offset or limit): $card"
 line+='. All of them in one message, before the first edit.'
 if [[ "$mode" == "slash" ]]; then
     printf 'golang-skills: the `/%s` command inserted that skill file and loaded nothing else.\n' "$skill"
     printf '%s\n' "$line"
     exit 0
 fi
-
 if [[ "$mode" == "mention" ]]; then
     printf 'golang-skills: this prompt names the `%s` skill; naming a skill does not load it.\n' "$(q "$skill")"
 else
     printf 'golang-skills: this prompt looks like %s.\n' "$kind"
 fi
-printf 'Before the first edit, load the `%s` skill (Skill tool, name `%s`); %s.\n' "$(q "$skill")" "$(q "$skill")" "$what"
+printf 'Before the first edit, load the `%s` skill (Skill tool, name `%s`) and the `%s` skill (Skill tool, name `%s`); `%s` %s.\n' \
+    "$(q "$skill")" "$(q "$skill")" "$(q go-style-core)" "$(q go-style-core)" "$(q "$skill")" "${what#it }"
 printf '%s\n' "$line"
 [[ "$mode" == "mention" ]] || printf 'If the task is not Go work, ignore this note.\n'
 exit 0

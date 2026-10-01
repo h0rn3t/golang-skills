@@ -16,7 +16,7 @@ for that promise; compilation alone does not establish equivalent behavior.
 Resolve resources from this installed skill directory; run scripts from the
 target project using the resolved absolute script path.
 
-- `../go-style-core/SKILL.md` - Load on every refactor before the first edit, with its idiom card `references/CURRENT-GO.md`.
+- `../go-style-core/SKILL.md` - Load on every refactor before the first edit; it carries the idiom card.
 - `references/BEHAVIOR-TRAPS.md` - Its Pre-commit checklist before every refactor; a section when a transform moves a `defer`, nil versus empty, goroutine or channel shape, or struct layout.
 - `references/PLAYBOOK.md` - The concrete transformations, ordered by payoff.
 - `references/POLICY-TABLES.md` - When repeated selection reads fields of one shared policy record.

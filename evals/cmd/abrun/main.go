@@ -161,6 +161,10 @@ type options struct {
 	// goplsPath is the binary that run finds; it is not a flag.
 	gopls     string
 	goplsPath string
+	// shell gives every claude session a Bash tool: "go" allows the Go
+	// toolchain, cd, and bash for the bundled scripts — the shell a user's
+	// session has, which the default arms leave out.
+	shell string
 }
 
 func main() {
@@ -176,6 +180,7 @@ func main() {
 	flag.StringVar(&o.out, "out", "", "write the JSON report to this file")
 	flag.StringVar(&o.referenceRoot, "reference-root", "", "alternate plugin root for a reference arm")
 	flag.StringVar(&o.gopls, "gopls", "", "give each claude session gopls: mcp (the gopls MCP server) or cli (Bash allowed for gopls only); default neither")
+	flag.StringVar(&o.shell, "shell", "", "give each claude session a shell: go (Bash allowed for go, gofmt, golangci-lint, govulncheck, cd, and bash for the bundled scripts); default none")
 	flag.StringVar(&o.rescore, "rescore", "", "re-score the review results of this saved JSON report against the current keys and print the summary; -out writes the re-scored report")
 	flag.IntVar(&o.reps, "n", 2, "repetitions per fixture per arm")
 	flag.IntVar(&o.parallel, "j", 2, "runs to execute concurrently")
@@ -402,8 +407,8 @@ type result struct {
 	// the session called gopls through MCP or CLI across all turns.
 	GoplsRoute string `json:"gopls_route,omitempty"`
 	GoplsCalls int    `json:"gopls_calls,omitempty"`
-	// Commands counts the shell calls across every turn. Only the codex runner
-	// reports it; the claude arms are granted no shell at all.
+	// Commands counts the shell calls across every turn: the codex runner's
+	// shell, and Bash in a claude session run with -shell or -gopls cli.
 	Commands int `json:"commands,omitempty"`
 	// Trace is the retained JSONL transcript, written for every runner and kept
 	// with -keep. A final message claiming a measurement is checkable against
@@ -425,6 +430,7 @@ type report struct {
 	Model    string    `json:"model,omitempty"`
 	Effort   string    `json:"effort,omitempty"`
 	Gopls    string    `json:"gopls,omitempty"`
+	Shell    string    `json:"shell,omitempty"`
 	Reps     int       `json:"reps"`
 	Seed     int64     `json:"seed"`
 	Arms     []arm     `json:"arms"`
@@ -531,7 +537,7 @@ func run(o options) error {
 
 	jobs := buildJobs(arms, tasks, o.reps, o.seed)
 
-	rep := report{Prompt: o.prompt, Corpus: o.corpus, Runner: o.runner, Model: o.model, Effort: o.effort, Gopls: o.gopls, Reps: o.reps, Seed: o.seed, Arms: arms, Results: make([]result, len(jobs))}
+	rep := report{Prompt: o.prompt, Corpus: o.corpus, Runner: o.runner, Model: o.model, Effort: o.effort, Gopls: o.gopls, Shell: o.shell, Reps: o.reps, Seed: o.seed, Arms: arms, Results: make([]result, len(jobs))}
 	var mu sync.Mutex
 	forEach(o.parallel, len(jobs), func(i int) {
 		res := runOne(o, abDir, jobs[i].arm, jobs[i].task, jobs[i].rep)
@@ -585,6 +591,12 @@ func validateOptions(o options) error {
 	}
 	if o.gopls != "" && o.runner != runnerClaude {
 		return exitError{2, "-gopls is only supported by the " + runnerClaude + " runner"}
+	}
+	if o.shell != "" && o.shell != shellGo {
+		return exitError{2, "-shell must be " + shellGo}
+	}
+	if o.shell != "" && o.runner != runnerClaude {
+		return exitError{2, "-shell is only supported by the " + runnerClaude + " runner"}
 	}
 	if o.reps <= 0 {
 		return exitError{2, "-n must be greater than zero"}
@@ -1064,6 +1076,7 @@ func runSession(o options, a arm, work, prompt string) sessionTurn {
 		t.out, t.err = claudeSession(o, a.dir, work, prompt)
 		t.skills, t.final, t.cost = parseClaudeStream(t.out)
 		t.gopls = goplsCalls(t.out)
+		t.commands = claudeCommands(t.out)
 	}
 	return t
 }
@@ -1230,14 +1243,23 @@ const (
 	goplsCLI = "cli"
 )
 
+// shellGo is the one -shell mode: Bash for the commands in shellGoCommands.
+const shellGo = "go"
+
+// shellGoCommands are the commands a -shell go session may run: the toolchain
+// the verification gate uses, cd for a package directory, and bash for the
+// skills' bundled scripts.
+var shellGoCommands = []string{"go", "gofmt", "golangci-lint", "govulncheck", "cd", "bash"}
+
 // claudeToolArgs returns the session's --tools and --allowed-tools together
-// with the -gopls route. The MCP server comes from its own --mcp-config with
-// --strict-mcp-config, so the session does not pick up the operator's
-// servers; CLI is Bash in --tools (which --restricted otherwise removes),
-// allowed for gopls only.
+// with the -gopls route and the -shell mode. The MCP server comes from its own
+// --mcp-config with --strict-mcp-config, so the session does not pick up the
+// operator's servers; CLI and -shell are Bash in --tools (which --restricted
+// otherwise removes), allowed only for the commands they name.
 func claudeToolArgs(o options, tools string) []string {
 	allowed := tools
 	var args []string
+	bash := false
 	switch o.gopls {
 	case goplsMCP:
 		cfg, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{ // a map of strings always marshals
@@ -1246,10 +1268,43 @@ func claudeToolArgs(o options, tools string) []string {
 		args = append(args, "--mcp-config", string(cfg), "--strict-mcp-config")
 		allowed += ",mcp__gopls"
 	case goplsCLI:
-		tools += ",Bash"
+		bash = true
 		allowed += ",Bash(gopls:*)"
 	}
+	if o.shell == shellGo {
+		bash = true
+		for _, c := range shellGoCommands {
+			allowed += ",Bash(" + c + ":*)"
+		}
+	}
+	if bash {
+		tools += ",Bash"
+	}
 	return append(args, "--tools", tools, "--allowed-tools", allowed)
+}
+
+// claudeCommands counts the Bash calls in a claude stream-json transcript.
+func claudeCommands(out []byte) int {
+	n := 0
+	for line := range strings.SplitSeq(string(out), "\n") {
+		var msg struct {
+			Message struct {
+				Content []struct {
+					Type string `json:"type"`
+					Name string `json:"name"`
+				} `json:"content"`
+			} `json:"message"`
+		}
+		if json.Unmarshal([]byte(line), &msg) != nil {
+			continue
+		}
+		for _, c := range msg.Message.Content {
+			if c.Type == "tool_use" && c.Name == "Bash" {
+				n++
+			}
+		}
+	}
+	return n
 }
 
 // goplsCommand matches a shell command that runs gopls: at the start, after

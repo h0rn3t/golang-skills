@@ -1,6 +1,6 @@
 # Modernization Catalog
 
-> Sources: `$GOROOT/api/go1.2*.txt`; `go tool fix help`; Go spec; package docs; JetBrains go-modern-guidelines `guidelines.json` at `155dc7c` (all 54 items cross-checked 2026-09-13; the write-time card is `go-style-core/references/CURRENT-GO.md`)
+> Sources: `$GOROOT/api/go1.2*.txt`; `go tool fix help`; Go spec; package docs; JetBrains go-modern-guidelines `guidelines.json` at `155dc7c` (all 54 items cross-checked 2026-09-13; the write-time card is go-style-core's Current Go Idiom Card)
 > Authority: normative for tier placement; project policy for what may ride in a refactor
 > Minimum Go: gated by the `go` directive in `go.mod`, not the installed toolchain
 > Last verified: 2026-09-13
@@ -27,7 +27,7 @@ A default run includes `hostport`, whose hunks are Tier 2: keep them only where
 IPv6 cannot reach the code, or leave them out with `-hostport=false`. Scope
 follows [Scope mechanical modernization](../SKILL.md#3-scope-mechanical-modernization).
 `go tool fix help` is authoritative; the analyzers the
-[idiom card](../../go-style-core/references/CURRENT-GO.md) does not show:
+[idiom card](../../go-style-core/SKILL.md#current-go-idiom-card) does not show:
 
 | Analyzer | Rewrites to |
 |---|---|
@@ -47,7 +47,7 @@ flags. Report incorrect fixes; do not silently discard them.
 
 ## Tier 1 — safe swaps
 
-[CURRENT-GO.md](../../go-style-core/references/CURRENT-GO.md) gives each form
+The [idiom card](../../go-style-core/SKILL.md#current-go-idiom-card) gives each form
 and its trap; an entry here names only what keeps the swap behavior-identical
 on existing code, and the `go fix` analyzer where one exists.
 

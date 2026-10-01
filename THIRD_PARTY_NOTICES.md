@@ -48,8 +48,8 @@ The guidance is independently written and checked against the linked PostgreSQL
 manual; no upstream files are bundled.
 
 The Go 1.27 additions for promoted-field literals, retained substring copying,
-and in-place map operations, and the write-time idiom card
-`skills/go-style-core/references/CURRENT-GO.md` — its selection of idioms, the
+and in-place map operations, and the write-time idiom card in
+`skills/go-style-core/SKILL.md` (Current Go Idiom Card) — its selection of idioms, the
 frequency order, and the caveats on `new`, `t.Context`, `b.Loop`, `cmp.Or`,
 typed atomics, and `time.Tick` — were selected after reviewing
 [JetBrains/go-modern-guidelines at `155dc7c`](https://github.com/JetBrains/go-modern-guidelines/tree/155dc7ca10da5e1f6c841503086957b1b37f5815),

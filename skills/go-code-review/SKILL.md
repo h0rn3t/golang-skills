@@ -38,7 +38,7 @@ allowed-tools: Bash(bash:*)
    before the checklist; never spend review attention on what a tool reports.
    Fix only when the request asks for fixes, and then follow
    [go-code](../go-code/SKILL.md#workflow) steps 2–3 before the first edit:
-   `go-style-core` with its idiom card read whole, and the owners the edit
+   `go-style-core`, which carries the idiom card, and the owners the edit
    needs. The rows below carry no line for what `gofmt`, `go vet`, `revive`,
    `godot`, `staticcheck`, `gosec`, and `modernize` report — doc-comment
    form, error-string case, naming case, `interface{}`, `math/rand`, import
@@ -124,7 +124,7 @@ allowed-tools: Bash(bash:*)
 
 ## Style
 
-- [ ] **Current Go**: Changed lines use the form available at the `go` directive; an older idiom kept because the neighbor uses it is Should Fix, and `go fix -diff` on the diff's packages reports nothing in changed lines; the forms are one line each in [CURRENT-GO.md](../go-style-core/references/CURRENT-GO.md) → [go-style-core](../go-style-core/SKILL.md#write-current-go)
+- [ ] **Current Go**: Changed lines use the form available at the `go` directive; an older idiom kept because the neighbor uses it is Should Fix, and `go fix -diff` on the diff's packages reports nothing in changed lines; the forms are one line each on the [idiom card](../go-style-core/SKILL.md#current-go-idiom-card) → [go-style-core](../go-style-core/SKILL.md#write-current-go)
 - [ ] **Pass values**: small fixed-size types (`string`, `time.Time`, a few ints) travel by value; a pointer parameter means mutation or identity → [go-functions](../go-functions/SKILL.md)
 
 ## Logging

@@ -11,20 +11,16 @@
 #                                     2026-09-13).
 #   PostToolUse (Skill|Read)          record which go-* skills this session has
 #                                     loaded, via the Skill tool or a direct
-#                                     read of a sibling SKILL.md, and whether it
-#                                     has read the idiom card
-#                                     (go-style-core/references/CURRENT-GO.md)
-#                                     whole.
+#                                     read of a sibling SKILL.md.
 #   PreToolUse  (Edit|Write|MultiEdit) before a .go edit, require a router
 #                                     (go-code, go-code-refactor, or
 #                                     go-code-review; with none, the one
 #                                     go-prompt-routing.sh named, else
-#                                     go-code), go-style-core, the owner skills
-#                                     the edited text points at, and one whole
-#                                     Read of the idiom card. Exit 2 blocks the
-#                                     edit and names what is missing by exact
-#                                     Skill names (golang-skills:go-code in a
-#                                     plugin).
+#                                     go-code), go-style-core, and the owner
+#                                     skills the edited text points at. Exit 2
+#                                     blocks the edit and names what is
+#                                     missing by exact Skill names
+#                                     (golang-skills:go-code in a plugin).
 #
 # loaded and reminded are kept apart: loaded holds only successful loads
 # (Skill, a whole Read of SKILL.md, a slash command), reminded is only a log of
@@ -39,13 +35,11 @@
 # with an explanation for the user.
 # GOLANG_SKILLS_ROUTING_GATE=off turns the gate off.
 #
-# The card is a gate item because no wording of go-code or go-style-core made
-# Sonnet 5 medium read it: 0/24 sessions on 2026-09-18 under three wordings
-# (a Resource Routing bullet, a numbered step of its own, the first clause of
-# step 2), while Opus 5 reads it from the routing line in 8/8 and Haiku 4.5 in
-# 4/5. A Read counts only whole — no offset, no limit shorter than the file —
-# because the card's older rows apply at every go directive and a head over
-# it misses what a Go 1.19 module still gets.
+# The idiom card used to be a gate item of its own, a whole Read of
+# go-style-core/references/CURRENT-GO.md, because no wording made Sonnet 5
+# medium read it (0/24 sessions on 2026-09-18 under three wordings). It is
+# now a section of go-style-core's SKILL.md, so the go-style-core load carries
+# it on every host, with this gate or without it.
 #
 # The owner hints below are heuristics: regular expressions over the edited
 # text that recognize the decision-bearing forms of thirteen owners (error
@@ -204,30 +198,15 @@ text = ti.get("new_string") or ti.get("content") or ""
 for e in ti.get("edits") or []:
     text += "\n" + (e.get("new_string") or "")
 owners = hints(path, text)
-# A Read of the idiom card counts when it covers the whole file: no offset
-# past the first line, no limit shorter than the card.
-card = ""
-if path.endswith("/go-style-core/references/CURRENT-GO.md"):
-    card = "whole"
-    try:
-        if int(ti.get("offset") or 1) > 1:
-            card = "partial"
-        limit = ti.get("limit")
-        if limit is not None:
-            with open(path, encoding="utf-8", errors="replace") as f:
-                if int(limit) < sum(1 for _ in f):
-                    card = "partial"
-    except (OSError, TypeError, ValueError):
-        card = "partial"
 # Edit key: a retry of the same edit after a block has the same key, while
 # parallel edits of different files in one message have different keys.
 key = hashlib.sha1((path + "\0" + text).encode("utf-8", "replace")).hexdigest()[:16]
 for v in (d.get("hook_event_name") or "", d.get("session_id") or "",
-          d.get("tool_name") or "", skill, path, " ".join(owners), card, key):
+          d.get("tool_name") or "", skill, path, " ".join(owners), key):
     print(v.replace("\n", " "))
 ')" || exit 0
 [[ -n "$parsed" ]] || exit 0
-{ read -r event; read -r session; read -r tool; read -r skill; read -r path; read -r hints; read -r card; read -r key; } <<< "$parsed"
+{ read -r event; read -r session; read -r tool; read -r skill; read -r path; read -r hints; read -r key; } <<< "$parsed"
 
 state="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/${session:-default}"
 loaded="$state/loaded"
@@ -251,9 +230,6 @@ PostToolUse)
         case "$path" in
         */go-*/SKILL.md) record "$(basename "$(dirname "$path")")" ;;
         esac
-        if [[ "$card" == "whole" ]]; then
-            mkdir -p "$state" && : > "$state/card"
-        fi
         ;;
     esac
     # Sessions end without notice; drop state older than two days.
@@ -280,29 +256,25 @@ PreToolUse)
         has "$loaded" "$want" && continue
         if available "$want"; then missing+="$want "; else absent+="$want "; fi
     done
-    card_path="$root/skills/go-style-core/references/CURRENT-GO.md"
-    need_card=""
-    [[ -f "$card_path" && ! -f "$state/card" ]] && need_card="$card_path"
     fresh_absent=""
     for a in $absent; do has "$state/absent" "$a" || fresh_absent+="$a "; done
-    [[ -n "$missing" || -n "$need_card" || -n "$fresh_absent" ]] || exit 0
+    [[ -n "$missing" || -n "$fresh_absent" ]] || exit 0
     mkdir -p "$state"
     [[ -z "$fresh_absent" ]] || printf '%s\n' $fresh_absent >> "$state/absent"
     init_ns
     absent_note=""
     [[ -z "$fresh_absent" ]] || absent_note="Not installed in this plugin copy, so not required: $(names $fresh_absent) (no SKILL.md under $root/skills). Reinstall the plugin to restore them."
-    if [[ -z "$missing" && -z "$need_card" ]]; then
+    if [[ -z "$missing" ]]; then
         # Nothing to load; the user hears about a missing skill once, and the
         # edit passes.
         emit_json notice "golang-skills routing gate: $absent_note"
         exit 0
     fi
 
-    # An attempt at the same edit with no progress (a new load or a whole
-    # Read of the card) since the last block is counted; progress resets the
-    # counter.
+    # An attempt at the same edit with no progress (a new load) since the
+    # last block is counted; progress resets the counter.
     sig="$( (wc -l < "$loaded") 2>/dev/null | tr -d ' ')"
-    sig="${sig:-0}:$([[ -f "$state/card" ]] && echo 1 || echo 0)"
+    sig="${sig:-0}"
     attempt=1
     prev="$(grep -m1 "^$key " "$state/blocked" 2>/dev/null)"
     if [[ -n "$prev" ]]; then
@@ -314,51 +286,31 @@ PreToolUse)
     fresh=""
     for m in $missing; do has "$reminded" "$m" || fresh+="$m "; done
     [[ -z "$fresh" ]] || printf '%s\n' $fresh >> "$reminded"
-    [[ -z "$need_card" ]] || has "$reminded" current-go-card || printf 'current-go-card\n' >> "$reminded"
 
     list="$(names $missing)"
-    what="$list"
-    [[ -z "$need_card" ]] || what+="${what:+, }the idiom card"
     if (( attempt >= 3 )); then
-        emit_json stop "golang-skills routing gate: the same Go edit was blocked twice and no skill load was recorded in between (still missing: $what). Stopping instead of blocking it a third time: the skills look unavailable in this session, because the Skill call fails or neither Skill nor Read reaches $root/skills. Check the install with \`claude plugin list\`, or set GOLANG_SKILLS_ROUTING_GATE=off to switch the gate off."
+        emit_json stop "golang-skills routing gate: the same Go edit was blocked twice and no skill load was recorded in between (still missing: $list). Stopping instead of blocking it a third time: the skills look unavailable in this session, because the Skill call fails or neither Skill nor Read reaches $root/skills. Check the install with \`claude plugin list\`, or set GOLANG_SKILLS_ROUTING_GATE=off to switch the gate off."
         exit 0
     fi
     {
         if (( attempt == 2 )); then
             printf 'golang-skills routing gate: this edit was blocked before, and no load has been\n'
-            printf 'recorded since. Still missing: %s.\n' "$what"
+            printf 'recorded since. Still missing: %s.\n' "$list"
             printf 'A reminder is not a load: a retry without the loads is blocked again, and a\n'
             printf 'third stalled retry of this edit stops the session.\n'
         elif [[ -n "$entry" && " $missing " == *" $entry "* ]]; then
             printf 'golang-skills routing gate: this session loaded no router skill, and a .go edit\n'
-            printf 'needs one first. Missing: %s' "$list"
-            [[ -z "$need_card" ]] || printf ', and the idiom card is unread'
-            printf '.\n'
+            printf 'needs one first. Missing: %s.\n' "$list"
             if [[ "$entry" == go-code ]] && available go-code-refactor; then
                 printf 'For a behavior-preserving refactor, load %s instead of %s.\n' "$(names go-code-refactor)" "$(names go-code)"
             fi
-        elif [[ -n "$missing" ]]; then
-            printf 'golang-skills routing gate: this session loaded %s but not: %s' "${routers% }" "$list"
-            [[ -z "$need_card" ]] || printf ', and has not read the idiom card'
-            printf '.\n'
         else
-            printf 'golang-skills routing gate: this session loaded %s but has not read the idiom card.\n' "${routers% }"
+            printf 'golang-skills routing gate: this session loaded %s but not: %s.\n' "${routers% }" "$list"
         fi
-        if [[ -n "$missing" && -n "$need_card" ]]; then
-            printf 'This edit was not applied and the file is unchanged. Load them (one Skill call\n'
-            printf 'per name) and Read the card whole, no offset or limit, all in one message, then\n'
-            printf 'retry the same edit against the unchanged file. The card:\n%s\n' "$need_card"
-        elif [[ -n "$missing" ]]; then
-            printf 'This edit was not applied and the file is unchanged. Load them (one Skill call\n'
-            printf 'per name, all in one message), then retry the same edit against the unchanged file.\n'
-        else
-            printf 'This edit was not applied and the file is unchanged. Read the card whole, no\n'
-            printf 'offset or limit, then retry the same edit against the unchanged file. The card:\n%s\n' "$need_card"
-        fi
-        if [[ -n "$missing" ]]; then
-            printf 'If the Skill tool is missing or answers "Unknown skill", Read\n'
-            printf '%s/skills/<name>/SKILL.md whole for each name instead; the gate counts that Read.\n' "$root"
-        fi
+        printf 'This edit was not applied and the file is unchanged. Load them (one Skill call\n'
+        printf 'per name, all in one message), then retry the same edit against the unchanged file.\n'
+        printf 'If the Skill tool is missing or answers "Unknown skill", Read\n'
+        printf '%s/skills/<name>/SKILL.md whole for each name instead; the gate counts that Read.\n' "$root"
         [[ -z "$absent_note" ]] || printf '%s\n' "$absent_note"
         if (( attempt == 1 )) && [[ -n "$fresh" ]]; then
             cat <<'EOF'

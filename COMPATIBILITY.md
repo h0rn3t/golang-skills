@@ -46,8 +46,8 @@ version. A `toolchain` line, `GOTOOLCHAIN`, and the Go installed on the
 machine choose the compiler, not the language version: none of them makes a
 newer form legal, and bumping the directive is its own change
 (`skills/go-code-refactor/references/MODERNIZATION.md`, Tier 3). The
-write-time list of forms per version is
-`skills/go-style-core/references/CURRENT-GO.md`.
+write-time list of forms per version is the Current Go Idiom Card in
+`skills/go-style-core/SKILL.md`.
 
 ## Language features by version
 

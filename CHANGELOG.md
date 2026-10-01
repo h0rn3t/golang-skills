@@ -4,6 +4,44 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- The idiom card moves into `go-style-core/SKILL.md` as its Current Go Idiom
+  Card section, right after Write Current Go; `references/CURRENT-GO.md` is
+  gone (69 reference files). Every router loaded go-style-core with the card,
+  so a routed session carries the same text, minus one tool call. What
+  changes is who can skip it: the card used to arrive only through a whole
+  `Read` that the Claude Code gate enforced and the prompt note named by
+  path, so on hosts without hooks — GPT 6.1 under Codex, Grok 4.7 under
+  opencode — it depended on the model following a "read whole" line, which
+  Sonnet 5 did in 0 of 24 sessions. Loading go-style-core now brings it
+  everywhere. The gate drops its card requirement and the prompt note its
+  card clause; `TestIdiomCardDatesEachSymbol` reads the section's table rows.
+- The prompt note loads `go-style-core` in the router's own line and form:
+  "load the go-code skill (Skill tool, name …) and the go-style-core skill
+  (Skill tool, name …)", with the owners and `go-testing` on the next line,
+  each named the same way. Opus 5.5 low acts on that line and treats the next
+  as optional: with the card clause gone, "Load go-style-core with it" on the
+  next line was skipped in 13 of 14 implement sessions (gate blocks 0.93 →
+  2.71 per session against v1.27.1, `-shell go`, n=2), and rewordings of the
+  router line — two names without "the … skill", or one list after the
+  classification line — let 3 of 14 and 7 of 12 sessions explore through Bash
+  and edit before any load. This form, at n=3: 21 of 21 sessions open with a
+  Skill call carrying go-style-core and go-testing, 0.43 gate blocks per
+  session (v1.27.1: 0.50–1.14 over three runs), cost $0.490 (v1.27.1:
+  $0.485–0.506), golden gaps only the `fetch` base rate.
+- What these two entries were measured on: Opus 5.5 with the final note
+  (above); Sonnet 5.5 with the card move under the earlier note wording
+  (implement −6% cost and gate blocks 0.71 → 0.36, refactor equal, against
+  v1.27.1, `-shell go`, low, n=2), not with the final wording. GPT 6.1 and
+  Grok 4.7, the hosts the move is for, were not measured: no Codex or
+  opencode runner was available. On Claude Code the release is parity.
+- `abrun -shell go` gives each claude session the shell a user's session
+  has: Bash allowed for `go`, `gofmt`, `golangci-lint`, `govulncheck`, `cd`,
+  and `bash` for the bundled scripts. The default arms stay shell-less, so
+  until now nothing a skill says about running the gate, the scripts, or the
+  edit hook's overlap with them could show in a claude run; the codex runner
+  already had a shell. The report records `shell`, and each result's
+  `commands` now counts Bash calls for claude too.
+
 ## [1.27.1] - 2026-09-30
 
 - The prompt hook names `go-testing` without a condition when the prompt asks

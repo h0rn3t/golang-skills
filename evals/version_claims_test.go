@@ -343,8 +343,9 @@ func TestAnalyzerToolAttribution(t *testing.T) {
 	}
 }
 
-// TestIdiomCardDatesEachSymbol holds CURRENT-GO.md to a stricter rule than the
-// rest of the pack. The card tells the reader that a row newer than the
+// TestIdiomCardDatesEachSymbol holds the idiom card — the table rows of
+// go-style-core's SKILL.md, which has no other table — to a stricter rule than
+// the rest of the pack. The card tells the reader that a row newer than the
 // module's `go` directive does not apply, so a marker there cuts off every
 // symbol it dates: an older symbol grouped under a newer marker is hidden from
 // modules that have it (`t.TempDir` sat under "(Go 1.24)" next to `t.Chdir`,
@@ -356,7 +357,7 @@ func TestIdiomCardDatesEachSymbol(t *testing.T) {
 	t.Parallel()
 	root := repoRoot(t)
 	index := apiIndex(t)
-	const card = "skills/go-style-core/references/CURRENT-GO.md"
+	const card = "skills/go-style-core/SKILL.md"
 
 	marker := regexp.MustCompile(`\(Go 1\.(\d+)\+?\)`)
 	backticked := regexp.MustCompile("`([^`]+)`")

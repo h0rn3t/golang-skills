@@ -58,14 +58,16 @@ cd evals && go run ./cmd/abrun -corpus implement -reference-root ../golang-skill
 
 abrun sessions have no shell and no MCP server; `-gopls mcp` (own
 `--mcp-config`) or `-gopls cli` (`Bash(gopls:*)`) gives them a gopls route and
-records `gopls_calls` per result. gopls lives in `~/go/bin`.
+records `gopls_calls` per result. gopls lives in `~/go/bin`. `-shell go` gives
+them Bash for the Go toolchain and the bundled scripts (`commands` counts the
+calls).
 
 ## Architecture
 
 ### Routing model
 
 `go-code` is the router for any task that writes Go: load `go-style-core`
-(always) and its `references/CURRENT-GO.md` idiom card before the first edit,
+(always; its SKILL.md carries the idiom card) before the first edit,
 match the task against the "Route Before The First Edit" table to pick owner
 skills and load them in one message, then close with the Verification Gate
 that `go-linting` owns (`gofmt`, `go vet`, `go test -race`, `go fix -diff`,

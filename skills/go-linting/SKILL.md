@@ -72,8 +72,8 @@ Since Go 1.26 the modernizers are `go fix` analyzers.
 `go fix -diff <packages>` previews; `go fix <packages>` applies. Use the package
 scope established above and inspect the preview before applying changes.
 
-`go tool fix help` lists the current set; most rewrite to a form
-[CURRENT-GO.md](../go-style-core/references/CURRENT-GO.md) lists, and
+`go tool fix help` lists the current set; most rewrite to a form the
+[idiom card](../go-style-core/SKILL.md#current-go-idiom-card) lists, and
 [MODERNIZATION.md](../go-code-refactor/references/MODERNIZATION.md#start-with-go-fix)
 names the rest, the Go 1.27 renames, and which hunks change behavior.
 

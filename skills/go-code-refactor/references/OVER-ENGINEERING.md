@@ -85,8 +85,8 @@ Rungs 3 and 4, made concrete: before writing a loop, helper, wrapper, or type,
 find its row and write the right-hand column. Versions are the minimum `go`
 directive — `go vet`'s `stdversion` analyzer flags a newer symbol. On existing
 code a swap may be observable; `MODERNIZATION.md` says what each can change.
-Rows already on the idiom card,
-[CURRENT-GO.md](../../go-style-core/references/CURRENT-GO.md), are not
+Rows already on the
+[idiom card](../../go-style-core/SKILL.md#current-go-idiom-card) are not
 repeated here.
 
 **Language**

@@ -14,7 +14,7 @@ Route Go work to the relevant owners, then close with their verification gate.
 Sibling skills resolve relative to this installed directory; scripts run from the target project. A skill is loaded when
 its `SKILL.md` is in context: the `Skill` tool where the host has one, else a read of `../<name>/SKILL.md`. Report missing resources.
 
-- `../go-style-core/SKILL.md` — Load on every task (step 2), with its idiom card `references/CURRENT-GO.md`; its other references only for a decision the task requires.
+- `../go-style-core/SKILL.md` — Load on every task (step 2); it carries the idiom card, and its references are read only for a decision the task requires.
 - `../go-linting/SKILL.md` — Its Verification Gate at step 6, when a shell tool is in your tool list.
 - `references/INTENSITY.md` — Read when the prompt carries `lite` or `ultra` (`/go-code ultra <task>`, `ultra mode`): what each level changes.
 - `references/NEW-CODE-EXAMPLES.md` — Read when the shape of a Contract Table case, Plain Code body, or budgeted helper is in doubt.
@@ -28,10 +28,8 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    rest. As a modifier (`/opsx:apply add-auth /go-code`) it is never a change
    name or path, and the host keeps workflow state, checkpoints, and
    delegation policy.
-2. **Load `go-style-core`, read the idiom card and the code.** Load
-   `go-style-core` and read its `references/CURRENT-GO.md` whole in the same
-   message: its older rows apply at every directive, so a `head` or a `grep`
-   misses them. Then inspect repository instructions, `go.mod` (its `go`
+2. **Load `go-style-core` and read the code.** `go-style-core` carries the
+   idiom card. Then inspect repository instructions, `go.mod` (its `go`
    directive sets the idiom), neighboring code and tests. Without a shell
    tool, step 6 runs nothing and `go-linting` stays unread. A new function,
    package, or stub body makes step 4 apply; a fix or a restructuring skips it.

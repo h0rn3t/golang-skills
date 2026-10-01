@@ -4,7 +4,7 @@
 
 AI [Agent Skills](https://agentskills.io/) for writing idiomatic,
 production-quality Go 1.27 code. The pack contains **24 modular skills**,
-**70 reference files**, **11 bundled scripts**, and **5 asset templates**.
+**69 reference files**, **11 bundled scripts**, and **5 asset templates**.
 The Claude Code plugin also ships a `go-verify` agent and hooks for routing and
 post-edit verification.
 
@@ -133,8 +133,8 @@ For Codex, use `~/.agents/skills/` as the target directory.
 A skill loads when the host's matcher or the model picks it. For a work
 project where every Go edit must start from the router, paste the short block
 from [`docs/PROJECT_INSTRUCTIONS.md`](docs/PROJECT_INSTRUCTIONS.md) into its
-`CLAUDE.md` or `AGENTS.md`: router first, then `go-style-core` and its
-`CURRENT-GO.md`, then only the owner skills the task needs. Under the Claude
+`CLAUDE.md` or `AGENTS.md`: router first, then `go-style-core` with its
+idiom card, then only the owner skills the task needs. Under the Claude
 Code plugin the routing gate also holds every `.go` edit until those loads
 are recorded (`GOLANG_SKILLS_ROUTING_GATE=off` turns it off); Codex, Copilot,
 and Cursor run no hooks, so the instruction is all there is.

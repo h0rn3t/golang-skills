@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.28.1] - 2026-10-01
+
 - The `fetch` implement fixture's golden partner fills `resp.Status`
   ("503 Service Unavailable"), as a real transport does. Without it, an error
   built from `resp.Status` lost the code and failed

@@ -15,7 +15,7 @@ Sibling skills resolve relative to this installed directory; scripts run from th
 its `SKILL.md` is in context: the `Skill` tool where the host has one, else a read of `../<name>/SKILL.md`. Report missing resources.
 
 - `../go-style-core/SKILL.md` — Load on every task (step 2); it carries the idiom card, and its references are read only for a decision the task requires.
-- `../go-linting/SKILL.md` — Its Verification Gate at step 6, when a shell tool is in your tool list.
+- `../go-linting/SKILL.md` — With a shell, load alongside go-style-core at step 2; its gate and receipt verifier close step 6.
 - `references/INTENSITY.md` — Read when the prompt carries `lite` or `ultra` (`/go-code ultra <task>`, `ultra mode`): what each level changes.
 - `references/NEW-CODE-EXAMPLES.md` — Read when the shape of a Contract Table case, Plain Code body, or budgeted helper is in doubt.
 - `../go-code-refactor/references/OVER-ENGINEERING.md` — The restraint ladder when a [Declaration Budget](#declaration-budget) entry is in doubt; its replacement catalog when seeking a simpler existing API.
@@ -28,7 +28,8 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    rest. As a modifier (`/opsx:apply add-auth /go-code`) it is never a change
    name or path, and the host keeps workflow state, checkpoints, and
    delegation policy.
-2. **Load `go-style-core` and read the code.** `go-style-core` carries the
+2. **Load `go-style-core` and read the code.** With a shell, load `go-linting`
+   in the same initial Skill message. `go-style-core` carries the
    idiom card. Then inspect repository instructions, `go.mod` (its `go`
    directive sets the idiom), neighboring code and tests. Without a shell
    tool, step 6 runs nothing and `go-linting` stays unread. A new function,
@@ -38,7 +39,8 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    matched owner plus every `Also load` entry whose condition holds, all in
    one message. When step 4 applies, `go-testing` is one of them. Select by the decisions being changed: a routine local
    variable or `if` triggers no owner. No edit before every selected skill is
-   in context; add owners when new evidence requires them.
+   in context; add owners when new evidence requires them. Wait for successful
+   Skill results before the edit message; do not dispatch loads and edits together.
 4. **Write the Contract Table, for new code only.** Turn the documentation
    and the request into the test file the [Contract Table](#contract-table)
    describes before the first production edit: a case written after the body
@@ -57,8 +59,13 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    ([go-testing](../go-testing/SKILL.md#assertions-match-the-repository) owns
    the assertion rule). Resolve routine choices without stopping; ask only
    for missing information that changes correctness, scope, or authorization.
-6. **Verify and report.** With a shell, run the Contract Table file with the
-   closing gate below; without one, read each case against its code path.
+6. **Verify and report.** With a shell, **load the `go-linting` skill**
+   (`Skill` tool with the router's namespace, otherwise read its `SKILL.md`),
+   select the gate scope, then run the Contract Table file with that gate.
+   Where hook receipts exist, run their `bash .../go-check-receipt.sh --gate ...`
+   command after the final edit, before repeating checks. Use only the returned
+   `hook_credit=true` checks; run the required direct checks. Without a shell, read each
+   case against its code path and report unverified hook results as observed.
    Report as [go-style-core](../go-style-core/SKILL.md#how-much-to-say) says,
    in this shape and order:
 
@@ -69,7 +76,9 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    <one sentence per material gap, or nothing>
    ```
 
-   Without a shell, report the [edit hook record](../go-style-core/SKILL.md#the-edit-hook-record) check by check, e.g. `test pass (hook)`.
+   Reuse only [verified matching receipts](../go-linting/SKILL.md#verification-gate);
+   require `hook_credit=true` and label their exact scope. With no successful
+   verification, run the check directly or report required evidence unavailable.
    Name the test file and result, not each case.
 
 ## Writing New Code
@@ -258,8 +267,9 @@ command runs from the project with that path written out.
 
 Run routine checks inline. The report carries only results observed for the
 current diff and scope, each as `pass`, `fail`, `unavailable (reason)`, or
-`skipped (reason)` per go-linting; a hook's silence counts only as the
-[edit hook record](../go-style-core/SKILL.md#the-edit-hook-record) says.
+`skipped (reason)` per go-linting. Where the plugin hook runs, reuse its
+[edit hook record](../go-style-core/SKILL.md#the-edit-hook-record) only under
+go-linting's scope and freshness rules; silence never counts as pass.
 
 ## Route Before The First Edit
 

@@ -17,6 +17,7 @@ Resolve resources from this installed skill directory; run scripts from the
 target project using the resolved absolute script path.
 
 - `../go-style-core/SKILL.md` - Load on every refactor before the first edit; it carries the idiom card.
+- `../go-linting/SKILL.md` - With a shell, load with go-style-core before edits; select the final gate and attempt receipt verification at step 5.
 - `references/BEHAVIOR-TRAPS.md` - Its Pre-commit checklist before every refactor; a section when a transform moves a `defer`, nil versus empty, goroutine or channel shape, or struct layout.
 - `references/PLAYBOOK.md` - The concrete transformations, ordered by payoff.
 - `references/POLICY-TABLES.md` - When repeated selection reads fields of one shared policy record.
@@ -205,9 +206,11 @@ each command — every shell call starts with a fresh environment, so a
 variable exported in one call is empty in the next. Exit 127 from the first
 script means the path is wrong.
 
-With no shell tool, run nothing and read no script: the
-[edit hook's output](../go-style-core/SKILL.md#the-edit-hook-record) is the
-check record.
+Where the plugin hook runs, reuse only the
+[current matching receipts](../go-linting/SKILL.md#verification-gate).
+With no shell tool, run nothing and read no script: observed
+[edit hook receipts](../go-style-core/SKILL.md#the-edit-hook-record) are
+observed results, not verified gate credit; unconfirmed required checks remain unavailable.
 
 Load the skills before the first edit (a read of `../<name>/SKILL.md` where
 there is no `Skill` tool): [go-style-core](../go-style-core/SKILL.md) on every
@@ -300,6 +303,11 @@ recurring across many sites is a generated rewrite, not thirty hand-edits
 migration, never one atomic commit (`references/STRUCTURAL.md`).
 
 ### 5. Verify
+
+With a shell, use the already loaded `go-linting` gate. Run the `--gate` Bash
+verification command printed by the last edit hook before repeating checks;
+only returned `hook_credit=true` permits `pass (hook)` for its exact scope.
+Otherwise run the check directly or report it unavailable.
 
 In one shell call:
 

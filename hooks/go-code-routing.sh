@@ -117,8 +117,8 @@ print(json.dumps(out))
 # owner_hints_py is the one owner table, as python: hints(path, text) names
 # the owner skills the decision-bearing forms in text point at. The gate runs
 # it over an edit; --hints runs it over whole files for go-prompt-routing.sh,
-# so the note before the first edit and the gate after it name the same
-# owners.
+# Prompt hints additionally resolve imports/signatures/stub contracts in
+# prompt_hints; those advisory additions never widen the edit gate.
 owner_hints_py='
 import re
 # A test file has one owner. Its body is test plumbing — a defer, an
@@ -152,6 +152,115 @@ def hints(path, text):
     if ("go-http" in out or "go-database" in out) and "go-error-handling" not in out:
         out.append("go-error-handling")
     return out
+
+def prompt_hints(path, text):
+    # Prompt-only lexical hints: do not widen PreToolUse decisions with stub
+    # contracts or an import. Comments and literals are not executable code.
+    if path.endswith("_test.go"):
+        return ["go-testing"]
+    tokens = list(re.finditer(r"//[^\n]*|/\*.*?\*/|\"(?:\\.|[^\"\\])*\"|`[^`]*`|\x27(?:\\.|[^\x27\\])*\x27", text, re.S))
+    comments = []
+    code = list(text)
+    literal_code = list(text)
+    literals = {}
+    for token in tokens:
+        value = token.group()
+        is_comment = value.startswith(("//", "/*"))
+        if is_comment:
+            comments.append(value)
+        else:
+            literals[token.start()] = value
+        for i in range(token.start(), token.end()):
+            if code[i] != "\n":
+                code[i] = " "
+            if is_comment and literal_code[i] != "\n":
+                literal_code[i] = " "
+    code = "".join(code)
+    lexical_code = code
+    literal_code = "".join(literal_code)
+    # Locate import spans in literal/comment-free code, then recover only
+    # their string tokens. This handles grouped, aliased and raw imports.
+    imports = {}
+    dot = []
+    extra_imports = []
+    canonical = {"context": "context", "sync": "sync", "errors": "errors",
+                 "log/slog": "slog", "net/http": "http", "database/sql": "sql",
+                 "os/exec": "exec", "fmt": "fmt", "html/template": "template",
+                 "text/template": "template"}
+    for start in re.finditer(r"\bimport\b", code):
+        tail = code[start.end():]
+        grouped = re.match(r"\s*\(", tail)
+        end = code.find(")", start.end()) + 1 if grouped else code.find("\n", start.end())
+        if end <= start.end():
+            end = len(code)
+        for pos, value in literals.items():
+            if not start.end() <= pos < end:
+                continue
+            if value[0] not in (chr(34), "`"):
+                continue
+            package = value[1:-1]
+            prefix = re.split(r"[;\n(]", code[start.end():pos])[-1]
+            alias_match = re.search(r"([A-Za-z_]\w*|\.)\s*$", prefix)
+            alias = alias_match.group(1) if alias_match else package.rsplit("/", 1)[-1]
+            if alias == ".":
+                if package in canonical:
+                    dot.append(canonical[package])
+            elif alias != "_":
+                extra_owner = ""
+                if package.startswith("crypto/") and package not in ("crypto/sha256", "crypto/sha3", "crypto/sha512"):
+                    extra_owner = "go-security"
+                if package == "x/time/rate" or package == "golang.org/x/time/rate":
+                    extra_owner = "go-resilience"
+                imports[alias] = canonical.get(package, alias if extra_owner else "foreign")
+                if extra_owner:
+                    extra_imports.append((imports[alias], extra_owner))
+    code = re.sub(r"\b([A-Za-z_]\w*)\s*\.",
+                  lambda m: imports.get(m.group(1), m.group(1)) + ".", code)
+    # Import paths themselves are blanked, so existing decision patterns
+    # now match usage rather than an unused import or a prose example.
+    out = hints(path, code)
+    for owner, pattern in [
+        ("go-http", r"\bhttp\.(?:Request|Response|Transport|RoundTripper|Handler)\b"),
+        ("go-database", r"\bsql\.(?:Conn|Stmt|Result|NamedArg|Null\w*)\b"),
+        ("go-security", r"\b(?:template\.\w+|exec\.Cmd)\b")]:
+        if re.search(pattern, code):
+            out.append(owner)
+    for alias, owner in extra_imports:
+        if re.search(r"\b" + re.escape(alias) + r"\s*\.\s*\w+", code):
+            out.append(owner)
+    if re.search(r"\bcontext\.Context\b", code) or ("context" in dot and re.search(r"(?<![\w.])Context\b", code)):
+        out.append("go-context")
+    dot_patterns = [("sync", "go-concurrency", r"(?:Mutex|RWMutex|WaitGroup|Once|Map)\b"),
+                    ("errors", "go-error-handling", r"(?:Is|As|AsType|Join|New)\s*\("),
+                    ("slog", "go-logging", r"(?:Logger|Handler|Attr|LogAttrs|Info|Error)\b"),
+                    ("http", "go-http", r"(?:ResponseWriter|Request|Server|Client|NewServeMux)\b"),
+                    ("sql", "go-database", r"(?:DB|Tx|Rows|Open)\b"),
+                    ("exec", "go-security", r"(?:Command|CommandContext|Cmd)\b")]
+    for package, owner, pattern in dot_patterns:
+        if package in dot and re.search(r"(?<![\w.])" + pattern, code):
+            out.append(owner)
+    # A %w literal matters only as an argument of an actual Errorf call.
+    fmt_names = [alias for alias, name in imports.items() if name == "fmt"]
+    if "fmt" not in imports:
+        fmt_names.append("fmt")
+    for alias in fmt_names:
+        for call in re.finditer(r"\b" + re.escape(alias) + r"\.Errorf\s*\(", lexical_code):
+            for pos, value in literals.items():
+                if pos >= call.end() and not lexical_code[call.end():pos].strip() and "%w" in value:
+                    out.append("go-error-handling")
+    stub = False
+    for call in re.finditer(r"\bpanic\s*\(", lexical_code):
+        for pos, value in literals.items():
+            if pos >= call.end() and not lexical_code[call.end():pos].strip() and value in (chr(34) + "not implemented" + chr(34), "`not implemented`"):
+                stub = True
+    contract = " ".join(comments)
+    if stub and re.search(r"\bbounded\b.{0,50}\bworkers?\b|\bat most\b.{0,70}\bin flight\b|\bowns\b.{0,40}\bgoroutines\b", contract, re.I):
+        out.append("go-concurrency")
+    if stub and re.search(r"\b(?:honor(?:s|ing)?|respect(?:s|ing)?|retr(?:ies|ied|ying)|retry(?!-))\b.{0,100}\b(?:Retry-After|backoff)\b", contract, re.I | re.S):
+        out.append("go-resilience")
+    if ("go-http" in out or "go-database" in out) and "go-error-handling" not in out:
+        out.append("go-error-handling")
+    return list(dict.fromkeys(out))
 '
 
 if [[ "${1:-}" == "--hints" ]]; then
@@ -165,7 +274,7 @@ for p in sys.argv[1:]:
         text = open(p, encoding="utf-8", errors="replace").read()
     except OSError:
         continue
-    for h in hints(p, text):
+    for h in prompt_hints(p, text):
         if h not in seen:
             seen.append(h)
 print(" ".join(seen))

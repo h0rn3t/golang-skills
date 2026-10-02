@@ -230,6 +230,107 @@ Lint and modernization remain informational and excluded from the summaries
 that `diff` compares. In `baseline`/`after`, `passed` covers the core checks,
 not lint; callers must inspect `lint_status` and honor their repository gate.
 
+## Edit-hook Receipts
+
+`hooks/go-vet-on-edit.sh` creates one unique `checks/run.*` directory beneath
+`CLAUDE_PLUGIN_DATA` (temporary hook storage otherwise). Each of the five
+checks has an atomic JSON record written after execution, including skips:
+
+```json
+{"version":1,"check":"vet","status":"pass","exit_code":0,"command":["go","vet","."],"cwd":"/abs/module/pkg","file":"/abs/module/pkg/file.go","scope":{"kind":"package","target":"/abs/module/pkg"},"config":"","filter":"all","tool_version":"go version go1.27.1 ...","toolchain":{"GOVERSION":"go1.27.1"},"started":"...","ended":"...","inputs_before":"sha256...","inputs_after":"sha256...","reusable":true,"reason":"","snapshot_errors":[],"diagnostic":""}
+```
+
+- `check`: `gofmt`, `vet`, `fix`, `test`, or `lint`. `status`: `pass`, `fail`,
+  `skipped`, or `unavailable`. `exit_code` is the actual tool/wrapper exit,
+  including zero with formatting findings; `null` means it did not run.
+  Skips retain their planned command. Infrastructure failures cannot pass.
+- Scope is file-only for gofmt and the canonical package directory otherwise.
+  Commands retain actual flags: tests are `-short -count=1` without `-race`;
+  lint records `new-since-HEAD` when that filter runs, and the chosen config.
+  `toolchain` records Go version, target OS/architecture, CGO, experiments,
+  toolchain selection and GOROOT. Diagnostics are retained in the JSON;
+  model-facing findings remain capped as before.
+- Input hashes cover module trees (including tests, assets and dependency
+  manifests), workspace members and local replacements, external selected lint
+  config, workspace files, Go settings, execution environment and tool binaries.
+  Values that might contain credentials are hashed, not stored. Hook storage,
+  `.git` internals and shell/hook bookkeeping variables are excluded; the lint
+  filter's resolved HEAD is included. Generated Go build-directory names in
+  `GOGCCFLAGS` are normalized. Content and file metadata catch rewritten inputs.
+- Unreadable inputs, directory symlinks, nonregular files or a snapshot over
+  20,000 files / 128 MiB prevent reuse. The hook has a 135-second internal
+  deadline under the host's 150-second cap; check process groups are terminated
+  on expiry and incomplete checks stay unavailable. Metadata probes are bounded.
+  Module-cache and GOROOT contents use Go's managed immutability assumptions;
+  external services, mutable unmanaged caches and other undeclared test inputs
+  require fresh checks. Digests are endpoint evidence, not continuous monitoring.
+- Each hook invocation keeps separate records; completion order never selects
+  the current result. Aborted checks leave no completed receipt. Corrupt or
+  incomplete records are rejected; persistence failure is visible.
+- Hook/Bash bookkeeping fields `AI_AGENT`, `CLAUDE_CODE_EXECPATH`,
+  `CLAUDE_PROJECT_DIR` and `GIT_EDITOR` are excluded from the environment hash:
+  live diagnosis showed that the host changes them between hook and shell.
+  Go/build flags, dependency/test environment, tool binaries and checked cwd
+  remain part of verification.
+
+`bash hooks/go-check-receipt.sh --gate <receipt-dir> <package-dir>` verifies
+the five records together and emits `checks` and `required_direct`. Only
+current, exact package vet/fix and full-config unfiltered package lint may
+get `hook_credit=true`. File gofmt, short tests, missing checks and
+new-since-HEAD lint get no wider default-gate credit. Exit 1 means no credited
+check; inspect JSON and run required checks directly. Build, required race and
+applicable govulncheck still need their own evidence.
+
+The edit hook records a session generation under plugin state. The Bash
+PreToolUse hook acts only for an editing Go-router session after a Go edit:
+before known runtime checks, it requires go-linting and a current verifier
+attempt. A failed/no-credit attempt permits direct checks; a subsequent edit
+requires another attempt, and an old generation cannot release the new one.
+Inventory commands and no-edit/review sessions are outside this prerequisite.
+Until an attempt is recorded, the current verifier must run separately from
+runtime checks; the guard does not infer sequencing from `&&`, `||` or `&`.
+An invalid, stale or trailing verifier mention cannot release other commands.
+At Stop, an explicit hook-sourced pass claim is compared with the current
+generation's accumulated per-check credits and freshly captured receipt inputs.
+Invalid/stale inputs revoke credit; batch results replace the set, while a
+matching per-check success preserves earlier current-generation checks.
+Unsupported claims receive one corrective
+continuation; a repeated unsupported claim ends with an explicit incomplete
+reason rather than continuing indefinitely. It does not force code changes
+or mistake a direct passing rerun for hook credit.
+`GOLANG_SKILLS_VERIFICATION_GATE=off` opts out without granting credit.
+This is workflow routing for supported command forms, not a shell sandbox.
+
+`bash hooks/go-check-receipt.sh <receipt.json> <expected-cwd> <command> [args...]`
+is the shell-profile entry point. It requires an explicit selected check;
+canonical cwd and complete argv must match the record. Exit 0 and
+`hook_credit=true` require a reusable pass whose before/after hashes still
+match freshly captured inputs. It prints `valid`, `hook_credit`, command,
+cwd, scope, config, filter and reason. A wider command or different cwd is
+rejected even when the receipt is current. Exit 1 means stale, nonpassing or
+mismatched evidence; exit 2 means usage/environment/unusable evidence.
+
+`hooks/go-check-receipt.py verify <receipt.json>` remains a state-only check:
+exit 0 / `valid=true` grants **no hook credit**, and `hook_credit=false` is
+explicit. This keeps old state-verification callers compatible. The Bash
+entry passes expected cwd/argv to the Python helper for matched verification.
+The caller still must select the gate and report the record's exact scope;
+the verifier does not choose a gate or broaden it.
+
+On a clean hook run, stdout is one JSON object with
+`hookSpecificOutput.hookEventName=PostToolUse` and compact `additionalContext`.
+Reuse is labelled unverified; stable passes include concrete Bash verification
+commands with absolute paths, selected cwd and argv. No plugin environment
+variable is required in the model shell. Copying the recorded `pass` status
+without executing a matching verifier is not `pass (hook)`.
+Findings use stderr and exit 2, with the same explicit Skill/Bash next step
+before the findings and receipt directory. Passing checks still offer matched
+verification even if another check failed. This follows
+the [Claude hook output contract](https://code.claude.com/docs/en/hooks#posttooluse-decision-control);
+it does not prove live host delivery. Without Python/helper/writable storage,
+legacy checks still run and evidence unavailability is explicit. Hook results
+are reusable only under the `go-linting` gate's freshness/scope rules.
+
 ## Migration Note
 
 Keep shell wrappers as the public interface. The findings scripts —

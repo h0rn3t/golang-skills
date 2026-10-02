@@ -47,7 +47,8 @@
 # With the router it names go-style-core and, when the prompt points at Go
 # files (./dispatch, internal/x/y.go, or a bare word naming a directory of Go
 # files under cwd), the owner skills their code points at, through
-# go-code-routing.sh --hints: the same table the gate applies to each edit.
+# go-code-routing.sh --hints: the edit table plus advisory import/signature
+# and stub-contract signals; these extra hints do not widen the edit gate.
 # On 2026-09-13 the gate blocked five edits in three sessions to name owners
 # one at a time; a session that has the list before its first edit loads them
 # without a block. Test files stay out of the scan.
@@ -313,13 +314,13 @@ if [[ "$mode" == "slash" ]]; then
     sep="; "
     owners_lead=", and the owners its code points at: "
 else
-    line="Load with them"
-    sep=" "
-    owners_lead=" the owners its code points at: "
+    line=""
+    sep="; "
+    owners_lead="; load the owners its code points at: "
 fi
 if [[ -n "$owners" ]]; then
     list=""
-    for o in $owners; do list+="\`$(q "$o")\`, "; done
+    for o in $owners; do list+="\`$(q "$o")\` (Skill tool, name \`$(q "$o")\`), "; done
     line+="${owners_lead}${list%, }"
     sep="; "
 fi
@@ -329,6 +330,10 @@ else
     line+="${sep}$tt if you write or edit a test"
 fi
 line+='. All of them in one message, before the first edit.'
+line+=' Wait for successful Skill results; do not put Edit, Write or MultiEdit in the skill-loading tool message.'
+if [[ "$skill" != go-code-review ]]; then
+    line+=" If Bash is available, also load \`$(q go-linting)\` (Skill tool, name \`$(q go-linting)\`) in that message; after the final edit run the receipt verifier before other verification commands."
+fi
 if [[ "$mode" == "slash" ]]; then
     printf 'golang-skills: the `/%s` command inserted that skill file and loaded nothing else.\n' "$skill"
     printf '%s\n' "$line"
@@ -339,8 +344,8 @@ if [[ "$mode" == "mention" ]]; then
 else
     printf 'golang-skills: this prompt looks like %s.\n' "$kind"
 fi
-printf 'Before the first edit, load the `%s` skill (Skill tool, name `%s`) and the `%s` skill (Skill tool, name `%s`); `%s` %s.\n' \
-    "$(q "$skill")" "$(q "$skill")" "$(q go-style-core)" "$(q go-style-core)" "$(q "$skill")" "${what#it }"
-printf '%s\n' "$line"
+printf 'Before the first edit, load the `%s` skill (Skill tool, name `%s`) and the `%s` skill (Skill tool, name `%s`)%s\n' \
+    "$(q "$skill")" "$(q "$skill")" "$(q go-style-core)" "$(q go-style-core)" "$line"
+printf '`%s` %s.\n' "$(q "$skill")" "${what#it }"
 [[ "$mode" == "mention" ]] || printf 'If the task is not Go work, ignore this note.\n'
 exit 0

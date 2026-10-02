@@ -602,7 +602,7 @@ func TestVetHook(t *testing.T) {
 		if code != 2 || !strings.Contains(msg, "go fix -diff") || !strings.Contains(msg, "range n") {
 			t.Fatalf("pre-1.22 loop: exit %d, stderr %q; want 2 with a go fix -diff section rewriting to range n", code, msg)
 		}
-		for _, unwanted := range []string{"gofmt:", "go vet"} {
+		for _, unwanted := range []string{"gofmt: fail", "go vet " + "./" + filepath.Base(filepath.Dir(path)) + ":"} {
 			if strings.Contains(msg, unwanted) {
 				t.Errorf("clean-but-modernizable file must not report %s:\n%s", unwanted, msg)
 			}

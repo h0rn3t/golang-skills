@@ -246,21 +246,28 @@ completed check.
 
 ### The Edit Hook Record
 
-Where the Claude Code plugin is installed, a hook runs after every edit of a
-`.go` file and prints only what failed; it never blocks. It runs `gofmt` on
+Where the Claude Code plugin hook runs, it checks each edit of a `.go` file
+and records `pass`, `fail`, `skipped` or `unavailable` per check; it never blocks
+an edit that already happened. It runs `gofmt -l` on
 the file and `go vet`, `go fix -diff`, `go test -short` (no `-race`), and
 `golangci-lint` on the file's package: vet and test output covers the whole
 package, fix hunks and lint findings in other files of the package arrive as a
-count, and in a git checkout lint counts only issues new since HEAD. It skips a
-check without a word — lint when `golangci-lint` is not on PATH, tests in a
-package with no test files, everything outside a module. A finding in code the
-diff touched is fixed before the next step, not reported around; one in code
+count, and in a git checkout lint counts only issues new since HEAD. Immutable
+JSON receipts include command, scope, config, tool version, exit code,
+timestamps, diagnostics and input digests before/after the check. Success
+uses PostToolUse context; findings include the receipt directory on stderr.
+Missing tools, disabled checks, no tests and no module have explicit statuses.
+A finding in code the diff touched is fixed before the next step, not reported
+around; one in code
 the diff did not touch is pre-existing: report it, do not fix it. Without a
-shell tool its output is the whole check record, check by check:
-`<check> pass (hook)` only for a check the hook has printed for the package of
-the final edit earlier in the session and not after that edit. Any other check
-is `unavailable (no shell)`, since silence cannot be told from a check that
-never ran; `test -race` always is.
+shell tool, its observed receipts are the available check evidence.
+[go-linting](../go-linting/SKILL.md#verification-gate) owns reuse and scope:
+with a shell, load that skill and execute the matching Bash verification
+command printed by the hook after the final edit. Its batch `--gate` result
+lists credited checks and required direct checks; the Bash workflow guard
+requires an attempt for the current edit generation. Only `hook_credit=true`
+permits `pass (hook)` for the verified scope. Unverified hook results are
+observed evidence; silence is never pass. A race check needs separate evidence.
 
 ## Related Skills
 

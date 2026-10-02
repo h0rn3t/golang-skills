@@ -4,6 +4,36 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.28.4] - 2026-10-02
+
+- **Edit-hook check evidence.** Each check now records its status, actual exit
+  code, command, scope, config, tool version and before/after input digests in
+  an immutable run directory. Clean runs emit PostToolUse context; skipped and
+  unavailable checks are explicit. The gate reuses only current matching
+  passes; file/package checks, short tests and new-findings lint do not replace
+  broader required checks or race checks. This applies where the plugin hook
+  runs; Codex/opencode runners still do not connect it. After Sonnet A/B,
+  unverified receipt status is separated from final credit: hook output gives
+  concrete Bash verification commands without a plugin environment variable,
+  and `hook_credit=true` requires current inputs plus matching cwd/argv.
+  Routers explicitly load go-linting before final verification.
+  The prompt puts every selected owner's named Skill action on its primary
+  line, with go-linting when Bash is available, and waits for loads before
+  edits. A Bash workflow hook requires the gate owner and a current receipt
+  attempt before repeated runtime checks after a Go edit. Batch verification
+  separates credited package checks from required direct checks; host-only
+  environment differences no longer invalidate unchanged inputs.
+  Completion feedback also checks explicit hook-pass claims against verified
+  credits and asks for a correction when the report overstates the result.
+- **Prompt hints for Go stubs.** Recognize standard-package aliases and
+  context signatures, sync/logging types, error calls and bounded worker
+  contracts before bodies exist. Actionable Retry-After/backoff contracts in
+  stubs retain resilience hints; unrelated comment/literal examples,
+  unused/blank imports and foreign aliases do not imply owners. These hints leave the edit
+  gate's decision rules unchanged. Exploratory Sonnet 5.5 low A/B results are
+  recorded in the improvement plan; they do not establish an overall benefit
+  and identified the Retry-After contract gap corrected by regression tests.
+
 ## [1.28.3] - 2026-10-01
 
 The edit hook no longer hides lint findings in symlinked checkouts, and `abrun`

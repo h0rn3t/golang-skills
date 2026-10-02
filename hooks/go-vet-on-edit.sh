@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # PostToolUse hook: after Claude edits a .go file, run gofmt, go vet,
 # go fix -diff, the package's own tests, and golangci-lint on its package and
-# hand the findings back. Exit 2 makes stderr visible to Claude; exit 0 stays
-# silent. Never blocks — the edit has already happened — and never applies
+# hand findings and explicit check receipts back. Exit 2 makes stderr visible
+# to Claude; exit 0 emits PostToolUse additionalContext. Never blocks and never applies
 # go fix: the rewrite is reported, not written.
 #
 # The tests and the linter are here because a session whose tool set has no
@@ -56,11 +56,46 @@ case "$file" in
     *) exit 0 ;;
 esac
 [[ -f "$file" ]] || exit 0
-command -v go >/dev/null 2>&1 || exit 0
-
+case "$file" in /*) ;; *) file="$PWD/$file" ;; esac
 dir="$(dirname "$file")"
 pkg="./$(basename "$dir")"
 findings=""
+export GOLANG_SKILLS_HOOK_DEADLINE="$(( $(date +%s) + 135 ))"
+receipt_helper="$(cd "$(dirname "$0")" && pwd)/go-check-receipt.py"
+receipt_dir=""
+if command -v python3 >/dev/null 2>&1 && [[ -f "$receipt_helper" ]]; then
+    receipt_base="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/checks"
+    if mkdir -p "$receipt_base"; then
+        receipt_dir="$(mktemp -d "$receipt_base/run.XXXXXX")" || receipt_dir=""
+        if [[ -n "$receipt_dir" ]]; then
+            session="$(printf '%s' "$input" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("session_id") or "default")')"
+            python3 "$receipt_helper" begin "$receipt_dir" "$file" "$session" "$(dirname "$receipt_base")" || receipt_dir=""
+        fi
+    fi
+fi
+config=""
+filter="all"
+skip_reason="no module"
+run_check() {
+    local check="$1"
+    shift
+    if [[ -n "$receipt_dir" ]]; then
+        python3 "$receipt_helper" run "$receipt_dir" "$check" "$file" "$config" "$filter" run "" "$@"
+    else
+        (cd -P "$dir" && "$@")
+    fi
+}
+skip_check() {
+    [[ -n "$receipt_dir" ]] || return 0
+    python3 "$receipt_helper" run "$receipt_dir" "$1" "$file" "$config" "$filter" "$2" "$3" "${@:4}" >/dev/null
+}
+has_module() {
+    if [[ -n "$receipt_dir" ]]; then
+        python3 "$receipt_helper" module "$dir" >/dev/null 2>&1
+    else
+        (cd "$dir" && go list -m >/dev/null 2>&1)
+    fi
+}
 
 # section <heading> <text> — the heading, the first 40 lines of text, and a
 # count of what was cut, so a long diff cannot flood the transcript.
@@ -74,14 +109,17 @@ section() {
     fi
 }
 
-if unformatted="$(gofmt -l "$file" 2>&1)" && [[ -n "$unformatted" ]]; then
+fmt_status=0
+unformatted="$(run_check gofmt gofmt -l "$file" 2>&1)" || fmt_status=$?
+if [[ "$fmt_status" -ne 0 ]]; then
+    findings+="$(section "gofmt: failed (exit $fmt_status):" "$unformatted")"$'\n'
+elif [[ -n "$unformatted" ]]; then
     findings+="gofmt: $file is not gofmt-formatted (run gofmt -w)"$'\n'
 fi
 
-# go vet and go fix need a module; skip both silently outside one (scratch
-# files, examples).
-if (cd "$dir" && go list -m >/dev/null 2>&1); then
-    if ! vet_out="$(cd "$dir" && go vet . 2>&1)"; then
+# go vet and go fix need a module; receipts distinguish skips from success.
+if has_module; then
+    if ! vet_out="$(run_check vet go vet . 2>&1)"; then
         findings+="$(section "go vet $pkg:" "$vet_out")"$'\n'
     fi
     # A package that does not type-check makes go fix restate vet's "vet: ..."
@@ -89,7 +127,8 @@ if (cd "$dir" && go list -m >/dev/null 2>&1); then
     # prints, not by its exit code: a pending rewrite may come back with 0 or 1.
     # Report only; -diff never writes.
     if ! printf '%s\n' "$vet_out" | grep -q '^vet: '; then
-        fix_out="$(cd "$dir" && go fix -diff . 2>&1)" || true
+        fix_status=0
+        fix_out="$(run_check fix go fix -diff . 2>&1)" || fix_status=$?
         if [[ -n "$fix_out" ]] && printf '%s\n' "$fix_out" | grep -q '^--- '; then
             # Hunks are grouped under "--- <abs path> (old)"; match the path as
             # given and as the directory resolves (a symlinked TMPDIR).
@@ -104,6 +143,8 @@ if (cd "$dir" && go list -m >/dev/null 2>&1); then
             fi
         elif [[ -n "$fix_out" ]]; then
             findings+="$(section "go fix -diff $pkg:" "$fix_out")"$'\n'
+        elif [[ "$fix_status" -ne 0 ]]; then
+            findings+="go fix -diff $pkg: failed (exit $fix_status)"$'\n'
         fi
 
         # The package type-checked, so its tests and the linter can run too.
@@ -112,13 +153,17 @@ if (cd "$dir" && go list -m >/dev/null 2>&1); then
         if [[ "${GOLANG_SKILLS_EDIT_TESTS:-on}" != "off" ]] && compgen -G "$dir/*_test.go" >/dev/null; then
             tt="${GOLANG_SKILLS_EDIT_TEST_TIMEOUT:-50}"
             [[ "$tt" =~ ^[0-9]+$ ]] || tt=50
-            if ! test_out="$(cd "$dir" && timeout "$((tt + 10))" go test -short -count=1 -timeout "${tt}s" . 2>&1)"; then
+            if ! test_out="$(run_check test timeout "$((tt + 10))" go test -short -count=1 -timeout "${tt}s" . 2>&1)"; then
                 if printf '%s\n' "$test_out" | grep -q '^panic: test timed out after'; then
                     test_out="$(printf '%s\n' "$test_out" | awk '/^panic: test timed out after/{p=1} p && /^goroutine /{exit} p && NF')"
                     test_out+=$'\n'"(goroutine dump cut: the package's tests outlast the hook's ${tt}s; run go test yourself, or set GOLANG_SKILLS_EDIT_TESTS=off)"
                 fi
                 findings+="$(section "go test $pkg:" "$test_out")"$'\n'
             fi
+        elif [[ "${GOLANG_SKILLS_EDIT_TESTS:-on}" == "off" ]]; then
+            skip_check test skipped "disabled by GOLANG_SKILLS_EDIT_TESTS" go test -short -count=1 .
+        else
+            skip_check test skipped "no test files" go test -short -count=1 .
         fi
         if [[ "${GOLANG_SKILLS_EDIT_LINT:-on}" != "off" ]] && command -v golangci-lint >/dev/null 2>&1; then
             # --allow-parallel-runners: two sessions editing at once must not
@@ -126,26 +171,42 @@ if (cd "$dir" && go list -m >/dev/null 2>&1); then
             lint_args=(run --allow-parallel-runners --path-mode=abs --output.text.print-issued-lines=false --show-stats=false)
             if (cd "$dir" && git rev-parse --verify -q HEAD >/dev/null 2>&1); then
                 lint_args+=(--new-from-rev=HEAD)
+                filter="new-since-HEAD"
             fi
             lint_args+=(.)
             # Обираємо config у логічному каталозі до cd -P. `config path`
             # пише шлях у stderr, відносно фізичного cwd; явно закріплюємо його,
             # щоб пошук у фізичному каталозі не обрав іншу конфігурацію.
-            if repo_config="$(cd "$dir" && golangci-lint config path 2>&1)"; then
+            lint_config_status=0
+            if [[ -n "$receipt_dir" ]]; then
+                repo_config="$(python3 "$receipt_helper" config "$dir" 2>&1)" || lint_config_status=$?
+            else
+                repo_config="$(cd "$dir" && golangci-lint config path 2>&1)" || lint_config_status=$?
+            fi
+            if [[ "$lint_config_status" -eq 0 ]]; then
                 case "$repo_config" in
                     /*) ;;
                     *) repo_config="$(cd "$dir" && pwd -P)/$repo_config" ;;
                 esac
                 lint_args+=(--config "$repo_config")
-            else
+                config="$repo_config"
+            elif [[ "$lint_config_status" -eq 1 ]] || { [[ "$lint_config_status" -eq 6 ]] && [[ "$repo_config" == *"No config file detected"* ]]; }; then
                 bundled="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}/skills/go-linting/assets/golangci.yml"
                 [[ -f "$bundled" ]] && lint_args+=(--config "$bundled")
+                [[ -f "$bundled" ]] && config="$bundled"
+                lint_config_status=0
             fi
             # Логічний PWD через symlink не збігається з фізичними шляхами
             # findings: --new-from-rev=HEAD тоді відфільтровує навіть нові дефекти.
             real="$(cd "$dir" && pwd -P)/$(basename "$file")"
             lint_status=0
-            lint_out="$(cd -P "$dir" && timeout 60 golangci-lint "${lint_args[@]}" 2>&1)" || lint_status=$?
+            if [[ "$lint_config_status" -gt 1 ]]; then
+                skip_check lint unavailable "lint config discovery failed (exit $lint_config_status)" golangci-lint "${lint_args[@]}"
+                lint_status="$lint_config_status"
+                lint_out="$repo_config"
+            else
+                lint_out="$(run_check lint timeout 60 golangci-lint "${lint_args[@]}" 2>&1)" || lint_status=$?
+            fi
             if [[ -n "$lint_out" || "$lint_status" -ne 0 ]]; then
                 # Зберігаємо scope findings для обох варіантів шляху файлу;
                 # діагностика невдалого запуску не є finding іншого файлу.
@@ -163,12 +224,43 @@ if (cd "$dir" && go list -m >/dev/null 2>&1); then
                     findings+="$(section "golangci-lint $pkg: failed (exit $lint_status):" "${lint_diag:-golangci-lint did not complete successfully}")"$'\n'
                 fi
             fi
+        elif [[ "${GOLANG_SKILLS_EDIT_LINT:-on}" == "off" ]]; then
+            skip_check lint skipped "disabled by GOLANG_SKILLS_EDIT_LINT" golangci-lint run .
+        else
+            skip_check lint unavailable "golangci-lint not installed" golangci-lint run .
         fi
+    else
+        skip_reason="package does not type-check"
     fi
+elif ! command -v go >/dev/null 2>&1; then
+    skip_reason="Go not installed"
 fi
 
+if [[ -n "$receipt_dir" ]]; then
+    for check in vet fix test lint; do
+        if [[ ! -f "$receipt_dir/$check.json" ]]; then
+            check_status=skipped
+            [[ "$skip_reason" == "Go not installed" ]] && check_status=unavailable
+            case "$check" in
+                vet) skip_check vet "$check_status" "$skip_reason" go vet . ;;
+                fix) skip_check fix "$check_status" "$skip_reason" go fix -diff . ;;
+                test) skip_check test "$check_status" "$skip_reason" go test -short -count=1 . ;;
+                lint) skip_check lint "$check_status" "$skip_reason" golangci-lint run . ;;
+            esac
+        fi
+    done
+else
+    findings+="Edit-hook receipts unavailable (python3, helper or writable state missing); silence cannot count as pass (hook)."$'\n'
+fi
 if [[ -n "$findings" ]]; then
+    if [[ -n "$receipt_dir" ]]; then
+        # Exit 2 ignores structured stdout: put the same concrete next step
+        # on stderr before findings, including verification for passing checks.
+        receipt_context="$(python3 "$receipt_helper" context "$receipt_dir" 2>&1)" || receipt_context="Edit-hook receipts unavailable; do not credit pass (hook)."
+        printf '%s\n' "$receipt_context" >&2
+    fi
     printf '%s' "$findings" >&2
     exit 2
 fi
+python3 "$receipt_helper" report "$receipt_dir"
 exit 0

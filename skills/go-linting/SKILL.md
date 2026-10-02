@@ -16,6 +16,9 @@ whether Go work is finished.
 
 - `scripts/setup-lint.sh` - Run from the target module as `bash <installed-skill-dir>/scripts/setup-lint.sh [local-prefix]` when generating a `.golangci.yml`, validating the first lint pass, or producing JSON metadata.
 - `assets/golangci.yml` - Use as the v2 golangci-lint baseline for established projects, and as the gate's lint config where the repository has none.
+- `../../hooks/go-check-receipt.sh` - Where the plugin hook runs, execute the matching Bash verification command it prints before crediting a receipt; absent on standalone installs.
+- `../../hooks/go-check-receipt.py` - Internal receipt runner behind the Bash entry point; inspect only when debugging the hook or verifier.
+- `../../hooks/go-verification-routing.sh` - The plugin's Bash verification prerequisite after a Go edit; inspect only when diagnosing routing or opt-out behavior.
 - `references/CONFIGURATION.md` - Read for any linter configuration, CI, or first-lint setup task.
 
 ## Verification Gate
@@ -63,6 +66,38 @@ Gate rules:
 - Fix attributable failures, then rerun affected checks. Reuse passing results
   for unchanged code and configuration, including across checklist items. Repeat
   or broaden only for new edits, failures, unresolved concerns, or required gates.
+- Where the plugin edit hook runs, a receipt can satisfy only the selected check
+  with the same command/flags, canonical target, config, toolchain and inputs.
+  With a shell, first run the `bash .../go-check-receipt.sh --gate <receipt-dir> <package-dir>`
+  command printed by the last edit hook. It verifies the package receipts together,
+  credits only supported current checks and lists `required_direct`. It uses absolute paths and
+  requires the expected cwd and argv; no plugin environment variable is needed.
+  For example, to select `go vet .` in `/project/pkg`:
+  `bash <plugin-dir>/hooks/go-check-receipt.sh <receipt-dir>/vet.json /project/pkg go vet .`.
+  Require exit 0 **and `hook_credit=true`**, then credit only its reported scope.
+  A batch exit 1 means no checks were credited: inspect its JSON and run the
+  selected checks directly. The plugin permits direct verification only after
+  loading this skill and attempting a current verifier; a subsequent Go edit
+  requires a new attempt. `GOLANG_SKILLS_VERIFICATION_GATE=off` disables that
+  prerequisite, without granting credit. This is a workflow guard, not a shell sandbox.
+  `valid=true` from the state-only Python verifier is insufficient. Hook output
+  with `reuse=unverified` is not a final pass. If the command is unavailable or
+  rejects the receipt, run the selected check directly or report it unavailable.
+  A later edit to any input, config, dependency or build environment invalidates it;
+  completion order alone never selects a receipt. Without a shell, report the
+  hook's observed status and scope as `observed (hook, reuse unverified)`;
+  required gate checks lacking current matching verification are unavailable.
+  Silence, skipped checks and unavailable tools are never passes.
+  A disclaimer does not turn `lint pass (receipt, reuse=unverified)` into an
+  observed-only status. Write `lint unavailable (receipt not verified)` or
+  `lint observed (hook, reuse unverified)`, not `lint pass`.
+  The plugin checks hook-sourced pass claims at Stop against the current
+  verifier credits; correct unsupported labels rather than repeating them.
+  File-only gofmt and package vet do not satisfy a wider repository gate;
+  new-findings-only lint does not satisfy full lint. Hook tests use `-short`
+  without `-race`. Run build, the required race check, broader fix/lint and
+  applicable govulncheck whenever matching evidence is absent. Current Codex
+  and opencode runners do not connect this plugin hook; use their normal gate.
 - Report each selected check as `pass`, `fail`, or `unavailable (reason)`;
   explicitly omitted checks are `skipped (reason)`. Overall `PASS` requires all
   required checks to pass; `FAIL` means a finding; `INCOMPLETE` means required

@@ -49,10 +49,19 @@ if stopping:
         else: print(json.dumps(dict(decision="block",reason=reason)))
     sys.exit(0)
 
+def without_output_redirects(text):
+    # Preserve quoted words, including bash -c bodies; forms parses those
+    # recursively. Only unquoted output redirections are removed.
+    word = r"(?:[^\s;&|()<>\"\x27\\]|\\.|\"(?:\\.|[^\"\\])*\"|\x27[^\x27]*\x27)+"
+    pattern = re.compile(
+        r"(?P<quoted>\"(?:\\.|[^\"\\])*\"|\x27[^\x27]*\x27|\\.)"
+        r"|(?P<redirect>(?:(?<![\w])(?:[0-9]+|&))?>>?(?:&[0-9-]+|[ \t]*"+word+r"))")
+    return pattern.sub(lambda m: m.group("quoted") or " ", text)
+
 def forms(text,depth=0):
     if depth>3: return []
     try:
-        lexer=shlex.shlex(text,posix=True,punctuation_chars=";&|()\n")
+        lexer=shlex.shlex(without_output_redirects(text),posix=True,punctuation_chars=";&|()\n")
         lexer.whitespace=" \t\r"; lexer.whitespace_split=True
         tokens=list(lexer)
     except ValueError:
@@ -120,6 +129,6 @@ for kind,args in kinds:
         if valid_prefix: break
 if (valid_prefix and not any(kind=="check" for kind,_ in kinds)) or attempted.get("run_dir")==latest["run_dir"]:
     sys.exit(0)
-print("golang-skills verification gate: before repeating checks for the last Go edit, run this verifier once (Bash tool):\n"+recipe+"\nOnly hook_credit=true checks may be reported as pass (hook). A failed verification allows direct checks; the next Go edit requires another attempt.",file=sys.stderr)
+print("golang-skills verification gate: before repeating checks for the last Go edit, run this verifier once (Bash tool):\n"+recipe+"\nA redirect or a pipe that only displays output (2>&1, | tail, | head) is still that command. Another verification command in the same call is not.\nOnly hook_credit=true checks may be reported as pass (hook). A failed verification allows direct checks; the next Go edit requires another attempt.",file=sys.stderr)
 sys.exit(2)
 '

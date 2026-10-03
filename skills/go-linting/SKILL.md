@@ -69,7 +69,9 @@ Gate rules:
 - Where the plugin edit hook runs, a receipt can satisfy only the selected check
   with the same command/flags, canonical target, config, toolchain and inputs.
   With a shell, first run the `bash .../go-check-receipt.sh --gate <receipt-dir> <package-dir>`
-  command printed by the last edit hook. It verifies the package receipts together,
+  command printed by the last edit hook. A redirection or a pipe that only displays
+  output (`2>&1`, `| tail`, `| head`) is still that command; another verification command in the
+  same Bash call is not. It verifies the package receipts together,
   credits only supported current checks and lists `required_direct`. It uses absolute paths and
   requires the expected cwd and argv; no plugin environment variable is needed.
   For example, to select `go vet .` in `/project/pkg`:

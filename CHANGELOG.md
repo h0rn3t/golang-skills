@@ -4,6 +4,19 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.28.5] - 2026-10-04
+
+- **Routing note at session start.** A Go session and each writing subagent
+  are told to load `go-code` and `go-style-core` in one message before the
+  first edit. The previous subagent note named only the router, and only
+  under "if your task writes", so the first `.go` edit was blocked.
+- **Verifier command suffixes.** The Bash verification gate accepts the
+  printed `go-check-receipt.sh --gate` command with a display redirect or
+  pipe (`2>&1`, `>file`, `2>&1 | tail`). Plain `| tail` was already
+  supported. Quoted paths and nested Bash commands preserve their syntax;
+  another verification command in the same call stays blocked until the
+  verifier has been attempted.
+
 ## [1.28.4] - 2026-10-02
 
 - **Edit-hook check evidence.** Each check now records its status, actual exit

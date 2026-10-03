@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# SubagentStart hook: a subagent starts with an empty context, so nothing the
-# main session loaded reaches it. When the working directory holds Go, print
-# one note naming the router to load before the first edit — the note the
-# UserPromptSubmit hook gives the main session. The host adds stdout to the
-# subagent's context.
+# SessionStart and SubagentStart hook: both start with no record that a router
+# was loaded (a subagent's context is empty; a compacted session has lost the
+# prompt note). When the working directory holds Go, print one note naming
+# go-code and go-style-core to load before the first edit, in the same
+# Skill-tool sentence the UserPromptSubmit hook uses. The host adds stdout
+# to the context.
 #
 # Fires for every subagent, since each one is a fresh context; skips the
 # plugin's own go-verify agent, which runs checks and has no Skill tool, and
@@ -22,12 +23,15 @@ try:
     d = json.load(sys.stdin)
 except Exception:
     sys.exit(0)
-if (d.get("hook_event_name") or "SubagentStart") != "SubagentStart":
+event = d.get("hook_event_name") or "SubagentStart"
+if event not in ("SubagentStart", "SessionStart"):
     sys.exit(0)
-# A plugin install names the agent "golang-skills:go-verify".
-agent = (d.get("agent_type") or "").rsplit(":", 1)[-1].lower()
-if agent in ("go-verify", "explore", "claude-code-guide", "statusline-setup"):
-    sys.exit(0)
+# A plugin install names the agent "golang-skills:go-verify". SessionStart
+# has no agent; the filter is only for a subagent that writes no Go.
+if event == "SubagentStart":
+    agent = (d.get("agent_type") or "").rsplit(":", 1)[-1].lower()
+    if agent in ("go-verify", "explore", "claude-code-guide", "statusline-setup"):
+        sys.exit(0)
 
 def has_go_files(root, depth=2):
     if not root or not os.path.isdir(root):
@@ -57,6 +61,12 @@ if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" && -f "$manifest" ]]; then
     ns="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("name") or "")' "$manifest" 2>/dev/null)" || ns=""
 fi
 code="${ns:+$ns:}go-code"
+style="${ns:+$ns:}go-style-core"
 refactor="${ns:+$ns:}go-code-refactor"
-printf '%s\n' "golang-skills: this project holds Go code. If your task writes, fixes, or refactors Go, load the \`$code\` skill (Skill tool, name \`$code\`) before the first edit, or \`$refactor\` for a behavior-preserving refactor; it loads the owner skills the task needs and closes with the verification gate. Reading, searching, or reviewing only needs no edit skill. If the task is not Go work, ignore this note."
+lint="${ns:+$ns:}go-linting"
+# One sentence, both skills named as Skill calls. A following line, or
+# "if your task writes", was skipped and the first .go edit was blocked
+# (2026-10-03, dhcore ap/operations.go). The prompt hook measured the same
+# shape: both names in the router line, 21 of 21 first-message loads.
+printf '%s\n' "golang-skills: this project holds Go code. Before the first edit, load the \`$code\` skill (Skill tool, name \`$code\`) and the \`$style\` skill (Skill tool, name \`$style\`). For a behavior-preserving refactor, load \`$refactor\` instead of \`$code\`. All of them in one message. Wait for successful Skill results; do not put Edit, Write or MultiEdit in the skill-loading tool message. If Bash is available, also load \`$lint\` (Skill tool, name \`$lint\`) in that message. Reading, searching, or reviewing only needs no edit skill. If the task is not Go work, ignore this note."
 exit 0

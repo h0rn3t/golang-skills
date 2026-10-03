@@ -94,7 +94,8 @@ Claude Code:
   `GOLANG_SKILLS_EDIT_TESTS=off` / `GOLANG_SKILLS_EDIT_LINT=off` switch parts
   off. Never blocks.
 - `go-prompt-routing.sh` (UserPromptSubmit) and `go-subagent-routing.sh`
-  (SubagentStart) inject one note naming the router; silent otherwise.
+  (SessionStart and SubagentStart) inject one note naming the router and
+  `go-style-core` before the first edit; silent otherwise.
 - `go-restraint-ladder.sh`: SessionStart and SubagentStart in a Go directory
   print the ladder section of `OVER-ENGINEERING.md` plus the session's
   `lite`/`full`/`ultra` row from go-code's Intensity table, both read at run

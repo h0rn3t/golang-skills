@@ -81,6 +81,39 @@ func TestVerificationRouting(t *testing.T) {
 			t.Errorf("mixed prerequisite %q = (%d,%q), want standalone attempt first", command, code, msg)
 		}
 	}
+	for _, command := range []string{
+		recipe + " | tail",
+		recipe + " | tail -n 40",
+		recipe + " 2>&1 | tail",
+		recipe + " >/tmp/golang-skills-out",
+		recipe + " > /tmp/golang-skills-out",
+		recipe + ` >"/tmp/my log"`,
+		recipe + ` >'/tmp/my log'`,
+		recipe + ` >/tmp/my\ log`,
+		recipe + " 2>&1|tail -n 40",
+		recipe + " &>/tmp/log",
+		recipe + " >>/tmp/log",
+		recipe + " >/tmp/log|tail -n 40",
+	} {
+		if code, msg := check(command); code != 0 {
+			t.Errorf("display suffix %q = (%d,%q), want the verifier allowed", command, code, msg)
+		}
+	}
+	for _, command := range []string{
+		recipe + " 2>&1 | tail; go vet .",
+		"go vet . 2>&1 | tail",
+		"go test -race ./... | tail",
+		`go vet . >"/tmp/my log"`,
+		`bash -c "go vet . >/tmp/log"`,
+		`echo ' > '; go vet .`,
+		recipe + ` >"/tmp/my log"; go vet .`,
+		recipe + " >/tmp/log;go vet .",
+		recipe + " >/tmp/log&&go vet .",
+	} {
+		if code, msg := check(command); code != 2 {
+			t.Errorf("piped check %q = (%d,%q), want blocked until a standalone verifier", command, code, msg)
+		}
+	}
 	cmd := exec.Command("bash", filepath.Join(root, "hooks", "go-check-receipt.sh"), "--gate", paths[0], dir)
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	out, err := cmd.CombinedOutput()

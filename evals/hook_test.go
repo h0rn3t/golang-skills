@@ -1311,10 +1311,10 @@ func TestPromptRouting(t *testing.T) {
 
 // subagentEvent runs the SubagentStart hook and returns its exit code and
 // stdout, which the host adds to the subagent's context.
-func subagentEvent(t *testing.T, cwd, agentType string) (int, string) {
+func subagentEvent(t *testing.T, event, cwd, agentType string) (int, string) {
 	t.Helper()
 	body, err := json.Marshal(map[string]any{
-		"hook_event_name": "SubagentStart",
+		"hook_event_name": event,
 		"session_id":      "sub1",
 		"cwd":             cwd,
 		"agent_id":        "a1",
@@ -1357,11 +1357,18 @@ func TestSubagentRouting(t *testing.T) {
 	t.Run("Go project names the routers", func(t *testing.T) {
 		t.Parallel()
 		for i := 0; i < 2; i++ {
-			code, out := subagentEvent(t, goDir, "general-purpose")
+			code, out := subagentEvent(t, "SubagentStart", goDir, "general-purpose")
 			if code != 0 {
 				t.Fatalf("subagent %d in a Go directory: exit %d, want 0", i, code)
 			}
-			for _, want := range []string{"name `golang-skills:go-code`", "`golang-skills:go-code-refactor`", "before the first edit"} {
+			for _, want := range []string{
+				"name `golang-skills:go-code`",
+				"name `golang-skills:go-style-core`",
+				"`golang-skills:go-code-refactor`",
+				"Before the first edit",
+				"one message",
+				"do not put Edit, Write or MultiEdit",
+			} {
 				if !strings.Contains(out, want) {
 					t.Errorf("subagent %d note must mention %q:\n%s", i, want, out)
 				}
@@ -1375,7 +1382,7 @@ func TestSubagentRouting(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("docs\n"), 0o644); err != nil {
 			t.Fatalf("write README.md: %v", err)
 		}
-		if code, out := subagentEvent(t, dir, "general-purpose"); code != 0 || out != "" {
+		if code, out := subagentEvent(t, "SubagentStart", dir, "general-purpose"); code != 0 || out != "" {
 			t.Fatalf("subagent outside Go: exit %d, stdout %q; want silent 0", code, out)
 		}
 	})
@@ -1383,7 +1390,7 @@ func TestSubagentRouting(t *testing.T) {
 	t.Run("silent for go-verify and agents that write no Go", func(t *testing.T) {
 		t.Parallel()
 		for _, agent := range []string{"go-verify", "golang-skills:go-verify", "Explore", "claude-code-guide", "statusline-setup"} {
-			if code, out := subagentEvent(t, goDir, agent); code != 0 || out != "" {
+			if code, out := subagentEvent(t, "SubagentStart", goDir, agent); code != 0 || out != "" {
 				t.Fatalf("%s subagent: exit %d, stdout %q; want silent 0", agent, code, out)
 			}
 		}
@@ -1391,8 +1398,28 @@ func TestSubagentRouting(t *testing.T) {
 
 	t.Run("Plan still hears the note", func(t *testing.T) {
 		t.Parallel()
-		if code, out := subagentEvent(t, goDir, "Plan"); code != 0 || !strings.Contains(out, "`golang-skills:go-code`") {
+		if code, out := subagentEvent(t, "SubagentStart", goDir, "Plan"); code != 0 || !strings.Contains(out, "`golang-skills:go-code`") {
 			t.Fatalf("Plan subagent: exit %d, stdout %q; want the router note", code, out)
+		}
+	})
+
+	t.Run("session start in Go names both skills", func(t *testing.T) {
+		t.Parallel()
+		code, out := subagentEvent(t, "SessionStart", goDir, "")
+		if code != 0 {
+			t.Fatalf("session start in a Go directory: exit %d, want 0", code)
+		}
+		for _, want := range []string{"name `golang-skills:go-code`", "name `golang-skills:go-style-core`", "Before the first edit", "one message"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("session start note must mention %q:\n%s", want, out)
+			}
+		}
+	})
+
+	t.Run("session start silent outside Go", func(t *testing.T) {
+		t.Parallel()
+		if code, out := subagentEvent(t, "SessionStart", t.TempDir(), ""); code != 0 || out != "" {
+			t.Fatalf("session start outside Go: exit %d, stdout %q; want silent 0", code, out)
 		}
 	})
 }

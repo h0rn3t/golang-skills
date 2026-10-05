@@ -30,9 +30,20 @@ Here, **business module** means an owned feature/domain package tree, not a Go m
 
 ## When the smell is architectural
 
+If the user named a package, subsystem, or pain point, scan that.
+
+Otherwise count the package directories recent commits touch and start with the ones that keep recurring. A deeper package pays off where the next change will land. If those commits are scattered, widen to the module.
+
+```bash
+git log -n 200 --format= --name-only -- '*.go' | grep . | sed 's|/[^/]*$||' | sort | uniq -c | sort -rn | head
+```
+
 | Smell | What it looks like in Go | Evidence to collect |
 |---|---|---|
 | God package | A global `models`, `types`, `common`, `util`, or `pkg` mixes unrelated owners | High fan-in/fan-out **and** no coherent ownership sentence; identify the unrelated consumers |
+| Shallow package | The exported API is nearly as wide as the body it wraps | Exported symbols beside that body, and the deletion test below |
+| Scattered concept | One domain concept is understandable only by reading many small packages | The packages one change to that concept has to touch |
+| Test-only extraction | A function exists so a test can call it, while the defect lives in the caller | The helper, its production callers, and whether a test of the caller covers the bug |
 | Global layers outgrowing one domain | Global `handlers/services/repositories/models` mix independently changing domains | Feature changes repeatedly edit unrelated domain logic, force foreign contract changes, or require unrelated owners to coordinate |
 | Layer leak | Services/models import transport or persistence drivers; handlers call repositories directly | Exact importing package, imported package, and the use that crosses the boundary |
 | Cycle by proxy | Business types are moved into a generic third package to avoid a cycle | The third package has weak ownership and exists to preserve a bidirectional business dependency |
@@ -43,6 +54,8 @@ Here, **business module** means an owned feature/domain package tree, not a Go m
 The names `handlers`, `services`, `repositories`, and `models` are **not** the smell. Nor is a feature touching four layers: a new persisted field can legitimately require transport, validation, business, and storage changes. Count edits **outside the feature's owner**, not just edited directories.
 
 A smell is a reason to investigate, not an automatic migration trigger. Propose a structural move only when a concrete consequence is established and a smaller repair is insufficient. Do not use a fixed number of smells, packages, files, or imports as a migration threshold.
+
+Deletion test, for a package that looks shallow: inline it into its callers on paper. If the exported surface shrinks and its lines land once, in one owner, the package was a pass-through and folding it into that owner is the candidate. If the same lines would be pasted into several callers, the package earns its keep and is not a candidate. A package whose job is to keep a driver behind the seam in [Modules own the tree](#modules-own-the-tree-layers-live-inside-the-module) stays; one implementation is enough there.
 
 ## Measure the import graph
 
@@ -242,5 +255,25 @@ Use [ARCHITECTURE-CHECKS.md](ARCHITECTURE-CHECKS.md) and the bundled checker/tes
 
 ## Report contract
 
-The compact report shape lives in [ARCHITECTURE-CHECKS.md](ARCHITECTURE-CHECKS.md#report-contract).
+A package-scale proposal is one card per candidate, written before any move and before any new interface:
+
+```text
+Files: paths.
+Problem: one sentence, the friction.
+Change: one sentence, the smallest repair.
+Why not smaller: the smaller repair considered and why it falls short, or "none" for a local repair.
+Strength: Strong | Worth exploring | Speculative.
+```
+
+Strength follows the evidence:
+
+- **Strong** — a measured forbidden edge, a cycle by proxy whose third package is named, a god package whose unrelated consumers are named, or a shallow package that passes the deletion test.
+- **Worth exploring** — hotspot paths recur across recent commits and one concept crosses those packages, with no forbidden edge yet.
+- **Speculative** — the only evidence is the shape of the tree, or a smell row whose evidence column is not yet collected.
+
+The card names the seam. It does not declare an interface; [Modules own the tree](#modules-own-the-tree-layers-live-inside-the-module) decides that once a candidate is chosen, and [Staging the move](#staging-the-move) gives that candidate its staged plan. End with the one candidate to apply first and why. If the user asked for the move, apply that candidate as far as authorized and leave the rest as cards; otherwise ask which candidate to apply.
+
+A rejection a later review would need (a constraint, not "not now") is one line under Findings in [the refactor report](../assets/refactor-report.md), with the paths. The next proposal in the session does not offer that candidate again.
+
+The measured before/after shape lives in [ARCHITECTURE-CHECKS.md](ARCHITECTURE-CHECKS.md#report-contract).
 Fewer imports or more modules are never the success criterion.

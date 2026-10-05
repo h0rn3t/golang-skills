@@ -32,13 +32,17 @@ One row per named transformation. Terse — the diff shows the detail.
 
 ## Architecture
 
-Only when the smell was package-scale. Use the report contract in
-`references/ARCHITECTURE-CHECKS.md`: observation with the measured edges,
-consequence, decision (keep the tree / repair a seam / propose a move), why
-not smaller, what is preserved (behavior, contracts, authorization,
-transaction boundaries), the changes with what each line of growth buys,
-verification (`check-architecture.sh` output, build scope, before/after
-findings), and exceptions or unexecuted checks.
+Only when the smell was package-scale. A proposal uses the candidate card in
+`references/ARCHITECTURE.md`: files, one-sentence problem, one-sentence
+change, why not smaller, and strength (`Strong`, `Worth exploring`, or
+`Speculative`). After a
+move, also use the report contract in `references/ARCHITECTURE-CHECKS.md`:
+observation with the measured edges, consequence, decision (keep the tree /
+repair a seam / propose a move), why not smaller, what is preserved
+(behavior, contracts, authorization, transaction boundaries), the changes
+with what each line of growth buys, verification (`check-architecture.sh`
+output, build scope, before/after findings), and exceptions or unexecuted
+checks.
 
 ## Modernization
 
@@ -79,9 +83,12 @@ count, and a number the counter did not print is not a count.
 
 ## Findings — not applied
 
-Bugs, races, ignored errors, and Tier 3 modernizations. One line of rationale
-each, with a location. These were deliberately left out of the diff because
-fixing them would have changed behavior; the user decides what happens next.
+Bugs, races, ignored errors, Tier 3 modernizations, and a rejected
+architecture candidate whose reason a later review would need. One line of
+rationale each, with a location. These were deliberately left out of the
+diff because fixing them would have changed behavior, or because the user
+rejected the move; the user decides what happens next. "Not now" is not an
+entry.
 
 | Location | Finding | Why it was not fixed here |
 |---|---|---|

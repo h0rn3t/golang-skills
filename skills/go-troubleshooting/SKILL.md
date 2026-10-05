@@ -41,6 +41,8 @@ code version, and a check that could disprove them.
 1. **Pin the failure.** Record expected vs actual, a concrete input/request ID,
    time, affected tenant/role/data, frequency, and scope. Shrink a reproduction
    without deleting the condition that triggers it (concurrency, load, or state).
+   Once it fails, remove one remaining input, caller, config value, data row, or
+   step at a time; keep a piece only when dropping it makes the failure stop.
 2. **Match the environment.** Establish the running image/revision and relevant
    effective config, flags, schema/migrations, and dependencies. The checkout
    is not evidence of deployed code. Compare a working case with the same input.
@@ -57,14 +59,17 @@ code version, and a check that could disprove them.
    Compare dependency versions with `go version -m` on both binaries, not on
    the checkout.
 3. **Locate the first divergence.** Follow the relevant execution/data path or
-   capture the artifact below. Inspect values at boundaries before changing code.
-   If no reproduction exists, use historical evidence or propose the smallest
-   targeted capture; do not guess a patch or instrument everything.
-   List the callers of the diverging function; each caller is a path the
-   same input may take.
+   capture the artifact below. List the callers of the diverging function; each
+   caller is a path the same input may take. Inspect values at boundaries
+   before changing code. If no reproduction exists, use historical evidence or
+   propose the smallest targeted capture; do not guess a patch or instrument
+   everything. Tag every temporary log with one prefix for the investigation,
+   such as `[DEBUG-a4f2]`, so removing them is a single search.
 4. **Test a hypothesis.** State mechanism, supporting evidence, and an experiment
-   with different predicted outcomes if it is right or wrong. Vary one factor
-   at a time. Record the observed result separately from the proposed check.
+   with different predicted outcomes if it is right or wrong. When more than one
+   cause is still plausible, write down each one's prediction before testing
+   any, then run the cheapest check that separates the likeliest from the rest.
+   Vary one factor at a time. Record the observed result separately from the proposed check.
    For nondeterministic behavior, predict allowed outcomes or an invariant; a
    single repeat choosing a different row/order need not refute the mechanism.
 5. **Reassess.** A failed hypothesis narrows the search. Repeated failed patches
@@ -75,8 +80,10 @@ code version, and a check that could disprove them.
    restructuring to [go-code-refactor](../go-code-refactor/SKILL.md) instead
    of patching the next site.
 6. **Finish in scope.** Investigation ends with the evidence report below.
-   An authorized fix corrects the responsible boundary, adds regression coverage,
-   and runs the applicable repository verification through `go-linting`.
+   An authorized fix corrects the responsible boundary, adds regression coverage
+   where a test can reach the original mechanism, and runs the applicable
+   repository verification through `go-linting`. Either way, no temporary log
+   stays behind: a search for the investigation's debug prefix matches nothing.
 
 ## Stop Signals
 
@@ -220,11 +227,17 @@ behavior outside the defect: a default for a missing input must not silently
 redefine explicit empty, zero, negative, or invalid inputs without evidence.
 
 The regression should fail for the original mechanism and pass after the fix.
-Cover the trigger and a nearby working case (for example, colliding IDs across
-tenants). For nondeterminism, report runs/failures and seed or workload details;
-a lower failure rate is not proof of elimination. Preserve user changes: use an
-isolated copy/worktree or a reversible local comparison, never stash/discard the
-user's work by default. Run required checks through
+Write that failing test before the fix when it can reach the original
+mechanism: at the call site that failed, or at the shared function whose
+contract the fix corrects. A test that cannot — one caller when the bug needs
+several, or a unit that cannot rebuild the chain — does not lock the mechanism
+down: report that gap instead of adding the test. Cover the trigger and a
+nearby working case (for example, colliding IDs across tenants). After the fix,
+re-run the reproduction from before it was shrunk, when one exists. For
+nondeterminism, report runs/failures and seed or workload details; a lower
+failure rate is not proof of elimination. Preserve user changes: use an
+isolated copy/worktree or a reversible local comparison, never stash/discard
+the user's work by default. Run required checks through
 [go-linting](../go-linting/SKILL.md), reusing applicable unchanged evidence.
 
 ## Investigation Result
@@ -237,8 +250,10 @@ remaining question. Include only what makes it assessable:
   distinguish supplied artifacts, static deductions, and executed checks.
 - Disproved hypotheses, relevant alternatives, and the next discriminating check
   if unresolved. Missing access or a non-reproduction is not proof of absence.
-- In fix mode: change, regression before/after, and required-check results.
-  Report unrun/unavailable checks honestly; a proposed patch is not a verified fix.
+- In fix mode: change, regression before/after (including the reproduction from
+  before it was shrunk, when one exists), and required-check results. When no
+  test can reach the original mechanism, say so. Report unrun/unavailable checks honestly; a
+  proposed patch is not a verified fix.
 
 An investigation can be complete with an unresolved cause if the evidence limit
 and next useful check are explicit. Report length follows

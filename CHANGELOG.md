@@ -4,6 +4,17 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **Troubleshooting loop.** A failing reproduction is cut down to the pieces
+  that still fail. Each competing cause gets a written prediction before the
+  first check, and the cheapest separating check runs first. The
+  regression test comes before the fix only when it can reach the original
+  mechanism; otherwise that gap is reported. Temporary logs share one debug
+  prefix and are gone before the investigation ends, with or without a fix.
+- **Architecture proposals.** A package-scale review starts at recent hotspots
+  when no target was named, treats a shallow package as a smell, and grades
+  each candidate Strong, Worth exploring, or Speculative before any new
+  interface.
+
 ## [1.28.5] - 2026-10-04
 
 - **Routing note at session start.** A Go session and each writing subagent

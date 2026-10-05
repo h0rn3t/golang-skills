@@ -164,8 +164,10 @@ literal. Error texts and the point where an unknown key fails do not move.
 > contract; keeping the tree and repairing one boundary is a valid result.
 
 When the smell is the import graph, `references/ARCHITECTURE.md` owns the
-call: measure the graph, name the shape, propose the smallest repair — a
-target plus a staged plan, applied only as far as authorized. A move is High
+call: start at the named target or at recurring paths in `git log`, measure
+the graph, and propose the smallest repair as graded candidate cards; the
+chosen candidate gets a target and a staged plan, applied only as far as
+authorized. A move is High
 tier and a proposal unless the user asked for it; its first commit
 encodes the rule in `architecture.json` and runs `scripts/check-architecture.sh`,
 whose `known` list a refactor never extends to make its own run pass.

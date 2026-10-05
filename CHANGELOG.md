@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.29.0] - 2026-10-06
+
 - **Troubleshooting loop.** A failing reproduction is cut down to the pieces
   that still fail. Each competing cause gets a written prediction before the
   first check, and the cheapest separating check runs first. The

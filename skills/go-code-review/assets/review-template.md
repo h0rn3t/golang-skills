@@ -8,6 +8,8 @@ out is one line counting its findings.
 ## Summary
 [Brief description of the changes]
 Net lines: +A / -B. Growth the change did not need is a finding below, not a footnote.
+Verdict: approve | request changes. Request changes while any Must Fix stands;
+the bar is a change that leaves the code healthier, not the one you would write.
 
 ## Findings
 
@@ -23,7 +25,7 @@ proved it, `plausible` admits it was only read.
 - [ ] [file:line] Description of recommended improvement
       Evidence: verified (how) | plausible (not proven)
       Fix: the concrete action
-- [ ] [file:line] delete: | yagni: | stdlib: | dep: | shrink: what can stop existing
+- [ ] [file:line] delete: | reuse: | yagni: | stdlib: | dep: | shrink: what can stop existing
       Fix: the shorter form
 
 ### Nits

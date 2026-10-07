@@ -69,6 +69,14 @@ not have (v1, v3, v5, custom sources).
 - **Before adding a module**, check the ladder above, license compatibility,
   and maintenance status. Approval policy:
   [go-style-core](../go-style-core/SKILL.md#house-style-wins).
+- **Upgrade one module per change** — `go get <module>@<version>`, not
+  `go get -u ./...` — so a failure names its cause and the revert is one line;
+  modules that release together count as one. A minor bump needs its release
+  notes read, a major one its migration notes, and a `v0` minor may break.
+  Minimal version selection raises the indirect requirements the new version
+  declares: the `// indirect` and `go.sum` lines are part of the diff, and
+  `go mod graph | grep <module>@` names who pulled a surprise version. Tests
+  run before and after; `govulncheck` covers the new versions.
 - **Pin executable tools with `go get -tool <package>@<version>`** (Go 1.24+),
   then run them via `go tool <name>`. Tool dependencies share the module graph.
   For golangci-lint, prefer a version-pinned release binary; if using `go tool`,

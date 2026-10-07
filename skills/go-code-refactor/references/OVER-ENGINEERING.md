@@ -168,6 +168,7 @@ One tag per finding. The tag names why the code should stop existing.
 | Tag | Means | Replacement |
 |---|---|---|
 | `delete:` | Dead code, unreachable branch, unused export, speculative feature | Nothing |
+| `reuse:` | Helper, type, or pattern the repository already has, written again | Name the existing symbol and its file |
 | `stdlib:` | Hand-rolled thing the standard library, the language, or the toolchain ships (`slices`, `go:embed`, struct tags, `synctest`) | Name the function or feature |
 | `dep:` | Module doing what the stdlib or the toolchain already does | Name the stdlib replacement |
 | `yagni:` | Abstraction with one implementation, config nobody sets, layer with one caller | Inline it |

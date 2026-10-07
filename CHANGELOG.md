@@ -4,6 +4,27 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **Review checks what tests and structure hide.** `go-code-review` probes
+  whether a test fails when the diff's condition breaks: the condition is
+  inverted in a copy and run through `go test -overlay`, so the tree is never
+  edited. A bug fix needs a regression test that fails on the old code. A new
+  Design section flags complexity moved instead of removed, feature logic in a
+  shared package, the same switch at a third site, and a refactor mixed with a
+  behavior change. A Dependencies section reviews one module per bump and
+  treats a `go` directive bump as its own change. Less Code adds a `reuse:`
+  cut tag for a helper the repository already has, and a check for
+  declarations the diff left without callers. The report template gains a
+  verdict line. `go-packages` now owns the rule for upgrading a module. None
+  of this is measured yet.
+- **Refactor keeps what history and benchmarks explain.** A line that looks
+  redundant but still runs (a second check, a defensive copy, a sleep) gets
+  `git log -S` before it is removed. If the commit that added it fixed a bug,
+  the removal is a finding unless a test reproduces that bug. An existing
+  helper that meets a Declaration Budget rule stays, even with one caller.
+  When a benchmark covers a touched function, `go-code-refactor` records it
+  before the edit and compares after through go-performance's
+  `bench-compare.sh`. Not measured yet.
+
 ## [1.29.1] - 2026-10-07
 
 - **Security findings no linter reports.** `go-security` covers five classes

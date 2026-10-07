@@ -117,14 +117,21 @@ distinct algorithm, or a step at another level of abstraction than its
 caller — or it is not added. A few-line `writeHeader`, `writeRow`, and
 `writeTotal` that `Render` calls once each are not added: they only rename its
 steps at its own level. The report names the rule each kept helper meets.
-Count the helper and its call sites when comparing complexity.
+Count the helper and its call sites when comparing complexity. The rules cut
+both ways: an existing helper that meets one stays, even with one caller;
+inlining is for a wrapper that meets none.
 
 Before writing any new line — helper, wrapper, interface — climb the restraint
 ladder in `references/OVER-ENGINEERING.md` and stop at the first rung that
 holds; on a refactor the top one usually does.
 
 Delete only what is **provably** unreachable — "looks unused" is a finding, not
-a licence. Apply the shorter form only where it reads as well; never golf.
+a licence. A reachable line that only looks redundant — a second check, a
+defensive copy, a lock around a read, a sleep — gets
+`git log -S'<the line>' --oneline -- <file>` before it goes: when the commit
+that added it fixed a bug, removing it is a finding unless a test reproduces
+that bug and stays green without the line. With no shell, it is a finding.
+Apply the shorter form only where it reads as well; never golf.
 
 **Never simplify away** input validation at trust boundaries, error handling
 that prevents data loss, or security checks. A "simplification" that drops a
@@ -234,6 +241,11 @@ baseline exits 1:
 bash "<installed-skill-dir>/scripts/verify-refactor.sh" baseline ./...
 bash "<installed-skill-dir>/scripts/verify-refactor.sh" loc-baseline ./...
 ```
+
+When a `Benchmark*` covers a function the refactor touches, save its baseline
+now with go-performance's `bench-compare.sh --save` and compare at step 5 with
+`--baseline` ([the owner's procedure](../go-performance/SKILL.md#benchmarking-and-profiling));
+a slowdown `benchstat` calls significant goes in the findings list with its row.
 
 If characterization tests are needed, run them against unchanged production
 code, then capture a new baseline with those tests included. Retain the earlier

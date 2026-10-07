@@ -70,6 +70,8 @@ allowed-tools: Bash(bash:*)
 
 - [ ] **Subtract first**: for each added block, what can stop existing? Name the cut tag and show the shorter form; the hunt list and the reach-for table live with the owner → [go-code-refactor](../go-code-refactor/SKILL.md#delete-before-you-restructure)
 - [ ] **Shorter only where it reads as well**: never golf; validation at trust boundaries, data-loss error handling, and security checks are never "simplified" away, nor are the tests that fail when the logic breaks → [go-code-refactor](../go-code-refactor/references/OVER-ENGINEERING.md)
+- [ ] **Already in the repo**: for each added helper or type, search the module for one doing the same job; a near-duplicate is `reuse:` naming the existing symbol and its file → [go-code-refactor](../go-code-refactor/references/OVER-ENGINEERING.md#tags)
+- [ ] **What the diff orphaned**: a declaration whose last caller the diff removed is `delete:`; the `unused` linter sees only unexported ones, `deadcode -test ./...` the rest in a module with a `main` package → [go-code-refactor](../go-code-refactor/references/MECHANICAL.md#after-every-bulk-rewrite)
 
 ## Correctness
 
@@ -77,6 +79,13 @@ allowed-tools: Bash(bash:*)
 - [ ] **Invariants**: what the surrounding code assumes — ordering, non-nil, lock held, ctx alive — still holds after the change; name the assumption in the finding
 - [ ] **Callers outside the diff**: for a changed exported signature, behavior, or interface method set, look up references and implementations and read the callers the diff did not touch; one it leaves broken is a Must Fix
 - [ ] **Failure paths**: every error branch, timeout, and partial write leaves state a caller can recover from — read each with the failing call moved one line earlier
+
+## Design
+
+- [ ] **Reduced, not relocated**: a restructuring makes declarations, branches, or packages stop existing; the same count moved to another file or layer is a finding, not a cleanup → [go-code-refactor](../go-code-refactor/SKILL.md#delete-before-you-restructure)
+- [ ] **Feature logic in its owner**: a branch, type, or query for one feature added to a shared package (`util`, `common`, `internal/platform`, a global `models`), or a special case for one caller inside a function others share, moves to the package that owns the concept → [ARCHITECTURE.md](../go-code-refactor/references/ARCHITECTURE.md#when-the-smell-is-architectural)
+- [ ] **The same switch again**: a case added in lock-step to the same switch over a type tag or state, at its third site, is a missing table or interface; one switch is not → [CATALOG.md](../go-code-refactor/references/CATALOG.md#replace-repeated-switch-with-polymorphism)
+- [ ] **One change**: a diff that restructures and changes behavior is two changes; ask for the split, or name the hunks that claim to preserve behavior and hold them to that → [go-code-refactor](../go-code-refactor/SKILL.md#what-identical-behavior-means)
 
 ## Documentation
 
@@ -156,13 +165,30 @@ allowed-tools: Bash(bash:*)
 - [ ] **When to use**: Only when multiple types share identical logic and interfaces don't suffice → [go-generics](../go-generics/SKILL.md)
 - [ ] **Type aliases**: Use definitions for new types; aliases only for package migration → [go-generics](../go-generics/SKILL.md)
 
+## Dependencies
+
+- [ ] **One module per bump**: each changed `require` line has a reason; a minor or major bump had its release notes read, the indirect versions it raised in `go.mod` and `go.sum` are reviewed with it, and a bulk `go get -u` is split → [go-packages](../go-packages/SKILL.md#adding-and-auditing-dependencies)
+- [ ] **The `go` line**: raising the `go` directive changes language semantics and `GODEBUG` defaults at once; it is its own change, never a rider on a feature → [MODERNIZATION.md](../go-code-refactor/references/MODERNIZATION.md#tier-3--report-dont-apply)
+
 ## Testing
 
+- [ ] **Would a test fail?** For each condition the diff adds or changes, invert it once in a copy outside the tree and run the package tests (below); still green is a Should Fix naming the case the suite lacks. The usual one: a test that expects an error and checks only `err != nil` passes when an earlier step fails first. Without a shell, name for each such test the line that returns its error → [go-testing](../go-testing/SKILL.md#test-error-semantics)
+- [ ] **A fix carries its regression test**: a bug fix arrives with a test that fails on the code before it, through the original mechanism; a fix without one, or with one the probe leaves green, is a Should Fix → [go-troubleshooting](../go-troubleshooting/SKILL.md#fix-and-regression-proof)
 - [ ] **Examples**: Include runnable `Example` functions or tests demonstrating usage → [go-documentation](../go-documentation/SKILL.md)
 - [ ] **Useful test failures**: Messages include what was wrong, inputs, got, and want; order is `got != want` → [go-testing](../go-testing/SKILL.md)
 - [ ] **Real transports**: Prefer a test server over mocking HTTP: `httptest.NewTestServer(t, h)` (Go 1.27+) when every request goes through `srv.Client()`, which is the only client that reaches the in-memory server — until `srv.Start()`, `srv.URL` is empty and then `http://example.com`, so another client sends the request to the real host; code under test that builds its own client gets `srv.Start()` first, which listens on loopback and sets `srv.URL`. At a 1.26 directive, `httptest.NewServer(h)` plus `t.Cleanup(srv.Close)` → [go-testing](../go-testing/SKILL.md)
 - [ ] **Test context**: Tests use `t.Context()`, not `context.Background()`; work inside `t.Cleanup` uses `context.WithoutCancel(t.Context())`, since `t.Context()` is canceled before cleanup runs → [go-testing](../go-testing/SKILL.md)
 - [ ] **No sleep-based waits**: Timing tests use `synctest`, not `time.Sleep` → [go-testing](../go-testing/SKILL.md)
+
+The probe edits a copy, never the tree, so it needs no fix request; run it
+once per condition:
+
+```bash
+m=$(mktemp -d); f=$PWD/internal/pay/check.go       # the changed file
+sed '14s/!=/==/' "$f" > "$m/check.go"              # invert one condition
+printf '{"Replace":{"%s":"%s"}}' "$f" "$m/check.go" > "$m/overlay.json"
+go test -count=1 -overlay="$m/overlay.json" ./internal/pay/
+```
 
 ## Related Skills
 

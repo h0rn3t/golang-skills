@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.30.0] - 2026-10-07
+
 - **Review checks what tests and structure hide.** `go-code-review` probes
   whether a test fails when the diff's condition breaks: the condition is
   inverted in a copy and run through `go test -overlay`, so the tree is never

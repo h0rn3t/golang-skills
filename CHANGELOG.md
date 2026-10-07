@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.29.1] - 2026-10-07
+
 - **Security findings no linter reports.** `go-security` covers five classes
   `gosec` cannot see. CORS answers only listed origins, never reflected or
   `null`, and trusts the same list in `CrossOriginProtection`. A webhook HMAC

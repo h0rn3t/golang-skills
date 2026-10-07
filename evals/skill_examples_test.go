@@ -113,6 +113,162 @@ func TestMinVersion(t *testing.T) {
 `)
 }
 
+// The CORS middleware answers only exact listed origins, never "null", always
+// varies on Origin, and trusts the same list in CrossOriginProtection, so a
+// credentialed POST from the allowed origin is not rejected as CSRF.
+func TestSecurityExampleCORS(t *testing.T) {
+	code := exampleBlock(t, "skills/go-security/SKILL.md", "CORS relaxes the same-origin policy")
+	runExampleTest(t, `package example
+import ("net/http"; "net/http/httptest"; "testing")
+`+code+`
+func TestWithCORS(t *testing.T) {
+	const app = "https://app.example.com"
+	h, err := withCORS(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}), app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		name, method, origin, site, wantACAO string
+		preflight                            bool
+		wantStatus                           int
+	}{
+		{name: "allowed GET", method: http.MethodGet, origin: app, site: "same-site", wantACAO: app, wantStatus: http.StatusOK},
+		{name: "allowed POST", method: http.MethodPost, origin: app, site: "same-site", wantACAO: app, wantStatus: http.StatusOK},
+		{name: "preflight", method: http.MethodOptions, origin: app, site: "same-site", preflight: true, wantACAO: app, wantStatus: http.StatusNoContent},
+		{name: "foreign GET", method: http.MethodGet, origin: "https://evil.example", site: "cross-site", wantStatus: http.StatusOK},
+		{name: "suffix GET", method: http.MethodGet, origin: "https://app.example.com.evil.example", site: "cross-site", wantStatus: http.StatusOK},
+		{name: "null GET", method: http.MethodGet, origin: "null", site: "cross-site", wantStatus: http.StatusOK},
+		{name: "foreign POST", method: http.MethodPost, origin: "https://evil.example", site: "cross-site", wantStatus: http.StatusForbidden},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, "https://api.example.com/items", nil)
+			req.Header.Set("Origin", tt.origin)
+			req.Header.Set("Sec-Fetch-Site", tt.site)
+			if tt.preflight {
+				req.Header.Set("Access-Control-Request-Method", http.MethodPost)
+			}
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			if rec.Code != tt.wantStatus {
+				t.Errorf("%s from %q: status = %d, want %d", tt.method, tt.origin, rec.Code, tt.wantStatus)
+			}
+			if got := rec.Header().Get("Access-Control-Allow-Origin"); got != tt.wantACAO {
+				t.Errorf("%s from %q: Access-Control-Allow-Origin = %q, want %q", tt.method, tt.origin, got, tt.wantACAO)
+			}
+			if tt.wantStatus != http.StatusForbidden && rec.Header().Get("Vary") != "Origin" {
+				t.Errorf("%s from %q: Vary = %q, want Origin", tt.method, tt.origin, rec.Header().Get("Vary"))
+			}
+		})
+	}
+}
+`)
+}
+
+// The webhook check accepts only the exact signed bytes inside the tolerance
+// window and returns the body it verified.
+func TestSecurityExampleWebhook(t *testing.T) {
+	code := exampleBlock(t, "skills/go-security/references/SECRETS-AND-CRYPTO.md", "### Inbound webhook signatures")
+	runExampleTest(t, `package example
+import ("crypto/hmac"; "crypto/sha256"; "encoding/hex"; "errors"; "io"; "net/http"; "net/http/httptest"; "strconv"; "strings"; "testing"; "time")
+`+code+`
+func TestVerifyWebhook(t *testing.T) {
+	secret := []byte("whsec")
+	now := time.Unix(1_700_000_000, 0)
+	sign := func(key []byte, ts, body string) string {
+		mac := hmac.New(sha256.New, key)
+		mac.Write([]byte(ts + "." + body))
+		return hex.EncodeToString(mac.Sum(nil))
+	}
+	fresh := strconv.FormatInt(now.Unix(), 10)
+	stale := strconv.FormatInt(now.Add(-10*time.Minute).Unix(), 10)
+	const body = `+"`"+`{"event":"paid"}`+"`"+`
+	for _, tt := range []struct {
+		name, ts, sig, body string
+		wantErr             bool
+	}{
+		{name: "valid", ts: fresh, sig: sign(secret, fresh, body), body: body},
+		{name: "tampered body", ts: fresh, sig: sign(secret, fresh, body), body: `+"`"+`{"event":"refund"}`+"`"+`, wantErr: true},
+		{name: "replayed", ts: stale, sig: sign(secret, stale, body), body: body, wantErr: true},
+		{name: "swapped timestamp", ts: fresh, sig: sign(secret, stale, body), body: body, wantErr: true},
+		{name: "other key", ts: fresh, sig: sign([]byte("other"), fresh, body), body: body, wantErr: true},
+		{name: "not hex", ts: fresh, sig: "zz", body: body, wantErr: true},
+		{name: "no timestamp", sig: sign(secret, "", body), body: body, wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/hook", strings.NewReader(tt.body))
+			req.Header.Set("X-Webhook-Timestamp", tt.ts)
+			req.Header.Set("X-Webhook-Signature", tt.sig)
+			got, err := verifyWebhook(httptest.NewRecorder(), req, secret, now)
+			if gotErr := err != nil; gotErr != tt.wantErr {
+				t.Fatalf("verifyWebhook(%s) error = %v, want error presence = %t", tt.name, err, tt.wantErr)
+			}
+			if !tt.wantErr && string(got) != tt.body {
+				t.Errorf("verifyWebhook(%s) = %q, want %q", tt.name, got, tt.body)
+			}
+		})
+	}
+}
+`)
+}
+
+// The login fragment hashes once for an unknown user, gives it the same error
+// as a wrong password even when the guess equals the dummy hash, and waits for
+// a hashing slot only as long as ctx allows.
+func TestSecurityExampleLogin(t *testing.T) {
+	code := exampleBlock(t, "skills/go-security/references/SECRETS-AND-CRYPTO.md", "The login around the hash")
+	runExampleTest(t, `package example
+import ("context"; "errors"; "testing")
+var (
+	ErrNoUser         = errors.New("no such user")
+	ErrBadCredentials = errors.New("invalid email or password")
+)
+type credential struct{ UserID, Hash string }
+type memStore map[string]credential
+func (s memStore) Credential(_ context.Context, email string) (credential, error) {
+	c, ok := s[email]
+	if !ok {
+		return credential{}, ErrNoUser
+	}
+	return c, nil
+}
+var verifyCalls int
+func verify(c credential, pw string) bool { verifyCalls++; return c.Hash == pw }
+type Auth struct {
+	store memStore
+	dummy credential
+	slots chan struct{}
+}
+`+code+`
+func TestLogin(t *testing.T) {
+	a := &Auth{store: memStore{"ann@example.com": {UserID: "u1", Hash: "right"}}, dummy: credential{Hash: "dummy"}, slots: make(chan struct{}, 1)}
+	for _, tt := range []struct {
+		email, pw, wantID string
+		wantErr           error
+	}{
+		{email: "ann@example.com", pw: "right", wantID: "u1"},
+		{email: "ann@example.com", pw: "wrong", wantErr: ErrBadCredentials},
+		{email: "bob@example.com", pw: "wrong", wantErr: ErrBadCredentials},
+		{email: "bob@example.com", pw: "dummy", wantErr: ErrBadCredentials},
+	} {
+		verifyCalls = 0
+		id, err := a.login(t.Context(), tt.email, tt.pw)
+		if id != tt.wantID || !errors.Is(err, tt.wantErr) {
+			t.Errorf("login(%q, %q) = %q, %v, want %q, %v", tt.email, tt.pw, id, err, tt.wantID, tt.wantErr)
+		}
+		if verifyCalls != 1 {
+			t.Errorf("login(%q, %q) ran verify %d times, want 1", tt.email, tt.pw, verifyCalls)
+		}
+	}
+	a.slots <- struct{}{} // every slot busy
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, err := a.login(ctx, "ann@example.com", "right"); !errors.Is(err, context.Canceled) {
+		t.Errorf("login with no free slot and a cancelled ctx: error = %v, want %v", err, context.Canceled)
+	}
+}
+`)
+}
+
 // go-resilience's only code: the retry loop stops on success, on a
 // non-retryable error, when the budget is spent, and when ctx ends; a
 // server-requested delay is a floor, a wait past the deadline stops at once,

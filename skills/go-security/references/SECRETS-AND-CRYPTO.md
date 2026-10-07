@@ -3,7 +3,7 @@
 > Sources: `crypto/*`, `crypto/tls`, `crypto/subtle`, `net/http` package docs; go.dev/blog/fips140; OWASP Password Storage Cheat Sheet
 > Authority: normative for stdlib API choices; project policy for the argon2 default
 > Minimum Go: 1.24 for `crypto/pbkdf2`, `crypto/hkdf`, `crypto/sha3`, `crypto/mlkem`, `rand.Text`; 1.26 for `crypto/hpke`
-> Last verified: 2026-10-01
+> Last verified: 2026-10-07
 
 Rule zero: **do not invent cryptography**. Every primitive below is a stdlib
 or Go-team-maintained call. The job is choosing the right one and handling the
@@ -47,6 +47,48 @@ Applies to API keys, HMAC tags, session IDs, and password-reset tokens. Hash
 both sides first (`sha256.Sum256`) when the reference value has variable
 length and you want to hide even that.
 
+### Inbound webhook signatures
+
+The MAC covers the bytes the sender wrote. Verify it on the raw body before
+any decoding: re-encoded JSON is a different message. Sign and check the
+timestamp too, because a valid request captured once can otherwise be replayed
+forever. Header names, the signed-string format, and the tolerance are the
+provider's; the order of checks is not:
+
+```go
+// ✗ Bad — hex.EncodeToString(mac.Sum(nil)) == header, or a MAC over json.Marshal(decoded)
+const webhookTolerance = 5 * time.Minute
+
+func verifyWebhook(w http.ResponseWriter, r *http.Request, secret []byte, now time.Time) ([]byte, error) {
+    body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+    if err != nil {
+        return nil, err
+    }
+    tsHeader := r.Header.Get("X-Webhook-Timestamp")
+    ts, err := strconv.ParseInt(tsHeader, 10, 64)
+    if err != nil {
+        return nil, errors.New("webhook: bad timestamp")
+    }
+    if d := now.Sub(time.Unix(ts, 0)); d > webhookTolerance || d < -webhookTolerance {
+        return nil, errors.New("webhook: timestamp outside tolerance")
+    }
+    got, err := hex.DecodeString(r.Header.Get("X-Webhook-Signature"))
+    if err != nil {
+        return nil, errors.New("webhook: bad signature")
+    }
+    mac := hmac.New(sha256.New, secret)
+    mac.Write([]byte(tsHeader + ".")) // the timestamp is signed, so it cannot be swapped
+    mac.Write(body)
+    if !hmac.Equal(got, mac.Sum(nil)) {
+        return nil, errors.New("webhook: signature mismatch")
+    }
+    return body, nil // decode these bytes; r.Body is spent
+}
+```
+
+The window bounds replay; a delivery repeated inside it is a duplicate, and
+deduplicating by event ID is [go-resilience](../../go-resilience/SKILL.md)'s.
+
 ---
 
 ## Passwords
@@ -70,6 +112,40 @@ hash := argon2.IDKey([]byte(pw), salt, 2, 19*1024, 1, 32)
 Store `salt`, the parameters, and `hash` together (the PHC string format
 `$argon2id$v=19$m=19456,t=2,p=1$<salt>$<hash>`) so parameters can be raised
 later and old hashes re-verified. Verify with `subtle.ConstantTimeCompare`.
+
+The login around the hash leaks what the hash protects. An early return for
+an unknown email answers in microseconds instead of the hash's tens of
+milliseconds, which lists the accounts that exist. Each argon2id run holds
+19 MiB, so unbounded concurrent logins exhaust memory. The fragment below has
+`verify` as the argon2id-and-compare step above and `a.slots` as a
+`chan struct{}` sized to `runtime.GOMAXPROCS(0)`:
+
+```go
+func (a *Auth) login(ctx context.Context, email, pw string) (string, error) {
+    cred, err := a.store.Credential(ctx, email)
+    switch {
+    case errors.Is(err, ErrNoUser):
+        cred = a.dummy // production parameters, random salt and hash made at startup
+    case err != nil:
+        return "", err
+    }
+    select {
+    case a.slots <- struct{}{}:
+    case <-ctx.Done():
+        return "", ctx.Err()
+    }
+    ok := verify(cred, pw)
+    <-a.slots
+    if !ok || cred.UserID == "" {
+        return "", ErrBadCredentials // one error and one response text for both failures
+    }
+    return cred.UserID, nil
+}
+```
+
+Registration and password reset answer the same way: "if the address is
+registered, an email is on its way". Per-account and per-client throttling of
+attempts is [go-resilience](../../go-resilience/SKILL.md)'s rate limiting.
 
 ---
 

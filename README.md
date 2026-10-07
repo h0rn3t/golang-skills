@@ -142,8 +142,8 @@ and Cursor run no hooks, so the instruction is all there is.
 ## Validation
 
 `evals/` contains the structural Go test suite, fixtures, golden tests, and
-the optional `evalrun`/`abrun` harnesses. It contains **108 trigger evals** and
-**62 quality evals**. Model-driven eval output is local scratch data and is not
+the optional `evalrun`/`abrun` harnesses. It contains **110 trigger evals** and
+**63 quality evals**. Model-driven eval output is local scratch data and is not
 stored in this repository. The suite also checks every `SKILL.md` against
 the Agent Skills specification (`TestStructure`), so the checks
 need Go and no Node.js.

@@ -4,6 +4,16 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **Security findings no linter reports.** `go-security` covers five classes
+  `gosec` cannot see. CORS answers only listed origins, never reflected or
+  `null`, and trusts the same list in `CrossOriginProtection`. A webhook HMAC
+  is checked over the raw body and a signed timestamp with `hmac.Equal`. A
+  login hashes once for an unknown user and caps concurrent hashes. A
+  decompressed stream and a fetched response body get a size cap. A
+  client-written template is never parsed. Review Mode checks every
+  `review`-only Quick Reference row after reading the `gosec` output. Each new
+  example runs under a test.
+
 ## [1.29.0] - 2026-10-06
 
 - **Troubleshooting loop.** A failing reproduction is cut down to the pieces

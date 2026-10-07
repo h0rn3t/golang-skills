@@ -3,7 +3,7 @@
 > Sources: `os/exec`, `html/template`, `net/netip`, `net/url` package docs; OWASP Go-SCP
 > Authority: normative for the stdlib defenses; advisory for the allowlist shapes
 > Minimum Go: 1.24 for `os.Root`; everything else long-standing
-> Last verified: 2026-10-01
+> Last verified: 2026-10-07
 
 ## Contents
 
@@ -93,6 +93,18 @@ Also:
 ---
 
 ## HTML and templates
+
+The template *source* is code. `template.New("").Parse(text)` on text a client
+wrote lets it call every exported method reachable from the data
+(`{{.Store.DeleteAll}}`) and loop without bound; `html/template` escapes the
+output, not the template. A user-editable message keeps the template fixed
+and takes named placeholders:
+
+```go
+// ✗ Bad — template.Must(template.New("msg").Parse(user.Template)).Execute(w, page)
+msg := strings.NewReplacer("{name}", customer.Name, "{order}", orderID).Replace(user.Template)
+page.Execute(w, map[string]string{"Message": msg}) // a fixed html/template escapes {{.Message}}
+```
 
 The `html/template` escape hatches — `template.HTML`, `template.JS`, `template.URL`,
 `template.HTMLAttr` — tell the engine "trust this". Wrapping input in one is
@@ -261,6 +273,8 @@ Decoders are parsers running on attacker bytes; bound them.
 | XML | a size cap before `xml.Unmarshal`; `encoding/xml` expands no entity a DTD declares (`&b;` is a syntax error), so billion-laughs does not apply |
 | Regex on input | RE2 is linear — Go's `regexp` is safe; a third-party PCRE engine is not |
 | `strconv.Atoi` into a size | range-check before `make([]T, n)` |
+| Compressed input (`Content-Encoding: gzip`, a `.gz` upload) | `MaxBytesReader` caps the compressed bytes only; read the `gzip.Reader` through `io.LimitReader(zr, limit+1)` and reject at `limit+1` bytes |
+| Body of an outbound fetch | `io.LimitReader(resp.Body, limit)`: the SSRF check bounds where the client connects, not how much it reads |
 | Multipart upload | Cap the body before `ParseMultipartForm`; `maxMemory` only sets the memory/disk threshold. Check file sizes and count; use `MultipartReader` with per-part limits when early rejection matters |
 | Struct target | Decode into a request type holding only the client-writable fields, never into the storage model — a `Role`, `OrgID`, or `IsAdmin` field on it is set by whoever sends the body |
 

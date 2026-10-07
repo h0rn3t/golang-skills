@@ -862,6 +862,24 @@
       ],
       "notes": "Layer leaks and a package-by-layer tree without the word refactor",
       "set": "validation"
+    },
+    {
+      "query": "Our Go API at api.example.com is called from the SPA at app.example.com with cookies. Add the CORS middleware so the browser accepts the responses",
+      "should_trigger": [
+        "go-http",
+        "go-security"
+      ],
+      "notes": "CORS with credentials: reflecting Origin is the trap; 'security' never said",
+      "set": "validation"
+    },
+    {
+      "query": "Додай у Go-сервіс ендпоінт, що приймає вебхуки від платіжного провайдера з HMAC-підписом у заголовку",
+      "should_trigger": [
+        "go-http",
+        "go-security"
+      ],
+      "notes": "Inbound signature: raw-body HMAC, hmac.Equal, replay window; 'security' never said",
+      "set": "validation"
     }
   ],
   "quality_evals": [
@@ -1902,6 +1920,24 @@
         "Treats the customer's claim that nothing changed as a report, not evidence, and does not rank hypotheses on it",
         "Tells the manager the status is unresolved or probable with the next check and an ETA for that check, without inventing dashboard contents or a root cause",
         "Does not claim to have run commands, read dashboards, or seen data that the prompt does not supply"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 63,
+      "prompt": "Review this Go 1.27 code for problems and fix them. A CORS middleware copies r.Header.Get(\"Origin\") into Access-Control-Allow-Origin and sets Access-Control-Allow-Credentials: true. A webhook handler json-decodes r.Body into an Event, re-marshals it, computes hex.EncodeToString(hmac-sha256(secret, marshaled)) and compares it to the X-Signature header with ==. Login returns ErrNoUser as soon as the email is unknown and otherwise runs argon2.IDKey with 19 MiB memory. golangci-lint with gosec is clean. Explain each finding before changing it. Do not run commands.",
+      "expected_output": "Findings a clean gosec run does not cover: a reflected credentialed CORS origin, a webhook MAC over re-encoded JSON compared with ==, and a login that enumerates accounts and allows unbounded concurrent argon2 runs.",
+      "target_skills": [
+        "go-security"
+      ],
+      "assertions": [
+        "Replaces the reflected Origin with an exact-origin allowlist, adds Vary: Origin, and does not allow the \"null\" origin",
+        "Computes the webhook HMAC over the raw request body bytes read before decoding, not over re-marshaled JSON",
+        "Compares the MAC with hmac.Equal or subtle.ConstantTimeCompare on decoded bytes instead of == on hex strings",
+        "Adds a signed timestamp with a tolerance window, or states that the provider's format lacks one and replay stays open",
+        "Makes an unknown email cost the same hash as a wrong password and return the same error",
+        "Bounds concurrent argon2 runs with a semaphore or limiter",
+        "Does not treat the clean gosec run as evidence these are safe"
       ],
       "set": "validation"
     }

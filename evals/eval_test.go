@@ -1345,6 +1345,133 @@ func TestScriptFunctional(t *testing.T) {
 		runCommandInDir(t, lintDir, 2, "bash", script, "--strict", "./...")
 	})
 
+	// The bar section reads the diff since --new-from-rev: a diff that only
+	// adds a test is clean, and each move that turns a check green without
+	// fixing the code is reported by rule and file. golangci-lint enables no
+	// linter here, so it is unavailable and never decides the exit code.
+	t.Run("PreReviewBar", func(t *testing.T) {
+		t.Parallel()
+		if _, err := exec.LookPath("git"); err != nil {
+			t.Skip("git not installed")
+		}
+		script := scriptPath("go-code-review", "pre-review.sh")
+		dir := t.TempDir()
+		for name, content := range map[string]string{
+			"go.mod":              "module bar\n\ngo 1.27\n",
+			".golangci.yml":       "version: \"2\"\nlinters:\n  default: none\n",
+			"Makefile":            "test:\n\tgo test -race ./...\n",
+			"testdata/out.golden": "one\n",
+			"calc.go":             "package bar\n\n// Add returns a + b.\nfunc Add(a, b int) int { return a + b }\n",
+			"calc_test.go": `package bar
+
+import "testing"
+
+func TestAdd(t *testing.T) {
+	if Add(1, 2) != 3 {
+		t.Error("Add(1, 2) != 3")
+	}
+}
+
+func TestAddZero(t *testing.T) {
+	if Add(0, 0) != 0 {
+		t.Error("Add(0, 0) != 0")
+	}
+}
+`,
+			"old_test.go": `package bar
+
+import "testing"
+
+func TestOld(t *testing.T) {
+	if Add(2, 2) != 4 {
+		t.Fatal("Add(2, 2) != 4")
+	}
+}
+`,
+		} {
+			writeFile(t, filepath.Join(dir, name), content)
+		}
+		for _, args := range [][]string{{"init", "-q"}, {"add", "."}, {"commit", "-q", "-m", "base"}} {
+			runCommandInDir(t, dir, 0, "git", append([]string{"-c", "user.email=t@example.com", "-c", "user.name=t", "-c", "commit.gpgsign=false"}, args...)...)
+		}
+		bar := func(t *testing.T, wantExit int, args ...string) (string, []string) {
+			t.Helper()
+			out := runCommandInDir(t, dir, wantExit, "bash", append([]string{script, "--json"}, args...)...)
+			var result struct {
+				Bar struct {
+					Status   string `json:"status"`
+					Findings []struct {
+						Rule string `json:"rule"`
+						File string `json:"file"`
+					} `json:"findings"`
+				} `json:"bar"`
+			}
+			if err := json.Unmarshal(out, &result); err != nil {
+				t.Fatalf("parse pre-review JSON: %v\n%s", err, out)
+			}
+			var got []string
+			for _, f := range result.Bar.Findings {
+				got = append(got, f.Rule+" "+f.File)
+			}
+			return result.Bar.Status, got
+		}
+
+		if status, _ := bar(t, 0, "."); status != "skipped" {
+			t.Errorf("pre-review without --new-from-rev: bar status %q, want skipped", status)
+		}
+		f, err := os.OpenFile(filepath.Join(dir, "calc_test.go"), os.O_APPEND|os.O_WRONLY, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = f.WriteString("\nfunc TestAddNeg(t *testing.T) {\n\tif Add(-1, -2) != -3 {\n\t\tt.Error(\"Add(-1, -2) != -3\")\n\t}\n}\n")
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if status, got := bar(t, 0, "--new-from-rev", "HEAD", "."); status != "pass" {
+			t.Errorf("pre-review after adding a test: bar status %q with %q, want pass", status, got)
+		}
+
+		for name, content := range map[string]string{
+			".golangci.yml":       "version: \"2\"\nlinters:\n  default: none\n# relaxed\n",
+			"Makefile":            "test:\n\tgo test ./...\n",
+			"testdata/out.golden": "two\n",
+			"calc.go":             "package bar\n\n// Add returns a + b.\nfunc Add(a, b int) int { return a + b } //nolint:revive // test\n\n// Mul returns a * b.\nfunc Mul(a, b int) int { panic(\"not implemented\") }\n",
+			"extra.go":            "package bar\n\n// X is x.\nvar X = 1 // #nosec G101 -- untracked file\n",
+			"calc_test.go": `package bar
+
+import "testing"
+
+func TestAdd(t *testing.T) {
+	t.Skip("flaky")
+	_ = Add(1, 2)
+}
+`,
+		} {
+			writeFile(t, filepath.Join(dir, name), content)
+		}
+		if err := os.Remove(filepath.Join(dir, "old_test.go")); err != nil {
+			t.Fatal(err)
+		}
+		want := []string{
+			"lint-config-changed .golangci.yml",
+			"race-dropped Makefile",
+			"suppression-added calc.go",
+			"stub-added calc.go",
+			"assertions-dropped calc_test.go",
+			"test-deleted calc_test.go",
+			"test-skipped calc_test.go",
+			"suppression-added extra.go",
+			"test-deleted old_test.go",
+			"golden-changed testdata/out.golden",
+		}
+		if status, got := bar(t, 1, "--new-from-rev", "HEAD", "."); status != "fail" || !slices.Equal(got, want) {
+			t.Errorf("pre-review after lowering the bar: bar status %q, findings %q; want fail, %q", status, got, want)
+		}
+	})
+
 	t.Run("CheckDocsStrict", func(t *testing.T) {
 		t.Parallel()
 		script := scriptPath("go-documentation", "check-docs.sh")

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -29,6 +29,15 @@ DESCRIPTION
     changed since REV (untracked files included); go vet still runs on the
     whole path.
 
+    The same diff feeds the bar section: moves that turn a check green
+    without fixing the code. It lists a new //nolint, //lint:ignore, or
+    #nosec; a new t.Skip or testing.Short() guard; a deleted test file or
+    test function; assertion lines removed from a test file that stays; a new
+    panic("not implemented") stub; a changed golden file or golangci-lint
+    config, whose direction a diff cannot show; and -race dropped from a
+    Makefile, CI, or shell file. Each is a finding a reviewer settles, which
+    makes the run exit 1. Without --new-from-rev the section is skipped.
+
     A missing golangci-lint, or one that exits with an error rather than
     findings (exit code other than 0 or 1), is reported as unavailable (the
     run is then INCOMPLETE, not clean); gofmt and go vet still run. Use
@@ -44,7 +53,8 @@ OPTIONS
     --force          Accepted and ignored (a missing linter is reported as unavailable by default)
     --limit N        Max items reported per section (0 = unlimited, default: 0)
     --new-from-rev REV
-                     Report only lint issues and gofmt files new since REV
+                     Report only lint issues and gofmt files new since REV,
+                     and list the bar moves since REV
 
 ARGUMENTS
     path             Package pattern to check (default: ./...)
@@ -227,10 +237,85 @@ if [[ "$LINT_STATUS" == "unavailable" ]] && $STRICT; then
     exit 2
 fi
 
+# The bar: moves since REV that turn a check green without fixing the code.
+# Tightening is silent. A lint config or golden file whose direction the diff
+# cannot show is reported, since staying quiet is the wrong default.
+# Each output line is rule<TAB>file<TAB>line (0 = whole file)<TAB>text.
+BAR_AWK='
+function clip(s) { gsub(/\t/, " ", s); gsub(/^ +| +$/, "", s); return substr(s, 1, 120) }
+function flag(rule, f, n, s) { if (f !~ /(^|\/)vendor\//) printf "%s\t%s\t%d\t%s\n", rule, f, n, clip(s) }
+function tally(f, s, d) {
+    if (f ~ /_test\.go$/) {
+        files[f] = 1
+        if (s ~ /(^|[^A-Za-z0-9_])(t|b|f|tb)\.(Error|Errorf|Fatal|Fatalf|Fail|FailNow)\(|cmp\.Diff\(|reflect\.DeepEqual\(|(assert|require)\.[A-Z]|^[ \t]*\/\/ (Unordered output|Output):/) asserts[f, d]++
+        if (s ~ /^func (Test|Fuzz|Example)[A-Za-z0-9_]*\(/) tests[f, d]++
+    } else if (f ~ /(^|\/)([Mm]akefile|GNUmakefile|[Jj]ustfile|Taskfile[^\/]*)$|\.(mk|ya?ml|sh|bash)$/ && s ~ /-race([^A-Za-z0-9_-]|$)/) {
+        files[f] = 1
+        race[f, d]++
+    }
+}
+/^diff / { hdr = 1; old = ""; next }
+hdr && /^--- / { old = substr($0, 5); sub(/^a\//, "", old); next }
+hdr && /^\+\+\+ / {
+    file = substr($0, 5); sub(/^b\//, "", file)
+    if (file == "/dev/null") { file = old; gone[file] = 1 }
+    else if (old != "/dev/null") changed[file] = 1
+    next
+}
+/^@@/ { hdr = 0; if (match($0, /\+[0-9]+/)) line = substr($0, RSTART + 1, RLENGTH - 1) + 0; next }
+hdr { next }
+/^\+/ {
+    s = substr($0, 2)
+    if (file ~ /\.go$/) {
+        if (s ~ /\/\/nolint|\/\/lint:(file-)?ignore|#nosec/) flag("suppression-added", file, line, s)
+        if (file ~ /_test\.go$/) {
+            if (s ~ /\.(Skip|Skipf|SkipNow)\(|testing\.Short\(\)/) flag("test-skipped", file, line, s)
+        } else if (tolower(s) ~ /panic\("[^"]*(not implemented|unimplemented|todo)/) flag("stub-added", file, line, s)
+    }
+    tally(file, s, "add")
+    line++
+    next
+}
+/^-/ { tally(file, substr($0, 2), "del") }
+END {
+    for (f in gone) if (f ~ /_test\.go$/) flag("test-deleted", f, 0, "test file deleted")
+    for (f in files) {
+        if (f in gone) continue
+        if (tests[f, "del"] > tests[f, "add"]) flag("test-deleted", f, 0, (tests[f, "del"] - tests[f, "add"]) " test function(s) removed")
+        if (asserts[f, "del"] > asserts[f, "add"]) flag("assertions-dropped", f, 0, (asserts[f, "del"] + 0) " assertion line(s) removed, " (asserts[f, "add"] + 0) " added")
+        if (race[f, "del"] > race[f, "add"]) flag("race-dropped", f, 0, "-race removed")
+    }
+    for (f in changed) {
+        if (f ~ /(^|\/)\.golangci\.(ya?ml|toml|json)$/) flag("lint-config-changed", f, 0, "golangci-lint config changed: confirm it tightens")
+        if (f ~ /(^|\/)testdata\/.*\.golden$/) flag("golden-changed", f, 0, "golden output changed: confirm the task asked for the new output")
+    }
+}'
+BAR_STATUS="skipped"
+BAR_FINDINGS=()
+if [[ -n "$NEW_FROM_REV" ]]; then
+    BAR_STATUS="pass"
+    if BAR_DIFF=$(git -c core.quotePath=false diff --no-color --no-ext-diff --no-textconv \
+        --unified=0 --src-prefix=a/ --dst-prefix=b/ --relative "$NEW_FROM_REV" -- "$GOFMT_DIR" 2>/dev/null); then
+        # git diff cannot see untracked files; only a new .go file can hold an
+        # added-line move, so those are read in as all-added.
+        while IFS= read -r f; do
+            [[ "$f" == *.go && -f "$f" ]] || continue
+            BAR_DIFF+=$'\n'"diff untracked"$'\n'"--- /dev/null"$'\n'"+++ b/$f"$'\n'"@@ -0,0 +1 @@"$'\n'"$(sed 's/^/+/' "$f")"
+        done < <(git -c core.quotePath=false ls-files --others --exclude-standard -- "$GOFMT_DIR" 2>/dev/null)
+        while IFS= read -r entry; do
+            BAR_FINDINGS+=("$entry")
+        done < <(printf '%s\n' "$BAR_DIFF" | awk "$BAR_AWK" | LC_ALL=C sort -t $'\t' -k2,2 -k3,3n -k1,1)
+        [[ ${#BAR_FINDINGS[@]} -eq 0 ]] || BAR_STATUS="fail"
+    else
+        BAR_STATUS="unavailable"
+    fi
+fi
+
 FAILED=0
 [[ "$GOFMT_STATUS" == "fail" ]] && FAILED=1
 [[ "$GOVET_STATUS" == "fail" ]] && FAILED=1
 [[ "$LINT_STATUS" == "fail" ]] && FAILED=1
+[[ "$BAR_STATUS" == "fail" ]] && FAILED=1
 
 if $JSON_OUTPUT; then
     GOFMT_TRUNCATED=false
@@ -292,8 +377,24 @@ if $JSON_OUTPUT; then
     LINT_TRUNC=""
     $LINT_TRUNCATED && LINT_TRUNC=',"truncated":true'
 
+    BAR_DISPLAY=("${BAR_FINDINGS[@]+"${BAR_FINDINGS[@]}"}")
+    BAR_TRUNC=""
+    if [[ $LIMIT -gt 0 && ${#BAR_DISPLAY[@]} -gt $LIMIT ]]; then
+        BAR_DISPLAY=("${BAR_FINDINGS[@]:0:$LIMIT}")
+        BAR_TRUNC=',"truncated":true'
+    fi
+    BAR_JSON="["
+    first=true
+    for entry in "${BAR_DISPLAY[@]+"${BAR_DISPLAY[@]}"}"; do
+        IFS=$'\t' read -r b_rule b_file b_line b_text <<< "$entry"
+        $first || BAR_JSON+=","
+        first=false
+        BAR_JSON+="{\"rule\":\"$b_rule\",\"file\":\"$(json_escape "$b_file")\",\"line\":$b_line,\"text\":\"$(json_escape "$b_text")\"}"
+    done
+    BAR_JSON+="]"
+
     cat <<EOF
-{"gofmt":{"status":"$GOFMT_STATUS","files":$GOFMT_JSON$GOFMT_TRUNC},"govet":{"status":"$GOVET_STATUS","output":"$GOVET_ESC"$GOVET_TRUNC},"golangci_lint":{"status":"$LINT_STATUS","config":"$LINT_CONFIG","output":"$LINT_ESC"$LINT_TRUNC},"passed":$( [[ $FAILED -eq 0 ]] && echo true || echo false )}
+{"gofmt":{"status":"$GOFMT_STATUS","files":$GOFMT_JSON$GOFMT_TRUNC},"govet":{"status":"$GOVET_STATUS","output":"$GOVET_ESC"$GOVET_TRUNC},"golangci_lint":{"status":"$LINT_STATUS","config":"$LINT_CONFIG","output":"$LINT_ESC"$LINT_TRUNC},"bar":{"status":"$BAR_STATUS","findings":$BAR_JSON$BAR_TRUNC},"passed":$( [[ $FAILED -eq 0 ]] && echo true || echo false )}
 EOF
 else
     echo "=== gofmt ==="
@@ -359,10 +460,37 @@ else
     fi
 
     echo ""
+    echo "=== bar ==="
+    case "$BAR_STATUS" in
+        skipped)     echo "Skipped (needs --new-from-rev)" ;;
+        unavailable) echo "Unavailable (could not read the diff since $NEW_FROM_REV)" ;;
+        pass)        echo "OK" ;;
+        fail)
+            echo "Moves since $NEW_FROM_REV that lower the bar; each needs a reason a reviewer can check:"
+            BAR_COUNT=0
+            for entry in "${BAR_FINDINGS[@]}"; do
+                BAR_COUNT=$((BAR_COUNT + 1))
+                if [[ $LIMIT -gt 0 && $BAR_COUNT -gt $LIMIT ]]; then
+                    echo "  ... ($(( ${#BAR_FINDINGS[@]} - LIMIT )) more items truncated)"
+                    break
+                fi
+                IFS=$'\t' read -r b_rule b_file b_line b_text <<< "$entry"
+                if [[ "$b_line" == 0 ]]; then
+                    echo "  [$b_rule] $b_file: $b_text"
+                else
+                    echo "  [$b_rule] $b_file:$b_line: $b_text"
+                fi
+            done
+            ;;
+    esac
+
+    echo ""
     if [[ $FAILED -eq 1 ]]; then
         echo "Pre-review checks FAILED — report the findings above before the manual review."
     elif [[ "$LINT_STATUS" == "unavailable" ]]; then
         echo "Pre-review checks INCOMPLETE — golangci-lint unavailable; gofmt and go vet passed."
+    elif [[ "$BAR_STATUS" == "unavailable" ]]; then
+        echo "Pre-review checks INCOMPLETE — the bar could not be read; gofmt, go vet, and golangci-lint passed."
     else
         echo "All pre-review checks passed."
     fi

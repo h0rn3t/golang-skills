@@ -13,7 +13,7 @@ allowed-tools: Bash(bash:*)
 
 - `../go-style-core/SKILL.md` - Load on every review before the first finding (Review Procedure step 2); its convention files fix the report language.
 - `assets/review-template.md` - Use when formatting review output with Must Fix, Should Fix, and Nits sections.
-- `scripts/pre-review.sh` - Run before manual review to collect gofmt, go vet, and golangci-lint results.
+- `scripts/pre-review.sh` - Run before manual review to collect gofmt, go vet, and golangci-lint results; with `--new-from-rev`, also the moves that lower the bar.
 
 ## Review Procedure
 
@@ -33,8 +33,10 @@ allowed-tools: Bash(bash:*)
    every rule here — except the idiom: an older form kept for consistency with
    the package is a finding ([Write Current Go](../go-style-core/SKILL.md#write-current-go)).
 3. From the project, run `bash <installed-skill-dir>/scripts/pre-review.sh ./...` plus
-   `go fix -diff <packages in the diff>`, writing the path itself into the
-   command: `<installed-skill-dir>` is the base directory the host printed when
+   `go fix -diff <packages in the diff>`; for a diff against a revision add
+   `--new-from-rev <base>`, which narrows gofmt and lint to the diff and lists
+   its `bar` moves. Write the path itself into the command:
+   `<installed-skill-dir>` is the base directory the host printed when
    it loaded this skill, or the directory this SKILL.md was read from (under
    Codex, `~/.codex/skills/go-code-review` or `~/.agents/skills/go-code-review`);
    exit 127 means the path is wrong. A project with no golangci-lint
@@ -175,6 +177,7 @@ allowed-tools: Bash(bash:*)
 
 - [ ] **Would a test fail?** For each condition the diff adds or changes, invert it once in a copy outside the tree and run the package tests (below); still green is a Should Fix naming the case the suite lacks. The usual one: a test that expects an error and checks only `err != nil` passes when an earlier step fails first. Without a shell, name for each such test the line that returns its error → [go-testing](../go-testing/SKILL.md#test-error-semantics)
 - [ ] **A fix carries its regression test**: a bug fix arrives with a test that fails on the code before it, through the original mechanism; a fix without one, or with one the probe leaves green, is a Should Fix → [go-troubleshooting](../go-troubleshooting/SKILL.md#fix-and-regression-proof)
+- [ ] **The bar held**: a check the diff silences, skips, deletes, or loosens instead of fixing the code — the `bar` findings of `pre-review.sh --new-from-rev`, plus a removed table case the script cannot see — is a Should Fix without a reason a reviewer can check, a Must Fix when it hides a failure the diff causes → [go-linting](../go-linting/SKILL.md#holding-the-bar)
 - [ ] **Examples**: Include runnable `Example` functions or tests demonstrating usage → [go-documentation](../go-documentation/SKILL.md)
 - [ ] **Useful test failures**: Messages include what was wrong, inputs, got, and want; order is `got != want` → [go-testing](../go-testing/SKILL.md)
 - [ ] **Real transports**: Prefer a test server over mocking HTTP: `httptest.NewTestServer(t, h)` (Go 1.27+) when every request goes through `srv.Client()`, which is the only client that reaches the in-memory server — until `srv.Start()`, `srv.URL` is empty and then `http://example.com`, so another client sends the request to the real host; code under test that builds its own client gets `srv.Start()` first, which listens on loopback and sets `srv.URL`. At a 1.26 directive, `httptest.NewServer(h)` plus `t.Cleanup(srv.Close)` → [go-testing](../go-testing/SKILL.md)

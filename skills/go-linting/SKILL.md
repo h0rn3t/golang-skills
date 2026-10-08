@@ -63,7 +63,8 @@ Gate rules:
   of a race check. Retain its setup and use a race-enabled equivalent if needed.
 - Run `govulncheck` before release, for dependency changes in the requested diff
   (including staged changes), or when requested. Otherwise mark it not applicable.
-- Fix attributable failures, then rerun affected checks. Reuse passing results
+- Fix attributable failures in the code, not in the check
+  ([Holding the Bar](#holding-the-bar)), then rerun affected checks. Reuse passing results
   for unchanged code and configuration, including across checklist items. Repeat
   or broaden only for new edits, failures, unresolved concerns, or required gates.
 - Where the plugin edit hook runs, a receipt can satisfy only the selected check
@@ -141,6 +142,29 @@ return rand.N(d) //nolint:gosec // G404: retry jitter, not a secret
 and one on a line with no finding for that linter; place the comment on the
 finding's line. `_ = f()` needs no directive: `errcheck` does not report an
 explicit discard.
+
+---
+
+## Holding the Bar
+
+> **Normative**: A failing check turns green by a change to the code, never by
+> a change to the check.
+
+The cheap road to green, and what it looks like in a diff:
+
+| Move | In the diff |
+|---|---|
+| Silence a checker | a new `//nolint`, `//lint:ignore`, or `#nosec`; a `.golangci.yml` edit that disables a linter, adds an exclusion, or raises a threshold |
+| Make a test easier | a new `t.Skip` or `testing.Short()` guard; a test file or test function deleted; an assertion, `// Output:` line, or table case removed from a test that stays; a `testdata/*.golden` file rewritten to match the new output |
+| Drop a check | `-race` removed from the `Makefile`, CI, or a script |
+| Leave the work unfinished | `panic("not implemented")` where the behavior should be |
+
+Each move is legitimate only with a reason a reviewer can check, on the line
+or in the report: the directive's reason ([Nolint Directives](#nolint-directives)),
+the infrastructure a skipped test needs, the requirement that changed a golden
+file. Without one the failure stays and is reported as `fail`. Tightening needs
+no mention. `pre-review.sh --new-from-rev <base>` lists these moves in a diff
+([go-code-review](../go-code-review/SKILL.md)).
 
 ---
 

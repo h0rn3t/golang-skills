@@ -113,7 +113,7 @@ the other files are still checked and their findings reported, the JSON adds
 `go-code-review/scripts/pre-review.sh`:
 
 ```json
-{"gofmt":{"status":"pass","files":[]},"govet":{"status":"pass","output":""},"golangci_lint":{"status":"pass","config":"baseline","output":""},"passed":true}
+{"gofmt":{"status":"pass","files":[]},"govet":{"status":"pass","output":""},"golangci_lint":{"status":"pass","config":"baseline","output":""},"bar":{"status":"fail","findings":[{"rule":"test-skipped","file":"calc_test.go","line":6,"text":"t.Skip(\"flaky\")"}]},"passed":false}
 ```
 
 `golangci_lint.status` is `pass`, `fail` (golangci-lint exit 1), or
@@ -126,6 +126,19 @@ without revive, godot, gosec, or modernize); it is empty when golangci-lint is
 not installed. `--new-from-rev REV` limits golangci-lint to issues new since
 REV and gofmt to the .go files changed since REV, untracked files included; a
 revision git does not resolve exits 2.
+
+`bar.status` is `skipped` without `--new-from-rev`, `pass`, `fail`, or
+`unavailable` (git could not diff against REV). Each finding is a move since
+REV that turns a check green without fixing the code; `rule` is one of
+`suppression-added` (`//nolint`, `//lint:ignore`, `#nosec`), `test-skipped`
+(`t.Skip`, `testing.Short()`), `test-deleted` (a test file, or test functions
+removed from one that stays), `assertions-dropped` (more assertion lines
+removed than added in a test file that stays), `stub-added`
+(`panic("not implemented")`), `golden-changed` (a `testdata/*.golden` file),
+`lint-config-changed` (a `.golangci.*` file), or `race-dropped` (`-race` gone
+from a Makefile, CI, or shell file). `line` is the new line number for an added
+line and 0 for a whole-file finding. Any finding sets `passed` to false and
+exits 1; `--limit` caps `findings` and adds `"truncated":true`.
 
 `go-linting/scripts/setup-lint.sh`:
 

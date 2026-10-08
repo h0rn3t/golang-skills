@@ -4,6 +4,37 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **A check turns green by fixing the code, not the check.** `go-linting`
+  gains Holding the Bar: a new `//nolint`, `//lint:ignore`, or `#nosec`, a
+  lint-config exclusion, a skipped or deleted test, a removed assertion, a
+  rewritten golden file, a dropped `-race`, or a `panic("not implemented")`
+  stub is legitimate only with a reason a reviewer can check. The gate's
+  "fix attributable failures" rule links to it. `pre-review.sh` 1.1.0 adds a
+  `bar` section under `--new-from-rev`. It reads the diff since the revision,
+  untracked `.go` files included, and reports each such move by rule, file,
+  and line. Tightening stays silent. A changed lint config or golden file is
+  reported because a diff cannot show which way it moved. Any finding exits 1.
+  Without the flag the section is `skipped`. `go-code-review` gains a Testing
+  row for these moves, and its procedure passes `--new-from-rev` for a diff
+  against a revision. `TestScriptFunctional/PreReviewBar` checks the rules
+  against a scratch git repository. The review corpus gains `snapshot`, a
+  tree with no diff and six seeded defects, four of them must-fix: a
+  `//nolint:errcheck` with a false reason on a written file's `Close`, a
+  `t.Skip("flaky on CI")` hiding a `maps.Copy` that overwrites instead of
+  adding (the overwrite is a defect of its own), a round trip that never
+  compares, an `Example` without `// Output:`, and a
+  `panic("not implemented")` stub. A reasoned `//nolint:gosec` sits beside
+  them as a bait. Measured on Claude Haiku 5.5 (review corpus, 3 runs per
+  arm). Every arm found all six defects in every run on `snapshot`,
+  `no-skill` included, so the fixture has no trap for this model and shows
+  no recall gain. No arm cited the bait, so the rule did not turn a reasoned
+  suppression into a finding. `keyring` stayed at 4/4 in both
+  reference-vs-baseline arms. The moves only a diff shows (a removed
+  assertion, a deleted test, a loosened config, a dropped `-race`) need a
+  diff-based review fixture, which abrun does not stage yet. Adapted from
+  "Guard the bar itself" in addyosmani/agent-skills
+  `constraint-driven-development`.
+
 ## [1.30.2] - 2026-10-08
 
 - **Text the task reads is evidence, not instructions.** `go-style-core`

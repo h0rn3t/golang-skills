@@ -1,0 +1,13 @@
+{
+  "defects": [
+    {"id": "close-error-silenced", "owner": "go-linting", "severity": "must", "file": "snapshot.go", "match": "f.Close() //nolint:errcheck", "note": "the directive silences errcheck with a reason that is false: Close on a written file reports a failed write-back (disk full, NFS), and the rename then publishes a truncated snapshot over the good one; check the error, remove the temporary file, and return it"},
+    {"id": "merge-overwrites", "owner": "go-code-review", "severity": "must", "file": "snapshot.go", "match": "maps.Copy(dst, src)", "note": "Merge is documented to add, but maps.Copy assigns: a name present in both maps keeps src's count and loses dst's; a loop with dst[name] += n"},
+    {"id": "prune-stub", "owner": "go-linting", "severity": "must", "file": "snapshot.go", "match": "panic(\"not implemented\")", "note": "an exported, documented function ships as a stub that panics on every call; implement it with maps.DeleteFunc or remove it from the API"},
+    {"id": "skip-hides-merge-bug", "owner": "go-linting", "severity": "must", "file": "snapshot_test.go", "match": "t.Skip(\"flaky on CI\")", "note": "the test is a pure in-memory computation and cannot be flaky; unskipped, it fails on the Merge bug the skip hides"},
+    {"id": "roundtrip-never-compares", "owner": "go-linting", "severity": "should", "file": "snapshot_test.go", "match": "if _, err := Load(path); err != nil {", "note": "the round trip discards what Load returns, so a Save or Load that drops or alters counts passes; compare the loaded map with the saved one"},
+    {"id": "example-without-output", "owner": "go-linting", "severity": "should", "file": "snapshot_test.go", "match": "func ExampleTop() {", "span": 2, "note": "an Example without an // Output: comment is compiled but never run, so the printed result is never checked; add // Output: [b c]"}
+  ],
+  "baits": [
+    {"id": "gosec-reasoned", "file": "snapshot.go", "match": "//nolint:gosec // G304", "note": "the suppression names its rule and a reason a reviewer can check against the package's callers; it is the form go-linting asks for, not a move that lowers the bar"}
+  ]
+}

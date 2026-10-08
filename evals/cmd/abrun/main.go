@@ -412,6 +412,11 @@ type result struct {
 	// Commands counts the shell calls across every turn: the codex runner's
 	// shell, and Bash in a claude session run with -shell or -gopls cli.
 	Commands int `json:"commands,omitempty"`
+	// Refused reports that a safety classifier declined a turn of a claude
+	// session (stop_reason "refusal"). The run is scored as it ended, and the
+	// summary counts it: a missing edit or review there is the classifier's,
+	// not the skill text's, unless the skill text is what it declined.
+	Refused bool `json:"refused,omitempty"`
 	// Routing is how a claude session reached its skills, from its trace.
 	Routing *routingStats `json:"routing,omitempty"`
 	// Trace is the retained JSONL transcript, written for every runner and kept
@@ -1060,6 +1065,7 @@ type sessionTurn struct {
 	cost          float64
 	commands      int
 	gopls         int
+	refused       bool
 	err           error
 	codexEvidence *codexSkillEvidence
 }
@@ -1094,6 +1100,7 @@ func runSession(o options, a arm, work, prompt string) sessionTurn {
 		t.skills, t.final, t.cost = parseClaudeStream(t.out)
 		t.gopls = goplsCalls(t.out)
 		t.commands = claudeCommands(t.out)
+		t.refused = claudeRefused(t.out)
 		routing := claudeRouting(t.out)
 		t.routing = &routing
 	}
@@ -1126,6 +1133,7 @@ func (r *result) merge(t sessionTurn) {
 	sort.Strings(r.Skills)
 	r.Cost += t.cost
 	r.Commands += t.commands
+	r.Refused = r.Refused || t.refused
 	if t.routing != nil {
 		if r.Routing == nil {
 			r.Routing = &routingStats{}
@@ -1340,6 +1348,27 @@ func claudeCommands(out []byte) int {
 		}
 	}
 	return n
+}
+
+// claudeRefused reports whether a safety classifier declined a turn in a
+// claude stream-json transcript. The result line carries the stop reason; an
+// assistant message may carry it too.
+func claudeRefused(out []byte) bool {
+	for line := range strings.SplitSeq(string(out), "\n") {
+		var e struct {
+			StopReason string `json:"stop_reason"`
+			Message    struct {
+				StopReason string `json:"stop_reason"`
+			} `json:"message"`
+		}
+		if json.Unmarshal([]byte(line), &e) != nil {
+			continue
+		}
+		if e.StopReason == "refusal" || e.Message.StopReason == "refusal" {
+			return true
+		}
+	}
+	return false
 }
 
 // goplsCommand matches a shell command that runs gopls: at the start, after

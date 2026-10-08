@@ -371,10 +371,13 @@ func printRoutingSummary(rep report, armName string) {
 	var openings, firstStyle, editedTurns, router, style, noEdit, beforeFirstPartial int
 	var attempts, successful, early, blocks, hookTurns int
 	var partialAttempts, partialSuccessful, partialEarly, partialBlocks int
-	var completed, commands int
+	var completed, commands, refused int
 	for _, r := range rep.Results {
 		if r.Arm != armName {
 			continue
+		}
+		if r.Refused {
+			refused++
 		}
 		if r.Err == "" {
 			completed++
@@ -488,5 +491,8 @@ func printRoutingSummary(rep report, armName string) {
 		fmt.Printf("%-24s   command call attempts %.2f/completed run (runner %s; success not inferred)\n", "", float64(commands)/float64(completed), runner)
 	} else {
 		fmt.Printf("%-24s   command calls: unmeasured (runner %q)\n", "", runner)
+	}
+	if refused > 0 {
+		fmt.Printf("%-24s   %d run(s) ended in a safety refusal (stop_reason refusal); read their traces before scoring them against the skills\n", "", refused)
 	}
 }

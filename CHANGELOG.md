@@ -4,6 +4,13 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **abrun reports safety refusals.** A claude session whose turn ended with
+  `stop_reason: "refusal"` is marked `refused` in the report, and the arm
+  summary counts such runs. Claude Haiku 5.5, Sonnet 5.5, and Opus 5.5 run
+  classifiers that can decline security-review prompts, and Haiku 5.5 has no
+  server-side fallback; before this, a refused run could not be told apart
+  from a failed or empty one. Scoring is unchanged.
+
 ## [1.30.0] - 2026-10-07
 
 - **Review checks what tests and structure hide.** `go-code-review` probes

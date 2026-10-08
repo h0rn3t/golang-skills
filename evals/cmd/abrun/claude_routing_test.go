@@ -341,6 +341,30 @@ func TestRoutingConsoleCommandScopeContract(t *testing.T) {
 	}
 }
 
+func TestRefusalSummaryContract(t *testing.T) {
+	const note = "1 run(s) ended in a safety refusal"
+	for _, corpus := range []string{corpusImplement, corpusReview} {
+		t.Run(corpus, func(t *testing.T) {
+			var r result
+			r.Arm = "baseline"
+			r.merge(sessionTurn{refused: true})
+			r.merge(sessionTurn{final: "repair turn"})
+			if corpus == corpusReview {
+				r.Review = &reviewScore{Total: 1}
+			}
+			clean := result{Arm: "baseline"}
+			rep := report{Corpus: corpus, Arms: []arm{{Name: "baseline"}}, Results: []result{r, clean}}
+			if got := captureRoutingSummary(t, rep); !strings.Contains(got, note) {
+				t.Errorf("printSummary(%s, refused then clean turn) = %q, want %q", corpus, got, note)
+			}
+			rep.Results = []result{clean}
+			if got := captureRoutingSummary(t, rep); strings.Contains(got, "safety refusal") {
+				t.Errorf("printSummary(%s, no refusal) = %q, want no refusal note", corpus, got)
+			}
+		})
+	}
+}
+
 func TestClaudeRoutingConfirmedDenominatorsContract(t *testing.T) {
 	full := claudeRouting([]byte(skillRequest("s", "m", "go-code-refactor") + "\n" + skillRequest("style", "m", "go-style-core") + "\n" + toolResult("s", `"content":"loaded"`) + "\n" + toolResult("style", `"content":"loaded"`) + "\n" + editRequest("e", "Edit", "a.go") + "\n" + toolResult("e", `"content":"applied"`) + "\n" + `{"type":"system","subtype":"hook_response","hook_event":"PreToolUse","stderr":"golang-skills routing gate: block","exit_code":2}`))
 	partial := claudeRouting([]byte(skillRequest("s", "m", "go-code") + "\n" + editRequest("e", "Edit", "a.go") + "\n" + toolResult("s", `"content":"loaded"`) + "\n" + toolResult("e", `"content":"applied"`) + "\n" + `{"type":"system","subtype":"hook_response","hook_event":"PreToolUse","stderr":"golang-skills routing gate: block","exit_code":2,"uuid":"h"}` + "\n" + `{"type":"system","subtype":"hook_response","hook_event":"PreToolUse","stderr":"golang-skills routing gate: unknown"}`))

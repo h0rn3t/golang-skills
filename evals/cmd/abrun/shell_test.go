@@ -56,3 +56,24 @@ func TestClaudeCommands(t *testing.T) {
 		t.Errorf("claudeCommands(stream) = %d, want %d", got, want)
 	}
 }
+
+func TestClaudeRefused(t *testing.T) {
+	tests := []struct {
+		name   string
+		stream string
+		want   bool
+	}{
+		{"result line", `{"type":"result","subtype":"success","stop_reason":"refusal"}`, true},
+		{"assistant message", `{"type":"assistant","message":{"stop_reason":"refusal","content":[]}}`, true},
+		{"end turn", `{"type":"assistant","message":{"stop_reason":null,"content":[{"type":"text","text":"refusal"}]}}` + "\n" + `{"type":"result","stop_reason":"end_turn"}`, false},
+		{"not json", `not json "stop_reason":"refusal"`, false},
+		{"empty", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := claudeRefused([]byte(tt.stream)); got != tt.want {
+				t.Errorf("claudeRefused(%q) = %v, want %v", tt.stream, got, tt.want)
+			}
+		})
+	}
+}

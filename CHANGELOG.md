@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.30.4] - 2026-10-08
+
 - **Caching has an owner.** `go-performance` gains Caching. A cache is for a
   measured expensive, read-mostly value. Its key holds every input the answer
   depends on, including the tenant or caller in `ctx`. It has one stated

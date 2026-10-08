@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.30.1] - 2026-10-08
+
 - **go-verify runs on Haiku.** The agent's `model` is `haiku` instead of
   `sonnet`; in Claude Code the alias resolves to Claude Haiku 5.5. The agent
   only runs the requested checks and reports them, so it is the cheapest

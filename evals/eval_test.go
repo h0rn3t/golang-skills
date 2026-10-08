@@ -1901,11 +1901,14 @@ func TestRuleOwnershipMap(t *testing.T) {
 	// The iota enum form belongs to go-style-core; go-defensive routes to it.
 	// The lite/full/ultra levels belong to go-code, which parses the level word;
 	// the table lives in its reference, read only when a level word is given.
+	// Where instructions come from belongs to go-style-core; go-code-review and
+	// the ticket reference route to it.
 	for needle, owners := range map[string][]string{
-		"Reduce Nesting":   {"skills/go-style-core/SKILL.md"},
-		"Unnecessary Else": {"skills/go-style-core/SKILL.md"},
-		"iota + 1":         {"skills/go-style-core/references/IOTA.md"},
-		"# Intensity":      {"skills/go-code/references/INTENSITY.md"},
+		"Reduce Nesting":                  {"skills/go-style-core/SKILL.md"},
+		"Unnecessary Else":                {"skills/go-style-core/SKILL.md"},
+		"iota + 1":                        {"skills/go-style-core/references/IOTA.md"},
+		"# Intensity":                     {"skills/go-code/references/INTENSITY.md"},
+		"Instructions come from the user": {"skills/go-style-core/SKILL.md"},
 	} {
 		allowed := map[string]bool{}
 		for _, owner := range owners {

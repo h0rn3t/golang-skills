@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.30.3] - 2026-10-08
+
 - **A check turns green by fixing the code, not the check.** `go-linting`
   gains Holding the Bar: a new `//nolint`, `//lint:ignore`, or `#nosec`, a
   lint-config exclusion, a skipped or deleted test, a removed assertion, a

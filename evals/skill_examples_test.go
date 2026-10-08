@@ -424,6 +424,54 @@ func TestTags(t *testing.T) {
 
 // The root is opened once and held on the server; a name inside it reads,
 // and a parent path, an absolute path, and a symlink out of it all fail.
+// The delete example refuses the IDs that resolve to the root itself and
+// removes exactly the one entry a canonical UUID names.
+func TestDefensiveExampleDeleteByParsedID(t *testing.T) {
+	code := exampleBlock(t, "skills/go-defensive/SKILL.md", "### Deletes Name What They Remove")
+	runExampleTest(t, `package example
+import ("net/http"; "net/http/httptest"; "os"; "path/filepath"; "testing"; "uuid")
+type server struct { workspaces *os.Root }
+func (s *server) remove(w http.ResponseWriter, r *http.Request) {
+`+code+`
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	}
+}
+func TestDelete(t *testing.T) {
+	dir := t.TempDir()
+	keep, gone := uuid.New().String(), uuid.New().String()
+	for _, name := range []string{keep, gone} {
+		if err := os.MkdirAll(filepath.Join(dir, name, "data"), 0o750); err != nil {
+			t.Fatal(err)
+		}
+	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	s := &server{workspaces: root}
+	mux := http.NewServeMux()
+	mux.HandleFunc("DELETE /workspaces/{id}", s.remove)
+	for _, path := range []string{"/workspaces/a%2F..", "/workspaces/%2E%2E", "/workspaces/not-a-uuid", "/workspaces/" + gone} {
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, httptest.NewRequest("DELETE", path, nil))
+		_, keepErr := os.Stat(filepath.Join(dir, keep, "data"))
+		_, goneErr := os.Stat(filepath.Join(dir, gone))
+		if keepErr != nil {
+			t.Fatalf("DELETE %s (status %d) removed another workspace: %v", path, w.Code, keepErr)
+		}
+		if path != "/workspaces/"+gone && (w.Code != http.StatusBadRequest || goneErr != nil) {
+			t.Errorf("DELETE %s = %d, %v; want 400 and nothing removed", path, w.Code, goneErr)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, gone)); !os.IsNotExist(err) {
+		t.Errorf("DELETE of its UUID left the workspace: %v", err)
+	}
+}
+`)
+}
+
 func TestDefensiveExampleOpenRoot(t *testing.T) {
 	code := exampleBlock(t, "skills/go-defensive/SKILL.md", "## Confine Filesystem Access")
 	runExampleTest(t, `package example

@@ -2172,11 +2172,23 @@ func TestKnownReferenceRegressions(t *testing.T) {
 	normalizedStructural := strings.Join(strings.Fields(structural), " ")
 	for _, needle := range []string{
 		"no cross-package alias for a mutable variable",
-		"adding a method to an interface breaks its implementors",
-		"An exported struct field can break unkeyed literals",
+		"go-functions/SKILL.md#changing-an-exported-api",
 	} {
 		if !strings.Contains(normalizedStructural, needle) {
 			t.Errorf("STRUCTURAL.md is missing compatibility guard %q", needle)
+		}
+	}
+	// go-functions owns the list of changes that look additive and break
+	// importers; STRUCTURAL.md routes to it.
+	functions := strings.Join(strings.Fields(read("skills/go-functions/SKILL.md")), " ")
+	for _, needle := range []string{
+		"A method added to an exported interface | Every implementation outside the package",
+		"A field added to a struct callers build unkeyed | `T{a, b}` literals",
+		"A parameter appended, variadic included",
+		"A slice, map, or func field added to a comparable struct",
+	} {
+		if !strings.Contains(functions, needle) {
+			t.Errorf("go-functions/SKILL.md is missing compatibility guard %q", needle)
 		}
 	}
 }

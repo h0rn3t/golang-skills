@@ -58,6 +58,37 @@ type Operation int
 
 Write the switch by hand too when the text differs from the constant names.
 
+## Unknown Members Fail Loudly
+
+A closed set — an enum, the currencies a price table holds, the types a type
+switch expects — answers an unknown member with an error that names it, or a
+panic when reaching it is a programming error. A `default:` that returns `0`,
+`""`, or a plausible value turns the next added member into a silent wrong
+answer that compiles and passes. `exhaustive` in the go-linting baseline does
+not catch it, since `default-signifies-exhaustive` counts any `default` as
+covering the rest. The same holds for `m[k]` and `v, _ := x.(T)`:
+
+```go
+func seatLimit(p Plan) (int, error) {
+    switch p {
+    case Free:
+        return 1, nil
+    case Team:
+        return 10, nil
+    default:
+        return 0, fmt.Errorf("seat limit: unknown plan %v", p)
+    }
+}
+
+price, ok := pricePerSeat[currency]
+if !ok {
+    return 0, fmt.Errorf("no seat price in %s", currency)
+}
+```
+
+A `default` that is the documented answer for every other member — "any other
+method is a 405" — is not this case.
+
 ## Grouping Rules
 
 - Each enum type gets its own `const` block — `iota` resets to 0 in each block

@@ -1,0 +1,13 @@
+{
+  "defects": [
+    {"id": "testmain-runs-nothing", "owner": "go-linting", "severity": "must", "file": "quota_test.go", "match": "log.Print(\"QUOTA_TEST_DB is not set", "span": 2, "note": "TestMain returns before m.Run when the variable is unset, so go test reports ok and runs no test; TestWorkspaceLimit, which fails on the Enterprise limit, never runs. log.Fatal, or m.Run with each database test calling t.Skip"},
+    {"id": "limit-default-zero", "owner": "go-style-core", "severity": "must", "file": "quota.go", "match": "default:", "nth": 2, "span": 2, "note": "Enterprise falls into default and gets a limit of 0, so an Enterprise tenant can create no workspace; every plan needs its case and an unknown one an error"},
+    {"id": "price-missing-currency", "owner": "go-style-core", "severity": "must", "file": "quota.go", "match": "pricePerSeat[currency]", "note": "a currency missing from the table reads 0 and invoices the seats for free; check the comma-ok and return an error naming the currency"},
+    {"id": "owner-storage-record", "owner": "go-security", "severity": "must", "file": "quota.go", "match": "json.Marshal(owner)", "note": "encoding the stored Owner sends its reset_token to every member who can view the contact card; encode a response type with id, name, and email"},
+    {"id": "delete-unparsed-id", "owner": "go-defensive", "severity": "must", "file": "quota.go", "match": "s.root.RemoveAll(r.PathValue(\"id\"))", "note": "DELETE /workspaces/<own id>%2F.. hands RemoveAll <own id>/.., which resolves to the root and deletes every tenant's workspaces before it returns invalid argument; os.Root does not stop it. Parse the id as a UUID and remove id.String()"}
+  ],
+  "baits": [
+    {"id": "parse-plan-default", "file": "quota.go", "match": "return 0, fmt.Errorf(\"unknown plan %q\", s)", "note": "the default fails loudly with the unknown name, which is the form the closed-set rule asks for"},
+    {"id": "mkdir-new-uuid", "file": "quota.go", "match": "s.root.Mkdir(id, 0o750)", "note": "the name comes from uuid.New, never from the request, and the root confines it anyway"}
+  ]
+}

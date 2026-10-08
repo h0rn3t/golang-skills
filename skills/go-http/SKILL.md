@@ -85,8 +85,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
     var req struct {
         Name string `json:"name"`
     }
-    // One decode: an unknown member, a second value, trailing junk, and a
-    // body past the cap are errors; trailing whitespace is not.
+    // One decode: an unknown member, a second value, junk, or an oversized body fails.
     if err := json.UnmarshalRead(r.Body, &req, json.RejectUnknownMembers(true)); err != nil {
         http.Error(w, "invalid JSON body", http.StatusBadRequest)
         return
@@ -96,21 +95,23 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
         return
     }
     user, err := s.store.Create(r.Context(), req.Name)
-    if errors.Is(err, ErrConflict) {
+    switch {
+    case errors.Is(err, ErrConflict):
         http.Error(w, "name already taken", http.StatusConflict)
         return
-    }
-    if err != nil && errors.Is(r.Context().Err(), context.Canceled) {
+    case err != nil && errors.Is(r.Context().Err(), context.Canceled):
         slog.DebugContext(r.Context(), "create user: client gone", "err", err)
         return // nobody is left to read a status
-    }
-    if err != nil {
+    case err != nil:
         slog.ErrorContext(r.Context(), "create user", "err", err)
         http.Error(w, "internal error", http.StatusInternalServerError)
         return
     }
-    body, err := json.Marshal(user) // before any header, so an encode error is still a 500
-    if err != nil {
+    body, err := json.Marshal(struct { // the response names its fields; a stored one added later stays out
+        ID   string `json:"id"`
+        Name string `json:"name"`
+    }{user.ID, user.Name})
+    if err != nil { // before any header, so an encode error is still a 500
         slog.ErrorContext(r.Context(), "encode user", "err", err)
         http.Error(w, "internal error", http.StatusInternalServerError)
         return
@@ -145,6 +146,33 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
   reads a bare `w.Write`, `io.WriteString(w, …)`, `json.MarshalWrite(w, v)`,
   or `json.NewEncoder(w).Encode(v)` as a finding, and `//nolint:errcheck` is
   not a way out: `gosec` G104 reports the same line.
+
+### Partial Updates
+
+A PATCH body names only the members it changes, and a Go struct cannot tell a
+missing member from a zero one: decoding into a fresh struct and saving it
+zeroes every field the client left out. Load the record, copy its
+client-writable fields into the request value, and unmarshal the body onto
+that value. v2 leaves an absent member as loaded and sets one sent as `null`
+to its zero value (v1 leaves it unchanged). `RejectUnknownMembers(true)`
+refuses `password_hash` and any member the request type does not hold, and a
+top-level `null` leaves the pointer nil:
+
+```go
+req := &struct {
+    Email string `json:"email"`
+    Phone string `json:"phone"` // "phone": null clears it
+}{acct.Email, acct.Phone}
+if err := json.UnmarshalRead(r.Body, &req, json.RejectUnknownMembers(true)); err != nil || req == nil {
+    http.Error(w, "invalid JSON body", http.StatusBadRequest)
+    return
+}
+if req.Email == "" { // "email": null arrives as ""
+    http.Error(w, "email is required", http.StatusBadRequest)
+    return
+}
+acct.Email, acct.Phone = req.Email, req.Phone // a rejected body never touched acct
+```
 
 ### Mapping errors to status codes
 

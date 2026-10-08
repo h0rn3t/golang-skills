@@ -72,12 +72,11 @@ and expose accessors, or treat the move as a breaking API migration.
   exported identifier outright breaks every downstream module at its next build
   with no warning beforehand.
 - **Prefer additive, but audit compatibility.** A new top-level function or type
-  is usually additive. An exported struct field can break unkeyed literals; a
-  concrete method can collide with promoted methods; adding a method to an
-  interface breaks its implementors. A change that must break callers is not a
-  minor version after v1 — it needs a new major version, and Go expresses that
-  with a `/vN` suffix in the module path and in every importer's import path,
-  which is what lets v1 and v2 coexist in one build.
+  is usually additive; [go-functions](../../go-functions/SKILL.md#changing-an-exported-api)
+  lists the changes that look additive and break importers. A change that must
+  break callers is not a minor version after v1 — it needs a new major version,
+  and Go expresses that with a `/vN` suffix in the module path and in every
+  importer's import path, which is what lets v1 and v2 coexist in one build.
 
 None of this is inside a refactor's promise of identical behavior. An exported
 change is a findings-list item (PLAYBOOK §3) unless the user asked for it.

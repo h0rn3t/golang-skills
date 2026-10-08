@@ -284,7 +284,7 @@ does not require `go-naming` or `go-documentation`.
 | `context.Context`, timeouts, cancellation | [go-context](../go-context/SKILL.md) | [go-concurrency](../go-concurrency/SKILL.md) if goroutines are started |
 | tests, table-driven cases, `synctest` | [go-testing](../go-testing/SKILL.md) | — |
 | API naming changes or a naming question | [go-naming](../go-naming/SKILL.md) | — |
-| new or changed exported API, doc comments | [go-documentation](../go-documentation/SKILL.md) | [go-naming](../go-naming/SKILL.md) if API names change |
+| new or changed exported API, doc comments | [go-documentation](../go-documentation/SKILL.md) | [go-naming](../go-naming/SKILL.md) if API names change; [go-functions](../go-functions/SKILL.md#changing-an-exported-api) if an existing exported signature, interface, or struct changes |
 | interfaces, embedding, test doubles | [go-interfaces](../go-interfaces/SKILL.md) | — |
 | function API design, constructor configuration, ordering, signatures, `Printf` helpers | [go-functions](../go-functions/SKILL.md) | — |
 | slices, maps, arrays, sets | [go-data-structures](../go-data-structures/SKILL.md) | — |

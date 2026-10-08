@@ -177,6 +177,25 @@ file through the root and hand the child the open file (`cmd.Stdin`,
 path needs a trusted staging directory or OS isolation, and `cmd.Dir`
 confines nothing.
 
+### Deletes Name What They Remove
+
+`RemoveAll` empties the root when the name resolves to the directory itself.
+`filepath.Join(dir, "")` and `filepath.Join(dir, "a/..")` are both `dir`, and
+`filepath.IsLocal("a/..")` is true, since `a/..` cleans to `.`. A `{id}`
+wildcard receives `ws/..` from `ws%2F..` and `..` from `%2E%2E`, and on
+go1.27.1 `root.RemoveAll("ws/..")`, with `ws` an existing entry, deletes
+everything under the root before it returns `invalid argument`. Rebuild the
+name from a parsed value, so it names exactly one entry:
+
+```go
+id, err := uuid.Parse(r.PathValue("id"))
+if err != nil {
+    http.Error(w, "invalid workspace id", http.StatusBadRequest)
+    return
+}
+err = s.workspaces.RemoveAll(id.String()) // a canonical UUID is one entry
+```
+
 ### Archive Entries
 
 An entry's name, type, and size are all input. Create parents with

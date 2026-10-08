@@ -145,6 +145,9 @@ One more sink:
   and size are attacker-controlled — `../` and absolute names, a symlink entry
   that a later entry writes through, and a 1 KB zip that expands to
   gigabytes. go-defensive's archive loop checks all three.
+- **Deletes**: an ID from the path that resolves to the directory itself
+  (`""`, `ws/..` from `ws%2F..`, `%2E%2E`) makes `RemoveAll` empty the whole
+  tree, inside an `os.Root` too ([go-defensive](../../go-defensive/SKILL.md#deletes-name-what-they-remove)).
 
 ---
 
@@ -277,6 +280,12 @@ Decoders are parsers running on attacker bytes; bound them.
 | Body of an outbound fetch | `io.LimitReader(resp.Body, limit)`: the SSRF check bounds where the client connects, not how much it reads |
 | Multipart upload | Cap the body before `ParseMultipartForm`; `maxMemory` only sets the memory/disk threshold. Check file sizes and count; use `MultipartReader` with per-part limits when early rejection matters |
 | Struct target | Decode into a request type holding only the client-writable fields, never into the storage model — a `Role`, `OrgID`, or `IsAdmin` field on it is set by whoever sends the body |
+
+The response is the mirror image: `json.Marshal` writes every exported field,
+so a storage record encoded as the response ships the `PasswordHash`,
+`ResetToken`, or `OrgID` added to it later. Encode a response type that names
+the public fields, as the [go-http handler](../../go-http/SKILL.md#handler-shape)
+does, never the storage model.
 
 `encoding/gob` and any format that instantiates types from the wire must
 never see untrusted bytes — that is deserialization RCE in other languages and

@@ -6,6 +6,14 @@
 
 TestMain, acceptance testing, real transports, and a real database in tests.
 
+## Contents
+
+- [TestMain](#testmain)
+- [Acceptance Testing](#acceptance-testing)
+- [Use Real Transports](#use-real-transports)
+- [Real Databases](#real-databases)
+- [Common Mistakes](#common-mistakes)
+
 ---
 
 ## TestMain
@@ -195,6 +203,25 @@ func TestMain(m *testing.M) {
 func TestMain(m *testing.M) {
     setup()
     defer cleanup()
+    m.Run()
+}
+```
+
+### Returning before m.Run
+
+A `TestMain` that returns without calling `m.Run` runs no test, and the
+package still reports `ok` with exit 0; `go vet` says nothing. When setup is
+missing, `log.Fatal` fails the package; when the tests may skip without it,
+record the reason and let each test call `t.Skip`:
+
+```go
+var (
+    db    *sql.DB
+    dbErr error // a test that needs db calls t.Skip(dbErr) when it is set
+)
+
+func TestMain(m *testing.M) {
+    db, dbErr = openTestDB()
     m.Run()
 }
 ```

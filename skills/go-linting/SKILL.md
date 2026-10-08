@@ -101,6 +101,14 @@ Gate rules:
   without `-race`. Run build, the required race check, broader fix/lint and
   applicable govulncheck whenever matching evidence is absent. Current Codex
   and opencode runners do not connect this plugin hook; use their normal gate.
+- A test check passes on evidence that the tests ran, not on exit 0.
+  `ok … [no tests to run]` (a `-run` pattern that matches nothing, or a file
+  behind a `//go:build` tag the run did not pass), `[no test files]`, and a
+  `TestMain` that returns before `m.Run`
+  ([INTEGRATION.md](../go-testing/references/INTEGRATION.md#returning-before-mrun))
+  all exit 0 having run nothing; an `Example` without `// Output:` is compiled
+  and never run. The evidence is `--- PASS: TestX` under `-v` or its
+  `"Action":"pass"` event under `-json`.
 - Report each selected check as `pass`, `fail`, or `unavailable (reason)`;
   explicitly omitted checks are `skipped (reason)`. Overall `PASS` requires all
   required checks to pass; `FAIL` means a finding; `INCOMPLETE` means required

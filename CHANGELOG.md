@@ -4,6 +4,73 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **A passing test check needs proof the tests ran.** The go-linting gate
+  stops counting exit 0 as a pass when it comes from `[no tests to run]`, a
+  `-run` that matched nothing, or a file behind an unpassed `//go:build`
+  tag. The same goes for `[no test files]`, an `Example` without
+  `// Output:`, and a `TestMain` that returns before `m.Run`. The evidence is
+  `--- PASS` or a `"Action":"pass"` event. go-testing's integration reference
+  gains the early-return `TestMain` trap and a contents list. On go1.27.1 the
+  trap printed `ok` over a broken function with `go vet` silent.
+- **Unknown members of a closed set fail loudly.** `IOTA.md` covers a
+  `default:` that answers `0`, a map read of a missing key, and a `, _` type
+  assertion. The go-linting baseline's `exhaustive` passes them all, because
+  any `default` counts as covering the rest. `go-code-review` gains a Must Fix
+  row for them.
+- **Deletes name what they remove.** `go-defensive` gains a rule for
+  deletes. `RemoveAll` of a name that resolves to the directory empties it;
+  `filepath.IsLocal("a/..")` is true; a `{id}` wildcard delivers `ws/..` from
+  `ws%2F..`. On go1.27.1, `root.RemoveAll("ws/..")` deletes everything under
+  the root before it returns `invalid argument`. The fix rebuilds the name
+  from `uuid.Parse`. `TestDefensiveExampleDeleteByParsedID` runs the example
+  against a real root. `go-code-review` gains a Security row for deletes,
+  because reviewers load only the review skill and never reached the rule in
+  go-defensive.
+- **Responses are response types.** The go-security injection reference
+  adds the output half of mass assignment: encoding the storage record ships
+  every field added to it later. The go-http handler example now encodes a
+  response struct; `TestResponseFields` checks that a stored
+  `PasswordHash` stays out, and the example's store errors became one
+  `switch` to stay within 40 lines. go-http gains Partial Updates, a PATCH
+  recipe that unmarshals the body with v2 onto the loaded writable fields.
+  Absent members keep their stored values, `null` clears a member, and a
+  top-level `null`, an unknown member, or `password_hash` is a 400.
+  `TestHTTPExamplePartialUpdate` runs it.
+- **Changing an exported API.** `go-functions` lists the changes that look
+  additive and break importers: an appended parameter (variadic included,
+  which breaks `Open` used as a value), an interface method, a non-comparable
+  field, an unkeyed-literal field, and a promoted-method collision. It also
+  lists the additive forms. `STRUCTURAL.md` routes there, and go-code's
+  routing table loads go-functions when an exported signature changes.
+  `TestKnownReferenceRegressions` now pins the list in go-functions,
+  including the two new rows, and pins the route from `STRUCTURAL.md`.
+- **Three fixtures.** The review corpus gains `quota`, whose five must-fix
+  defects are the items above with two baits. The implement corpus gains
+  `account`, a PATCH handler whose hidden test checks absent members, a
+  `null` phone, mass assignment, and the exact response members. It also
+  gains `purge`, a delete whose hidden test sends `""`, `.`, `..`, `a/..`,
+  `<id>/..`, `<id>/data`, and absolute or escaping names. Each implement trap
+  was checked against naive implementations that fail it. Measured on Claude
+  Haiku 5.5, 3 runs per arm:
+  - `quota`: the keyed recall was 1.00 for `no-skill` and 0.87 for both
+    reference and baseline. The scorer counts a citation by its line, so the
+    outputs were read by hand. No run in any arm said that `ws%2F..` empties
+    the tree; the "found" citations near the delete line were about 204
+    versus 404. Must-fix defects were labelled Must Fix at a rate of 0.53 for
+    `no-skill`, 0.77 for reference, and 0.92 for baseline. After the Deletes
+    review row, all 3 baseline runs named `ws%2F..` and `uuid.Parse`, with
+    recall 0.93 and as-must 1.00.
+  - `account`: the first run failed 2 of 3 reference sessions and 1 of 3
+    baseline sessions. The cause was the hidden test calling the handler
+    without a mux, which left `r.PathValue` empty. With the handler mounted
+    on its pattern, every arm passes 3/3, adding +149, +78, and +63 lines.
+  - `purge`: every arm passes 3/3, so the fixture has no trap for this model.
+
+  Adapted from
+  addyosmani/agent-skills `test-driven-development`,
+  `code-review-and-quality`, `security-and-hardening`, and
+  `api-and-interface-design`.
+
 ## [1.30.4] - 2026-10-08
 
 - **Caching has an owner.** `go-performance` gains Caching. A cache is for a

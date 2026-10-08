@@ -138,6 +138,28 @@ them. Implementation and tradeoffs live in the constructor reference above.
 
 ---
 
+## Changing an Exported API
+
+In a module at v1 or later, code compiled against the old API must still
+compile. These changes look additive and are not:
+
+| Change | What stops compiling |
+|---|---|
+| A parameter appended, variadic included: `Open(addr)` → `Open(addr, opts ...Option)` | Calls compile; `Open` used as a value does not — `var dial func(string) (*Conn, error) = Open`, a func-typed field, an interface method it satisfied |
+| A method added to an exported interface | Every implementation outside the package |
+| A slice, map, or func field added to a comparable struct | `==` on the type and every map keyed by it |
+| A field added to a struct callers build unkeyed | `T{a, b}` literals |
+| A method added to a type others embed | A type embedding it beside another type with that method: the selector becomes ambiguous |
+
+Add instead: a new function beside the old one (`Query` → `QueryContext` in
+`database/sql`), a config struct or options on a constructor that takes
+configuration for the first time, or a new interface that callers detect with
+a type assertion. A change that must break callers is a new major version,
+`/vN` in the module path
+([STRUCTURAL.md](../go-code-refactor/references/STRUCTURAL.md#changing-an-exported-api)).
+
+---
+
 ## Related Skills
 
 - [go-error-handling](../go-error-handling/SKILL.md): error returns in multi-return functions.

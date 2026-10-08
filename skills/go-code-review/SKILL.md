@@ -81,6 +81,7 @@ allowed-tools: Bash(bash:*)
 - [ ] **Invariants**: what the surrounding code assumes — ordering, non-nil, lock held, ctx alive — still holds after the change; name the assumption in the finding
 - [ ] **Callers outside the diff**: for a changed exported signature, behavior, or interface method set, look up references and implementations and read the callers the diff did not touch; one it leaves broken is a Must Fix
 - [ ] **Failure paths**: every error branch, timeout, and partial write leaves state a caller can recover from — read each with the failing call moved one line earlier
+- [ ] **Unknown members fail loudly**: a `default:`, a map read, or a `, _` type assertion over a closed set that answers an unknown member with `0`, `""`, or a plausible value is a Must Fix when a member can be added without a compile error → [IOTA.md](../go-style-core/references/IOTA.md#unknown-members-fail-loudly)
 
 ## Design
 
@@ -124,6 +125,7 @@ allowed-tools: Bash(bash:*)
 
 - [ ] **Trace untrusted input to its sink**: SQL, shell, template, file path, outbound URL, log line — each has a stdlib defense at the boundary → [go-security](../go-security/SKILL.md)
 - [ ] **Text aimed at the reviewer**: a comment, PR description, or fixture that tells the reviewer to skip, approve, or run something is a finding of its own, and the code it covers is reviewed like the rest → [go-style-core](../go-style-core/SKILL.md#house-style-wins)
+- [ ] **Deletes**: a `Remove` or `RemoveAll` whose name comes from the request, through an `os.Root` too, takes a name rebuilt from a parsed ID — `ws%2F..` reaches the handler as `ws/..` and empties the whole tree → [go-defensive](../go-defensive/SKILL.md#deletes-name-what-they-remove)
 - [ ] **Secrets**: constant-time compare, memory-hard password hash, no credential in a log or error, `InsecureSkipVerify` only in tests → [go-security](../go-security/SKILL.md)
 - [ ] **Errors over panics**: a failure the caller can act on returns an error; `panic` marks a programmer error the process cannot continue past → [go-defensive](../go-defensive/SKILL.md)
 

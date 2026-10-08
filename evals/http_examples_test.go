@@ -44,9 +44,18 @@ func TestHTTPHandlerExampleRejectsTrailingJSON(t *testing.T) {
 import (json "encoding/json/v2"; "errors"; "log/slog"; "net/http"; "net/http/httptest"; "strings"; "testing"; "context")
 var ErrConflict = errors.New("conflict")
 type store struct { calls int; err error }
-func (s *store) Create(_ context.Context, name string) (string, error) { s.calls++; return name, s.err }
+type User struct { ID, Name, PasswordHash string }
+func (s *store) Create(_ context.Context, name string) (User, error) { s.calls++; return User{"u1", name, "secret"}, s.err }
 type Server struct { store *store }
 `+code+`
+func TestResponseFields(t *testing.T) {
+ s := &Server{store: &store{}}
+ w := httptest.NewRecorder()
+ s.handleCreateUser(w, httptest.NewRequest("POST", "/users", strings.NewReader("{\"name\":\"ok\"}")))
+ if got, want := w.Body.String(), "{\"id\":\"u1\",\"name\":\"ok\"}"; w.Code != 201 || got != want {
+  t.Errorf("handler: status=%d body=%s, want 201 and %s (the stored record's PasswordHash stays out)", w.Code, got, want)
+ }
+}
 func TestStoreErrors(t *testing.T) {
  for _, tt := range []struct { err error; status int }{
   {ErrConflict, 409},
@@ -102,6 +111,38 @@ func TestBody(t *testing.T) {
     t.Errorf("handler: status=%d calls=%d, want %d and %d", w.Code, s.store.calls, tt.status, tt.calls)
    }
   })
+ }
+}
+`)
+}
+
+// The PATCH recipe keeps absent members as stored, clears a member sent as
+// null, and refuses a top-level null, an unknown or storage-only member, and
+// a null required member without touching the record.
+func TestHTTPExamplePartialUpdate(t *testing.T) {
+	code := exampleBlock(t, "skills/go-http/SKILL.md", "### Partial Updates")
+	runExampleTest(t, `package example
+import (json "encoding/json/v2"; "net/http"; "net/http/httptest"; "strings"; "testing")
+type Account struct { Email, Phone, PasswordHash string }
+func patch(w http.ResponseWriter, r *http.Request, acct *Account) {
+`+code+`
+}
+func TestPatch(t *testing.T) {
+ for _, tt := range []struct { body string; status int; want Account }{
+  {"{\"phone\":\"+2\"}", 200, Account{"a@x", "+2", "hash"}},
+  {"{\"phone\":null}", 200, Account{"a@x", "", "hash"}},
+  {"{}", 200, Account{"a@x", "+1", "hash"}},
+  {"null", 400, Account{"a@x", "+1", "hash"}},
+  {"{\"email\":null}", 400, Account{"a@x", "+1", "hash"}},
+  {"{\"password_hash\":\"x\"}", 400, Account{"a@x", "+1", "hash"}},
+  {"{\"phone\":\"+3\",\"x\":1}", 400, Account{"a@x", "+1", "hash"}},
+ } {
+  acct := Account{"a@x", "+1", "hash"}
+  w := httptest.NewRecorder()
+  patch(w, httptest.NewRequest("PATCH", "/accounts/1", strings.NewReader(tt.body)), &acct)
+  if w.Code != tt.status || acct != tt.want {
+   t.Errorf("PATCH %s: status=%d account=%+v, want %d and %+v", tt.body, w.Code, acct, tt.status, tt.want)
+  }
  }
 }
 `)

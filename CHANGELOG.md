@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.31.0] - 2026-10-08
+
 - **A passing test check needs proof the tests ran.** The go-linting gate
   stops counting exit 0 as a pass when it comes from `[no tests to run]`, a
   `-run` that matched nothing, or a file behind an unpassed `//go:build`

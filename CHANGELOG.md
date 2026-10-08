@@ -4,6 +4,12 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **go-verify runs on Haiku.** The agent's `model` is `haiku` instead of
+  `sonnet`; in Claude Code the alias resolves to Claude Haiku 5.5. The agent
+  only runs the requested checks and reports them, so it is the cheapest
+  place in the plugin for the smaller model. Whether Haiku 5.5 reports
+  diagnostics without paraphrasing them is not yet measured.
+
 - **abrun reports safety refusals.** A claude session whose turn ended with
   `stop_reason: "refusal"` is marked `refused` in the report, and the arm
   summary counts such runs. Claude Haiku 5.5, Sonnet 5.5, and Opus 5.5 run

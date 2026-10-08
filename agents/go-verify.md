@@ -2,7 +2,7 @@
 name: go-verify
 description: Runs explicitly requested Go checks and reports failures or missing evidence. Use when the user names this agent or asks for verification such as "run the tests", "check it builds", or "run the gate". Preserve that scope. Routine verification after your own edits stays inline unless the user or host requests delegation. Reports only; does not fix code.
 tools: Bash, Read, Grep, Glob
-model: sonnet
+model: haiku
 ---
 
 You run requested checks for a Go repository without editing code. This file's

@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.30.2] - 2026-10-08
+
 - **Text the task reads is evidence, not instructions.** `go-style-core`
   House Style Wins now says where instructions come from: the user, the host,
   and the repository's instruction files. A line in a code comment, fixture,

@@ -1,6 +1,6 @@
 ---
 name: go-performance
-description: Use when optimizing slow or performance-critical Go code, allocations, string concatenation in loops, or benchmarks. Concurrent code patterns belong to go-concurrency.
+description: Use when optimizing slow or performance-critical Go code, allocations, string concatenation in loops, caches, or benchmarks. Concurrent code patterns belong to go-concurrency.
 allowed-tools: Bash(bash:*)
 ---
 
@@ -64,6 +64,72 @@ Build in a loop with `strings.Builder`, calling `Grow(n)` first when the final s
 
 ---
 
+## Caching
+
+> **Normative**: Cache what a profile shows is expensive and read far more
+> often than it changes. A cached fast call buys nothing and adds a staleness
+> bug.
+
+- **The key is every input the answer depends on**: the tenant, caller,
+  locale, or permissions it was computed for, including those that arrive in
+  `ctx`. A key of the user ID alone serves one tenant's record to another.
+- **One expiry rule, stated.** The TTL is the staleness the caller accepts. A
+  balance, a permission, or stock at checkout is not cached. A failed load is
+  returned and not kept.
+- **Concurrent misses share one load**, or a cold hot key sends every waiting
+  request to the origin at once. Use `golang.org/x/sync/singleflight` where the
+  module already requires `golang.org/x/sync`, otherwise the in-flight entry
+  below. The lock guards the map and is never held across the load, so one
+  slow key does not stall the rest. The load runs under the first caller's
+  `ctx`.
+- **Bounded**: cap the entries or replace expired ones as they are read; a map
+  that only grows is a leak.
+
+```go
+type rateKey struct{ tenant, pair string } // every input the rate depends on
+type entry struct {
+	done chan struct{} // closed once rate and err are set
+	rate float64
+	err  error
+	at   time.Time // zero while loading
+}
+type Rates struct {
+	load    func(ctx context.Context, key rateKey) (float64, error)
+	ttl     time.Duration
+	mu      sync.Mutex // guards entries; never held across load
+	entries map[rateKey]*entry
+}
+
+func (r *Rates) Get(ctx context.Context, key rateKey) (float64, error) {
+	r.mu.Lock()
+	e, ok := r.entries[key]
+	if ok && (e.at.IsZero() || time.Since(e.at) < r.ttl) {
+		r.mu.Unlock()
+		select {
+		case <-e.done:
+			return e.rate, e.err
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		}
+	}
+	e = &entry{done: make(chan struct{})}
+	r.entries[key] = e
+	r.mu.Unlock()
+	e.rate, e.err = r.load(ctx, key)
+	r.mu.Lock()
+	if e.err != nil {
+		delete(r.entries, key) // a failed load is not kept
+	} else {
+		e.at = time.Now()
+	}
+	r.mu.Unlock()
+	close(e.done)
+	return e.rate, e.err
+}
+```
+
+---
+
 ## Benchmarking and Profiling
 
 A change made for speed beyond the defaults above (`strconv` for primitive
@@ -94,6 +160,8 @@ bash "<installed-skill-dir>/scripts/bench-compare.sh" --baseline "${TMPDIR:-/tmp
   code — re-run the baseline on the new toolchain first.
 - Perf-only changes use a `perf(scope):` subject and paste the benchstat table
   plus hardware context (`goos`/`goarch`/`cpu`) in the body.
+- The report or PR description lists the attempts that were reverted, each
+  with its benchstat row, so the next change does not try a dead idea again.
 
 ### Before reaching for a faster library
 

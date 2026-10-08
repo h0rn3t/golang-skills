@@ -643,6 +643,54 @@ func listOrders(ctx context.Context, db *sql.DB, customerID int) ([]Order, error
 `})
 }
 
+// The caching example coalesces concurrent misses into one load, keys by
+// tenant, and does not keep a failed load.
+func TestPerformanceExampleCache(t *testing.T) {
+	code := exampleBlock(t, "skills/go-performance/SKILL.md", "## Caching")
+	runExampleTest(t, `package example
+import ("context"; "errors"; "sync"; "sync/atomic"; "testing"; "time")
+`+code+`
+func TestRates(t *testing.T) {
+	var loads atomic.Int32
+	release := make(chan struct{})
+	r := &Rates{ttl: time.Minute, entries: map[rateKey]*entry{}, load: func(ctx context.Context, key rateKey) (float64, error) {
+		loads.Add(1)
+		<-release
+		if key.tenant == "down" {
+			return 0, errors.New("upstream down")
+		}
+		return float64(len(key.tenant)), nil
+	}}
+	ctx := t.Context()
+	var wg sync.WaitGroup
+	for range 12 {
+		wg.Go(func() {
+			if got, err := r.Get(ctx, rateKey{"acme", "EURUSD"}); err != nil || got != 4 {
+				t.Errorf("Get(acme) = %v, %v; want 4, nil", got, err)
+			}
+		})
+	}
+	time.Sleep(50 * time.Millisecond)
+	close(release)
+	wg.Wait()
+	if n := loads.Load(); n != 1 {
+		t.Errorf("12 concurrent misses ran %d loads, want 1", n)
+	}
+	if got, _ := r.Get(ctx, rateKey{"globex", "EURUSD"}); got != 6 {
+		t.Errorf("Get(globex) = %v, want 6: the key must hold the tenant", got)
+	}
+	for range 2 {
+		if _, err := r.Get(ctx, rateKey{"down", "EURUSD"}); err == nil {
+			t.Error("Get(down) error = nil, want the load's error")
+		}
+	}
+	if n := loads.Load(); n != 4 {
+		t.Errorf("loads = %d, want 4: a failed load is not kept", n)
+	}
+}
+`)
+}
+
 func TestPerformanceExampleByteReuse(t *testing.T) {
 	code := exampleBlock(t, "skills/go-performance/SKILL.md", "## Avoid Repeated String-to-Byte Conversions")
 	runExampleTest(t, `package example

@@ -4,6 +4,36 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **Caching has an owner.** `go-performance` gains Caching. A cache is for a
+  measured expensive, read-mostly value. Its key holds every input the answer
+  depends on, including the tenant or caller in `ctx`. It has one stated
+  expiry rule, keeps no failed load, and lets concurrent misses share one
+  load without holding the lock across it. The section also bounds growth and
+  shows a 40-line in-flight entry that needs no dependency.
+  `TestPerformanceExampleCache` runs that example under `-race`. The
+  `go-performance` description names caches, `go-code` routes caches to it,
+  and the resilience reference links its cache-refresh stampede there.
+- **Reverted attempts are reported.** `go-performance` asks for each reverted
+  optimization with its benchstat row, so a dead idea is not tried again.
+- **Plans before indexes, holders before pool size.** The PostgreSQL
+  reference gains Read the plan before adding an index. An estimate an order
+  of magnitude off means `ANALYZE`, not an index. Equality columns lead a
+  multicolumn index. `lower(col)` needs an expression index and `LIKE
+  '%term%'` needs `pg_trgm`. An index the plan does not use is dropped.
+  `go-database` says an exhausted pool is fixed where connections are held,
+  not by raising `SetMaxOpenConns`.
+- **The implement corpus gains `profile`.** It is a tenant-scoped profile
+  cache whose hidden test checks four traps: a key without the tenant from
+  `ctx`, a cold-start stampede, a lock held across the fetch, and a kept
+  failure. It also checks the TTL. Each trap is checked against a naive
+  implementation that fails only that test. Measured on Claude Haiku 5.5
+  with 3 runs per arm. `no-skill`, reference, and baseline all pass the
+  hidden test in every run, adding +90, +54, and +54 lines on average. No
+  baseline session loaded `go-performance`, so the fixture has no trap for
+  this model and the Caching section went unread. Adapted from "Missing caching",
+  "Queries that ignore their index", and "Log every attempt" in
+  addyosmani/agent-skills `performance-optimization`.
+
 ## [1.30.3] - 2026-10-08
 
 - **A check turns green by fixing the code, not the check.** `go-linting`

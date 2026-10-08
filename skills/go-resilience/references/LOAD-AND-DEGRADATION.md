@@ -107,7 +107,8 @@ policy to [go-security](../../go-security/SKILL.md), and retain the user's
 explicit contract when deciding which optional work can be omitted.
 
 Fallback can overload a second backend or stampede a cache refresh. Bound that
-work and share applicable caller/attempt limits. Hedged parallel requests are
+work and share applicable caller/attempt limits; concurrent misses share one
+load ([go-performance](../../go-performance/SKILL.md#caching)). Hedged parallel requests are
 extra attempts with replay/capacity requirements; do not add them as a routine
 latency fix or assume canceling the loser undoes its effects.
 

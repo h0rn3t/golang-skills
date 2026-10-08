@@ -1,6 +1,6 @@
 > Sources: https://www.postgresql.org/docs/17/; https://pkg.go.dev/database/sql
 > Authority: advisory
-> Last verified: 2026-09-08 against PostgreSQL 17 documentation; version gates noted below.
+> Last verified: 2026-09-08 against PostgreSQL 17 documentation (plan reading: 2026-10-08); version gates noted below.
 > Topic selection informed by [pg-aiguide](https://github.com/timescale/pg-aiguide/tree/acf42427fed507b7bfe98c4039fbacf0c4a69b65/skills); independently written and checked against the official sources linked below.
 
 # PostgreSQL Schemas and Migrations
@@ -43,6 +43,29 @@ Choose `DO NOTHING` versus `DO UPDATE` from the operation's contract. With
 blindly applying the usual not-found mapping.
 
 Source: [INSERT / ON CONFLICT](https://www.postgresql.org/docs/17/sql-insert.html).
+
+## Read the plan before adding an index
+
+Run `EXPLAIN (ANALYZE, BUFFERS)` on representative data before the index and
+again after it.
+
+- An estimated `rows=` an order of magnitude from the actual count usually
+  means stale statistics. Run `ANALYZE` on the table and read the plan again
+  before adding anything.
+- A multicolumn B-tree index scans least when the equality columns lead,
+  followed by the one range or sort column.
+- A plain index does not serve `WHERE lower(email) = $1`, which needs an index
+  on the expression `lower(email)`, or `LIKE '%term%'`, which needs a
+  `pg_trgm` GIN index. A value most rows share is read by a sequential scan
+  anyway; a partial index serves the rare values.
+- An index the plan does not use is dropped again: every index costs every
+  write.
+
+Sources: [Using EXPLAIN](https://www.postgresql.org/docs/17/using-explain.html),
+[multicolumn](https://www.postgresql.org/docs/17/indexes-multicolumn.html),
+[expression](https://www.postgresql.org/docs/17/indexes-expressional.html) and
+[partial](https://www.postgresql.org/docs/17/indexes-partial.html) indexes,
+[pg_trgm](https://www.postgresql.org/docs/17/pgtrgm.html).
 
 ## Evolve live tables in stages
 

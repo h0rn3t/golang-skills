@@ -57,6 +57,12 @@ lifetime:
 | `SetConnMaxLifetime` | Rotate through load balancers and credential changes |
 | `SetConnMaxIdleTime` | Release idle connections back to the server |
 
+An exhausted pool shows `db.Stats().WaitCount` climbing and every endpoint slow
+at once. Fix it where connections are held: rows left open, or a transaction
+kept across a network call. Raising `SetMaxOpenConns` past that budget only
+moves the queue into the database. Instances that scale without a fixed count
+share the budget through a pooler such as PgBouncer.
+
 ---
 
 ## Rows: Close and Check `Err`

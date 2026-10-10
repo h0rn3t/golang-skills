@@ -15,7 +15,7 @@ Use this checklist before tagging a release.
 Run the release validation commands from the repository root:
 
 ```bash
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 
 (cd evals && go test -count=1 -race -shuffle=on ./...)
 

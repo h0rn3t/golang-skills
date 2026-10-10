@@ -1,8 +1,8 @@
 # Linter Configuration and CI
 
 > Sources: golangci-lint v2 configuration schema and linter catalogue; source/uber-go-style/style.md (Linting); GitHub Actions docs; `go help testflag`
-> Authority: project policy for the baseline config and the CI pipeline shape; tool behavior follows golangci-lint 2.13.2 and go1.27.1
-> Last verified: 2026-10-01
+> Authority: project policy for the baseline config and the CI pipeline shape; tool behavior follows golangci-lint 2.14.0 and go1.27.2
+> Last verified: 2026-10-10
 
 ## Setup Procedure
 
@@ -53,7 +53,7 @@ owns the directive).
 
 ```bash
 # Pin the version this skill is verified against
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 ```
 
 ## CI/CD Integration

@@ -10,7 +10,7 @@ This skill owns the repository's verification gate — the commands that decide
 whether Go work is finished.
 
 > Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Analyzer and
-> linter names are checked against go1.27.1 and golangci-lint 2.13.2.
+> linter names are checked against go1.27.2 and golangci-lint 2.14.0.
 
 ## Resource Routing
 

@@ -30,7 +30,7 @@ on:
         default: all
 
 env:
-  GOLANGCI_LINT_VERSION: v2.13.2
+  GOLANGCI_LINT_VERSION: v2.14.0
 
 jobs:
   validate:

@@ -4,6 +4,17 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **A review loads only go-code-review.** The checklist gains the rows a
+  review missed while the rule lived only in the owner: a cache's key and
+  load, a response type instead of the storage record, a PATCH onto the
+  loaded fields, an exported change that looks additive, an exhausted pool,
+  and retry plus idempotency. Each row is one line and a link.
+- **Writing a cache loads go-performance.** The description names
+  implementing a cache. The routing table leads with a cache. A stub whose
+  comments pair `cache` with `ttl` names go-performance before the first
+  edit; `Cache-Control` does not, and the edit gate does not require the
+  skill.
+
 ## [1.31.0] - 2026-10-08
 
 - **A passing test check needs proof the tests ran.** The go-linting gate

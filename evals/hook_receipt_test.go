@@ -185,6 +185,12 @@ func TestPromptStubHints(t *testing.T) {
 		{"backoff contract", "package stub\n// Run retries failures with bounded exponential backoff.\nfunc Run() { panic(\"not implemented\") }\n", []string{"go-resilience"}, nil},
 		{"unrelated retry prose", "package stub\n// Retry-After and backoff are names in an example, not this contract.\nfunc Run() { panic(\"not implemented\") }\n", nil, []string{"go-resilience"}},
 		{"retry prose without a stub", "package stub\n// Run used to retry unavailable requests honoring Retry-After.\nfunc Run() {}\n", nil, []string{"go-resilience"}},
+		{"cache contract", "package stub\n// Cache keeps each answer for ttl. A failed fetch is not kept.\nfunc Run() { panic(\"not implemented\") }\n", []string{"go-performance"}, nil},
+		{"cached answers expire", "package stub\n// Cached answers expire after ttl.\nfunc Run() { panic(\"not implemented\") }\n", []string{"go-performance"}, nil},
+		{"caching with a ttl", "package stub\n// Run uses a TTL for caching.\nfunc Run() { panic(\"not implemented\") }\n", []string{"go-performance"}, nil},
+		{"cache without ttl", "package stub\n// Cache keeps the last response.\nfunc Run() { panic(\"not implemented\") }\n", nil, []string{"go-performance"}},
+		{"cache-control is not a cache", "package stub\n// Honor Cache-Control and the TTL header.\nfunc Run() { panic(\"not implemented\") }\n", nil, []string{"go-performance"}},
+		{"cache prose without a stub", "package stub\n// Cache keeps each answer for ttl.\nfunc Run() {}\n", nil, []string{"go-performance"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -219,6 +225,14 @@ func TestPromptStubHints(t *testing.T) {
 			}
 		}
 	})
+	t.Run("profile cache contract names go-performance", func(t *testing.T) {
+		t.Parallel()
+		cwd := filepath.Join(repoRoot(t), "evals", "ab", "_implement")
+		_, out := promptEvent(t, t.TempDir(), "profile-stub", cwd, "Implement the Go package in ./profile")
+		if !strings.Contains(out, "`golang-skills:go-performance`") {
+			t.Errorf("profile note = %q, want go-performance", out)
+		}
+	})
 	t.Run("fetch retains resilience from the Retry-After contract", func(t *testing.T) {
 		t.Parallel()
 		cwd := filepath.Join(repoRoot(t), "evals", "ab", "_implement")
@@ -239,6 +253,18 @@ func TestPromptStubHints(t *testing.T) {
 		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "gate", "Edit", map[string]any{"file_path": "/repo/stub.go", "new_string": "func Run(ctx context.Context) error { return nil }"}))
 		if code != 0 || msg != "" {
 			t.Fatalf("signature edit = (%d, %q), want unchanged permissive gate", code, msg)
+		}
+	})
+	// Підказка кешу лишається в prompt: edit-гейт не вимагає go-performance.
+	t.Run("cache comment does not widen edit gate", func(t *testing.T) {
+		t.Parallel()
+		script, state := filepath.Join(repoRoot(t), "hooks", "go-code-routing.sh"), t.TempDir()
+		for _, skill := range []string{"go-code", "go-style-core"} {
+			hookEvent(t, script, state, routingPayload("PostToolUse", "gate", "Skill", map[string]any{"skill": skill}))
+		}
+		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "gate", "Edit", map[string]any{"file_path": "/repo/stub.go", "new_string": "package stub\n// Cache keeps each answer for ttl.\nfunc Get() { panic(\"not implemented\") }\n"}))
+		if code != 0 || msg != "" {
+			t.Fatalf("cache edit = (%d, %q), want unchanged permissive gate", code, msg)
 		}
 	})
 }

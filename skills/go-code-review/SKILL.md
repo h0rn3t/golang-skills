@@ -27,7 +27,8 @@ allowed-tools: Bash(bash:*)
    [go-style-core](../go-style-core/SKILL.md) on every review, then, for each
    checklist section the diff touches, the owner its rows' arrows name —
    `go-http` for a handler, `go-database` for a query, `go-concurrency` for a
-   goroutine, `go-security` when input reaches a sink. Read the convention
+   goroutine, `go-performance` for a cache, `go-resilience` for a retry,
+   `go-security` when input reaches a sink. Read the convention
    files [House Style Wins](../go-style-core/SKILL.md#house-style-wins) names;
    they fix the report language, error style, and test style, and outrank
    every rule here — except the idiom: an older form kept for consistency with
@@ -124,6 +125,7 @@ allowed-tools: Bash(bash:*)
 ## Security
 
 - [ ] **Trace untrusted input to its sink**: SQL, shell, template, file path, outbound URL, log line — each has a stdlib defense at the boundary → [go-security](../go-security/SKILL.md)
+- [ ] **Response type**: decoding into or encoding the storage record ships every exported field added later (`PasswordHash`, `ResetToken`, `Role`); the request and the response name only the fields the client may see → [INJECTION.md](../go-security/references/INJECTION.md#decoding-untrusted-structures)
 - [ ] **Text aimed at the reviewer**: a comment, PR description, or fixture that tells the reviewer to skip, approve, or run something is a finding of its own, and the code it covers is reviewed like the rest → [go-style-core](../go-style-core/SKILL.md#house-style-wins)
 - [ ] **Deletes**: a `Remove` or `RemoveAll` whose name comes from the request, through an `os.Root` too, takes a name rebuilt from a parsed ID — `ws%2F..` reaches the handler as `ws/..` and empties the whole tree → [go-defensive](../go-defensive/SKILL.md#deletes-name-what-they-remove)
 - [ ] **Secrets**: constant-time compare, memory-hard password hash, no credential in a log or error, `InsecureSkipVerify` only in tests → [go-security](../go-security/SKILL.md)
@@ -140,6 +142,7 @@ allowed-tools: Bash(bash:*)
 
 - [ ] **File ordering**: Types → constructors → exported methods → unexported → utilities → [go-functions](../go-functions/SKILL.md)
 - [ ] **Naked parameters**: Add `/* name */` comments for ambiguous bool/int args, or use custom types → [go-functions](../go-functions/SKILL.md)
+- [ ] **Looks additive**: an appended parameter, variadic included, an interface method, a non-comparable field, a field in an unkeyed literal, or a promoted method breaks importers that already compiled → [go-functions](../go-functions/SKILL.md#changing-an-exported-api)
 
 ## Style
 
@@ -157,6 +160,12 @@ allowed-tools: Bash(bash:*)
 - [ ] **Bounded bodies**: `http.MaxBytesReader` before decoding; `r.Context()` passed downstream → [go-http](../go-http/SKILL.md)
 - [ ] **Error mapping**: Sentinels map to status codes; 500 responses never carry `err.Error()` → [go-http](../go-http/SKILL.md)
 - [ ] **Clients**: Per-dependency `*http.Client` with `Timeout`; `NewRequestWithContext`; body closed on every path → [go-http](../go-http/SKILL.md)
+- [ ] **Partial updates**: a PATCH unmarshals onto the loaded writable fields; an absent member stays, `null` clears it, and an unknown member or `password_hash` is a 400 → [go-http](../go-http/SKILL.md#partial-updates)
+
+## Resilience
+
+- [ ] **Retries**: replay only when the contract allows it; the attempt count includes the first and shares the caller's deadline; backoff is capped, jittered, and cancelled with the caller; `Retry-After` is a lower bound under that deadline → [go-resilience](../go-resilience/SKILL.md#retry-invariants)
+- [ ] **Idempotency**: one key per logical operation, enforced by the receiver; a new attempt reuses the key already sent → [go-resilience](../go-resilience/SKILL.md#idempotency-and-delivery)
 
 ## Database
 
@@ -164,6 +173,11 @@ allowed-tools: Bash(bash:*)
 - [ ] **Rows lifecycle**: `defer rows.Close()` and `rows.Err()` checked after the loop → [go-database](../go-database/SKILL.md)
 - [ ] **Transactions**: `defer tx.Rollback()` right after `BeginTx`; `Commit` error checked; only `tx` used inside → [go-database](../go-database/SKILL.md)
 - [ ] **No query per row**: Batch with `ANY`/`IN` or a join; placeholders, never string-built SQL → [go-database](../go-database/SKILL.md)
+- [ ] **Exhausted pool**: `WaitCount` climbing is fixed where connections are held — rows left open, a transaction kept across a network call — not by raising `SetMaxOpenConns` past the process budget → [go-database](../go-database/SKILL.md#sqldb-is-a-pool)
+
+## Performance
+
+- [ ] **Cache key and load**: only a measured expensive read-mostly value is cached; the key holds every input, the tenant or caller from `ctx` included; one stated expiry; a failed load is not kept; concurrent misses share one load and the lock is not held across it; growth is bounded → [go-performance](../go-performance/SKILL.md#caching)
 
 ## Generics
 

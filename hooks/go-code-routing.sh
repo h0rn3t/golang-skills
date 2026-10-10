@@ -258,6 +258,11 @@ def prompt_hints(path, text):
         out.append("go-concurrency")
     if stub and re.search(r"\b(?:honor(?:s|ing)?|respect(?:s|ing)?|retr(?:ies|ied|ying)|retry(?!-))\b.{0,100}\b(?:Retry-After|backoff)\b", contract, re.I | re.S):
         out.append("go-resilience")
+    # A cache stub (key, ttl, a shared miss) is go-performance when the task
+    # is to implement one. Prompt-only: an edit of finished code does not gain
+    # a gate requirement. Cache-Control is not a cache.
+    if stub and re.search(r"\bcach(?:e[sd]?|ing)\b(?!-).{0,160}\bttl\b|\bttl\b.{0,160}\bcach(?:e[sd]?|ing)\b(?!-)", contract, re.I | re.S):
+        out.append("go-performance")
     if ("go-http" in out or "go-database" in out) and "go-error-handling" not in out:
         out.append("go-error-handling")
     return list(dict.fromkeys(out))

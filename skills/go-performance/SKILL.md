@@ -1,6 +1,6 @@
 ---
 name: go-performance
-description: Use when optimizing slow or performance-critical Go code, allocations, string concatenation in loops, caches, or benchmarks. Concurrent code patterns belong to go-concurrency.
+description: Use when optimizing slow or performance-critical Go code, allocations, string concatenation in loops, or benchmarks. Also use when writing or reviewing a cache, including implementing one from a stub — its key, its expiry, and how a miss loads. Concurrent code patterns belong to go-concurrency.
 allowed-tools: Bash(bash:*)
 ---
 

@@ -293,7 +293,7 @@ does not require `go-naming` or `go-documentation`.
 | type parameters, constraints, generic methods | [go-generics](../go-generics/SKILL.md) | — |
 | `slog`, log levels, request-scoped fields, metrics and trace correlation | [go-logging](../go-logging/SKILL.md) | [go-security](../go-security/SKILL.md) if a secret or PII could reach a log line |
 | panic/recover and `Must` helpers, a deferred closure or a written file's `Close`, boundary copies, mutable globals, nil/aliasing/overflow traps | [go-defensive](../go-defensive/SKILL.md) | — |
-| hot paths, allocations, benchmarks, caches | [go-performance](../go-performance/SKILL.md) | [go-troubleshooting](../go-troubleshooting/SKILL.md) if the cause of slowness is unknown |
+| a cache, hot paths, allocations, benchmarks | [go-performance](../go-performance/SKILL.md) | [go-troubleshooting](../go-troubleshooting/SKILL.md) if the cause of slowness is unknown |
 | package layout, imports, dependencies | [go-packages](../go-packages/SKILL.md) | — |
 | restructuring or deleting existing code | [go-code-refactor](../go-code-refactor/SKILL.md) | — |
 | linter config, CI checks | [go-linting](../go-linting/SKILL.md) | — |

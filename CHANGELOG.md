@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.31.1] - 2026-10-10
+
 - **A review loads only go-code-review.** The checklist gains the rows a
   review missed while the rule lived only in the owner: a cache's key and
   load, a response type instead of the storage record, a PATCH onto the

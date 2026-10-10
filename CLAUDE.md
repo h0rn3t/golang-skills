@@ -24,7 +24,7 @@ entry is removed.
 ## Commands
 
 Everything the tests shell out to must be on PATH: `go` (1.27), `gofmt`, and
-`golangci-lint` (v2.13.2 is pinned in CI; `TestScriptFunctional/SetupLintDryRun`
+`golangci-lint` (v2.14.0 is pinned in CI; `TestScriptFunctional/SetupLintDryRun`
 fails without the binary).
 
 ```bash
@@ -194,7 +194,8 @@ run against the target project.
 - Changes are recorded under `## [Unreleased]` in `CHANGELOG.md`. A release is
   one `release: X.Y.Z` commit bumping `.claude-plugin/plugin.json`,
   `.claude-plugin/marketplace.json`, and the changelog heading, then an
-  annotated `vX.Y.Z` tag. `docs/RELEASE_CHECKLIST.md` lists the validation set.
+  annotated `vX.Y.Z` tag; CI creates the GitHub release from that changelog
+  section once validation passes. `docs/RELEASE_CHECKLIST.md` lists the validation set.
 - Go baseline is 1.27 (supported: 1.26 and 1.27). `COMPATIBILITY.md` is the
   source of truth for every version-sensitive claim and says how to re-verify
   each against the installed toolchain. The language version is the module's

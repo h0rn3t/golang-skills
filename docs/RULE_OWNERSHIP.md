@@ -116,6 +116,9 @@ Deliberate divergence, with the residual risk stated rather than argued away:
   public source only, but the opt-in `evals` job passes
   `secrets.ANTHROPIC_API_KEY`, so a compromised tag in that job is a real
   exposure. Accepted for now against the cost of re-pinning on every bump.
+- **The `release` job holds `contents: write`.** It runs only on a `v*` tag
+  push after `validate` passes, uses `gh` from the runner image rather than a
+  third-party action, and takes no secret beyond the job token.
 - **No `permissions:` block in `validate-skills.yml`**, so the repository
   default applies. `go-release-watch.yml` sets one at workflow level.
 - ~~Tests ran `go test -count=1 ./...` without `-race -shuffle=on`~~ — closed

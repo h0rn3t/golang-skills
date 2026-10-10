@@ -29,3 +29,5 @@ golangci-lint config verify --config skills/go-linting/assets/golangci.yml
 - Update plugin and marketplace version metadata when cutting a release.
 - Use a `vX.Y.Z` tag.
 - Push the tag and confirm the `Validate Skills` workflow passes for the tag.
+  Its `release` job then creates the GitHub release from the tag's
+  `CHANGELOG.md` section; a tag with no section fails that job.

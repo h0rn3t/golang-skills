@@ -4,6 +4,10 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **A release tag publishes its GitHub release.** A `v*` tag that passes
+  validation gets a GitHub release whose notes are that version's
+  `CHANGELOG.md` section.
+
 ## [1.31.2] - 2026-10-10
 
 - **CI pins golangci-lint v2.14.0.** v2.13.2 cannot read the export data

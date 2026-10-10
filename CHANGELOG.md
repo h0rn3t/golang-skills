@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.31.2] - 2026-10-10
+
 - **CI pins golangci-lint v2.14.0.** v2.13.2 cannot read the export data
   of go1.27.2, which `1.27.x` now resolves to, so every lint-backed test
   failed on the runner. go-linting names the versions it was checked against.

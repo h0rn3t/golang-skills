@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.31.3] - 2026-10-11
+
 - **A refactor loads go-testing.** The prompt hook names it without a
   condition, in the same load line as the router: "if you write or edit a
   test" left the model to edit `_test.go` and get blocked by the routing

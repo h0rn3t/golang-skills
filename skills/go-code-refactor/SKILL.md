@@ -17,6 +17,7 @@ Resolve resources from this installed skill directory; run scripts from the
 target project using the resolved absolute script path.
 
 - `../go-style-core/SKILL.md` - Load on every refactor before the first edit; it carries the idiom card.
+- `../go-testing/SKILL.md` - Load with go-style-core before the first edit; a refactor often edits tests.
 - `../go-linting/SKILL.md` - With a shell, load with go-style-core before edits; select the final gate and attempt receipt verification at step 5.
 - `references/BEHAVIOR-TRAPS.md` - Its Pre-commit checklist before every refactor; a section when a transform moves a `defer`, nil versus empty, goroutine or channel shape, or struct layout.
 - `references/PLAYBOOK.md` - The concrete transformations, ordered by payoff.
@@ -222,8 +223,9 @@ With no shell tool, run nothing and read no script: observed
 observed results, not verified gate credit; unconfirmed required checks remain unavailable.
 
 Load the skills before the first edit (a read of `../<name>/SKILL.md` where
-there is no `Skill` tool): [go-style-core](../go-style-core/SKILL.md) on every
-refactor, then the owner of each decision the diff moves, from
+there is no `Skill` tool): [go-style-core](../go-style-core/SKILL.md) and
+[go-testing](../go-testing/SKILL.md) on every refactor, then the owner of each
+decision the diff moves, from
 [Related Skills](#related-skills), go-code's
 [Route Before The First Edit](../go-code/SKILL.md#route-before-the-first-edit),
 or the host's routing note when it names them. No edit before every selected
@@ -371,6 +373,7 @@ exits 1 on those.
 ## Related Skills
 
 - [go-style-core](../go-style-core/SKILL.md): nesting and the clarity > simplicity > concision order.
+- [go-testing](../go-testing/SKILL.md): characterization tests and any `_test.go` edit.
 - [go-naming](../go-naming/SKILL.md): renames.
 - [go-error-handling](../go-error-handling/SKILL.md): wrapping, sentinels, handle-once rewrites.
 - [go-concurrency](../go-concurrency/SKILL.md): goroutine lifetimes, channels, locks in the diff.

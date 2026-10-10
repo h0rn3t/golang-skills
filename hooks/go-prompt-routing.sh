@@ -90,8 +90,14 @@ mention = None if slash else re.search(
 # asks for new code gets go-testing without a condition; "if you write or edit
 # a test" left 43 of 73 implement gate blocks to go-testing on 2026-09-30
 # (abrun low, both 5.5 models): the model judged it would write no test, then
-# wrote the contract test first. A fix keeps the condition. `implement` counts
-# as a verb only: "one implementation" in a design question is not new code.
+# wrote the contract test first. A refactor gets the same unconditional load:
+# it often edits _test.go after judging it would not, and the gate blocks the
+# edit. On 2026-10-11 (refactor corpus, Haiku 5.5, -shell go, 4x5 per arm) the
+# condition left 14 of 20 sessions blocked for go-testing, the unconditional
+# load 0 of 20; Δlines -17.9 vs -18.4, golden 20/20 in both, $0.033 vs $0.038
+# per run (11 of 20 sessions then wrote a test file, against 3). A fix keeps
+# the condition. `implement` counts as a verb only: "one
+# implementation" in a design question is not new code.
 new_code = re.search(
     r"\b(?:implement(?:s|ed|ing)?|write|add|create|build|stub\w*|not implemented|fill in|"
     r"реаліз\w*|реализ\w*|напиш\w*|напис\w*|дода\w*|добав\w*|створ\w*|созда\w*|допиш\w*|заполн\w*)\b",
@@ -326,6 +332,8 @@ if [[ -n "$owners" ]]; then
 fi
 if [[ "$skill" == "go-code" && "$newcode" == "new" ]]; then
     line+="${sep}$tt too, since new code starts with its contract test"
+elif [[ "$skill" == "go-code-refactor" ]]; then
+    line+="${sep}$tt too, since a refactor often edits tests"
 else
     line+="${sep}$tt if you write or edit a test"
 fi

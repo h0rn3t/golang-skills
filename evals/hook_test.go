@@ -967,6 +967,9 @@ func TestPromptRouting(t *testing.T) {
 		if code != 0 || !strings.Contains(out, "`golang-skills:go-code-refactor`") {
 			t.Fatalf("refactor prompt: exit %d, stdout %q; want 0 naming go-code-refactor", code, out)
 		}
+		if !strings.Contains(out, "`golang-skills:go-testing` (Skill tool, name `golang-skills:go-testing`) too, since a refactor often edits tests") || strings.Contains(out, "if you write or edit a test") {
+			t.Fatalf("refactor prompt must name go-testing unconditionally:\n%s", out)
+		}
 	})
 
 	// The review corpus prompt says "what is wrong, and the fix": `fix` used to
@@ -1365,6 +1368,7 @@ func TestSubagentRouting(t *testing.T) {
 				"name `golang-skills:go-code`",
 				"name `golang-skills:go-style-core`",
 				"`golang-skills:go-code-refactor`",
+				"name `golang-skills:go-testing`) too, since a refactor often edits tests",
 				"Before the first edit",
 				"one message",
 				"do not put Edit, Write or MultiEdit",

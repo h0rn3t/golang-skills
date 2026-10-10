@@ -4,6 +4,13 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **A refactor loads go-testing.** The prompt hook names it without a
+  condition, in the same load line as the router: "if you write or edit a
+  test" left the model to edit `_test.go` and get blocked by the routing
+  gate. go-code-refactor loads it with go-style-core before the first edit,
+  and the session-start and subagent note names it for a refactor. A fix
+  prompt keeps the condition.
+
 - **A release tag publishes its GitHub release.** A `v*` tag that passes
   validation gets a GitHub release whose notes are that version's
   `CHANGELOG.md` section.

@@ -64,9 +64,10 @@ code="${ns:+$ns:}go-code"
 style="${ns:+$ns:}go-style-core"
 refactor="${ns:+$ns:}go-code-refactor"
 lint="${ns:+$ns:}go-linting"
+testing="${ns:+$ns:}go-testing"
 # One sentence, both skills named as Skill calls. A following line, or
 # "if your task writes", was skipped and the first .go edit was blocked
 # (2026-10-03, dhcore ap/operations.go). The prompt hook measured the same
 # shape: both names in the router line, 21 of 21 first-message loads.
-printf '%s\n' "golang-skills: this project holds Go code. Before the first edit, load the \`$code\` skill (Skill tool, name \`$code\`) and the \`$style\` skill (Skill tool, name \`$style\`). For a behavior-preserving refactor, load \`$refactor\` instead of \`$code\`. All of them in one message. Wait for successful Skill results; do not put Edit, Write or MultiEdit in the skill-loading tool message. If Bash is available, also load \`$lint\` (Skill tool, name \`$lint\`) in that message. Reading, searching, or reviewing only needs no edit skill. If the task is not Go work, ignore this note."
+printf '%s\n' "golang-skills: this project holds Go code. Before the first edit, load the \`$code\` skill (Skill tool, name \`$code\`) and the \`$style\` skill (Skill tool, name \`$style\`). For a behavior-preserving refactor, load \`$refactor\` instead of \`$code\`, and the \`$testing\` skill (Skill tool, name \`$testing\`) too, since a refactor often edits tests. All of them in one message. Wait for successful Skill results; do not put Edit, Write or MultiEdit in the skill-loading tool message. If Bash is available, also load \`$lint\` (Skill tool, name \`$lint\`) in that message. Reading, searching, or reviewing only needs no edit skill. If the task is not Go work, ignore this note."
 exit 0

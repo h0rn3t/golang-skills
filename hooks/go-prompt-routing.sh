@@ -16,7 +16,8 @@
 # Go work is a prompt that names Go (the word Go, golang, a .go file, go.mod,
 # goroutines, a go subcommand) or a prompt sent from a directory holding
 # go.mod or *.go files within two levels. A read-only question about Go code
-# gets no note: it starts no edit router.
+# gets no note: it starts no edit router. Text an IDE host adds to the prompt
+# (<ide_opened_file>, <ide_selection>) is removed before any of these tests.
 #
 # A prompt naming a router in its text (`use go-code`, `$go-code-refactor`,
 # `/opsx:apply add-auth /go-code`) selects that router instead of silencing
@@ -74,7 +75,16 @@ event = d.get("hook_event_name") or "UserPromptSubmit"
 if event != "UserPromptSubmit":
     sys.exit(0)
 prompt = d.get("prompt") or ""
-if not isinstance(prompt, str) or not prompt.strip():
+if not isinstance(prompt, str):
+    sys.exit(0)
+# An IDE host sends its own context inside the prompt: the VS Code extension
+# prepends <ide_opened_file>The user opened the file /path ...</ide_opened_file>,
+# and <ide_selection> carries the selected text. On 2026-10-11 the opened path
+# .../golang-skills/.../MODERNIZATION.md alone routed "study this paper" as a
+# refactor: `golang` named Go and `MODERNIZATION` matched the refactor wording.
+# Only the words the user typed are classified.
+prompt = re.sub(r"<(ide_[a-z_]+)\b[^>]*>.*?</\1>", " ", prompt, flags=re.S)
+if not prompt.strip():
     sys.exit(0)
 # A slash command raises this event and no other: the host expands it, inserts
 # the router SKILL.md, and calls no tool, so nothing else records the load.

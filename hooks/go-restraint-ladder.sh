@@ -55,6 +55,9 @@ if event == "UserPromptSubmit":
     prompt = d.get("prompt")
     if not isinstance(prompt, str):
         sys.exit(0)
+    # IDE context (<ide_opened_file>, <ide_selection>) is not the user typing a
+    # level word, and a prefix of it would hide a leading /go-code from re.match.
+    prompt = re.sub(r"<(ide_[a-z_]+)\b[^>]*>.*?</\1>", " ", prompt, flags=re.S)
     # `/go-code-refactor ultra` sets nothing: a refactor runs at full.
     m = re.match(r"\s*/(?:[\w.-]+:)?go-code\s+(lite|full|ultra)\b", prompt) or \
         re.search(r"\b(lite|full|ultra)[ -]mode\b|\bрежим\s+(lite|full|ultra)\b", prompt, re.I)

@@ -4,6 +4,16 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **IDE context no longer routes a prompt.** The VS Code extension puts
+  `<ide_opened_file>` and `<ide_selection>` text into the prompt that
+  UserPromptSubmit hooks receive. With `skills/go-code-refactor/references/MODERNIZATION.md`
+  open, a request to study an arXiv paper got the refactor note: `golang`
+  in the path named Go, and `MODERNIZATION` matched the refactor wording.
+  `go-prompt-routing.sh` and `go-restraint-ladder.sh` now remove `<ide_*>`
+  blocks before classifying. As a result, a level word in a selection sets
+  no restraint level, and IDE text ahead of `/go-code ultra` no longer hides
+  the command.
+
 ## [1.31.5] - 2026-10-11
 
 - **A file's `//go:build` version governs that file.** go-style-core's

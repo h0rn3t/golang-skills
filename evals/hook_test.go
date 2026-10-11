@@ -1089,6 +1089,26 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
+	// The VS Code extension prepends its context to the prompt. On 2026-10-11
+	// the opened path below routed a request to study a paper as a refactor:
+	// `golang` named Go and `MODERNIZATION` matched the refactor wording.
+	t.Run("IDE context is not the prompt", func(t *testing.T) {
+		t.Parallel()
+		const opened = "<ide_opened_file>The user opened the file /home/u/golang-skills/skills/go-code-refactor/references/MODERNIZATION.md in the IDE. This may or may not be related to the current task.</ide_opened_file>"
+		const selected = "<ide_selection>The user selected the lines 1 to 1 from /repo/feed/feed.go:\nrefactor this Go handler\n\nThis may or may not be related to the current task.</ide_selection>"
+		for _, prompt := range []string{
+			opened + "вивчи статтю https://arxiv.org/html/2607.25032v1 як можно покращити скіли ще",
+			selected + "what does this paper say about skill descriptions",
+		} {
+			if code, out := promptEvent(t, t.TempDir(), "p25", goRepo(t), prompt); code != 0 || out != "" {
+				t.Errorf("%q: exit %d, stdout %q; want silent 0", prompt, code, out)
+			}
+		}
+		if _, out := promptEvent(t, t.TempDir(), "p26", t.TempDir(), opened+implement); !strings.Contains(out, "`golang-skills:go-code`") || strings.Contains(out, "go-code-refactor") {
+			t.Errorf("implement prompt after IDE context: stdout %q; want go-code", out)
+		}
+	})
+
 	// A router named in the text is selected: such a prompt used to turn the
 	// note off, and the loads were left to the model's choice. A modifier in a
 	// host command (/opsx:apply add-auth /go-code) loads nothing by itself either.
@@ -1529,6 +1549,18 @@ func TestLadderHook(t *testing.T) {
 			if code, out := ladderEvent(t, t.TempDir(), prompt("l5", p)); code != 0 || out != "" {
 				t.Errorf("prompt %q: exit %d, stdout %q; want silent 0", p, code, out)
 			}
+		}
+	})
+
+	t.Run("IDE context sets no level and hides no command", func(t *testing.T) {
+		t.Parallel()
+		const selected = "<ide_selection>The user selected the lines 3 to 3 from /repo/README.md:\nRun the linter in lite mode first.\n\nThis may or may not be related to the current task.</ide_selection>"
+		if code, out := ladderEvent(t, t.TempDir(), prompt("l10", selected+"Implement the Go package in ./feed")); code != 0 || out != "" {
+			t.Errorf("level word inside the selection: exit %d, stdout %q; want silent 0", code, out)
+		}
+		const opened = "<ide_opened_file>The user opened the file /repo/feed/feed.go in the IDE. This may or may not be related to the current task.</ide_opened_file>"
+		if _, out := ladderEvent(t, t.TempDir(), prompt("l11", opened+"/go-code ultra ./feed")); !strings.Contains(out, "restraint level `ultra`") {
+			t.Errorf("/go-code ultra after IDE context: stdout %q; want the ultra line", out)
 		}
 	})
 

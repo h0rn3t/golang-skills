@@ -238,6 +238,13 @@ For graceful shutdown, `signal.NotifyContext` owns the lifetime;
   ```
 - `http.NewRequestWithContext(ctx, ...)` — the ctx-less form is unbounded;
   `noctx` in the lint gate flags it.
+- The Transport reads the request body on its own goroutine, and that read
+  can outlive `Do`: a 4xx/5xx answered from the headers, a timeout, or a
+  cancel returns mid-upload, and on HTTP/2 the Transport's own `Close` of the
+  body can overlap a `Read`. Each request, retry included, gets its own
+  `bytes.NewReader` over bytes nobody writes again — never the previous
+  attempt's reader rewound, never a shared or pooled buffer refilled; `-race`
+  reports that write against the Transport's body writer.
 - `defer resp.Body.Close()` right after the `err != nil` return, on every
   status (`bodyclose` flags a miss); on error `Do` returns no body to close.
   Bound untrusted bodies and close them on every path. Go 1.27

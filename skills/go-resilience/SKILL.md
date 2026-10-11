@@ -58,10 +58,12 @@ library has no general circuit breaker.
   A valid server retry delay is a lower bound under this policy: do not shrink
   it to a local cap. If it cannot fit, stop or use an already-authorized durable
   rescheduling path; parsing overflow is not permission to retry earlier.
-- Use a fresh replayable request body for each attempt. Finish/close a discarded
-  response and release attempt resources before waiting. Preserve the attempt
-  context until the accepted response body is consumed or explicitly handed
-  off with cleanup ownership; returning from `Do` does not finish the body.
+- Use a fresh replayable request body for each attempt: the Transport may still
+  be reading the previous one ([go-http](../go-http/SKILL.md#clients)).
+  Finish/close a discarded response and release attempt resources before
+  waiting. Preserve the attempt context until the accepted response body is
+  consumed or explicitly handed off with cleanup ownership; returning from
+  `Do` does not finish the body.
 - Scope retry ownership where operation semantics are known. Application, SDK,
   mesh, and broker retries must compose to a bounded policy rather than retry
   independently. Every real attempt passes dependency admission and breaker gates.

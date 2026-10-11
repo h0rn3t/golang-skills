@@ -1,8 +1,8 @@
 # Buffer Pooling with Channels
 
-> Sources: source/effective-go/effective_go.html (A leaky buffer)
+> Sources: source/effective-go/effective_go.html (A leaky buffer); https://pkg.go.dev/net/http#RoundTripper
 > Authority: advisory
-> Last verified: 2026-10-01
+> Last verified: 2026-10-11
 
 Use a buffered channel as a free list to reuse allocated buffers, avoiding
 repeated allocations. This "leaky buffer" pattern uses `select` with `default`
@@ -66,6 +66,12 @@ func render(name string) []byte {
     return bytes.Clone(buf.Bytes()) // not buf.Bytes(): putBuffer hands this array to the next caller
 }
 ```
+
+A buffer passed as an HTTP request body has left the function too: the
+Transport may still be reading it after `Do` returns, and on HTTP/2 after it
+closes the body ([go-http](../../go-http/SKILL.md#clients)). Such a buffer
+does not go back to the pool: neither a deferred `putBuffer` around `Do` nor a
+`Close` hook on the body is a point where those bytes are free.
 
 `sync.Pool` advantages:
 - Automatic cleanup during garbage collection

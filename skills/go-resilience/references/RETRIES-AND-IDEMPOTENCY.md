@@ -2,7 +2,7 @@
 
 > Sources: [HTTP semantics](https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2); [Retry-After](https://www.rfc-editor.org/rfc/rfc9110.html#section-10.2.3); [429](https://www.rfc-editor.org/rfc/rfc6585.html#section-4); [Go HTTP transport](https://pkg.go.dev/net/http#Transport); [Idempotent APIs](https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/)
 > Authority: normative for protocol/Go API behavior; project policy for retry admission and delivery safeguards
-> Last verified: 2026-09-05
+> Last verified: 2026-10-11
 
 ## Classify Before Replaying
 
@@ -86,10 +86,14 @@ left and `Retry-After: 60`, it cannot; a 1-second local cap changes neither fact
 
 ## HTTP Attempt Ownership
 
-Build a new request/body per attempt from immutable replay data or `GetBody`;
-a consumed stream is not reusable. Persist the operation key and payload when
-retries must survive process restarts. Keep redirects and transport-level
-replays within the operation's intended destinations and side-effect contract.
+Build a new request/body per attempt from immutable replay data or `GetBody`:
+a consumed stream is not reusable, and the Transport may still be reading the
+previous attempt's body after `Do` returns, so rewinding its reader or
+rewriting a shared buffer for the next attempt races with it
+([go-http](../../go-http/SKILL.md#clients)). Persist the operation key and
+payload when retries must survive process restarts. Keep redirects and
+transport-level replays within the operation's intended destinations and
+side-effect contract.
 
 Close each discarded response inside its attempt scope, not with a loop-wide
 defer that accumulates bodies; closing is enough for reuse

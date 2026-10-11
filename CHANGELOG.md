@@ -4,6 +4,25 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **A request body is not the caller's again when `Do` returns.** The
+  Transport writes it on its own goroutine (`persistConn.writeLoop` on
+  HTTP/1, `clientStream.writeRequestBody` on HTTP/2); a response answered
+  from the headers, a timeout, or a cancel returns from `Do` mid-upload
+  (`net/http` `RoundTripper` and `Client.Do` docs, checked against go1.27.1).
+  Waiting for the body's `Close`, which the `RoundTripper` doc offers, is not
+  enough on HTTP/2: on a status above 299 the Transport closes the body from
+  another goroutine while a `Read` is in flight, and `-race` reports a
+  release-on-`Close` wrapper there 3/3 (HTTP/1: clean). go-http said nothing
+  about the request body. go-resilience asked for a fresh body per attempt
+  only because a stream is consumed, which a `Reset` and refill of a shared
+  buffer, or a rewound reader, seems to satisfy. go-http's Clients section
+  now owns the rule: one `bytes.NewReader` per request over bytes nobody
+  writes again. go-resilience and BUFFER-POOLING.md route to it; the pool
+  reference keeps request-body buffers out of the pool, with neither a
+  deferred `putBuffer` around `Do` nor a `Close` hook as the release point.
+  From the VictoriaMetrics write-up on vmauth's corrupted retries and
+  vmagent's accepted race (victoriametrics.com/blog/http-race-condition).
+
 ## [1.32.0] - 2026-10-11
 
 - **IDE context no longer routes a prompt.** The VS Code extension puts

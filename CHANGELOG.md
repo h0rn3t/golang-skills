@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.31.5] - 2026-10-11
+
 - **A file's `//go:build` version governs that file.** go-style-core's
   Write Current Go and `COMPATIBILITY.md` named only the module's `go`
   directive. The compiler and `stdversion` check a file whose `//go:build`

@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.32.0] - 2026-10-11
+
 - **IDE context no longer routes a prompt.** The VS Code extension puts
   `<ide_opened_file>` and `<ide_selection>` text into the prompt that
   UserPromptSubmit hooks receive. With `skills/go-code-refactor/references/MODERNIZATION.md`

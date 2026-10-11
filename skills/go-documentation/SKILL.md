@@ -44,7 +44,7 @@ func Encode(w io.Writer, req *Request) { ...
 Unexported names, and exported names under `internal/` or `cmd/`, get a doc
 comment when their behavior is not obvious from the signature.
 
-> **Validation**: `scripts/check-docs.sh` lists exported names without a doc comment outside `package main` — a comment of only directives or only a `Deprecated:` paragraph counts as none — skipping generated files, methods of unexported types, and the methods revive skips (`Error`, `Read`, `ServeHTTP`, `String`, `Write`, `Unwrap`). Unlike the gate it also reports `internal/` and `cmd/`, where a finding is advisory. Run it once at the end of the task, beside the [go-linting](../go-linting/SKILL.md) gate, which does not run it.
+> **Validation**: `bash <installed-skill-dir>/scripts/check-docs.sh`, run from the project, lists exported names without a doc comment outside `package main` — a comment of only directives or only a `Deprecated:` paragraph counts as none — skipping generated files, methods of unexported types, and the methods revive skips (`Error`, `Read`, `ServeHTTP`, `String`, `Write`, `Unwrap`). Unlike the gate it also reports `internal/` and `cmd/`, where a finding is advisory. Run it once at the end of the task, beside the [go-linting](../go-linting/SKILL.md) gate, which does not run it.
 
 ---
 

@@ -51,7 +51,7 @@ once — not at every call site downstream, where it is forgotten.
 | Threat | Defense | Caught by |
 |---|---|---|
 | SQL injection | `QueryContext(ctx, q, args...)` placeholders; identifiers from a `switch` over known names | `gosec` G201/G202 |
-| Foreign row by ID | `WHERE id = $1 AND org_id = $2` with the caller's tenant as a parameter; a foreign ID is `sql.ErrNoRows` | review |
+| Foreign row by ID | `AND org_id =` the caller's tenant, a parameter beside the ID ([INJECTION.md](references/INJECTION.md#sql)); a foreign ID is `sql.ErrNoRows` | review |
 | Command injection | `exec.CommandContext(ctx, "gzip", "--keep", "--", name)`: argv, no shell, `--` before input | `gosec` G204, which fires on this safe form too: suppress it on that line with the reason, as in [Injection](#injection) |
 | XSS | `html/template` (contextual escaping) | `gosec` G203 (unsafe `template.HTML`) |
 | Template written by a client | Never `Parse` client text: it calls any exported method on the data; fixed placeholders ([INJECTION.md](references/INJECTION.md#html-and-templates)) | review |

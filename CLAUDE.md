@@ -137,6 +137,10 @@ Spread across `evals/eval_test.go`; an ordinary edit trips them:
   `TestGoVersionBaseline` pins the 1.27 baseline and specific rows.
 - Reference files open with `> Sources:`, `> Authority:`, `> Last verified:`
   within the first 12 lines.
+- No unescaped `$N` or `$ARGUMENTS` in a `SKILL.md`
+  (`TestSkillBodyArgumentPlaceholders`): Claude Code substitutes skill
+  arguments into the body, code fences included. Prose writes `$N`; code
+  writes `\$1`.
 - Self-contained Go example blocks are extracted and compiled (some run) by
   the `*_examples_test.go` files. A deliberate fragment starts mid-function or
   is introduced as one in the sentence before it.
@@ -161,7 +165,8 @@ specified in `docs/SCRIPT_JSON_CONTRACTS.md` and asserted by
 `TestScriptFunctional` against `evals/fixtures/<area>/` (each area has a clean
 tree and a violations tree; `no_go_files` checks the empty-scan status
 marker). Scripts resolve paths relative to their installed skill directory and
-run against the target project.
+run against the target project. Skill text writes every command as
+`bash <installed-skill-dir>/scripts/<name>.sh` (`TestScriptCommandsRunThroughBash`).
 
 ### Evaluation harnesses
 

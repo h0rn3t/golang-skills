@@ -59,7 +59,7 @@ word; layer directories take the plural layer names `handlers`, `services`,
 
 ## Validation
 
-> **Validation**: `scripts/check-naming.sh` reports the four patterns its Resource Routing line names. Error names are `errname`'s and package stutter is revive `exported`'s, both in the [go-linting](../go-linting/SKILL.md) gate; the rest of the repetition above has no check. Run the script once at the end of the task, beside that gate, which does not run it.
+> **Validation**: `bash <installed-skill-dir>/scripts/check-naming.sh`, run from the project, reports the four patterns its Resource Routing line names. Error names are `errname`'s and package stutter is revive `exported`'s, both in the [go-linting](../go-linting/SKILL.md) gate; the rest of the repetition above has no check. Run the script once at the end of the task, beside that gate, which does not run it.
 
 ## Related Skills
 

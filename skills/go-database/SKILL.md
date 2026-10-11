@@ -110,14 +110,14 @@ defer tx.Rollback() // no-op after Commit; the ErrTxDone it returns is expected
 
 // Both rows locked in id order, whichever way the money moves: opposite
 // transfers that lock from-then-to deadlock each other.
-const lock = `SELECT id FROM accounts WHERE id IN ($1, $2) ORDER BY id FOR UPDATE`
+const lock = `SELECT id FROM accounts WHERE id IN (\$1, \$2) ORDER BY id FOR UPDATE`
 if _, err := tx.ExecContext(ctx, lock, from, to); err != nil {
     return fmt.Errorf("lock accounts: %w", err)
 }
 
 // RETURNING turns a missing account into sql.ErrNoRows; a bare ExecContext
 // succeeds on zero rows and would commit the debit alone.
-const move = `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2 RETURNING id`
+const move = `UPDATE accounts SET balance_cents = balance_cents + \$1 WHERE id = \$2 RETURNING id`
 var id int64
 err = tx.QueryRowContext(ctx, move, -amount, from).Scan(&id)
 if errors.Is(err, sql.ErrNoRows) {
@@ -149,7 +149,7 @@ return nil
 
 ## Parameters, Never Concatenation
 
-> **Normative**: Every value goes through a placeholder (`$1`, `?`). A value
+> **Normative**: Every value goes through a placeholder (`$N`, `?`). A value
 > formatted into SQL with `fmt.Sprintf` or `+` is an injection, full stop.
 
 Identifiers that vary — a sort column, a table suffix — come from an allow-list
@@ -161,10 +161,10 @@ queries; [go-security](../go-security/SKILL.md) owns the threat model.
 ## Queries in Loops
 
 A query inside `for _, o := range orders` is the most common performance bug in
-a service. Fix it with one query — `WHERE id = ANY($1)` (pgx) or an expanded
-`IN (...)`, or a `JOIN` — then map in Go. Unbounded lists take a `LIMIT` and
-keyset pagination (`WHERE id > $1 ORDER BY id LIMIT $2`); deep `OFFSET` scans
-everything it skips.
+a service. Fix it with one query — `= ANY` over the IDs as one array
+parameter (pgx), an expanded `IN (...)`, or a `JOIN` — then map in Go.
+Unbounded lists take a `LIMIT` and keyset pagination (`WHERE id >` the last ID
+served, `ORDER BY id`); deep `OFFSET` scans everything it skips.
 
 Measure before restructuring: `EXPLAIN (ANALYZE, BUFFERS)` on the real
 database decides whether an index or a rewrite is the fix.

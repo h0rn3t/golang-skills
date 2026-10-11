@@ -131,8 +131,8 @@ build reports each one assigned or passed as the interface, but a type
 matched only through a type assertion or a type switch stops matching at run
 time, and nothing fails to compile.
 
-> **Validation**: Use `scripts/check-interface-compliance.sh` when a heuristic
-> scan would help. It lists an exported interface implemented in its own
+> **Validation**: Run `bash <installed-skill-dir>/scripts/check-interface-compliance.sh`
+> from the project when a heuristic scan would help. It lists an exported interface implemented in its own
 > package when nothing in the package converts a value to the interface (an
 > assignment, return, argument, composite-literal element, send, or
 > conversion), and one an exported function returns while no function or

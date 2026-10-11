@@ -1914,6 +1914,57 @@ func TestSkillArchitecture(t *testing.T) {
 	}
 }
 
+// TestSkillBodyArgumentPlaceholders keeps SKILL.md free of the placeholders
+// Claude Code fills with skill arguments. When a skill is invoked with any
+// (`/go-x a b`, or the Skill tool with args), $N becomes the N-th word and
+// $ARGUMENTS the whole string, inside code fences too: an SQL `$1` in an
+// example turns into a word of the user's request. One backslash escapes it
+// and reaches the model as `$1`; references are read with Read and never
+// substituted.
+func TestSkillBodyArgumentPlaceholders(t *testing.T) {
+	t.Parallel()
+	placeholder := regexp.MustCompile(`(\\*)\$(ARGUMENTS|\d+)([A-Za-z_]?)`)
+	for _, dir := range findSkillDirs(t) {
+		for i, line := range readLines(t, filepath.Join(dir, "SKILL.md")) {
+			for _, m := range placeholder.FindAllStringSubmatch(line, -1) {
+				escaped := len(m[1]) == 1
+				wordFollows := m[2] != "ARGUMENTS" && m[3] != ""
+				if escaped || wordFollows {
+					continue
+				}
+				t.Errorf("%s/SKILL.md:%d: $%s is replaced by a skill argument; rephrase it or escape it as \\$%s", filepath.Base(dir), i+1, m[2], m[2])
+			}
+		}
+	}
+}
+
+// TestScriptCommandsRunThroughBash keeps every written-out script command on
+// `bash <path>`: a packager can drop the executable bit, and the skills'
+// allowed-tools grant only Bash(bash:*).
+func TestScriptCommandsRunThroughBash(t *testing.T) {
+	t.Parallel()
+	root := repoRoot(t)
+	var paths []string
+	for _, pattern := range []string{"skills/*/SKILL.md", "skills/*/references/*.md"} {
+		matches, err := filepath.Glob(filepath.Join(root, pattern))
+		if err != nil {
+			t.Fatalf("glob %s: %v", pattern, err)
+		}
+		paths = append(paths, matches...)
+	}
+	command := regexp.MustCompile("\"?<installed-skill-dir>[^\\s\"`]*/scripts/[a-z0-9-]+\\.sh")
+	for _, path := range paths {
+		rel, _ := filepath.Rel(root, path)
+		for i, line := range readLines(t, path) {
+			for _, loc := range command.FindAllStringIndex(line, -1) {
+				if !strings.HasSuffix(line[:loc[0]], "bash ") {
+					t.Errorf("%s:%d: %s runs without bash; write bash %s", rel, i+1, line[loc[0]:loc[1]], line[loc[0]:loc[1]])
+				}
+			}
+		}
+	}
+}
+
 func maxFencedBlockLines(content string) int {
 	inBlock := false
 	count := 0

@@ -177,8 +177,8 @@ the graph, and propose the smallest repair as graded candidate cards; the
 chosen candidate gets a target and a staged plan, applied only as far as
 authorized. A move is High
 tier and a proposal unless the user asked for it; its first commit
-encodes the rule in `architecture.json` and runs `scripts/check-architecture.sh`,
-whose `known` list a refactor never extends to make its own run pass.
+encodes the rule in `architecture.json` and runs
+`bash "<installed-skill-dir>/scripts/check-architecture.sh"`, whose `known` list a refactor never extends to make its own run pass.
 
 ## Concision Gate
 

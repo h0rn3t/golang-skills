@@ -258,12 +258,13 @@ Select checks with [go-linting](../go-linting/SKILL.md#verification-gate) for
 the requested scope; a repository gate replaces the defaults rather than
 joining them. Bundled scripts add evidence the gate lacks:
 
-- Error handling: `<installed-skill-dir>/../go-error-handling/scripts/check-errors.sh`.
-- Exported API documentation: `<installed-skill-dir>/../go-documentation/scripts/check-docs.sh`.
+- Error handling: `bash <installed-skill-dir>/../go-error-handling/scripts/check-errors.sh ./...`.
+- Exported API documentation: `bash <installed-skill-dir>/../go-documentation/scripts/check-docs.sh`.
 - Before submitting: [go-code-review](../go-code-review/SKILL.md).
 
 `<installed-skill-dir>` is the directory the host loaded this file from; each
-command runs from the project with that path written out.
+command runs from the project with that path written out, through `bash`: an
+install can drop the scripts' executable bit.
 
 Run routine checks inline. The report carries only results observed for the
 current diff and scope, each as `pass`, `fail`, `unavailable (reason)`, or

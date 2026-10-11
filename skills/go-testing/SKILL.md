@@ -13,7 +13,7 @@ allowed-tools: Bash(bash:*)
 
 ## Resource Routing
 
-- `scripts/gen-table-test.sh` - Run when generating a table-driven test scaffold.
+- `scripts/gen-table-test.sh` - Run from the project as `bash <installed-skill-dir>/scripts/gen-table-test.sh <FuncName> <package>` when generating a table-driven test scaffold.
 - `assets/table-test-template.go` - Use as a copyable table-test starting point.
 - `references/TEST-ORGANIZATION.md` - Read when choosing or naming test doubles, structuring packages, black-box tests, or larger test suites.
 - `references/VALIDATION-APIS.md` - Read when designing an exported validation function or a `*test` package that other packages' tests call.

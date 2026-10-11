@@ -144,6 +144,17 @@ outside this repository.
   a target: cut a skill only on measured evidence, never to hit a number.
 - Include validation guidance near the relevant command or rule when a
   deterministic check exists.
+- Keep `$` plus a digit, and `$ARGUMENTS`, out of `SKILL.md`: Claude Code
+  replaces them with the skill's arguments whenever it is invoked with any
+  (`/go-x a b`, or the Skill tool with `args`), inside code fences too. Prose
+  writes `$N`; code that needs a PostgreSQL placeholder writes `\$1`, which
+  reaches the model as `$1`. References are never substituted.
+  `TestSkillBodyArgumentPlaceholders` fails on an unescaped one.
+- Write a bundled script's command as
+  `bash <installed-skill-dir>/scripts/<name>.sh`, run from the target
+  project: a packager can drop the executable bit, and `allowed-tools`
+  grants only `Bash(bash:*)`. `TestScriptCommandsRunThroughBash` fails on a
+  written-out script path without `bash`.
 
 ## Reference Headers
 

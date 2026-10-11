@@ -4,6 +4,25 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **Skill arguments no longer rewrite SQL examples.** When a skill is
+  invoked with arguments, from `/go-database fix the query` or from a Skill
+  tool call with `args`, Claude Code replaces `$0`, `$1`, … and `$ARGUMENTS`
+  in its SKILL.md with the argument words, inside code fences too.
+  go-database's transfer example and query-loop advice and go-security's
+  tenant row carried PostgreSQL placeholders, so on Claude Code 2.1.296
+  `IN ($1, $2)` reached the model as `IN (and, fix)`. The transfer now writes
+  `\$1`, which Claude Code delivers as `$1`; the prose says `$N` or names the
+  parameter. `TestSkillBodyArgumentPlaceholders` fails on an unescaped
+  placeholder in any SKILL.md, and the authoring template states the rule.
+- **Bundled scripts run through `bash`.** go-code's gate list, and the
+  Validation notes of go-naming, go-documentation, and go-interfaces, named
+  a script by path alone; go-testing and go-code-refactor gave no command at
+  all. They now write `bash <installed-skill-dir>/scripts/<name>.sh`, as the
+  other skills already did, so a package that drops the executable bit
+  still runs and the skills' `allowed-tools: Bash(bash:*)` grant covers the
+  call. `TestScriptCommandsRunThroughBash` fails on a written-out script
+  path without `bash`.
+
 ## [1.31.3] - 2026-10-11
 
 - **A refactor loads go-testing.** The prompt hook names it without a

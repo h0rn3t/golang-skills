@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.32.1] - 2026-10-11
+
 - **A request body is not the caller's again when `Do` returns.** The
   Transport writes it on its own goroutine (`persistConn.writeLoop` on
   HTTP/1, `clientStream.writeRequestBody` on HTTP/2); a response answered

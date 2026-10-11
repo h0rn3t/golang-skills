@@ -3,7 +3,7 @@
 > Sources: `$GOROOT/api/go1.2*.txt`; `go tool fix help`; Go spec; package docs; JetBrains go-modern-guidelines `guidelines.json` at `155dc7c` (all 54 items cross-checked 2026-09-13; the write-time card is go-style-core's Current Go Idiom Card)
 > Authority: normative for tier placement; project policy for what may ride in a refactor
 > Minimum Go: gated by the `go` directive in `go.mod`, not the installed toolchain
-> Last verified: 2026-10-01
+> Last verified: 2026-10-11
 
 Check version claims against the installed toolchain using `COMPATIBILITY.md`.
 For existing code, work Tier 1, then conditional Tier 2; report Tier 3 changes
@@ -61,9 +61,12 @@ on existing code, and the `go fix` analyzer where one exists.
 - **`wg.Go`** (Go 1.25): preserve goroutine count and `Add`-before-start. If the
   old code calls `Add` inside the goroutine, correcting that race is a Tier 3
   fix for that call site. `go fix -waitgroupgo`.
-- **`strings.CutLast`, `bytes.CutLast`** (Go 1.27): check what the old `-1`
-  branch returned before folding it into `ok` — if it returned anything other
-  than `(s, "")`, the swap needs an explicit `if !ok`.
+- **`strings.Cut`, `bytes.Cut`** (Go 1.18) **and `CutLast`** (Go 1.27): without
+  the separator both return `(s, "", false)`, so check what the old `-1`
+  branch returned before folding it into `ok` — anything other than `(s, "")`
+  needs an explicit `if !ok`. A last-segment split modeled on `filepath.Split`
+  returned `("", s)`: unguarded, `CutLast` swaps the halves on an input
+  without the separator.
 - **Redundant type arguments in a conversion or a composite-literal element**
   (Go 1.27): `Folder(combine[int])` becomes `Folder(combine)` and
   `S{f: combine[int]}` becomes `S{f: combine}`, only at a `go 1.27` directive.

@@ -4,6 +4,22 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **A file's `//go:build` version governs that file.** go-style-core's
+  Write Current Go and `COMPATIBILITY.md` named only the module's `go`
+  directive. The compiler and `stdversion` check a file whose `//go:build`
+  line names a Go version at that version, above or below the directive and
+  never below 1.21 (`go/types` `max(fileVersion, go1.21)`): in a `go 1.24`
+  module, a file under `//go:build go1.21` rejects `for range n`, and a
+  file under `//go:build go1.22` in a `go 1.21` module may use it. Both
+  directions were checked with go1.27.1. Found in JetBrains
+  go-modern-guidelines PR #33.
+- **`strings.Cut` keeps its not-found guard on a swap.** MODERNIZATION.md
+  warned only about `CutLast`. `Cut` also returns `(s, "", false)` without
+  the separator, where an `Index`-based split may have returned `("", "")`.
+  The Tier 1 entry now covers both and names the `filepath.Split`-style
+  split that `CutLast` turns around. From JetBrains go-modern-guidelines
+  PR #20; its other five cases were already covered.
+
 ## [1.31.4] - 2026-10-11
 
 - **Skill arguments no longer rewrite SQL examples.** When a skill is

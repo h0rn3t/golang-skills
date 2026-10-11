@@ -42,7 +42,13 @@ The `go` directive of the module's `go.mod`. A `go.mod` with no `go` line is
 language version 1.16 ([go.dev/ref/mod](https://go.dev/ref/mod#go-mod-file-go)),
 and a `go.work` with none is 1.18; a workspace's directive selects the
 toolchain for the workspace and does not raise a member module's language
-version. A `toolchain` line, `GOTOOLCHAIN`, and the Go installed on the
+version. A file whose `//go:build` line names a Go version takes that
+version in either direction, raised to 1.21 when lower (`go/types` uses
+`max(fileVersion, go1.21)`), and `stdversion` follows it: on go1.27.1, a file
+under `//go:build go1.22` in a `go 1.21` module compiles `for range 3` and
+passes vet with `slices.Concat`, while a file under `//go:build go1.21` in a
+`go 1.24` module rejects the same loop with `requires go1.22 or later (file declares
+//go:build go1.21)`. A `toolchain` line, `GOTOOLCHAIN`, and the Go installed on the
 machine choose the compiler, not the language version: none of them makes a
 newer form legal, and bumping the directive is its own change
 (`skills/go-code-refactor/references/MODERNIZATION.md`, Tier 3). The

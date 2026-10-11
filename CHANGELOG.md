@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.31.4] - 2026-10-11
+
 - **Skill arguments no longer rewrite SQL examples.** When a skill is
   invoked with arguments, from `/go-database fix the query` or from a Skill
   tool call with `args`, Claude Code replaces `$0`, `$1`, … and `$ARGUMENTS`

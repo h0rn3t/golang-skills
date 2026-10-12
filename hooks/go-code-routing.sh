@@ -344,8 +344,16 @@ PostToolUse)
     exit 0
     ;;
 PreToolUse)
+    # apply_patch — це Codex: matcher Edit|Write його ловить, але tool_name
+    # лишається apply_patch, а патч лежить у command. Шлях у file_path тут
+    # не перетворюємо на вимогу Skill.
+    [[ "$tool" == "apply_patch" ]] && exit 0
     case "$path" in *.go) ;; *) exit 0 ;; esac
     [[ "${GOLANG_SKILLS_ROUTING_GATE:-}" == off ]] && exit 0
+    # Гейт лише на Claude Code: він експортує CLAUDE_PROJECT_DIR і шле Skill|Read.
+    # Codex ставить PLUGIN_ROOT (і CLAUDE_PLUGIN_ROOT). Хост із Edit, але без
+    # цих подій, інакше блокує кожну правку, а третя спроба зупиняє сесію.
+    [[ -n "${CLAUDE_PROJECT_DIR:-}" && -z "${PLUGIN_ROOT:-}" ]] || exit 0
     routers=""
     for r in go-code go-code-refactor go-code-review; do
         has "$loaded" "$r" && routers+="$r "

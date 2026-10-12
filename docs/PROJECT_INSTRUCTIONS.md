@@ -51,9 +51,50 @@ Claude Code with the skills copied into `~/.claude/skills/` instead of the
 plugin runs none of these hooks and registers bare names: use the block above
 with `go-code`, `go-code-refactor`, and `go-style-core`.
 
+## OpenCode + Muse Spark (1.3)
+
+OpenCode discovers skills from its home-derived directories, by default
+`~/.config/opencode/skills/go-*/` (also `~/.opencode`, `~/.claude`,
+`~/.agents`). Install the pack there and start a new session. There are no
+Claude plugin hooks here: the `go-check-receipt.sh` / `hook_credit=true`
+flow does not apply (opencode runs the normal `go-linting` gate directly).
+
+In the project's `AGENTS.md` (the file OpenCode reads for project
+instructions):
+
+```markdown
+## Go work (OpenCode + Muse Spark)
+
+The golang-skills pack is installed in `~/.config/opencode/skills`.
+Before the first edit of a `.go` file, in one message:
+
+1. Load the router with the skill tool: `go-code` to write or fix Go,
+   `go-code-refactor` for a behavior-preserving refactor.
+   Fallback when the skill tool is unavailable: read whole
+   `~/.config/opencode/skills/go-code/SKILL.md` (or `go-code-refactor/SKILL.md`).
+2. Load `go-style-core` the same way; it carries the idiom card.
+3. Load only the owner skills the router's "Route Before The First Edit" table
+   names for this task, never the whole pack. Wait for all loads before editing.
+
+No hook checks this here: name the skills you loaded before the first edit.
+Close with the router's verification gate run directly:
+
+- `gofmt -l`, `go vet`, `go test -race`, `golangci-lint` from the target module.
+- Report each as `pass` / `fail` / `unavailable (reason)`; silence is never pass.
+- Do not wait for a hook receipt; there is none on this host.
+- Bundled checks run as `bash <installed-skill-dir>/../go-<area>/scripts/*.sh`.
+- Keep subagents bounded: one routine edit stays in this session, no fan-out
+  just to repeat a check.
+```
+
+Replace `~/.config/opencode/skills` with the install directory when it
+differs. The batch load in one message matters for Spark: sequential
+load-then-edit turns cost one skipped load into a failed edit, and the
+`agent.build.steps` ceiling in `opencode.json` punishes the retry loop.
+
 ## Clients without these hooks
 
-Codex, opencode, GitHub Copilot, Cursor, and any other client that reads the
+Codex, GitHub Copilot, Cursor, and any other client that reads the
 skills from a directory. In `AGENTS.md`, or the file the client reads for project
 instructions:
 

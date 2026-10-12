@@ -63,6 +63,25 @@
 # Sonnet 5 medium read it (0/24 on 2026-09-18).
 set -u
 
+# Корінь плагіна: skills/ лежить поруч із hooks/.
+plugin_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# claude_note — нотатка Claude лишається рядком роутера. Інший хост не має
+# Skill tool: CLAUDE_PROJECT_DIR ставить лише Claude Code, PLUGIN_ROOT — Codex.
+claude_note() {
+    [[ -n "${CLAUDE_PROJECT_DIR:-}" && -z "${PLUGIN_ROOT:-}" ]]
+}
+
+# read_alt <skill> — порожньо на Claude; інакше абсолютний SKILL.md, щоб файл
+# прочитали цілком. Вставка стоїть перед дужкою, тож порожній результат не
+# змінює рядок роутера.
+read_alt() {
+    if claude_note; then
+        return 0
+    fi
+    printf ', or read %s/skills/%s/SKILL.md whole' "$plugin_root" "$1"
+}
+
 input="$(cat)"
 command -v python3 >/dev/null 2>&1 || exit 0
 
@@ -317,14 +336,14 @@ if [[ "$skill" == "go-code-review" && "$mode" != "slash" ]]; then
     else
         printf 'golang-skills: this prompt looks like %s.\n' "$kind"
     fi
-    printf 'Before the first finding, load the `%s` skill (Skill tool, name `%s`); %s.\n' "$(q "$skill")" "$(q "$skill")" "$what"
+    printf 'Before the first finding, load the `%s` skill (Skill tool, name `%s`%s); %s.\n' "$(q "$skill")" "$(q "$skill")" "$(read_alt "$skill")" "$what"
     [[ "$mode" == "mention" ]] || printf 'If the task is not Go work, ignore this note.\n'
     exit 0
 fi
 # A diagnosis edits nothing: one skill, named before the answer.
 if [[ "$skill" == "go-troubleshooting" ]]; then
     printf 'golang-skills: this prompt looks like %s.\n' "$kind"
-    printf 'Before answering, load the `%s` skill (Skill tool, name `%s`); it traces the fault back to where the bad value came from before any fix.\n' "$(q "$skill")" "$(q "$skill")"
+    printf 'Before answering, load the `%s` skill (Skill tool, name `%s`%s); it traces the fault back to where the bad value came from before any fix.\n' "$(q "$skill")" "$(q "$skill")" "$(read_alt "$skill")"
     exit 0
 fi
 owners=""
@@ -346,9 +365,9 @@ fi
 #     v1.27.1's level (n=3).
 # A slash command has already inserted the router, so its line starts at
 # go-style-core.
-tt="\`$(q go-testing)\` (Skill tool, name \`$(q go-testing)\`)"
+tt="\`$(q go-testing)\` (Skill tool, name \`$(q go-testing)\`$(read_alt go-testing))"
 if [[ "$mode" == "slash" ]]; then
-    line="Load \`$(q go-style-core)\` (Skill tool, name \`$(q go-style-core)\`)"
+    line="Load \`$(q go-style-core)\` (Skill tool, name \`$(q go-style-core)\`$(read_alt go-style-core))"
     sep="; "
     owners_lead=", and the owners its code points at: "
 else
@@ -358,7 +377,7 @@ else
 fi
 if [[ -n "$owners" ]]; then
     list=""
-    for o in $owners; do list+="\`$(q "$o")\` (Skill tool, name \`$(q "$o")\`), "; done
+    for o in $owners; do list+="\`$(q "$o")\` (Skill tool, name \`$(q "$o")\`$(read_alt "$o")), "; done
     line+="${owners_lead}${list%, }"
     sep="; "
 elif [[ "$skill" == "go-code" && "$mode" != "slash" ]]; then
@@ -381,7 +400,7 @@ fi
 line+='. All of them in one message, before the first edit.'
 line+=' Wait for successful Skill results; do not put Edit, Write or MultiEdit in the skill-loading tool message.'
 if [[ "$skill" != go-code-review ]]; then
-    line+=" If Bash is available, also load \`$(q go-linting)\` (Skill tool, name \`$(q go-linting)\`) in that message; after the final edit run the receipt verifier before other verification commands."
+    line+=" If Bash is available, also load \`$(q go-linting)\` (Skill tool, name \`$(q go-linting)\`$(read_alt go-linting)) in that message; after the final edit run the receipt verifier before other verification commands."
 fi
 if [[ "$mode" == "slash" ]]; then
     printf 'golang-skills: the `/%s` command inserted that skill file and loaded nothing else.\n' "$skill"
@@ -393,8 +412,8 @@ if [[ "$mode" == "mention" ]]; then
 else
     printf 'golang-skills: this prompt looks like %s.\n' "$kind"
 fi
-printf 'Before the first edit, load the `%s` skill (Skill tool, name `%s`) and the `%s` skill (Skill tool, name `%s`)%s\n' \
-    "$(q "$skill")" "$(q "$skill")" "$(q go-style-core)" "$(q go-style-core)" "$line"
+printf 'Before the first edit, load the `%s` skill (Skill tool, name `%s`%s) and the `%s` skill (Skill tool, name `%s`%s)%s\n' \
+    "$(q "$skill")" "$(q "$skill")" "$(read_alt "$skill")" "$(q go-style-core)" "$(q go-style-core)" "$(read_alt go-style-core)" "$line"
 printf '`%s` %s.\n' "$(q "$skill")" "${what#it }"
 [[ "$mode" == "mention" ]] || printf 'If the task is not Go work, ignore this note.\n'
 exit 0

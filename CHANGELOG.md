@@ -4,6 +4,19 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **OpenCode + Muse Spark project block.** `docs/PROJECT_INSTRUCTIONS.md`
+  gains a dedicated section: install path `~/.config/opencode/skills`,
+  one-message batch load of router + `go-style-core` + owners via the skill
+  tool (file-read fallback), direct `go-linting` gate with no hook receipts,
+  and bounded subagents under the `agent.build.steps` ceiling.
+- **Hooks pass on a host that does not load skills.** Each `hooks.json`
+  command exits 0 when `${CLAUDE_PLUGIN_ROOT}` does not point at the script,
+  so a missing plugin root is not a preToolUse denial. The routing gate
+  blocks a `.go` edit only for Claude Code (`CLAUDE_PROJECT_DIR` set and
+  `PLUGIN_ROOT` unset); Codex `apply_patch` and any other Edit-shaped host
+  pass. Prompt and subagent notes on that other host add an absolute
+  `SKILL.md` path. The Claude router line is unchanged.
+
 ## [1.35.0] - 2026-10-12
 
 - **The idiom card keeps what a model misses, and the traps of the rest.**

@@ -18,10 +18,12 @@ func hookEvent(t *testing.T, script, state string, payload map[string]any) (int,
 	return code, stderr
 }
 
-// hookOutput runs a hook the way the host runs a plugin hook:
-// CLAUDE_PLUGIN_ROOT points at the checkout, CLAUDE_PLUGIN_DATA at state, and
-// env is appended last and overrides both. It returns the exit code, stdout,
-// and stderr: the gate reports a session stop as JSON on stdout.
+// hookOutput runs a hook the way Claude Code runs a plugin hook:
+// CLAUDE_PLUGIN_ROOT points at the checkout, CLAUDE_PROJECT_DIR marks the host
+// (the routing gate stays off without it), CLAUDE_PLUGIN_DATA is state, and
+// env is appended last and overrides all of them. PLUGIN_ROOT is cleared so an
+// inherited Codex variable does not silence the gate. It returns the exit code,
+// stdout, and stderr: the gate reports a session stop as JSON on stdout.
 func hookOutput(t *testing.T, script, state string, payload map[string]any, env ...string) (int, string, string) {
 	t.Helper()
 	body, err := json.Marshal(payload)
@@ -30,7 +32,13 @@ func hookOutput(t *testing.T, script, state string, payload map[string]any, env 
 	}
 	cmd := exec.Command("bash", script)
 	cmd.Stdin = strings.NewReader(string(body))
-	cmd.Env = append(append(os.Environ(), "CLAUDE_PLUGIN_ROOT="+repoRoot(t), "CLAUDE_PLUGIN_DATA="+state), env...)
+	// PLUGIN_ROOT сюди не ставимо: go-check-receipt.py хешує середовище, і
+	// порожня змінна відрізняється від невстановленої. Гейт вважає її
+	// відсутність ознакою Claude.
+	cmd.Env = append(append(os.Environ(),
+		"CLAUDE_PLUGIN_ROOT="+repoRoot(t),
+		"CLAUDE_PLUGIN_DATA="+state,
+		"CLAUDE_PROJECT_DIR="+repoRoot(t)), env...)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -79,7 +87,7 @@ func TestHookScriptsSyntax(t *testing.T) {
 	for event, entries := range manifest.Hooks {
 		for _, entry := range entries {
 			for _, h := range entry.Hooks {
-				// Commands look like: bash "${CLAUDE_PLUGIN_ROOT}/hooks/<name>.sh"
+				// Команда: [ -f "${CLAUDE_PLUGIN_ROOT}/hooks/<name>.sh" ] || exit 0; exec bash .../<name>.sh
 				start := strings.Index(h.Command, "/hooks/")
 				end := strings.Index(h.Command, ".sh")
 				if start < 0 || end < 0 {
@@ -89,6 +97,9 @@ func TestHookScriptsSyntax(t *testing.T) {
 				seen[script] = true
 				if _, err := os.Stat(script); err != nil {
 					t.Errorf("%s hook points at a missing script: %s", event, script)
+				}
+				if !strings.Contains(h.Command, `[ -f "`) || !strings.Contains(h.Command, `] || exit 0; exec bash `) {
+					t.Errorf("%s hook must exit 0 when the plugin script is absent: %q", event, h.Command)
 				}
 			}
 		}
@@ -871,7 +882,7 @@ func hookEventEnv(t *testing.T, script, state string, payload map[string]any, en
 
 // promptEvent runs the UserPromptSubmit hook and returns its exit code and
 // stdout, which is what the host adds to the model's context. Like hookOutput
-// it sets CLAUDE_PLUGIN_ROOT to the checkout; env comes last.
+// it marks the host as Claude Code; env comes last.
 func promptEvent(t *testing.T, state, session, cwd, prompt string, env ...string) (int, string) {
 	t.Helper()
 	body, err := json.Marshal(map[string]any{
@@ -885,7 +896,11 @@ func promptEvent(t *testing.T, state, session, cwd, prompt string, env ...string
 	}
 	cmd := exec.Command("bash", filepath.Join(repoRoot(t), "hooks", "go-prompt-routing.sh"))
 	cmd.Stdin = strings.NewReader(string(body))
-	cmd.Env = append(append(os.Environ(), "CLAUDE_PLUGIN_ROOT="+repoRoot(t), "CLAUDE_PLUGIN_DATA="+state), env...)
+	cmd.Env = append(append(os.Environ(),
+		"CLAUDE_PLUGIN_ROOT="+repoRoot(t),
+		"CLAUDE_PLUGIN_DATA="+state,
+		"CLAUDE_PROJECT_DIR="+repoRoot(t),
+		"PLUGIN_ROOT="), env...)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -1399,7 +1414,7 @@ func TestPromptRouting(t *testing.T) {
 
 // subagentEvent runs the SubagentStart hook and returns its exit code and
 // stdout, which the host adds to the subagent's context.
-func subagentEvent(t *testing.T, event, cwd, agentType string) (int, string) {
+func subagentEvent(t *testing.T, event, cwd, agentType string, env ...string) (int, string) {
 	t.Helper()
 	body, err := json.Marshal(map[string]any{
 		"hook_event_name": event,
@@ -1413,7 +1428,10 @@ func subagentEvent(t *testing.T, event, cwd, agentType string) (int, string) {
 	}
 	cmd := exec.Command("bash", filepath.Join(repoRoot(t), "hooks", "go-subagent-routing.sh"))
 	cmd.Stdin = strings.NewReader(string(body))
-	cmd.Env = append(os.Environ(), "CLAUDE_PLUGIN_ROOT="+repoRoot(t))
+	cmd.Env = append(append(os.Environ(),
+		"CLAUDE_PLUGIN_ROOT="+repoRoot(t),
+		"CLAUDE_PROJECT_DIR="+repoRoot(t),
+		"PLUGIN_ROOT="), env...)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -1654,6 +1672,193 @@ func TestLadderHook(t *testing.T) {
 		t.Parallel()
 		if code, out := ladderEvent(t, t.TempDir(), subagent("l9", "Plan")); code != 0 || !strings.Contains(out, "## The Restraint Ladder") {
 			t.Errorf("Plan subagent: exit %d, stdout %q; want the ladder", code, out)
+		}
+	})
+}
+
+// TestForeignHostHooks перевіряє доставку хуків поза Claude Code.
+// Codex шле apply_patch (matcher Edit|Write його все одно запускає).
+// Copilot без CLAUDE_PLUGIN_ROOT не повинен отримувати ненульовий код.
+// Хост із Edit, але без подій Skill|Read, не блокує правку.
+func TestForeignHostHooks(t *testing.T) {
+	t.Parallel()
+	script := filepath.Join(repoRoot(t), "hooks", "go-code-routing.sh")
+	handler := map[string]any{"file_path": "/repo/api/handler.go", "content": "package api\n"}
+
+	t.Run("apply_patch exits 0", func(t *testing.T) {
+		t.Parallel()
+		payload := routingPayload("PreToolUse", "codex", "apply_patch", map[string]any{
+			"command":   "*** Begin Patch\n*** Update File: /repo/api/handler.go\n+package api\n",
+			"file_path": "/repo/api/handler.go",
+		})
+		if code, _, msg := hookOutput(t, script, t.TempDir(), payload); code != 0 || msg != "" {
+			t.Fatalf("apply_patch: exit %d, stderr %q; want 0", code, msg)
+		}
+	})
+
+	t.Run("edit without Claude skill events exits 0", func(t *testing.T) {
+		t.Parallel()
+		for _, env := range []string{"CLAUDE_PROJECT_DIR=", "PLUGIN_ROOT=" + t.TempDir()} {
+			code, msg := hookEventEnv(t, script, t.TempDir(), routingPayload("PreToolUse", "other", "Write", handler), env)
+			if code != 0 || msg != "" {
+				t.Fatalf("edit with %s: exit %d, stderr %q; want 0", env, code, msg)
+			}
+		}
+	})
+
+	t.Run("hooks.json exits 0 without CLAUDE_PLUGIN_ROOT", func(t *testing.T) {
+		t.Parallel()
+		raw, err := os.ReadFile(filepath.Join(repoRoot(t), "hooks", "hooks.json"))
+		if err != nil {
+			t.Fatalf("read hooks.json: %v", err)
+		}
+		var manifest struct {
+			Hooks map[string][]struct {
+				Hooks []struct {
+					Command string `json:"command"`
+				} `json:"hooks"`
+			} `json:"hooks"`
+		}
+		if err := json.Unmarshal(raw, &manifest); err != nil {
+			t.Fatalf("hooks.json: %v", err)
+		}
+		body := `{"hook_event_name":"PreToolUse","session_id":"copilot","tool_name":"Write","tool_input":{"file_path":"/repo/api/handler.go","content":"package api\n"}}`
+		var ran int
+		for _, entries := range manifest.Hooks {
+			for _, entry := range entries {
+				for _, h := range entry.Hooks {
+					ran++
+					cmd := exec.Command("bash", "-c", h.Command)
+					cmd.Stdin = strings.NewReader(body)
+					cmd.Env = append(os.Environ(), "CLAUDE_PLUGIN_ROOT=", "CLAUDE_PROJECT_DIR=", "PLUGIN_ROOT=")
+					out, err := cmd.CombinedOutput()
+					if err == nil {
+						continue
+					}
+					exitErr, ok := err.(*exec.ExitError)
+					if !ok || exitErr.ExitCode() != 0 {
+						code := -1
+						if ok {
+							code = exitErr.ExitCode()
+						}
+						t.Errorf("%s: exit %d, output %q; want 0", h.Command, code, out)
+					}
+				}
+			}
+		}
+		if ran == 0 {
+			t.Fatal("hooks.json has no commands")
+		}
+	})
+
+	t.Run("guard still runs the routing gate on Claude", func(t *testing.T) {
+		t.Parallel()
+		raw, err := os.ReadFile(filepath.Join(repoRoot(t), "hooks", "hooks.json"))
+		if err != nil {
+			t.Fatalf("read hooks.json: %v", err)
+		}
+		var manifest struct {
+			Hooks map[string][]struct {
+				Hooks []struct {
+					Command string `json:"command"`
+				} `json:"hooks"`
+			} `json:"hooks"`
+		}
+		if err := json.Unmarshal(raw, &manifest); err != nil {
+			t.Fatalf("hooks.json: %v", err)
+		}
+		var command string
+		for _, entry := range manifest.Hooks["PreToolUse"] {
+			for _, h := range entry.Hooks {
+				if strings.Contains(h.Command, "go-code-routing.sh") {
+					command = h.Command
+				}
+			}
+		}
+		if command == "" {
+			t.Fatal("PreToolUse has no go-code-routing.sh command")
+		}
+		cmd := exec.Command("bash", "-c", command)
+		cmd.Stdin = strings.NewReader(`{"hook_event_name":"PreToolUse","session_id":"claude","tool_name":"Write","tool_input":{"file_path":"/repo/api/handler.go","content":"package api\n"}}`)
+		cmd.Env = append(os.Environ(),
+			"CLAUDE_PLUGIN_ROOT="+repoRoot(t),
+			"CLAUDE_PLUGIN_DATA="+t.TempDir(),
+			"CLAUDE_PROJECT_DIR="+repoRoot(t),
+			"PLUGIN_ROOT=")
+		out, err := cmd.CombinedOutput()
+		exitErr, ok := err.(*exec.ExitError)
+		if !ok || exitErr.ExitCode() != 2 || !strings.Contains(string(out), "go-code") {
+			code := 0
+			if ok {
+				code = exitErr.ExitCode()
+			}
+			t.Fatalf("Claude guard: exit %d, output %q; want 2 naming go-code", code, out)
+		}
+	})
+}
+
+// noteLinesWithSkillTool вимагає, щоб кожен рядок із Skill tool давав шлях до файлу.
+func noteLinesWithSkillTool(t *testing.T, out, skillPath string) {
+	t.Helper()
+	if !strings.Contains(out, "or read "+skillPath+" whole") {
+		t.Errorf("note = %q, want %q", out, "or read "+skillPath+" whole")
+	}
+	var saw bool
+	for _, line := range strings.Split(out, "\n") {
+		if !strings.Contains(line, "Skill tool") {
+			continue
+		}
+		saw = true
+		if !strings.Contains(line, "or read ") {
+			t.Errorf("line %q has Skill tool and no read path", line)
+		}
+	}
+	if !saw {
+		t.Errorf("note = %q, want a Skill tool line", out)
+	}
+}
+
+func TestNonClaudeNoteGivesSkillPath(t *testing.T) {
+	t.Parallel()
+	const prompt = "Implement the Go package in ./feed."
+	root := repoRoot(t)
+	codePath := filepath.Join(root, "skills", "go-code", "SKILL.md")
+
+	t.Run("prompt", func(t *testing.T) {
+		t.Parallel()
+		code, out := promptEvent(t, t.TempDir(), "foreign-prompt", t.TempDir(), prompt, "CLAUDE_PROJECT_DIR=")
+		if code != 0 {
+			t.Fatalf("prompt: exit %d, want 0", code)
+		}
+		noteLinesWithSkillTool(t, out, codePath)
+	})
+
+	t.Run("prompt keeps the Claude router line", func(t *testing.T) {
+		t.Parallel()
+		_, out := promptEvent(t, t.TempDir(), "claude-prompt", t.TempDir(), prompt)
+		if strings.Contains(out, "or read ") {
+			t.Fatalf("Claude note changed:\n%s", out)
+		}
+		const want = "load the `golang-skills:go-code` skill (Skill tool, name `golang-skills:go-code`) and the `golang-skills:go-style-core` skill (Skill tool, name `golang-skills:go-style-core`)"
+		if !strings.Contains(out, want) {
+			t.Fatalf("Claude note = %q, want %q", out, want)
+		}
+	})
+
+	t.Run("subagent", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module scratch\n\ngo 1.27\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		code, out := subagentEvent(t, "SubagentStart", dir, "general-purpose", "CLAUDE_PROJECT_DIR=")
+		if code != 0 {
+			t.Fatalf("subagent: exit %d, want 0", code)
+		}
+		noteLinesWithSkillTool(t, out, codePath)
+		style := filepath.Join(root, "skills", "go-style-core", "SKILL.md")
+		if !strings.Contains(out, "or read "+style+" whole") {
+			t.Errorf("subagent note = %q, want %s", out, style)
 		}
 	})
 }

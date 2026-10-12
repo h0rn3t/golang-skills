@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.33.0] - 2026-10-12
+
 - **A `claude plugin eval` suite.** `plugin-evals/` holds 16 cases drawn
   from the validation set of `evals/evals.json`: ten trigger cases scored
   on whether the expected skill fires, three negatives where no `go-*`

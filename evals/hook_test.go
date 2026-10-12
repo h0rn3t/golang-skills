@@ -343,9 +343,10 @@ func TestRoutingGate(t *testing.T) {
 	})
 
 	// --hints runs the same owner table over whole files for the prompt hook:
-	// a handler names go-http and go-error-handling, a test file go-testing,
-	// a missing file nothing, and a query go-database and go-error-handling,
-	// as the go-code SQL row loads both.
+	// a handler that wraps errors names go-http and go-error-handling, a test
+	// file go-testing, a missing file nothing, and a query with no error code
+	// go-database alone: neither the HTTP nor the SQL row loads
+	// go-error-handling by itself.
 	t.Run("hints mode names owners for files", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
@@ -372,7 +373,7 @@ func TestRoutingGate(t *testing.T) {
 		if err != nil {
 			t.Fatalf("--hints %s: %v", db, err)
 		}
-		if got, want := strings.TrimSpace(string(out)), "go-database go-error-handling"; got != want {
+		if got, want := strings.TrimSpace(string(out)), "go-database"; got != want {
 			t.Fatalf("--hints on a database/sql file = %q, want %q", got, want)
 		}
 	})
@@ -1136,14 +1137,18 @@ func TestPromptRouting(t *testing.T) {
 
 	// The VS Code extension prepends its context to the prompt. On 2026-10-11
 	// the opened path below routed a request to study a paper as a refactor:
-	// `golang` named Go and `MODERNIZATION` matched the refactor wording.
+	// `golang` named Go and `MODERNIZATION` matched the refactor wording. A
+	// subagent's report arrives the same way; on 2026-10-12 one was routed as
+	// a refactor by "go test" and "unreadable".
 	t.Run("IDE context is not the prompt", func(t *testing.T) {
 		t.Parallel()
 		const opened = "<ide_opened_file>The user opened the file /home/u/golang-skills/skills/go-code-refactor/references/MODERNIZATION.md in the IDE. This may or may not be related to the current task.</ide_opened_file>"
 		const selected = "<ide_selection>The user selected the lines 1 to 1 from /repo/feed/feed.go:\nrefactor this Go handler\n\nThis may or may not be related to the current task.</ide_selection>"
+		const handback = "Another Claude session sent a message:\n<agent-message from=\"a4c4d4fd71a463589\">\n[Subagent hand-back] The report follows:\n  There are no custom-code graders, so go test cannot be a grader. The eval dir is unreadable to the agent.\n</agent-message>\n\nThat \"other Claude session\" is an agent working inside this same session."
 		for _, prompt := range []string{
 			opened + "вивчи статтю https://arxiv.org/html/2607.25032v1 як можно покращити скіли ще",
 			selected + "what does this paper say about skill descriptions",
+			handback,
 		} {
 			if code, out := promptEvent(t, t.TempDir(), "p25", goRepo(t), prompt); code != 0 || out != "" {
 				t.Errorf("%q: exit %d, stdout %q; want silent 0", prompt, code, out)
@@ -1151,6 +1156,21 @@ func TestPromptRouting(t *testing.T) {
 		}
 		if _, out := promptEvent(t, t.TempDir(), "p26", t.TempDir(), opened+implement); !strings.Contains(out, "`golang-skills:go-code`") || strings.Contains(out, "go-code-refactor") {
 			t.Errorf("implement prompt after IDE context: stdout %q; want go-code", out)
+		}
+	})
+
+	// A pasted trace with no work verb is a diagnosis: Sonnet 5.5 answered it
+	// without go-troubleshooting in 7 of 7 plugin-eval runs. A fix request
+	// with the same trace stays with go-code.
+	t.Run("a pasted trace names go-troubleshooting", func(t *testing.T) {
+		t.Parallel()
+		const trace = "panic: runtime error: invalid memory address or nil pointer dereference — goroutine 42 [running]: main.(*Server).handle(0xc000010000, {0x0, 0x0})"
+		code, out := promptEvent(t, t.TempDir(), "p29", t.TempDir(), trace+" — what does this mean?")
+		if code != 0 || !strings.Contains(out, "Skill tool, name `golang-skills:go-troubleshooting`") || strings.Contains(out, "go-code") {
+			t.Errorf("trace question: exit %d, stdout %q; want a go-troubleshooting note alone", code, out)
+		}
+		if _, out := promptEvent(t, t.TempDir(), "p30", t.TempDir(), "Fix this: "+trace); !strings.Contains(out, "`golang-skills:go-code`") || strings.Contains(out, "go-troubleshooting") {
+			t.Errorf("fix request with a trace: stdout %q; want go-code", out)
 		}
 	})
 

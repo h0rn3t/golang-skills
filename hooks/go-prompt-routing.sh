@@ -11,13 +11,16 @@
 #   review wording    -> go-code-review    (review, audit, ...)
 #   refactor wording  -> go-code-refactor  (refactor, clean up, simplify, split, ...)
 #   other Go work     -> go-code           (implement, write, add, fix, ...)
+#   pasted Go trace   -> go-troubleshooting (panic: or fatal error: with a goroutine header, no work verb)
 #   prose edits       -> no note           (translate into a human language, grammar)
 #
 # Go work is a prompt that names Go (the word Go, golang, a .go file, go.mod,
 # goroutines, a go subcommand) or a prompt sent from a directory holding
 # go.mod or *.go files within two levels. A read-only question about Go code
-# gets no note: it starts no edit router. Text an IDE host adds to the prompt
-# (<ide_opened_file>, <ide_selection>) is removed before any of these tests.
+# gets no note: it starts no edit router. A pasted panic or goroutine trace is
+# the exception, since its diagnosis is go-troubleshooting work. Text an IDE
+# host adds to the prompt (<ide_opened_file>, <ide_selection>) is removed
+# before any of these tests.
 #
 # A prompt naming a router in its text (`use go-code`, `$go-code-refactor`,
 # `/opsx:apply add-auth /go-code`) selects that router instead of silencing
@@ -82,8 +85,10 @@ if not isinstance(prompt, str):
 # and <ide_selection> carries the selected text. On 2026-10-11 the opened path
 # .../golang-skills/.../MODERNIZATION.md alone routed "study this paper" as a
 # refactor: `golang` named Go and `MODERNIZATION` matched the refactor wording.
-# Only the words the user typed are classified.
-prompt = re.sub(r"<(ide_[a-z_]+)\b[^>]*>.*?</\1>", " ", prompt, flags=re.S)
+# A report from a subagent reaches this event the same way, wrapped in
+# <agent-message>: on 2026-10-12 "go test" and "unreadable" in one routed it as
+# a refactor. Only the words the user typed are classified.
+prompt = re.sub(r"<(ide_[a-z_]+|agent-message)\b[^>]*>.*?</\1>", " ", prompt, flags=re.S)
 if not prompt.strip():
     sys.exit(0)
 # A slash command raises this event and no other: the host expands it, inserts
@@ -237,7 +242,16 @@ question = navigate and (prompt.strip().endswith("?") or re.match(
 # "what is wrong, and the fix", and `fix` used to send it to go-code with the
 # condition "before the first edit", which a review never reaches.
 review = re.compile(r"\b(?:review\w*|audit\w*|рев[ьи]ю\w*|ревью\w*)\b", re.I)
-if question:
+# A pasted runtime trace with no work verb asks what went wrong. Sonnet 5.5
+# answered "panic: ... goroutine 42 [running]: ... what does this mean?" without
+# go-troubleshooting in 7 of 7 plugin-eval runs (2026-10-12) and offered a nil
+# check at the faulting line; with the skill loaded, 5 of 5 traced the nil to
+# its origin and 0 of 5 without it. "Fix this panic" keeps go-code, whose
+# route table sends an unknown cause to go-troubleshooting.
+trace = re.search(r"\b(?:panic|fatal error): ", prompt) and re.search(r"\bgoroutine \d+ \[", prompt)
+if trace and not work.search(prompt):
+    skill, kind = "go-troubleshooting", "a pasted Go panic or goroutine trace"
+elif question:
     sys.exit(0)
 elif subtract.search(prompt):
     skill, kind = "go-code-refactor", "a behavior-preserving refactor"
@@ -305,6 +319,12 @@ if [[ "$skill" == "go-code-review" && "$mode" != "slash" ]]; then
     fi
     printf 'Before the first finding, load the `%s` skill (Skill tool, name `%s`); %s.\n' "$(q "$skill")" "$(q "$skill")" "$what"
     [[ "$mode" == "mention" ]] || printf 'If the task is not Go work, ignore this note.\n'
+    exit 0
+fi
+# A diagnosis edits nothing: one skill, named before the answer.
+if [[ "$skill" == "go-troubleshooting" ]]; then
+    printf 'golang-skills: this prompt looks like %s.\n' "$kind"
+    printf 'Before answering, load the `%s` skill (Skill tool, name `%s`); it traces the fault back to where the bad value came from before any fix.\n' "$(q "$skill")" "$(q "$skill")"
     exit 0
 fi
 owners=""

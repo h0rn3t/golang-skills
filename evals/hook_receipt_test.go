@@ -176,7 +176,7 @@ func TestPromptStubHints(t *testing.T) {
 		{"dot signature", "package stub\nimport . \"context\"\nfunc Run(c Context) { panic(\"not implemented\") }\n", []string{"go-context"}, nil},
 		{"comments and strings are not imports", "package stub\n// import \"sync\"\n// context.WithCancel and errors.New are examples, not this contract.\nvar text = `import \"log/slog\"; sync.Mutex; go func`\nfunc Run() { panic(\"not implemented\") }\n", nil, []string{"go-context", "go-concurrency", "go-error-handling", "go-logging"}},
 		{"foreign aliases are not standard owners", "package stub\nimport (sync \"example.com/locks\"; context \"example.com/ctx\")\nfunc Run(c context.Context, m sync.Mutex) { panic(\"not implemented\") }\n", nil, []string{"go-context", "go-concurrency"}},
-		{"existing HTTP signature", "package stub\nimport \"net/http\"\nfunc Run(r *http.Request) { panic(\"not implemented\") }\n", []string{"go-http", "go-error-handling"}, nil},
+		{"existing HTTP signature", "package stub\nimport \"net/http\"\nfunc Run(r *http.Request) { panic(\"not implemented\") }\n", []string{"go-http"}, []string{"go-error-handling"}},
 		{"existing security and resilience imports", "package stub\nimport (\"html/template\"; \"crypto/rand\"; \"golang.org/x/time/rate\")\nfunc Run(t *template.Template, limiter *rate.Limiter) { rand.Read(nil); panic(\"not implemented\") }\n", []string{"go-security", "go-resilience"}, nil},
 		{"raw stub contract", "// Package stub runs jobs on bounded workers.\npackage stub\nfunc Run() { panic(`not implemented`) }\n", []string{"go-concurrency"}, nil},
 		{"raw sample is not a stub", "// Sample of bounded workers.\npackage stub\nvar sample = `panic(\"not implemented\")`\nfunc Run() {}\n", nil, []string{"go-concurrency"}},

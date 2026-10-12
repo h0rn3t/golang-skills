@@ -76,7 +76,7 @@ behavior-preserving changes. Skills link to siblings relatively
 (`../go-x/SKILL.md#anchor`) so the same tree works under Codex, Cursor, or
 copied into `~/.claude/skills/`.
 
-`hooks/hooks.json` wires five scripts that make the routing enforceable in
+`hooks/hooks.json` wires six scripts that make the routing enforceable in
 Claude Code:
 
 - `go-code-routing.sh`: PostToolUse on `Skill|Read` records loaded skills;
@@ -101,7 +101,14 @@ Claude Code:
   `lite`/`full`/`ultra` row from go-code's Intensity table, both read at run
   time; UserPromptSubmit records a level word in `<state>/intensity`.
   `GOLANG_SKILLS_LADDER=lite|full|ultra|off`.
-`evals/hook_test.go` drives all five.
+- `go-verification-routing.sh`: in a session with a router loaded,
+  PreToolUse on `Bash` blocks a repeated runtime check after a Go edit until
+  `go-linting` is loaded and the receipt verifier the edit hook printed was
+  attempted; Stop blocks a final message whose `pass (hook)` /
+  `pass (receipt)` claims lack current verifier credits.
+  `GOLANG_SKILLS_VERIFICATION_GATE=off` disables it.
+`evals/hook_test.go` drives the first five; `evals/verification_routing_test.go`
+drives the sixth.
 
 ### Rule ownership
 

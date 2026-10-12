@@ -542,10 +542,9 @@
     {
       "query": "Напиши репозиторій на Go для таблиці users через database/sql з методами Create та ByID",
       "should_trigger": [
-        "go-database",
-        "go-error-handling"
+        "go-database"
       ],
-      "notes": "Ukrainian prompt; repository with not-found mapping",
+      "notes": "Ukrainian prompt; repository with not-found mapping, which go-database owns (sql.ErrNoRows)",
       "set": "validation"
     },
     {

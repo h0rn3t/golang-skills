@@ -1,5 +1,5 @@
 ---
-description: 'Ukrainian prompt; repository with not-found mapping'
+description: 'Ukrainian prompt; repository with not-found mapping, which go-database owns'
 tags: [trigger]
 runs: 3
 max_turns: 10

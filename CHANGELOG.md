@@ -4,6 +4,54 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **go-security names the default ML-KEM hybrids in the TLS row.** The
+  `CurvePreferences` row said only "a list that omits the ML-KEM hybrids";
+  Sonnet 5.5 reviewing a TLS config loaded go-security, never opened
+  SECRETS-AND-CRYPTO.md, and advised "put `X25519MLKEM768` first" in 2 of 2
+  plugin-eval runs, which drops the Go 1.26 hybrids and does nothing
+  (`crypto/tls` ignores the order). The row now names `X25519MLKEM768`,
+  `SecP256r1MLKEM768`, and `SecP384r1MLKEM1024`, says the fix deletes the
+  list rather than reordering it, and that only opt-in `MLKEM1024` needs
+  one. On `quality-security-tls-review` (Sonnet 5.5, 5 runs per arm) 3 of the
+  4 runs that loaded go-security named the 1.26 hybrids; 3/5 passed with the
+  plugin against 0/5 without (one in-run judge FAIL re-judged PASS 3/3).
+
+- **HTTP and SQL code no longer loads go-error-handling by itself.** The
+  go-code HTTP and SQL rows, and the edit gate behind them, required
+  go-error-handling for any handler or query file; it is now required, as
+  for every other file, when the code wraps or matches errors (`%w`,
+  `errors.Is`/`As`/`AsType`/`Join`/`New`). go-database already owns the
+  `sql.ErrNoRows` mapping and go-http its error responses. abrun implement
+  on the three HTTP fixtures (Sonnet 5.5, medium, n=3 per arm): account and
+  fetch still loaded it 3/3 through their error code; gateway went from 3/3
+  to 0/3 loads at −16% cost per run with golden 3/3 in both arms. The one
+  golden failure in the new arm (fetch, `TestGetOrderHonorsRetryAfter`) came
+  from a run that loaded go-error-handling, so the change did not reach it.
+  `trigger-database-uk` now expects go-database alone.
+
+- **A pasted Go trace names go-troubleshooting.** "panic: … goroutine 42
+  [running]: … what does this mean?" carries no work verb, so the prompt
+  hook stayed silent, and Sonnet 5.5 answered without go-troubleshooting in
+  7 of 7 plugin-eval runs, offering a nil check at the faulting line. With
+  the skill loaded, 5 of 5 answers traced the nil back to its origin and
+  treated the printed argument words as a lead, against 0 of 5 without the
+  plugin. The hook now names go-troubleshooting when a prompt pairs
+  `panic:` or `fatal error:` with a `goroutine N [` header and has no work
+  verb; the trigger case went from 0/7 to 5/5 at +$0.027 per run. "Fix this
+  panic" keeps go-code.
+
+- **A subagent report is not the prompt.** The prompt hook classified a
+  report a subagent handed back (wrapped in `<agent-message>`) as the user's
+  words: "go test" named Go and "unreadable" matched the refactor wording,
+  so a note asked for go-code-refactor. The wrapper is removed before
+  classification, as `<ide_*>` context already was.
+
+- **plugin-evals: the TLS grader names what it checks.** The curve criterion
+  asked for "the Go 1.26+/1.27 additions" to the default hybrids, but 1.27's
+  `MLKEM1024` is opt-in; it now asks for `SecP256r1MLKEM768` or
+  `SecP384r1MLKEM1024` and rejects reordering as a fix. The README pins
+  `--judge-model` and records why trigger cases keep `max_turns: 10`.
+
 ## [1.33.0] - 2026-10-12
 
 - **A `claude plugin eval` suite.** `plugin-evals/` holds 16 cases drawn

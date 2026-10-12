@@ -146,12 +146,7 @@ OWNER_PATTERNS = [
 def hints(path, text):
     if path.endswith("_test.go"):
         return ["go-testing"]
-    out = [owner for owner, pat in OWNER_PATTERNS if re.search(pat, text, re.M)]
-    # Mirror the go-code HTTP and SQL rows: handlers and queries always load
-    # go-error-handling too.
-    if ("go-http" in out or "go-database" in out) and "go-error-handling" not in out:
-        out.append("go-error-handling")
-    return out
+    return [owner for owner, pat in OWNER_PATTERNS if re.search(pat, text, re.M)]
 
 def prompt_hints(path, text):
     # Prompt-only lexical hints: do not widen PreToolUse decisions with stub
@@ -263,8 +258,6 @@ def prompt_hints(path, text):
     # a gate requirement. Cache-Control is not a cache.
     if stub and re.search(r"\bcach(?:e[sd]?|ing)\b(?!-).{0,160}\bttl\b|\bttl\b.{0,160}\bcach(?:e[sd]?|ing)\b(?!-)", contract, re.I | re.S):
         out.append("go-performance")
-    if ("go-http" in out or "go-database" in out) and "go-error-handling" not in out:
-        out.append("go-error-handling")
     return list(dict.fromkeys(out))
 '
 

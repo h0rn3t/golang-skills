@@ -67,7 +67,7 @@ once — not at every call site downstream, where it is forgotten.
 | Weak password hash | argon2id (or `crypto/pbkdf2` when stdlib-only) | review — G401 and the G501/G505 import blocklists catch MD5/SHA1 only, not `sha256.Sum256(password)` |
 | `InsecureSkipVerify: true` | Never outside a test against a local self-signed server; `RootCAs` for a private CA | `gosec` G402 |
 | `MinVersion` | Leave unset (1.2 is the default) unless the service is TLS 1.3-only | `gosec` G402 |
-| `CurvePreferences` | No list is the default; a list that omits the ML-KEM hybrids is a finding | review |
+| `CurvePreferences` | No list: the default has `X25519MLKEM768`, `SecP256r1MLKEM768`, and `SecP384r1MLKEM1024`. A list that omits any is a finding, fixed by deleting it, not reordering it (order is ignored); only opt-in `MLKEM1024` needs a list ([SECRETS-AND-CRYPTO.md](references/SECRETS-AND-CRYPTO.md#tls)) | review |
 | CSRF | `http.NewCrossOriginProtection().Handler(mux)` | review |
 | CORS with credentials | Exact-origin allowlist, `Vary: Origin`; the same list in `AddTrustedOrigin` ([HTTP Surface](#http-surface)) | review |
 | Secret in a log, `fmt`, or JSON | The secret type in [go-logging](../go-logging/SKILL.md#what-not-to-log), also when it is a struct field | review |

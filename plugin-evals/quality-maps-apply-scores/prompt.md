@@ -1,6 +1,6 @@
 ---
 description: 'maps.Copy followed by maps.DeleteFunc implements the in-place contract without replacement maps or hand-written traversal.'
-tags: [quality]
+tags: [quality, cost]
 runs: 3
 max_turns: 12
 allowed_tools: [Read, Glob, Grep, Skill]

@@ -4,6 +4,33 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **The idiom card keeps what a model misses, and the traps of the rest.**
+  A plugin-eval probe ran go-style-core forced against no skill, one regex
+  grader per card row (9 prompts, 46 rows, n=3): Sonnet and Opus 5.5 wrote
+  the current form unaided for every row up to Go 1.26 — `range n`, the
+  `slices`/`maps`/`cmp` helpers, `cmp.Or`, `new(expr)`, `errors.AsType`,
+  `wg.Go`, `context.AfterFunc`, typed atomics, `strings.Cut`/`SplitSeq`,
+  `omitzero`, `t.Context`, `b.Loop`, and more. They missed the Go 1.27 rows
+  (promoted fields, generic methods, `url.Clone`, `strings.CutLast`,
+  `uuid`, `encoding/json/v2`, `httptest.NewTestServer`) and `fmt.Appendf`,
+  where the card took them from 0/3 to 3/3. The table now holds those rows,
+  `slices.SortFunc`, and the 1.25/1.26 rows; the older rows became a list of
+  their traps (`cmp.Or` evaluates every argument, `slices.Max` panics on
+  empty, `time.Tick` returns nil for `d <= 0`, …) with a line of directive
+  versions. The card went from about 3.9K to 2.6K tokens, loaded in every Go
+  session. abrun implement on roster, catalog, ledger, and profile (medium):
+  Sonnet 5.5, n=3 per arm, golden 12/12 both, `go fix` and lint counts
+  unchanged, −6% cost per run; Opus 5.5, n=2, golden 8/8 both, the same
+  counts, cost within noise (−2%).
+
+- **plugin-evals: a quality case that tells the arms apart.** Two of the
+  three quality cases passed without the plugin on Sonnet and Opus 5.5;
+  they are tagged `cost` and kept to track what the plugin costs.
+  `quality-troubleshooting-panic` grades the pasted-panic answer against
+  go-troubleshooting's method and scored 1.00 with the plugin, 0.25 without
+  (Sonnet 5.5, n=3). Sonnet as judge split its votes as often as Haiku (2/24
+  against 4/48) at 12 times the judge cost, so Haiku stays pinned.
+
 ## [1.34.0] - 2026-10-12
 
 - **go-security names the default ML-KEM hybrids in the TLS row.** The

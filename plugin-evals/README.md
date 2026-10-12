@@ -17,7 +17,11 @@ prompt (`trigger-refactor-split-function`) rather than relying on
   the cache write of the skills it loads, not its later turns.
 - `negative-*`: no `go-*` skill may fire (`min: 0, max: 0`).
 - `quality-*`: an `llm` grader over the eval's assertions (weight 3), a cheap
-  `regex` check, and the skill-fired indicator.
+  `regex` check, and the skill-fired indicator. Tagged `cost` (`maps`,
+  `http-json-decode`): Sonnet and Opus 5.5 pass most runs without the
+  plugin, so Δ is near 0 and the case tracks what the plugin costs, not what
+  it adds. `quality-troubleshooting-panic` reuses the trigger case's prompt;
+  on Sonnet 5.5 it scored 1.00 with the plugin and 0.25 without.
 
 ```bash
 # One case, one run, no baseline arm
@@ -32,5 +36,6 @@ claude plugin eval . --eval-dir plugin-evals -j 4 --threshold 0.8 --max-cost-usd
 
 Runs make real model calls. Output goes to `plugin-evals/results/`, which is
 ignored. The judge model is pinned because its default can change with the
-CLI. `--json` records `costUsd` and `turns` per run; which skills loaded is
+CLI. Haiku stays: Sonnet as judge split its three votes as often (2 of 24
+verdicts against Haiku's 4 of 48) at 12 times the judge cost. `--json` records `costUsd` and `turns` per run; which skills loaded is
 only in the run's trace, kept with `--keep-temp`.

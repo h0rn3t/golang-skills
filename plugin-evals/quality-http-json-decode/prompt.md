@@ -1,6 +1,6 @@
 ---
 description: 'A bounded single-document decoder validates EOF before any domain side effect and describes checks without claiming execution.'
-tags: [quality]
+tags: [quality, cost]
 runs: 3
 max_turns: 12
 allowed_tools: [Read, Glob, Grep, Skill]

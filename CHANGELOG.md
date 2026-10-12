@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.34.0] - 2026-10-12
+
 - **go-security names the default ML-KEM hybrids in the TLS row.** The
   `CurvePreferences` row said only "a list that omits the ML-KEM hybrids";
   Sonnet 5.5 reviewing a TLS config loaded go-security, never opened

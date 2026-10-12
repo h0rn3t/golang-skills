@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.35.0] - 2026-10-12
+
 - **The idiom card keeps what a model misses, and the traps of the rest.**
   A plugin-eval probe ran go-style-core forced against no skill, one regex
   grader per card row (9 prompts, 46 rows, n=3): Sonnet and Opus 5.5 wrote

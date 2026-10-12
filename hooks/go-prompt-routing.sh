@@ -115,7 +115,9 @@ new_code = re.search(
 
 def names_go(text):
     return re.search(
-        r"\bGo\b|\bgolang\b|\b[\w./-]+\.go\b|\bgo\.mod\b|\bgoroutines?\b|\bgofmt\b|\bgo (?:build|test|vet|run|mod|fix)\b",
+        r"\bGo\b|\bgolang\b|\b[\w./-]+\.go\b|\bgo\.mod\b|\bgoroutines?\b|\bgofmt\b|\bgo (?:build|test|vet|run|mod|fix)\b|"
+        # Pasted code names its language in the fence.
+        r"```go\b",
         text) is not None
 
 def has_go_files(root, depth=2):
@@ -339,6 +341,15 @@ if [[ -n "$owners" ]]; then
     for o in $owners; do list+="\`$(q "$o")\` (Skill tool, name \`$(q "$o")\`), "; done
     line+="${owners_lead}${list%, }"
     sep="; "
+elif [[ "$skill" == "go-code" && "$mode" != "slash" ]]; then
+    # No Go file points at the owners. Haiku 5.5 then loaded only the skills
+    # this note named, so the note asks for them by description. Plugin eval,
+    # 2026-10-12, without -> with this line: Haiku go-generics 1/5 -> 5/5,
+    # go-security 0/5 -> 5/5, but go-error-handling, named nowhere here,
+    # 1/5 -> 0/5; Opus 5.5 unchanged within n=3. abrun implement on the three
+    # fixtures without hints (Opus, medium, n=3): golden 9/9 both, skills per
+    # run 4.33 -> 4.67, $/run +3%.
+    line+="${sep}and the owners the task touches, picked by their skill descriptions (\`$(q go-generics)\` for type parameters, \`$(q go-database)\` for SQL, \`$(q go-security)\` when user input reaches a shell, file, or URL)"
 fi
 if [[ "$skill" == "go-code" && "$newcode" == "new" ]]; then
     line+="${sep}$tt too, since new code starts with its contract test"

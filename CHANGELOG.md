@@ -4,6 +4,27 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **A `claude plugin eval` suite.** `plugin-evals/` holds 16 cases drawn
+  from the validation set of `evals/evals.json`: ten trigger cases scored
+  on whether the expected skill fires, three negatives where no `go-*`
+  skill may fire, and three quality cases graded by an LLM judge against
+  the eval's assertions. Run it with `--eval-dir plugin-evals`; results
+  stay out of git.
+
+- **A pasted Go code fence names Go.** The prompt hook stayed silent on
+  "Split this function into smaller ones" with the Go code pasted below it
+  when the working directory held no Go, so no router was named; the
+  plugin-eval run on Haiku 5.5 fired go-code-refactor in 0 of 3 runs, and 3
+  of 3 with the fence recognized.
+
+- **A go-code note with no owner hints asks for owners by description.**
+  When no Go file in the prompt points at its owners, the note names three
+  by example (go-generics, go-database, go-security). On Haiku 5.5 the
+  generics and ffmpeg trigger cases went from 1/5 and 0/5 to 5/5; an owner
+  the note does not name (go-error-handling) did not move, and Opus 5.5
+  stayed within noise. abrun implement on the three fixtures without hints
+  kept golden 9/9 at +3% cost per run.
+
 ## [1.32.1] - 2026-10-11
 
 - **A request body is not the caller's again when `Do` returns.** The

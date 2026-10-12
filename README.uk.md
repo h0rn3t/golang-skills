@@ -157,6 +157,11 @@ golangci-lint config verify --config skills/go-linting/assets/golangci.yml
 Набір release-перевірок описаний у
 [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
 
+`plugin-evals/` містить кейси для `claude plugin eval`: він завантажує плагін
+в ізольованій сесії `claude -p` і порівнює прогони з плагіном і без нього.
+Прогони витрачають токени й запускаються лише вручну; деталі в
+[`plugin-evals/README.md`](plugin-evals/README.md).
+
 ## Структура проєкту
 
 ```text
@@ -164,6 +169,7 @@ skills/       Директорії runtime-скілів.
 hooks/        Хуки маршрутизації та перевірки після редагування.
 agents/       Опційні агенти плагіна.
 evals/        Структурні тести, fixtures, golden-тести та раннери.
+plugin-evals/ Кейси для `claude plugin eval`.
 source/       Знімки upstream-настанов із provenance і ліцензіями.
 docs/         Політика авторингу, власності правил, скриптів і release.
 ```

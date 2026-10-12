@@ -961,6 +961,35 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
+	// With no Go file to point at owners, Haiku 5.5 loaded the four skills the
+	// note named and never go-generics or go-security (plugin eval,
+	// 2026-10-12): the note asks for the owners by description instead.
+	const byDescription = "and the owners the task touches, picked by their skill descriptions"
+	t.Run("no owner hints names owners by description", func(t *testing.T) {
+		t.Parallel()
+		_, out := promptEvent(t, t.TempDir(), "p26", t.TempDir(), "Write a generic Map function in Go that transforms a slice of any type into another type")
+		if !strings.Contains(out, byDescription) || !strings.Contains(out, "`golang-skills:go-generics` for type parameters") {
+			t.Fatalf("prompt without owner hints must ask for owners by description:\n%s", out)
+		}
+		dir := t.TempDir()
+		pkg := filepath.Join(dir, "store")
+		if err := os.MkdirAll(pkg, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		src := "package store\n\nimport \"database/sql\"\n\nvar db *sql.DB\n"
+		if err := os.WriteFile(filepath.Join(pkg, "store.go"), []byte(src), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, out = promptEvent(t, t.TempDir(), "p27", dir, "Implement the Go package in ./store")
+		if !strings.Contains(out, "points at: `golang-skills:go-database`") || strings.Contains(out, byDescription) {
+			t.Fatalf("owner hints replace the description line:\n%s", out)
+		}
+		_, out = promptEvent(t, t.TempDir(), "p28", t.TempDir(), refactor)
+		if strings.Contains(out, byDescription) {
+			t.Fatalf("a refactor note keeps its own owner rule:\n%s", out)
+		}
+	})
+
 	t.Run("refactor prompt names go-code-refactor", func(t *testing.T) {
 		t.Parallel()
 		code, out := promptEvent(t, t.TempDir(), "p2", t.TempDir(), refactor)
@@ -1026,6 +1055,22 @@ func TestPromptRouting(t *testing.T) {
 			if strings.Contains(out, "go-code-review") || strings.Contains(out, "new code starts with its contract test") {
 				t.Errorf("%q names a review or new code:\n%s", prompt, out)
 			}
+		}
+	})
+
+	// A ```go block pasted into the prompt is Go even in an empty directory:
+	// `claude plugin eval` starts every run in one, and the pasted refactor
+	// prompt got no note there.
+	t.Run("pasted go block names Go", func(t *testing.T) {
+		t.Parallel()
+		const code = "\n\n```go\nfunc HandleImport(w http.ResponseWriter, r *http.Request) {}\n```\n"
+		_, out := promptEvent(t, t.TempDir(), "p25", t.TempDir(), "Split this function into smaller ones:"+code)
+		if !strings.Contains(out, "`golang-skills:go-code-refactor`") {
+			t.Errorf("pasted go block: stdout %q; want go-code-refactor", out)
+		}
+		python := "Split this function into smaller ones:\n\n```python\ndef handle_import(request):\n    pass\n```\n"
+		if code, out := promptEvent(t, t.TempDir(), "p25", t.TempDir(), python); code != 0 || out != "" {
+			t.Errorf("pasted python block: exit %d, stdout %q; want silent 0", code, out)
 		}
 	})
 

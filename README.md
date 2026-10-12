@@ -159,6 +159,11 @@ golangci-lint config verify --config skills/go-linting/assets/golangci.yml
 The release validation set is documented in
 [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
 
+`plugin-evals/` holds cases for `claude plugin eval`, which loads the plugin
+in a sandboxed `claude -p` session and compares runs with and without it.
+They cost tokens and are opt-in; see
+[`plugin-evals/README.md`](plugin-evals/README.md).
+
 ## Project Structure
 
 ```text
@@ -166,6 +171,7 @@ skills/       Runtime skill directories.
 hooks/        Claude Code routing and post-edit hooks.
 agents/       Optional plugin agents.
 evals/        Structural tests, fixtures, golden tests, and runners.
+plugin-evals/ Cases for `claude plugin eval`.
 source/       Upstream style-guide snapshots with provenance and licenses.
 docs/         Authoring, ownership, script-contract, and release policy.
 ```

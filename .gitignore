@@ -4,3 +4,10 @@ evals/evals-results*.json
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
+
+# claude plugin eval run output (reports and traces are not committed).
+/plugin-evals/results/
+# Local graft tooling: the repository root is the plugin root, so a committed
+# .mcp.json would ship a graft MCP server to every install.
+/.mcp.json
+/.claude/

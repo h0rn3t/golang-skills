@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.36.0] - 2026-10-14
+
 - **The skills pass the delivery invariants `delivery_test.go` added.**
   `Route Before The First Edit` in `go-code` and `Workflow` in
   `go-code-refactor` now follow the opening sections, inside the first 200

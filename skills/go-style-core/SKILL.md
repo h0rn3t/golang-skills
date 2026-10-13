@@ -8,7 +8,7 @@ description: Use when resolving Go style or language mechanics such as formattin
 Apply the baseline below; read detailed syntax guidance only for the decision
 the task requires. An ordinary function edit does not require every reference.
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Respect the target
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). Respect the target
 > module's language version; references name version-sensitive features inline.
 
 ## Resource Routing
@@ -93,7 +93,7 @@ the source, and a symbol no skill shows is reported, not invented.
 
 Write the older form only when one of four things is true, and name which in
 the report: the current form is not available at the `go` directive
-(`COMPATIBILITY.md` lists the language features); it changes observable
+(the plugin repository's COMPATIBILITY.md lists the language features); it changes observable
 behavior (the tiers in
 [MODERNIZATION.md](../go-code-refactor/references/MODERNIZATION.md) say which
 swaps do); it does not fit the code at hand; or an explicit user or repository

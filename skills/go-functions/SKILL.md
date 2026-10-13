@@ -5,7 +5,7 @@ description: Use when designing or reviewing Go function APIs, parameters, retur
 
 # Go Function Design
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Returning
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). Returning
 > `iter.Seq[T]` requires Go 1.23+.
 
 ## Resource Routing

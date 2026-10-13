@@ -5,7 +5,7 @@ description: Use when choosing a logging approach, configuring slog, writing str
 
 # Go Logging
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md).
 > `slog.NewMultiHandler` requires Go 1.26+; `slog.GroupAttrs` Go 1.25+;
 > `slog.DiscardHandler` Go 1.24+; `log/slog` itself Go 1.21+.
 

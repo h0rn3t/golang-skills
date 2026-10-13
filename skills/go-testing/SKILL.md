@@ -6,7 +6,7 @@ allowed-tools: Bash(bash:*)
 
 # Go Testing
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md).
 > `httptest.NewTestServer` and `synctest.Sleep` require Go 1.27+;
 > `testing/synctest` Go 1.25+; `t.Context` Go 1.24+. Diff examples use
 > `github.com/google/go-cmp`, in a module that already requires it.

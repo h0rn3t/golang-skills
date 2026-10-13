@@ -5,7 +5,7 @@ description: Use when investigating a bug or ticket in a Go service whose cause 
 
 # Go Troubleshooting
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md).
 > `runtime/trace.FlightRecorder` Go 1.25+; `debug.SetCrashOutput` Go 1.23+;
 > `testing/synctest` Go 1.25+; the `goroutineleak` profile needs a Go 1.27
 > toolchain; `GOTRACEBACK`, `GODEBUG`, `net/http/pprof`, and `go tool pprof`

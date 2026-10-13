@@ -5,7 +5,7 @@ description: Use when writing concurrent Go code with goroutines, channels, or m
 
 # Go Concurrency
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `sync.WaitGroup.Go`
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). `sync.WaitGroup.Go`
 > and `testing/synctest` require Go 1.25+; typed atomics (`atomic.Bool`) are
 > stdlib since Go 1.19; the `goroutineleak` profile follows the toolchain that
 > builds the binary, not the `go` directive (Go 1.27 toolchain).

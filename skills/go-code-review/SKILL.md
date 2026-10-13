@@ -6,7 +6,7 @@ allowed-tools: Bash(bash:*)
 
 # Go Code Review Checklist
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`); the HTTP and
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md); the HTTP and
 > database rows route to skills that carry their own version notes.
 
 ## Resource Routing

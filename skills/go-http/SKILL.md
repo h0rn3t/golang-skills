@@ -5,7 +5,7 @@ description: Use when writing or reviewing Go HTTP code — handlers, routing wi
 
 # Go HTTP Servers and Clients
 
-> Compatibility: Baseline Go 1.27 (`COMPATIBILITY.md`). `ServeMux` method and
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). `ServeMux` method and
 > wildcard patterns require Go 1.22+; `http.NewCrossOriginProtection` Go 1.25+;
 > `http.Server.MaxHeaderValueCount` and `encoding/json/v2` Go 1.27+.
 

@@ -5,7 +5,7 @@ description: Use when handling Go context.Context, cancellation, deadlines, time
 
 # Go Context Usage
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md).
 > `context.WithoutCancel`, `context.AfterFunc`, `context.WithTimeoutCause` and
 > `context.WithDeadlineCause` require Go 1.21+;
 > `t.Context()` in tests, Go 1.24+.

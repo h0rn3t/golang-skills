@@ -7,7 +7,7 @@ description: Use when writing, fixing, or refactoring Go code, whether or not th
 
 Route Go work to the relevant owners, then close with their verification gate.
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md).
 
 ## Resource Routing
 
@@ -84,6 +84,41 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    require `hook_credit=true` and label their exact scope. With no successful
    verification, run the check directly or report required evidence unavailable.
    Name the test file and result, not each case.
+
+## Route Before The First Edit
+
+The third column adds owners only under its stated condition. Prefer the
+narrower owner when topics overlap; a local or unexported identifier alone
+does not require `go-naming` or `go-documentation`.
+
+| Task touches | Skill | Also load |
+|---|---|---|
+| errors, wrapping, `errors.Is`/`errors.AsType` | [go-error-handling](../go-error-handling/SKILL.md) | — |
+| goroutines, channels, mutexes, races | [go-concurrency](../go-concurrency/SKILL.md) | [go-context](../go-context/SKILL.md) if anything is cancelled |
+| `context.Context`, timeouts, cancellation | [go-context](../go-context/SKILL.md) | [go-concurrency](../go-concurrency/SKILL.md) if goroutines are started |
+| tests, table-driven cases, `synctest` | [go-testing](../go-testing/SKILL.md) | — |
+| API naming changes or a naming question | [go-naming](../go-naming/SKILL.md) | — |
+| new or changed exported API, doc comments | [go-documentation](../go-documentation/SKILL.md) | [go-naming](../go-naming/SKILL.md) if API names change; [go-functions](../go-functions/SKILL.md#changing-an-exported-api) if an existing exported signature, interface, or struct changes |
+| interfaces, embedding, test doubles | [go-interfaces](../go-interfaces/SKILL.md) | — |
+| function API design, constructor configuration, ordering, signatures, `Printf` helpers | [go-functions](../go-functions/SKILL.md) | — |
+| slices, maps, arrays, sets | [go-data-structures](../go-data-structures/SKILL.md) | — |
+| declaration, enum, or initialization decisions | [go-style-core references](../go-style-core/SKILL.md#resource-routing) | — |
+| loop/switch mechanics or statement scoping decisions | [go-style-core references](../go-style-core/SKILL.md#resource-routing) | — |
+| type parameters, constraints, generic methods | [go-generics](../go-generics/SKILL.md) | — |
+| `slog`, log levels, request-scoped fields, metrics and trace correlation | [go-logging](../go-logging/SKILL.md) | [go-security](../go-security/SKILL.md) if a secret or PII could reach a log line |
+| panic/recover and `Must` helpers, a deferred closure or a written file's `Close`, boundary copies, mutable globals, nil/aliasing/overflow traps | [go-defensive](../go-defensive/SKILL.md) | — |
+| a cache, hot paths, allocations, benchmarks | [go-performance](../go-performance/SKILL.md) | [go-troubleshooting](../go-troubleshooting/SKILL.md) if the cause of slowness is unknown |
+| package layout, imports, dependencies | [go-packages](../go-packages/SKILL.md) | — |
+| restructuring or deleting existing code | [go-code-refactor](../go-code-refactor/SKILL.md) | — |
+| linter config, CI checks | [go-linting](../go-linting/SKILL.md) | — |
+| HTTP handlers, routing, middleware, servers, clients | [go-http](../go-http/SKILL.md) | [go-security](../go-security/SKILL.md) if input reaches a file, shell, URL, or template |
+| SQL queries, transactions, repositories, migrations | [go-database](../go-database/SKILL.md) | [go-security](../go-security/SKILL.md) if a request value picks a row by ID or names a column, table, or sort order |
+| untrusted input, secrets, tokens, TLS, cookies | [go-security](../go-security/SKILL.md) | [go-defensive](../go-defensive/SKILL.md) |
+| retries, idempotency, circuit breakers, overload, backpressure, fallback | [go-resilience](../go-resilience/SKILL.md) | the HTTP, SQL, context, or concurrency owner when its mechanics change |
+| ticket, wrong result, environment regression, panic, hang, leak, flaky test; cause unknown | [go-troubleshooting](../go-troubleshooting/SKILL.md) | the owner of the mechanism once found |
+| JSON and other wire formats, struct tags | [go-http](../go-http/SKILL.md) ([JSON-V2.md](../go-http/references/JSON-V2.md)) | [go-defensive](../go-defensive/SKILL.md) (tags) |
+| CLI entry point, flags, `main`/`run` | [go-packages](../go-packages/SKILL.md) | — |
+| a list of findings from a review or audit | the rows the findings name | per area, not per task |
 
 ## Writing New Code
 
@@ -275,41 +310,6 @@ current diff and scope, each as `pass`, `fail`, `unavailable (reason)`, or
 `skipped (reason)` per go-linting. Where the plugin hook runs, reuse its
 [edit hook record](../go-style-core/SKILL.md#the-edit-hook-record) only under
 go-linting's scope and freshness rules; silence never counts as pass.
-
-## Route Before The First Edit
-
-The third column adds owners only under its stated condition. Prefer the
-narrower owner when topics overlap; a local or unexported identifier alone
-does not require `go-naming` or `go-documentation`.
-
-| Task touches | Skill | Also load |
-|---|---|---|
-| errors, wrapping, `errors.Is`/`errors.AsType` | [go-error-handling](../go-error-handling/SKILL.md) | — |
-| goroutines, channels, mutexes, races | [go-concurrency](../go-concurrency/SKILL.md) | [go-context](../go-context/SKILL.md) if anything is cancelled |
-| `context.Context`, timeouts, cancellation | [go-context](../go-context/SKILL.md) | [go-concurrency](../go-concurrency/SKILL.md) if goroutines are started |
-| tests, table-driven cases, `synctest` | [go-testing](../go-testing/SKILL.md) | — |
-| API naming changes or a naming question | [go-naming](../go-naming/SKILL.md) | — |
-| new or changed exported API, doc comments | [go-documentation](../go-documentation/SKILL.md) | [go-naming](../go-naming/SKILL.md) if API names change; [go-functions](../go-functions/SKILL.md#changing-an-exported-api) if an existing exported signature, interface, or struct changes |
-| interfaces, embedding, test doubles | [go-interfaces](../go-interfaces/SKILL.md) | — |
-| function API design, constructor configuration, ordering, signatures, `Printf` helpers | [go-functions](../go-functions/SKILL.md) | — |
-| slices, maps, arrays, sets | [go-data-structures](../go-data-structures/SKILL.md) | — |
-| declaration, enum, or initialization decisions | [go-style-core references](../go-style-core/SKILL.md#resource-routing) | — |
-| loop/switch mechanics or statement scoping decisions | [go-style-core references](../go-style-core/SKILL.md#resource-routing) | — |
-| type parameters, constraints, generic methods | [go-generics](../go-generics/SKILL.md) | — |
-| `slog`, log levels, request-scoped fields, metrics and trace correlation | [go-logging](../go-logging/SKILL.md) | [go-security](../go-security/SKILL.md) if a secret or PII could reach a log line |
-| panic/recover and `Must` helpers, a deferred closure or a written file's `Close`, boundary copies, mutable globals, nil/aliasing/overflow traps | [go-defensive](../go-defensive/SKILL.md) | — |
-| a cache, hot paths, allocations, benchmarks | [go-performance](../go-performance/SKILL.md) | [go-troubleshooting](../go-troubleshooting/SKILL.md) if the cause of slowness is unknown |
-| package layout, imports, dependencies | [go-packages](../go-packages/SKILL.md) | — |
-| restructuring or deleting existing code | [go-code-refactor](../go-code-refactor/SKILL.md) | — |
-| linter config, CI checks | [go-linting](../go-linting/SKILL.md) | — |
-| HTTP handlers, routing, middleware, servers, clients | [go-http](../go-http/SKILL.md) | [go-security](../go-security/SKILL.md) if input reaches a file, shell, URL, or template |
-| SQL queries, transactions, repositories, migrations | [go-database](../go-database/SKILL.md) | [go-security](../go-security/SKILL.md) if a request value picks a row by ID or names a column, table, or sort order |
-| untrusted input, secrets, tokens, TLS, cookies | [go-security](../go-security/SKILL.md) | [go-defensive](../go-defensive/SKILL.md) |
-| retries, idempotency, circuit breakers, overload, backpressure, fallback | [go-resilience](../go-resilience/SKILL.md) | the HTTP, SQL, context, or concurrency owner when its mechanics change |
-| ticket, wrong result, environment regression, panic, hang, leak, flaky test; cause unknown | [go-troubleshooting](../go-troubleshooting/SKILL.md) | the owner of the mechanism once found |
-| JSON and other wire formats, struct tags | [go-http](../go-http/SKILL.md) ([JSON-V2.md](../go-http/references/JSON-V2.md)) | [go-defensive](../go-defensive/SKILL.md) (tags) |
-| CLI entry point, flags, `main`/`run` | [go-packages](../go-packages/SKILL.md) | — |
-| a list of findings from a review or audit | the rows the findings name | per area, not per task |
 
 ## Related Skills
 

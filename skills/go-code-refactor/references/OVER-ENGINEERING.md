@@ -2,7 +2,7 @@
 
 > Sources: github.com/DietrichGebert/ponytail; Go CodeReviewComments; `$GOROOT/api/go1.2*.txt`
 > Authority: project policy for the ladder and the write rules; version claims checked against the api files
-> Minimum Go: 1.27 baseline (`COMPATIBILITY.md`); each table row names its own minimum
+> Minimum Go: 1.27 baseline (the plugin repository's COMPATIBILITY.md); each table row names its own minimum
 > Last verified: 2026-10-01 against go1.27.1
 
 **The restraint ladder**, **Reach For What Go Ships**, and **Ship, Then

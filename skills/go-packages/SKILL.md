@@ -5,7 +5,7 @@ description: Use when creating or splitting Go packages, organizing imports or d
 
 # Go Packages and Imports
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). The `tool`
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). The `tool`
 > directive requires Go 1.24+; stdlib `uuid` and `encoding/json/v2` Go 1.27+.
 
 ## Resource Routing

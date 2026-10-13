@@ -6,7 +6,7 @@ allowed-tools: Bash(bash:*)
 
 # Go Performance Patterns
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `b.Loop()`
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). `b.Loop()`
 > requires Go 1.24+; `encoding/json/v2` Go 1.27+.
 
 ## Resource Routing

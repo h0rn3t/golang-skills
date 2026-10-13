@@ -5,7 +5,7 @@ description: Use when handling Go dependency failures or overload with retries, 
 
 # Go Resilience
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). The policies are
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). The policies are
 > version-independent; `testing/synctest` requires Go 1.25+.
 
 Preserve operation semantics while bounding time, work, and failure impact.

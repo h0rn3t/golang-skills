@@ -6,7 +6,7 @@ allowed-tools: Bash(bash:*)
 
 # Go Refactoring
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`).
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md).
 
 Improve readability while preserving observable behavior. Establish evidence
 for that promise; compilation alone does not establish equivalent behavior.
@@ -40,6 +40,158 @@ target project using the resolved absolute script path.
 
 The commands below need a shell tool; Workflow step 1 says how to write their
 path.
+
+## Workflow
+
+### 1. Orient
+
+Scripts run from the target project by full path: `<installed-skill-dir>`
+below is the base directory the host printed when it loaded this skill, or,
+where no tool loads it, the directory this SKILL.md was read from (under
+Codex, `~/.codex/skills/go-code-refactor` or
+`~/.agents/skills/go-code-refactor`). Write the path itself into
+each command — every shell call starts with a fresh environment, so a
+variable exported in one call is empty in the next. Exit 127 from the first
+script means the path is wrong.
+
+Where the plugin hook runs, reuse only the
+[current matching receipts](../go-linting/SKILL.md#verification-gate).
+With no shell tool, run nothing and read no script: observed
+[edit hook receipts](../go-style-core/SKILL.md#the-edit-hook-record) are
+observed results, not verified gate credit; unconfirmed required checks remain unavailable.
+
+Load the skills before the first edit (a read of `../<name>/SKILL.md` where
+there is no `Skill` tool): [go-style-core](../go-style-core/SKILL.md) and
+[go-testing](../go-testing/SKILL.md) on every refactor, then the owner of each
+decision the diff moves, from
+[Related Skills](#related-skills), go-code's
+[Route Before The First Edit](../go-code/SKILL.md#route-before-the-first-edit),
+or the host's routing note when it names them. No edit before every selected
+skill is in context.
+
+Flag two file classes before editing: **generated** files (exclude silently
+when incidental; a generated target changes through its generator, below) and **build-tagged** files for
+another GOOS/GOARCH, which never compile here — run
+`GOOS=<target> go build ./...` and say in the report that their tests did not run.
+
+Record the baseline in one shell call; the second line runs even when a red
+baseline exits 1:
+
+```bash
+bash "<installed-skill-dir>/scripts/verify-refactor.sh" baseline ./...
+bash "<installed-skill-dir>/scripts/verify-refactor.sh" loc-baseline ./...
+```
+
+When a `Benchmark*` covers a function the refactor touches, save its baseline
+now with go-performance's `bench-compare.sh --save` and compare at step 5 with
+`--baseline` ([the owner's procedure](../go-performance/SKILL.md#benchmarking-and-profiling));
+a slowdown `benchstat` calls significant goes in the findings list with its row.
+
+If characterization tests are needed, run them against unchanged production
+code, then capture a new baseline with those tests included. Retain the earlier
+results for known failures. Use existing authorization and continue work that
+does not depend on an answer:
+
+- **If the baseline is red** — record the failing command and isolate
+  pre-existing or environmental failures. Continue inspection and independently
+  verifiable changes; do not claim behavior preservation without evidence.
+- **If the package has zero tests** — add a small characterization test when
+  the authorized refactor needs it; [SAFETY-NET.md](references/SAFETY-NET.md)
+  sizes it. Missing tests alone do not require another approval. Honor an
+  explicit prohibition on new tests and report the limitation.
+- **If the target is generated** — trace its generator and source inputs;
+  update those and regenerate when within scope. Do not hand-edit generated
+  output; ask only if the real source cannot be determined.
+- **If two readings change the contract or scope** — ask a focused question
+  only if the request and repository do not resolve it; continue independent
+  work meanwhile.
+
+### 2. Audit before rewriting
+
+Name what makes the code hard to follow *before* proposing fixes. The naming is
+what produces a real transformation; jumping to edits produces cosmetic churn —
+renamed variables, shuffled lines, same confusion. Record location, what is
+hard to read, and the intended transformation.
+
+When the ask is a cut list rather than a rewrite — "what can we delete", a repo
+handed over as bloated — the audit *is* the deliverable: use the tags and
+ranked format in `references/OVER-ENGINEERING.md` and stop there.
+
+You will notice actual bugs while auditing — races, ignored errors, leaks,
+off-by-ones. **Record each one in the findings list and leave the code as it
+is**: a diff that mixes "reads better" with "behaves differently" cannot be
+reviewed as a refactor. Report every severity; the user triages faster than
+you can filter.
+
+### 3. Scope mechanical modernization
+
+When modernization helps the requested refactor, preview it for the affected
+packages, for example `go fix -diff ./internal/cache`. Use `./...` only for a
+module-wide scope. Apply `go fix` only when every proposed edit is in scope;
+for a function-only task, apply relevant hunks manually if the preview also
+changes neighboring functions. A neighbor's older form is not a reason to keep
+it in the touched lines, and an untouched neighbor is not a reason to widen
+the scope. A broader verification gate does not widen the edit scope. If no
+relevant modernization helps, proceed to the hand edits.
+
+Keep mechanical edits attributable and respect `go.mod` and the risk tiers in
+`references/MODERNIZATION.md`; Tier 3 items go in the findings list.
+
+### 4. Refactor in verifiable steps
+
+Use small, attributable transformations with focused checks between meaningful
+steps. For dependent packages, work in dependency order; shared helpers go first.
+Reuse unchanged passing results and finish with the required repository gate.
+For independent packages, follow the host's delegation policy and
+[go-style-core](../go-style-core/SKILL.md#how-much-to-say).
+
+`references/PLAYBOOK.md` has the transformations, ordered by payoff. Before a
+rename or an extraction, search its uses by text: the build catches the static
+ones, not reflection, templates, string lookups, or a type matched only
+through an assertion or a type switch.
+
+Three cases leave the playbook. A move that crosses a function, type, or package
+boundary is in `references/CATALOG.md`, with its tool and tier. The same edit
+recurring across many sites is a generated rewrite, not thirty hand-edits
+(`references/MECHANICAL.md`). A type changing packages is a staged alias
+migration, never one atomic commit (`references/STRUCTURAL.md`).
+
+### 5. Verify
+
+With a shell, use the already loaded `go-linting` gate.
+Where the plugin hook runs, run the `--gate` Bash verification command
+printed by the last edit hook before repeating checks;
+only returned `hook_credit=true` permits `pass (hook)` for its exact scope.
+Otherwise run the check directly or report it unavailable.
+
+In one shell call:
+
+```bash
+bash "<installed-skill-dir>/scripts/verify-refactor.sh" after ./...
+bash "<installed-skill-dir>/scripts/verify-refactor.sh" diff
+bash "<installed-skill-dir>/scripts/verify-refactor.sh" loc-diff ./...
+```
+
+The diff compares recorded check results, not program behavior. An empty diff
+can include the same failures or skipped checks; a nonempty diff can include
+new passing tests or resolved failures. Inspect each difference and the actual
+baseline/after statuses. Attribute new failures before changing code; undo only
+your own failing transformation, preserving pre-existing user changes.
+
+Keep assertions about observable behavior unchanged. Mechanical updates to
+references after an authorized rename and new characterization tests are
+allowed; weakening expectations to make the refactor pass is not. If a
+toolchain change was authorized, `references/MODERNIZATION.md` lists failures
+that may need attribution to that change. Passing checks support only the
+behavior they exercise; report what remains unverified.
+
+Watch tests that assert on error strings or JSON output — they catch the
+invisible breakages compilation misses.
+[go-linting](../go-linting/SKILL.md) owns what the individual checks mean.
+
+### 6. Report
+
+Use `assets/refactor-report.md`; report skipped checks as skipped.
 
 ## When Not to Refactor
 
@@ -202,157 +354,6 @@ Keep documentation that explains a decision or contract. Removing comments
 or blank lines cannot compensate for added code; do not compress statements
 onto one line to meet the limit. An empty diff is successful when no
 qualifying improvement exists.
-
-## Workflow
-
-### 1. Orient
-
-Scripts run from the target project by full path: `<installed-skill-dir>`
-below is the base directory the host printed when it loaded this skill, or,
-where no tool loads it, the directory this SKILL.md was read from (under
-Codex, `~/.codex/skills/go-code-refactor` or
-`~/.agents/skills/go-code-refactor`). Write the path itself into
-each command — every shell call starts with a fresh environment, so a
-variable exported in one call is empty in the next. Exit 127 from the first
-script means the path is wrong.
-
-Where the plugin hook runs, reuse only the
-[current matching receipts](../go-linting/SKILL.md#verification-gate).
-With no shell tool, run nothing and read no script: observed
-[edit hook receipts](../go-style-core/SKILL.md#the-edit-hook-record) are
-observed results, not verified gate credit; unconfirmed required checks remain unavailable.
-
-Load the skills before the first edit (a read of `../<name>/SKILL.md` where
-there is no `Skill` tool): [go-style-core](../go-style-core/SKILL.md) and
-[go-testing](../go-testing/SKILL.md) on every refactor, then the owner of each
-decision the diff moves, from
-[Related Skills](#related-skills), go-code's
-[Route Before The First Edit](../go-code/SKILL.md#route-before-the-first-edit),
-or the host's routing note when it names them. No edit before every selected
-skill is in context.
-
-Flag two file classes before editing: **generated** files (exclude silently
-when incidental; a generated target changes through its generator, below) and **build-tagged** files for
-another GOOS/GOARCH, which never compile here — run
-`GOOS=<target> go build ./...` and say in the report that their tests did not run.
-
-Record the baseline in one shell call; the second line runs even when a red
-baseline exits 1:
-
-```bash
-bash "<installed-skill-dir>/scripts/verify-refactor.sh" baseline ./...
-bash "<installed-skill-dir>/scripts/verify-refactor.sh" loc-baseline ./...
-```
-
-When a `Benchmark*` covers a function the refactor touches, save its baseline
-now with go-performance's `bench-compare.sh --save` and compare at step 5 with
-`--baseline` ([the owner's procedure](../go-performance/SKILL.md#benchmarking-and-profiling));
-a slowdown `benchstat` calls significant goes in the findings list with its row.
-
-If characterization tests are needed, run them against unchanged production
-code, then capture a new baseline with those tests included. Retain the earlier
-results for known failures. Use existing authorization and continue work that
-does not depend on an answer:
-
-- **If the baseline is red** — record the failing command and isolate
-  pre-existing or environmental failures. Continue inspection and independently
-  verifiable changes; do not claim behavior preservation without evidence.
-- **If the package has zero tests** — add a small characterization test when
-  the authorized refactor needs it; [SAFETY-NET.md](references/SAFETY-NET.md)
-  sizes it. Missing tests alone do not require another approval. Honor an
-  explicit prohibition on new tests and report the limitation.
-- **If the target is generated** — trace its generator and source inputs;
-  update those and regenerate when within scope. Do not hand-edit generated
-  output; ask only if the real source cannot be determined.
-- **If two readings change the contract or scope** — ask a focused question
-  only if the request and repository do not resolve it; continue independent
-  work meanwhile.
-
-### 2. Audit before rewriting
-
-Name what makes the code hard to follow *before* proposing fixes. The naming is
-what produces a real transformation; jumping to edits produces cosmetic churn —
-renamed variables, shuffled lines, same confusion. Record location, what is
-hard to read, and the intended transformation.
-
-When the ask is a cut list rather than a rewrite — "what can we delete", a repo
-handed over as bloated — the audit *is* the deliverable: use the tags and
-ranked format in `references/OVER-ENGINEERING.md` and stop there.
-
-You will notice actual bugs while auditing — races, ignored errors, leaks,
-off-by-ones. **Record each one in the findings list and leave the code as it
-is**: a diff that mixes "reads better" with "behaves differently" cannot be
-reviewed as a refactor. Report every severity; the user triages faster than
-you can filter.
-
-### 3. Scope mechanical modernization
-
-When modernization helps the requested refactor, preview it for the affected
-packages, for example `go fix -diff ./internal/cache`. Use `./...` only for a
-module-wide scope. Apply `go fix` only when every proposed edit is in scope;
-for a function-only task, apply relevant hunks manually if the preview also
-changes neighboring functions. A neighbor's older form is not a reason to keep
-it in the touched lines, and an untouched neighbor is not a reason to widen
-the scope. A broader verification gate does not widen the edit scope. If no
-relevant modernization helps, proceed to the hand edits.
-
-Keep mechanical edits attributable and respect `go.mod` and the risk tiers in
-`references/MODERNIZATION.md`; Tier 3 items go in the findings list.
-
-### 4. Refactor in verifiable steps
-
-Use small, attributable transformations with focused checks between meaningful
-steps. For dependent packages, work in dependency order; shared helpers go first.
-Reuse unchanged passing results and finish with the required repository gate.
-For independent packages, follow the host's delegation policy and
-[go-style-core](../go-style-core/SKILL.md#how-much-to-say).
-
-`references/PLAYBOOK.md` has the transformations, ordered by payoff. Before a
-rename or an extraction, search its uses by text: the build catches the static
-ones, not reflection, templates, string lookups, or a type matched only
-through an assertion or a type switch.
-
-Three cases leave the playbook. A move that crosses a function, type, or package
-boundary is in `references/CATALOG.md`, with its tool and tier. The same edit
-recurring across many sites is a generated rewrite, not thirty hand-edits
-(`references/MECHANICAL.md`). A type changing packages is a staged alias
-migration, never one atomic commit (`references/STRUCTURAL.md`).
-
-### 5. Verify
-
-With a shell, use the already loaded `go-linting` gate. Run the `--gate` Bash
-verification command printed by the last edit hook before repeating checks;
-only returned `hook_credit=true` permits `pass (hook)` for its exact scope.
-Otherwise run the check directly or report it unavailable.
-
-In one shell call:
-
-```bash
-bash "<installed-skill-dir>/scripts/verify-refactor.sh" after ./...
-bash "<installed-skill-dir>/scripts/verify-refactor.sh" diff
-bash "<installed-skill-dir>/scripts/verify-refactor.sh" loc-diff ./...
-```
-
-The diff compares recorded check results, not program behavior. An empty diff
-can include the same failures or skipped checks; a nonempty diff can include
-new passing tests or resolved failures. Inspect each difference and the actual
-baseline/after statuses. Attribute new failures before changing code; undo only
-your own failing transformation, preserving pre-existing user changes.
-
-Keep assertions about observable behavior unchanged. Mechanical updates to
-references after an authorized rename and new characterization tests are
-allowed; weakening expectations to make the refactor pass is not. If a
-toolchain change was authorized, `references/MODERNIZATION.md` lists failures
-that may need attribution to that change. Passing checks support only the
-behavior they exercise; report what remains unverified.
-
-Watch tests that assert on error strings or JSON output — they catch the
-invisible breakages compilation misses.
-[go-linting](../go-linting/SKILL.md) owns what the individual checks mean.
-
-### 6. Report
-
-Use `assets/refactor-report.md`; report skipped checks as skipped.
 
 ## Mark What You Deliberately Left Alone
 

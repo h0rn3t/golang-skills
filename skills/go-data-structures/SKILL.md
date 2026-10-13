@@ -5,7 +5,7 @@ description: Use when creating or manipulating Go slices, maps, arrays, or sets,
 
 # Go Data Structures
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `slices`/`maps`
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). `slices`/`maps`
 > and `slices.Clone`/`maps.Clone` require Go 1.21+; `slices.Concat` Go 1.22+;
 > `strings.CutLast`/`bytes.CutLast` Go 1.27+.
 

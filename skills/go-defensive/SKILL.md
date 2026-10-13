@@ -5,7 +5,7 @@ description: Use when hardening Go API boundaries or checking slice/map copies, 
 
 # Go Defensive Programming Patterns
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `url.URL.Clone` and
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). `url.URL.Clone` and
 > `url.Values.Clone` require Go 1.27+; `Root.ReadFile` and `Root.MkdirAll` Go
 > 1.25+; `crypto/rand.Text` and `os.Root` Go 1.24+; `slices.Clone`/`maps.Clone`
 > Go 1.21+.

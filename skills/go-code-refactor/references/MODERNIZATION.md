@@ -5,7 +5,7 @@
 > Minimum Go: gated by the `go` directive in `go.mod`, not the installed toolchain
 > Last verified: 2026-10-11
 
-Check version claims against the installed toolchain using `COMPATIBILITY.md`.
+Check version claims against the installed toolchain using the plugin repository's COMPATIBILITY.md.
 For existing code, work Tier 1, then conditional Tier 2; report Tier 3 changes
 separately. For new code, use the [stdlib table](OVER-ENGINEERING.md#reach-for-what-go-ships)
 and the required contract rather than refactor equivalence.

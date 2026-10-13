@@ -5,7 +5,7 @@ description: Use when writing or reviewing Go SQL queries, transactions, reposit
 
 # Go Database Access
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Go examples use
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). Go examples use
 > `database/sql`; `sql.Null[T]` requires Go 1.22+.
 
 ## Resource Routing

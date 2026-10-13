@@ -5,7 +5,7 @@ description: Use when choosing or writing Go generics, constraints, type aliases
 
 # Go Generics and Type Parameters
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Generic **methods**
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). Generic **methods**
 > require Go 1.27+, and the compiler gates them by the `go` directive: at
 > `go 1.26` it rejects one with `generic method requires go1.27 or later`.
 > Inference in function-type conversions and composite-literal elements

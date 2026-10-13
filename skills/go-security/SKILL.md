@@ -5,7 +5,7 @@ description: Use when writing or reviewing Go code that touches untrusted input,
 
 # Go Security
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `os.Root` and
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). `os.Root` and
 > `crypto/pbkdf2`, `crypto/hkdf`, `crypto/sha3` are Go 1.24+;
 > `http.NewCrossOriginProtection` Go 1.25+; `crypto/subtle`, `html/template`,
 > and `net/netip` are long-standing stdlib.

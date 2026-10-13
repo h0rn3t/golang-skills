@@ -6,7 +6,7 @@ allowed-tools: Bash(bash:*)
 
 # Go Error Handling
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). `errors.AsType[T]`
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). `errors.AsType[T]`
 > requires Go 1.26+; `errors.Is`/`errors.As` and `%w` work on every supported
 > release.
 

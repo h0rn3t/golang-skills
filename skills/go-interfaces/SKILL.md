@@ -6,7 +6,7 @@ allowed-tools: Bash(bash:*)
 
 # Go Interfaces and Composition
 
-> Compatibility: Baseline Go 1.27 (see `COMPATIBILITY.md`). Generic methods
+> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). Generic methods
 > require Go 1.27+.
 
 ## Resource Routing

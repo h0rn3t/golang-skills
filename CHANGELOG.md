@@ -4,6 +4,13 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **The skills pass the delivery invariants `delivery_test.go` added.**
+  `Route Before The First Edit` in `go-code` and `Workflow` in
+  `go-code-refactor` now follow the opening sections, inside the first 200
+  lines. `go-code-refactor` step 5 names the plugin-hook condition before the
+  `--gate` command the edit hook prints. The `> Compatibility:` notes and the
+  other skill mentions name the plugin repository's COMPATIBILITY.md as plain
+  text, since a skills-only install carries no copy of it.
 - **The restraint ladder runs on every `go-code` task.** Step 5 climbs the
   ladder in `OVER-ENGINEERING.md` before each added helper, type, layer,
   interface, option, or import on new code, a fix, and a restructuring alike;

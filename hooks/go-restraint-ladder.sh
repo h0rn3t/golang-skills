@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Restraint ladder hook, wired the way ponytail wires its ruleset. The ladder
 # lives in go-code-refactor/references/OVER-ENGINEERING.md, and a model sees it
-# only if it reads that file: go-code routes there only when a rung is in
-# doubt, and the file was read in 0 of 20 skilled sessions of the 2026-09-10
+# only if it reads that file: go-code requires the ladder on every task, yet
+# the file was read in 0 of 20 skilled sessions of the 2026-09-10
 # implementation control. This hook puts it in context without a Read.
 #
 #   SessionStart (startup, resume, clear, compact) and SubagentStart: in a

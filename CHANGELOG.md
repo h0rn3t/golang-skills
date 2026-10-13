@@ -4,6 +4,14 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **The restraint ladder runs on every `go-code` task.** Step 5 climbs the
+  ladder in `OVER-ENGINEERING.md` before each added helper, type, layer,
+  interface, option, or import on new code, a fix, and a restructuring alike;
+  before, only a restructuring climbed it, new code read it when a rung was in
+  doubt, and a fix not at all. Resource Routing reads the file on every task
+  unless the session-start hook already printed the ladder, and the
+  Declaration Budget counts what survives the ladder. `TestRestraintLadder`
+  pins the step-5 sentence.
 - **OpenCode + Muse Spark project block.** `docs/PROJECT_INSTRUCTIONS.md`
   gains a dedicated section: install path `~/.config/opencode/skills`,
   one-message batch load of router + `go-style-core` + owners via the skill

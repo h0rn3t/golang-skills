@@ -2412,6 +2412,16 @@ func TestRestraintLadder(t *testing.T) {
 			t.Errorf("%s must name the restraint ladder as something to climb before writing", rel)
 		}
 	}
+
+	// The router climbs the ladder on every task, not only on a restructuring
+	// or when a rung is in doubt.
+	goCode, err := os.ReadFile(filepath.Join(root, "skills", "go-code", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("read go-code SKILL.md: %v", err)
+	}
+	if !strings.Contains(strings.Join(strings.Fields(string(goCode)), " "), "Every task — new code, a fix, a restructuring — climbs the restraint ladder") {
+		t.Error("go-code step 5 must climb the restraint ladder on every task: new code, a fix, and a restructuring")
+	}
 }
 
 // TestDeleteFirstRule pins the priority shared by the three skills that write,

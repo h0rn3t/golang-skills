@@ -18,7 +18,7 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
 - `../go-linting/SKILL.md` — With a shell, load alongside go-style-core at step 2; its gate and receipt verifier close step 6.
 - `references/INTENSITY.md` — Read when the prompt carries `lite` or `ultra` (`/go-code ultra <task>`, `ultra mode`): what each level changes.
 - `references/NEW-CODE-EXAMPLES.md` — Read when the shape of a Contract Table case, Plain Code body, or budgeted helper is in doubt.
-- `../go-code-refactor/references/OVER-ENGINEERING.md` — The restraint ladder when a [Declaration Budget](#declaration-budget) entry is in doubt; its replacement catalog when seeking a simpler existing API.
+- `../go-code-refactor/references/OVER-ENGINEERING.md` — Read before the first edit on every task, unless the session-start hook already printed its ladder: step 5 climbs the ladder for each added entity; its replacement catalog when seeking a simpler existing API.
 
 ## Workflow
 
@@ -46,13 +46,17 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    describes before the first production edit: a case written after the body
    checks only what the body already does. Its cases are what step 6 runs or
    reads.
-5. **Implement the authorized scope.** New code takes the
-   [Plain Code](#plain-code) form, counts every package-level declaration
-   it adds in the [Declaration Budget](#declaration-budget), and gets the
-   [Delete Pass](#delete-pass) and [Reader Pass](#reader-pass) once its cases pass. Restructuring
-   follows the [delete-first priority](../go-code-refactor/SKILL.md#delete-before-you-restructure)
-   and climbs the restraint ladder in [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder)
-   for each proposed helper, type, layer, option, or import. Preserve
+5. **Implement the authorized scope.** Every task — new code, a fix, a
+   restructuring — climbs the restraint ladder in
+   [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder)
+   before each helper, type, layer, interface, option, or import it adds,
+   once per entity, and a fix lands at the root cause the ladder names. New
+   code takes the [Plain Code](#plain-code) form, counts every package-level
+   declaration that survives the ladder in the
+   [Declaration Budget](#declaration-budget), and gets the
+   [Delete Pass](#delete-pass) and [Reader Pass](#reader-pass) once its cases
+   pass. Restructuring follows the
+   [delete-first priority](../go-code-refactor/SKILL.md#delete-before-you-restructure). Preserve
    required behavior, validation, security controls, and meaningful tests. A
    task that does not ask for a dependency adds none: `go.mod` stays as it
    is, and a test compares with the standard library
@@ -242,9 +246,9 @@ the step inline.
 The named helpers in skill examples (`validate`, `writeJSON`, `writeError`)
 show the order of an operation, not a list to reproduce.
 
-The budget is the restraint ladder applied per declaration; read the ladder in
-[OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder)
-when a rung is in doubt. Never trade input validation at a trust boundary,
+The budget counts what survives the restraint ladder in
+[OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder),
+climbed per declaration before the four rules are checked. Never trade input validation at a trust boundary,
 failure behavior, or a security control for a smaller count.
 
 The report carries one line — `added package-level declarations: N` — and,

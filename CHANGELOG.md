@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.37.0] - 2026-10-19
+
 - **go-security covers who may act, not only what input reaches.** A new
   `references/ACCESS-CONTROL.md` (70 reference files) holds one auth wrapper
   around the whole `ServeMux` with the public patterns listed in it, the

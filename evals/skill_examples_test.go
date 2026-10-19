@@ -269,6 +269,60 @@ func TestLogin(t *testing.T) {
 `)
 }
 
+// The auth wrapper serves a listed public pattern without a session, answers
+// 401 for a missing or unknown session and 503 when the store fails, never
+// reaching the handler on either, and hands the handler the principal.
+func TestSecurityExampleRequireAuth(t *testing.T) {
+	code := exampleBlock(t, "skills/go-security/references/ACCESS-CONTROL.md", "## Authenticate the whole mux")
+	runExampleTest(t, `package example
+import ("context"; "errors"; "net/http"; "net/http/httptest"; "testing")
+var ErrNoSession = errors.New("no session")
+type SessionStore interface { Lookup(ctx context.Context, id string) (string, error) }
+type memSessions map[string]string
+func (m memSessions) Lookup(_ context.Context, id string) (string, error) {
+	if id == "broken" { return "", errors.New("store down") }
+	p, ok := m[id]
+	if !ok { return "", ErrNoSession }
+	return p, nil
+}
+type principalKey struct{}
+func withPrincipal(ctx context.Context, p string) context.Context { return context.WithValue(ctx, principalKey{}, p) }
+`+code+`
+func TestRequireAuth(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("GET /me", func(w http.ResponseWriter, r *http.Request) {
+		p, _ := r.Context().Value(principalKey{}).(string)
+		if p == "" { t.Errorf("GET /me reached the handler without a principal") }
+		w.Write([]byte(p))
+	})
+	h := requireAuth(mux, memSessions{"s1": "ann"}, "GET /healthz")
+	for _, tt := range []struct {
+		path, cookie string
+		wantCode     int
+		wantBody     string
+	}{
+		{path: "/healthz", wantCode: http.StatusOK},
+		{path: "/me", wantCode: http.StatusUnauthorized},
+		{path: "/me", cookie: "nope", wantCode: http.StatusUnauthorized},
+		{path: "/me", cookie: "broken", wantCode: http.StatusServiceUnavailable},
+		{path: "/me", cookie: "s1", wantCode: http.StatusOK, wantBody: "ann"},
+	} {
+		req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+		if tt.cookie != "" { req.AddCookie(&http.Cookie{Name: "__Host-session", Value: tt.cookie}) }
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != tt.wantCode {
+			t.Errorf("GET %s with session %q = %d, want %d", tt.path, tt.cookie, rec.Code, tt.wantCode)
+		}
+		if tt.wantBody != "" && rec.Body.String() != tt.wantBody {
+			t.Errorf("GET %s with session %q body = %q, want %q", tt.path, tt.cookie, rec.Body.String(), tt.wantBody)
+		}
+	}
+}
+`)
+}
+
 // go-resilience's only code: the retry loop stops on success, on a
 // non-retryable error, when the budget is spent, and when ctx ends; a
 // server-requested delay is a floor, a wait past the deadline stops at once,

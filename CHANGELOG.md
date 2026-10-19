@@ -4,6 +4,43 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **go-security covers who may act, not only what input reaches.** A new
+  `references/ACCESS-CONTROL.md` (70 reference files) holds one auth wrapper
+  around the whole `ServeMux` with the public patterns listed in it, the
+  shapes of auth that fails open, the tenant the middleware checked as the
+  only tenant a query uses, every door to the same effect (batch, export,
+  import, background jobs, restore, check-then-act), the tenant in cache
+  keys, model output and tool-call arguments as untrusted input, mTLS, gRPC
+  (`ChainStreamInterceptor` beside the unary one), and queue identity, and an
+  OAuth client's `state` and PKCE (`oauth2.GenerateVerifier`). The Triage tree
+  and Quick Reference gain the matching rows, the pprof bullet names the
+  `DefaultServeMux` registration a blank import makes, and session rules add
+  revocation on a password change and single-use reset tokens. Review Mode
+  takes its method from Cloudflare's security-audit skill: a finding names
+  the lower-trust caller and whose resource it reaches, every door to an
+  effect is compared, variants are searched, a missing layer behind a working
+  one is a hardening line, a fact outside the repository makes a finding
+  `plausible` with that fact named, and findings are ranked critical to low
+  by what the evidence shows. A new review fixture, `gatekeeper`, seeds ten
+  of these defects for `abrun -corpus review`.
+- **A review of HTTP code loads go-security.** In the review corpus no
+  session loaded it (0 of 18, Sonnet 5.5 medium), so none of its text reached
+  a review: go-code-review's step 2 named it "when input reaches a sink",
+  which needs the code read first. The prompt hook's review note now names
+  go-security in the router line when the code's owner hints include go-http
+  or go-security (still no owner list, which cost Opus +37%), and step 2 names
+  it for a handler, an HTTP client, or input that reaches a query, command,
+  path, or template. Haiku 5.5 low, gatekeeper, vault, and partner, n=10 per
+  arm, HEAD against both changes: go-security loaded 0/30 → 30/30, its
+  defects found 137/150 → 147/150, other owners' 208/250 → 212/250, Must Fix
+  0.95 → 0.98, bait citations 0.26 → 0.34, cost +9%. The gain is all on
+  gatekeeper (foreign ID answered 403: 4/10 → 10/10; export owner unchecked:
+  6/10 → 10/10), the fixture seeded with this text; vault and partner were at
+  ceiling in both arms. Sonnet 5.5 medium saturates the corpus (recall 0.92 in
+  every arm) and pays +10–15% for the load. go-style-core, which the note does
+  not name, now loads in few review sessions (Haiku 5/30 → 0/30, Sonnet
+  16/18 → 5/18) with no measured loss.
+
 ## [1.36.0] - 2026-10-14
 
 - **The skills pass the delivery invariants `delivery_test.go` added.**

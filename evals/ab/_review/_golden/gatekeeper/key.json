@@ -1,0 +1,108 @@
+{
+  "defects": [
+    {
+      "id": "public-pprof-default-mux",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "server.go",
+      "match": "http.Handle(\"/\", api)",
+      "span": 2,
+      "note": "importing net/http/pprof registers its handlers on http.DefaultServeMux in init, even when only pprof.Index is used on the debug mux; the public server has no Handler, so it serves DefaultServeMux and /debug/pprof/ is open to the internet next to the API. Set Handler: api on srv and never serve DefaultServeMux publicly"
+    },
+    {
+      "id": "revocation-fails-open",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "server.go",
+      "match": "revoked, err := s.sessions.Revoked(r.Context(), hash)",
+      "span": 4,
+      "note": "when the revocation list cannot be reached the error is logged and the request continues, so a revoked session works again whenever the list is down; a verifier error must answer 503, not fall through"
+    },
+    {
+      "id": "route-outside-wrapper",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "server.go",
+      "match": "mux.HandleFunc(\"GET /exports/{id}\", s.downloadExport)",
+      "note": "the download route is registered without authed or member, unlike every other private route, so anyone without a session fetches an export; export IDs are sequential, so every export can be enumerated. Wrap the mux once with a public list instead of wrapping each route"
+    },
+    {
+      "id": "export-owner-unchecked",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "server.go",
+      "match": "func (s *Server) downloadExport(w http.ResponseWriter, r *http.Request) {",
+      "span": 6,
+      "note": "the doc says the export goes to the member who made it, but nothing compares exp.Owner with the caller: once the route is wrapped, any signed-in user still downloads any other user's export by ID"
+    },
+    {
+      "id": "tenant-from-body",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "server.go",
+      "match": "OrgID string `json:\"org_id\"`",
+      "span": 9,
+      "note": "member checked the org in the path, but the document is created in the org_id the body names: a member of o1 posting to /orgs/o1/docs with org_id o2 writes into o2. Drop the field and use r.PathValue(\"org\")"
+    },
+    {
+      "id": "cache-skips-tenant",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "server.go",
+      "match": "d, ok := s.cache[id]",
+      "span": 6,
+      "note": "the cache is keyed by document ID alone and a hit returns before the org comparison, so once anyone in o2 has read document 7, a member of o1 reads it through /orgs/o1/docs/7. Key on org and ID, or compare the org on every path"
+    },
+    {
+      "id": "foreign-doc-403",
+      "owner": "go-security",
+      "severity": "should",
+      "file": "server.go",
+      "match": "if d.OrgID != r.PathValue(\"org\") {",
+      "span": 3,
+      "note": "a document of another org answers 403 while a missing one answers 404, so a member learns which IDs exist elsewhere; a foreign ID answers exactly like a missing one"
+    },
+    {
+      "id": "export-items-unscoped",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "server.go",
+      "match": "d, err := s.store.Doc(id)",
+      "nth": 2,
+      "span": 2,
+      "note": "the export authorizes the org in the path once, then loads every requested ID with no org check: a member of o1 exports o2's documents by listing their IDs. Check each document's org against the path"
+    },
+    {
+      "id": "summary-panics-in-goroutine",
+      "owner": "go-defensive",
+      "severity": "must",
+      "file": "server.go",
+      "match": "func (s *Server) render(exportID string, docs []Doc) {",
+      "span": 4,
+      "note": "strings.IndexByte returns -1 for a body with no newline, and d.Body[:-1] panics; render runs in its own goroutine, outside net/http's recover, so one export of a one-line document ends the whole process for every tenant"
+    },
+    {
+      "id": "invite-redeemed-twice",
+      "owner": "go-concurrency",
+      "severity": "must",
+      "file": "server.go",
+      "match": "inv, err := s.store.Invite(r.PathValue(\"code\"))",
+      "span": 7,
+      "note": "the Used check, AddMember, and MarkUsed take the lock separately, so concurrent redemptions of one code all pass the check and all join the org; spend the invite in one store call that reports whether this caller was the one"
+    }
+  ],
+  "baits": [
+    {
+      "id": "hashed-session-map-lookup",
+      "file": "server.go",
+      "match": "p, err := s.sessions.Lookup(hash)",
+      "note": "a map lookup by the SHA-256 of a 128-bit random ID leaks nothing a timing attack can use; constant-time comparison is for comparing a secret with a guess, not for indexing by a hash"
+    },
+    {
+      "id": "csrf-without-token",
+      "file": "server.go",
+      "match": "return http.NewCrossOriginProtection().Handler(mux)",
+      "note": "cookie sessions with no CSRF token are covered: CrossOriginProtection rejects a cross-origin state-changing request by Sec-Fetch-Site or Origin, and the __Host- cookie cannot be set by a sibling subdomain; a per-session token adds nothing here"
+    }
+  ]
+}

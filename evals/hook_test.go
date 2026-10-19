@@ -1036,6 +1036,39 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
+	// A review of code that serves or calls HTTP names go-security in the same
+	// line as go-code-review; a review of other code names neither it nor any
+	// other owner.
+	t.Run("review of HTTP code names go-security", func(t *testing.T) {
+		t.Parallel()
+		prompt := "Review the Go package in ./svc as a pull request reviewer would."
+		for _, tt := range []struct {
+			name, src string
+			want      bool
+		}{
+			{name: "handler", src: "package svc\n\nimport \"net/http\"\n\nfunc H(w http.ResponseWriter, r *http.Request) {}\n", want: true},
+			{name: "pure", src: "package svc\n\nfunc Add(a, b int) int { return a + b }\n"},
+		} {
+			cwd := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(cwd, "svc"), 0o750); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(cwd, "svc", "svc.go"), []byte(tt.src), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, out := promptEvent(t, t.TempDir(), "p21-"+tt.name, cwd, prompt)
+			line, _, _ := strings.Cut(out[strings.Index(out, "Before the first finding"):], "\n")
+			if got := strings.Contains(line, "(Skill tool, name `golang-skills:go-security`)"); got != tt.want {
+				t.Errorf("review of %s code: go-security in the router line = %t, want %t:\n%s", tt.name, got, tt.want, out)
+			}
+			for _, unwanted := range []string{"go-http", "go-style-core", "before the first edit"} {
+				if strings.Contains(out, unwanted) {
+					t.Errorf("review of %s code names %q:\n%s", tt.name, unwanted, out)
+				}
+			}
+		}
+	})
+
 	t.Run("clean-up wording is a refactor", func(t *testing.T) {
 		t.Parallel()
 		_, out := promptEvent(t, t.TempDir(), "p3", t.TempDir(), "This Go file is messy, clean it up")

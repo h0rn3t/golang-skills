@@ -263,6 +263,11 @@ included, is [go-http](../../go-http/SKILL.md#server-construction)'s.
 
 - Regenerate the session ID on login and privilege change (fixation).
 - Invalidate server-side on logout; clearing the cookie is cosmetic.
+- A password change or reset, an MFA change, and an account disable revoke
+  every other session and refresh token of that account.
+- A reset token is `rand.Text()`, stored hashed, bound to one user and one
+  purpose, valid for minutes, consumed by one conditional delete, and revoked
+  when a newer one is issued.
 - CSRF for state-changing requests: `http.NewCrossOriginProtection` (Go 1.25+)
   in [go-http](../../go-http/SKILL.md). Without `Sec-Fetch-Site` it compares
   `Origin` with `Host`, and it allows a request that carries neither; add a

@@ -20,6 +20,7 @@ those paths, with the standard-library defense that closes it.
 
 - `references/INJECTION.md` - Read when untrusted data reaches SQL, `os/exec`, a template or a template's source, a file path, an outbound URL, a redirect, or a decompressor, or is served back as a download.
 - `references/SECRETS-AND-CRYPTO.md` - Read when handling passwords, a login or reset flow, tokens, API keys, webhook signatures, TLS configuration, or choosing a hash or cipher.
+- `references/ACCESS-CONTROL.md` - Read when code decides who may act: auth middleware and route registration, the tenant a query uses, batch, export, import, or background jobs, a cache, model tool calls, mTLS, gRPC, or queue identity, or an OAuth login.
 
 ## Triage: Follow the Data
 
@@ -27,6 +28,10 @@ those paths, with the standard-library defense that closes it.
 Untrusted value arrives (request, env, file, DB row written by others)
 ├─ goes into SQL?            → placeholders only (go-database owns the form)
 ├─ picks a row by ID?        → the caller's tenant in the same WHERE, not a check after the fetch
+├─ names a tenant?           → only the one the auth middleware checked; never a body field
+├─ lists many items?         → authorize each item, not the request
+├─ is a cache key?           → the tenant in the key beside the ID
+├─ came from a model?        → a request body: validate and authorize in the tool handler
 ├─ goes into a command?      → exec.Command(name, args...); never "sh -c"
 ├─ goes into HTML/JS?        → html/template; never text/template for HTML
 ├─ is a template's source?   → never Parse it; fixed placeholders the user fills
@@ -52,6 +57,13 @@ once — not at every call site downstream, where it is forgotten.
 |---|---|---|
 | SQL injection | `QueryContext(ctx, q, args...)` placeholders; identifiers from a `switch` over known names | `gosec` G201/G202 |
 | Foreign row by ID | `AND org_id =` the caller's tenant, a parameter beside the ID ([INJECTION.md](references/INJECTION.md#sql)); a foreign ID is `sql.ErrNoRows` | review |
+| Tenant from the client | The tenant the middleware checked is the one the query uses; no `OrgID` in the request type ([ACCESS-CONTROL.md](references/ACCESS-CONTROL.md#the-tenant-the-check-saw)) | review |
+| Route outside the auth wrapper | Wrap the whole mux once and list the public patterns in the wrapper ([ACCESS-CONTROL.md](references/ACCESS-CONTROL.md#authenticate-the-whole-mux)) | review |
+| Auth that fails open | Every branch answers and returns: a store or verifier error is `503`, never anonymous; an empty allowlist denies | review |
+| Batch, export, import, background job | Authorize each item as the requesting principal when the effect happens ([ACCESS-CONTROL.md](references/ACCESS-CONTROL.md#every-door-to-the-same-effect)) | review |
+| Cache shared across tenants | The tenant in the key: `struct{ org, id string }`, not the ID alone | review |
+| Quota, balance, or one-time code checked then spent | One conditional `UPDATE … WHERE` or a locked row ([go-database](../go-database/SKILL.md#transactions)) | review — `-race` sees no race between two transactions |
+| Model output, tool-call arguments | Untrusted input; the tool handler authorizes as the user the agent acts for ([ACCESS-CONTROL.md](references/ACCESS-CONTROL.md#model-output-and-tool-calls)) | review |
 | Command injection | `exec.CommandContext(ctx, "gzip", "--keep", "--", name)`: argv, no shell, `--` before input | `gosec` G204, which fires on this safe form too: suppress it on that line with the reason, as in [Injection](#injection) |
 | XSS | `html/template` (contextual escaping) | `gosec` G203 (unsafe `template.HTML`) |
 | Template written by a client | Never `Parse` client text: it calls any exported method on the data; fixed placeholders ([INJECTION.md](references/INJECTION.md#html-and-templates)) | review |
@@ -160,8 +172,11 @@ func withCORS(next http.Handler, origins ...string) (http.Handler, error) {
 }
 ```
 
-- `net/http/pprof` and `expvar` mount on a separate internal listener, never on
-  the public mux — they leak heap contents and goroutine stacks.
+- `net/http/pprof` and `expvar` register on `http.DefaultServeMux` in `init`,
+  so one blank import anywhere in the binary publishes them on every server
+  whose `Handler` is nil. Serve the public listener from your own mux and
+  mount the debug handlers on a separate internal listener — they leak heap
+  contents and goroutine stacks.
 - `X-Forwarded-For` is client-writable and append-only: join every
   `r.Header.Values("X-Forwarded-For")` line and take the rightmost entry that
   is not one of your own proxies; `r.Header.Get` returns only the first line,
@@ -172,18 +187,50 @@ func withCORS(next http.Handler, origins ...string) (http.Handler, error) {
 
 When asked to audit, trace **data flow**, not files: start at every input
 (`r.Form`, `r.Body`, `r.PathValue`, headers and cookies, `os.Args`,
-`os.Getenv`, queue messages, webhook bodies, rows from a shared table) and walk
-forward to the first sensitive sink. Read the `gosec` output first, then check
-every Quick Reference row marked `review` against every handler in scope: those
-rows are the findings the review exists for. Report each finding as
-*input → sink → missing defense → severity*. Severity by blast radius: remote
-code execution and credential theft first, data exposure second, denial of
-service third. An issue with no reachable input is reported as `not reachable`,
-not dropped — a `sh -c` on a constant string is ugly, not a vulnerability, and
-the reader decides whether it stays. Inside a
+`os.Getenv`, queue messages, webhook bodies, rows from a shared table, model
+output and tool-call arguments) and walk forward to the first sensitive sink.
+Read the `gosec` output first, then check every Quick Reference row marked
+`review` against every handler in scope: those rows are the findings the
+review exists for.
+
+A finding names the lower-trust caller and what it can already do, the input
+it controls, the sink, the missing control, and **whose** resource the effect
+reaches: *caller → input → sink → missing control → affected resource*. A
+caller acting on its own data with its own rights crosses nothing.
+
+- **Every door**: list each route to the same effect — the legacy route, the
+  batch and export endpoints, the background job, the gRPC stream beside the
+  unary method. The weakest one is the control; compare the checks, not only
+  that each door has one.
+- **Variants**: after a finding, search the package for the same shape and
+  report each reachable copy; a fix in one caller leaves its siblings open.
+- **Hardening, not a finding**: a missing layer behind a working one (no
+  `SameSite` on a cookie a CSRF check already guards) is one hardening line,
+  not Must Fix. With no reachable input it is `not reachable`, not dropped: a
+  `sh -c` on a constant string is ugly, and the reader decides whether it stays.
+- **Outside the repository**: whether the proxy overwrites `X-Forwarded-For`,
+  the ingress authenticates, or the IdP pins an audience is never assumed
+  either way. The finding is `plausible`, names the one fact an owner checks,
+  and is ranked by what follows if that fact holds.
+- **A comment that says why a path is safe** is a claim: verify it.
+
+Rank by what the evidence shows, never above it:
+
+| Rank | The finding demonstrates |
+|---|---|
+| critical | Code execution, a whole-store read, or any account taken over, without authentication |
+| high | An explicit control fully defeated: auth bypass, another tenant's read or write, stored script run by other users, authenticated code execution, one request ending the shared process (an input-reachable panic in a goroutine) |
+| medium | A real boundary crossed with a narrow blast radius or uncommon preconditions |
+| low | Non-secret internals disclosed |
+
+Fully defeats or only weakens decides high against medium. A handler panic
+`net/http` recovers ends one connection, not the service. Inside a
 [go-code-review](../go-code-review/SKILL.md) pass, each finding goes into that
-skill's template with its `verified`/`plausible` marker; blast radius orders
-the Must Fix list, it does not replace the sections.
+skill's template with its `verified`/`plausible` marker: a crossing you can
+name is Must Fix, ordered by rank; low and hardening lines are Should Fix.
+`verified` means a test you ran shows the effect — two dummy tenants through
+`httptest`, the forged input, the wrong answer — never a request to a
+running deployment.
 
 > **Validation**: add `go test -fuzz=^FuzzDecode$ -fuzztime=30s` on any
 > hand-written parser at a boundary, with that parser's fuzz target in place
@@ -193,4 +240,5 @@ the Must Fix list, it does not replace the sections.
 
 - [go-database](../go-database/SKILL.md): placeholder queries, identifier allowlists.
 - [go-logging](../go-logging/SKILL.md): `LogValuer` and what never reaches a log line.
+- [go-resilience](../go-resilience/SKILL.md): rate limits, duplicate delivery, and idempotency keys.
 - [go-troubleshooting](../go-troubleshooting/SKILL.md): a crash or hang rather than a known vulnerability.

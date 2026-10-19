@@ -325,18 +325,29 @@ if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" && -f "$manifest" ]]; then
     ns="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("name") or "")' "$manifest" 2>/dev/null)" || ns=""
 fi
 q() { printf '%s%s' "${ns:+$ns:}" "$1"; }
-# A review writes nothing: the note names go-code-review alone and sets the
-# boundary "before the first finding"; the review picks the owners behind its
-# findings itself. An owner list in this note pulled Opus 5.5 medium up to 9
-# skills and +37% session cost (2026-09-29, n=6); without it the cost did not
-# change.
+owners=""
+if (( ${#files[@]} > 0 )); then
+    owners="$(bash "$(dirname "${BASH_SOURCE[0]}")/go-code-routing.sh" --hints "${files[@]}" 2>/dev/null)" || owners=""
+fi
+# A review writes nothing: the note names go-code-review and sets the boundary
+# "before the first finding"; the review picks the owners behind its findings
+# itself. An owner list in this note pulled Opus 5.5 medium up to 9 skills and
+# +37% session cost (2026-09-29, n=6); without it the cost did not change.
+# go-security is the one exception, for code that serves or calls HTTP or that
+# the hints already tie to it: in the 2026-10-19 review corpus run (Sonnet 5.5
+# medium, gatekeeper, vault, partner, n=3 per arm) go-code-review's own step 2
+# loaded it in 0 of 18 sessions, on fixtures whose keys are mostly its defects.
 if [[ "$skill" == "go-code-review" && "$mode" != "slash" ]]; then
     if [[ "$mode" == "mention" ]]; then
         printf 'golang-skills: this prompt names the `%s` skill; naming a skill does not load it.\n' "$(q "$skill")"
     else
         printf 'golang-skills: this prompt looks like %s.\n' "$kind"
     fi
-    printf 'Before the first finding, load the `%s` skill (Skill tool, name `%s`%s); %s.\n' "$(q "$skill")" "$(q "$skill")" "$(read_alt "$skill")" "$what"
+    security=""
+    if [[ " $owners " == *" go-http "* || " $owners " == *" go-security "* ]]; then
+        security=" and the \`$(q go-security)\` skill (Skill tool, name \`$(q go-security)\`$(read_alt go-security)), since this code sits on a trust boundary"
+    fi
+    printf 'Before the first finding, load the `%s` skill (Skill tool, name `%s`%s)%s; %s.\n' "$(q "$skill")" "$(q "$skill")" "$(read_alt "$skill")" "$security" "$what"
     [[ "$mode" == "mention" ]] || printf 'If the task is not Go work, ignore this note.\n'
     exit 0
 fi
@@ -345,10 +356,6 @@ if [[ "$skill" == "go-troubleshooting" ]]; then
     printf 'golang-skills: this prompt looks like %s.\n' "$kind"
     printf 'Before answering, load the `%s` skill (Skill tool, name `%s`%s); it traces the fault back to where the bad value came from before any fix.\n' "$(q "$skill")" "$(q "$skill")" "$(read_alt "$skill")"
     exit 0
-fi
-owners=""
-if (( ${#files[@]} > 0 )); then
-    owners="$(bash "$(dirname "${BASH_SOURCE[0]}")/go-code-routing.sh" --hints "${files[@]}" 2>/dev/null)" || owners=""
 fi
 # The router line names go-style-core the way it names the router: "load the
 # X skill (Skill tool, name X)". Opus 5.5 low acts on that line and treats the

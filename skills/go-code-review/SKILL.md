@@ -28,7 +28,8 @@ allowed-tools: Bash(bash:*)
    checklist section the diff touches, the owner its rows' arrows name —
    `go-http` for a handler, `go-database` for a query, `go-concurrency` for a
    goroutine, `go-performance` for a cache, `go-resilience` for a retry,
-   `go-security` when input reaches a sink. Read the convention
+   `go-security` for a handler, an HTTP client, or input that reaches a
+   query, command, path, or template. Read the convention
    files [House Style Wins](../go-style-core/SKILL.md#house-style-wins) names;
    they fix the report language, error style, and test style, and outrank
    every rule here — except the idiom: an older form kept for consistency with

@@ -1,9 +1,9 @@
 # Sync Primitives Patterns
 
-> Sources: source/uber-go-style/style.md (Zero-value Mutexes are Valid, Do not embed mutexes, Atomic); https://pkg.go.dev/sync/atomic
+> Sources: source/uber-go-style/style.md (Zero-value Mutexes are Valid, Do not embed mutexes, Atomic); https://pkg.go.dev/sync/atomic; https://pkg.go.dev/time#NewTimer
 > Authority: advisory
-> Minimum Go: typed atomics (`atomic.Int64`) 1.19; `sync.OnceFunc`/`OnceValue`/`OnceValues` 1.21
-> Last verified: 2026-10-01
+> Minimum Go: typed atomics (`atomic.Int64`) 1.19; `sync.OnceFunc`/`OnceValue`/`OnceValues` 1.21; synchronous timer channels 1.23
+> Last verified: 2026-10-19
 
 ## Don't Embed Mutexes
 
@@ -41,6 +41,23 @@ so one-time work that can fail returns its error — `sync.OnceValues` carries
 first failure. Work whose failure can be transient (a dial, a token fetch)
 keeps a mutex-guarded field that stores only a success, so the next call
 retries.
+
+---
+
+## Timers
+
+Go 1.23 timer semantics hold for every module on a Go 1.27 toolchain (on
+1.26, for a `go` directive of 1.23 or later): `t.C` is unbuffered, `Stop` and
+`Reset` never leave a stale value behind, and an unreferenced timer is
+collected without `Stop`.
+
+- The old drain `if !t.Stop() { <-t.C }` now blocks forever: `Stop` returns
+  false only when the value was already received or the timer was already
+  stopped. Delete it; `t.Reset(d)` alone is correct.
+- `time.After` in a `select` loop allocates a timer per iteration and restarts
+  the timeout every time another case wins. A per-message idle timeout is one
+  `time.NewTimer` before the loop and `t.Reset(d)` after each message; a
+  deadline for the whole loop is a `context.WithTimeout` created once.
 
 ---
 

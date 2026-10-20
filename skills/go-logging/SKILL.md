@@ -145,6 +145,14 @@ A feature in a service is not done until an operator can see it fail:
   matched.
 - **Logs** — structured key-value records carrying the request or trace ID,
   which needs the enriched logger or context handler described above.
+- **Traces** — in an OpenTelemetry stack, `otel.SetTextMapPropagator` with
+  `propagation.TraceContext{}` (plus `propagation.Baggage{}` when baggage is
+  used) beside `otel.SetTracerProvider`: the global propagator is a no-op, so
+  without it `otelhttp.NewHandler` and `otelhttp.NewTransport` neither read
+  nor send `traceparent` and each service starts its own trace. A failed span
+  gets `span.RecordError(err)` and `span.SetStatus(codes.Error, …)`, since
+  `RecordError` alone leaves it unset, and `tp.Shutdown(ctx)` at exit flushes
+  the last batch.
 - **Dashboards and alerts** — a metric nobody queries is not observability:
   land each one in the project's dashboards and alert rules, or say plainly
   that it shipped unwired.

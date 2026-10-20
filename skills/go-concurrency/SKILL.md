@@ -13,7 +13,7 @@ description: Use when writing concurrent Go code with goroutines, channels, or m
 ## Resource Routing
 
 - `references/GOROUTINE-PATTERNS.md` - Read when starting, stopping, or waiting for goroutines.
-- `references/SYNC-PRIMITIVES.md` - Read when choosing between mutexes, atomics, channels, and once-like primitives.
+- `references/SYNC-PRIMITIVES.md` - Read when choosing between mutexes, atomics, channels, and once-like primitives, or when code stops, resets, or drains a timer.
 - `references/BUFFER-POOLING.md` - Read when considering channel-backed or sync.Pool-style reuse.
 - `references/ADVANCED-PATTERNS.md` - Read for bounded errgroup work, cooperative cancellation, request/reply channels, and CPU-bound parallelization.
 

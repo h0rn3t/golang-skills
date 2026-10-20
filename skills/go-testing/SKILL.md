@@ -95,7 +95,11 @@ t.Errorf("Add(2, 3) = %d, want %d", got, 5)
 
 Use `assert` for independent checks that can continue after failure and
 `require` for prerequisites, only from the test goroutine; a wrapped error is
-`require.ErrorIs`, not a match on its text.
+`require.ErrorIs`, not a match on its text. An `assert.New(t)` or
+`require.New(t)` bound to the parent `t` and used inside `t.Run` reports
+the failure on the parent and leaves the subtest green; a `require` through
+it calls `FailNow` on the parent from the subtest's goroutine. Build it
+from the subtest's own `t`.
 
 For protocol buffers, add `protocmp.Transform()` as a cmp option. Always
 include the direction key `(-want +got)` in diff messages. Compare serialized

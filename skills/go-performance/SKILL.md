@@ -7,7 +7,8 @@ allowed-tools: Bash(bash:*)
 # Go Performance Patterns
 
 > Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). `b.Loop()`
-> requires Go 1.24+; `encoding/json/v2` Go 1.27+.
+> requires Go 1.24+; `encoding/json/v2` Go 1.27+; cgroup-aware `GOMAXPROCS`
+> Go 1.25+.
 
 ## Resource Routing
 
@@ -169,6 +170,14 @@ Check the standard library first — `encoding/json/v2` (Go 1.27+) and the
 iterator variants (`strings.SplitSeq` Go 1.24+, `maps.Keys` Go 1.23+) remove
 allocations without a new dependency. See
 [go-packages](../go-packages/SKILL.md) for the dependency ladder.
+
+---
+
+## Runtime Settings
+
+`GOMAXPROCS` follows the cgroup CPU limit from a `go 1.25` directive, so
+`go.uber.org/automaxprocs` is a dependency to remove, as its own change
+([MODERNIZATION.md](../go-code-refactor/references/MODERNIZATION.md)).
 
 ---
 

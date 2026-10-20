@@ -118,3 +118,14 @@ Replace `<skills>` with the install directory from the
 clients, so the instruction is the whole mechanism, and the last line makes a
 skipped load visible in the reply rather than only in the transcript. Codex
 also takes an explicit `$go-code <task>`.
+
+Cursor applies a project rule without a model choosing it: save the same
+block as `.cursor/rules/go-skills.mdc` under this frontmatter, so every
+request in a Go project starts with it.
+
+```markdown
+---
+description: Route Go edits through the golang-skills router
+alwaysApply: true
+---
+```

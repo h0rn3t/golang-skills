@@ -4,6 +4,23 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **Traps a model writes without the skill, checked on go1.27.1.**
+  go-concurrency's `SYNC-PRIMITIVES.md` gains a Timers section: Go 1.23
+  semantics hold for every module on a 1.27 toolchain, so the old
+  `if !t.Stop() { <-t.C }` drain now blocks forever, and `time.After` in a
+  `select` loop restarts the timeout on every message. go-testing gains the
+  testify `assert.New(parent t)` trap. go-logging's checklist gains Traces,
+  including the no-op global propagator that breaks `traceparent` across
+  services. go-performance notes that cgroup-aware `GOMAXPROCS` makes
+  `automaxprocs` removable under a `go 1.25` directive.
+- **An abrun refactor fixture with rename traps.** `spool` holds two that
+  compile and pass `go vet` after a careless rename: a parameter `d` whose
+  natural name `digits` is already an inner variable, and a method `fl`
+  matched only by a type assertion in another file, which only the text
+  search finds.
+- `docs/PROJECT_INSTRUCTIONS.md` shows the Cursor `.mdc` rule form of the
+  routing block.
+
 ## [1.37.0] - 2026-10-19
 
 - **go-security covers who may act, not only what input reaches.** A new

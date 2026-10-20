@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.38.0] - 2026-10-20
+
 - **Traps a model writes without the skill, checked on go1.27.1.**
   go-concurrency's `SYNC-PRIMITIVES.md` gains a Timers section: Go 1.23
   semantics hold for every module on a 1.27 toolchain, so the old

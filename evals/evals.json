@@ -1939,6 +1939,23 @@
         "Does not treat the clean gosec run as evidence these are safe"
       ],
       "set": "validation"
+    },
+    {
+      "id": 64,
+      "prompt": "Our Go 1.27 order API is too slow under load. Speed up normalizeSKU, it looks wasteful:\n\n```go\nfunc normalizeSKU(s string) string {\n\ts = strings.TrimSpace(s)\n\ts = strings.ToUpper(s)\n\ts = strings.ReplaceAll(s, \" \", \"\")\n\treturn strings.ReplaceAll(s, \"-\", \"\")\n}\n```\n\n`go tool pprof -top` of a 30-second CPU profile from production:\n\n```\nDuration: 30s, Total samples = 24s (80.00%)\n      flat  flat%   sum%        cum   cum%\n     3.60s 15.00% 15.00%      9.12s 38.00%  runtime.mallocgc\n     2.88s 12.00% 27.00%      2.88s 12.00%  runtime.memmove\n     2.40s 10.00% 37.00%      5.04s 21.00%  runtime.gcBgMarkWorker\n     1.92s  8.00% 45.00%     14.64s 61.00%  orders.(*Server).encodeOrder\n     1.68s  7.00% 52.00%     11.28s 47.00%  encoding/json.Marshal\n     1.20s  5.00% 57.00%      1.20s  5.00%  runtime.scanobject\n     ...\n     0.12s  0.50% 87.40%      0.12s  0.50%  orders.normalizeSKU\n```\n\nDo not run commands.",
+      "expected_output": "No rewrite of normalizeSKU: at 0.5% of CPU, making it free saves at most 0.5%. The time is in encodeOrder (61% cumulative), its JSON marshaling and the allocations and GC under it; the next step is a benchmark of that path, a profile of it, and a before/after comparison that decides whether a change is kept.",
+      "target_skills": [
+        "go-performance"
+      ],
+      "assertions": [
+        "Does not present a rewrite of normalizeSKU as the change to make; any rewrite shown is marked optional and not expected to help",
+        "States that normalizeSKU is about 0.5% of the profile, so even a free normalizeSKU saves at most about 0.5% (Amdahl's law or the same arithmetic)",
+        "Names orders.(*Server).encodeOrder (61% cumulative) and its JSON marshaling as where the time goes",
+        "Reads the mallocgc, gcBgMarkWorker, and scanobject rows as allocation and GC pressure coming from that path",
+        "Proposes a benchmark of the hot path and a before/after comparison with significance (benchstat or bench-compare.sh) before any change is kept",
+        "Does not claim any change makes the service faster without such a measurement"
+      ],
+      "set": "validation"
     }
   ]
 }

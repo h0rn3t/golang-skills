@@ -6,12 +6,16 @@
 // types, interfaces, pattern-flavored names, and whether the hidden golden test
 // passes.
 //
-// There are two corpora. -corpus refactor hands the model a working package and
-// asks it to improve the reading; the golden test characterizes the behavior
-// that already existed, so it can only be broken, and the score is how much
-// structure the refactor removed. -corpus implement hands the model documented
-// but unimplemented declarations; the golden test is the specification, so it
-// can be failed outright, and the score is whether the package works at all.
+// There are four corpora. -corpus refactor hands the model a working package
+// and asks it to improve the reading; the golden test characterizes the
+// behavior that already existed, so it can only be broken, and the score is
+// how much structure the refactor removed. -corpus implement hands the model
+// documented but unimplemented declarations; the golden test is the
+// specification, so it can be failed outright, and the score is whether the
+// package works at all. -corpus review scores a review against a key of
+// seeded defects (review.go). -corpus perf asks for a speed-up, or for one the
+// profile says is not worth having, and scores the harness's own benchmark
+// verdict (perf.go).
 //
 // Nothing here grades prose; the model edits real files in a scratch directory
 // and the files are what gets measured. A before/after claim requires the
@@ -27,6 +31,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -173,7 +178,7 @@ func main() {
 	flag.StringVar(&o.arms, "arms", "", "comma-separated arms to run, e.g. \"no-skill,baseline\" (default: all)")
 	flag.StringVar(&o.variants, "variants", "", "directory of variant Markdown blocks (default: evals/ab/variants)")
 	flag.StringVar(&o.prompt, "prompt", "", "prompt template; %s is the fixture directory (default: the corpus prompt)")
-	flag.StringVar(&o.corpus, "corpus", corpusRefactor, "fixture corpus to run: refactor, implement or review")
+	flag.StringVar(&o.corpus, "corpus", corpusRefactor, "fixture corpus to run: refactor, implement, review or perf (perf needs -shell go with claude)")
 	flag.StringVar(&o.model, "model", "", "model for the evaluated run (default: the runner's own default; required for opencode)")
 	flag.StringVar(&o.effort, "effort", "", "reasoning effort for the evaluated run, e.g. medium (opencode: a --variant the model declares)")
 	flag.StringVar(&o.runner, "runner", runnerClaude, "agent CLI to drive: claude, opencode, copilot or codex")
@@ -281,6 +286,15 @@ type metrics struct {
 	EchoDocs       *int `json:"echo_docs,omitempty"`
 	OneCallHelpers *int `json:"one_call_helpers,omitempty"`
 	LogAndReturn   *int `json:"log_and_return,omitempty"`
+	// TestLines, TestFuncs and TestCases read the _test.go files Lines leaves
+	// out (testsize.go): on the implement corpus, where no fixture ships a
+	// test, their delta is what the session wrote. They tell a test that
+	// earns its place from one per function only next to golden: fewer cases
+	// with golden held is the claim, fewer with golden lost is a regression.
+	// A FuzzX target adds its lines but no Test func and no case.
+	TestLines *int `json:"test_lines,omitempty"`
+	TestFuncs *int `json:"test_funcs,omitempty"`
+	TestCases *int `json:"test_cases,omitempty"`
 }
 
 // subPtr is a - b, or nil when either side was not measured.
@@ -311,6 +325,10 @@ func (m metrics) sub(o metrics) metrics {
 		EchoDocs:       subPtr(m.EchoDocs, o.EchoDocs),
 		OneCallHelpers: subPtr(m.OneCallHelpers, o.OneCallHelpers),
 		LogAndReturn:   subPtr(m.LogAndReturn, o.LogAndReturn),
+
+		TestLines: subPtr(m.TestLines, o.TestLines),
+		TestFuncs: subPtr(m.TestFuncs, o.TestFuncs),
+		TestCases: subPtr(m.TestCases, o.TestCases),
 	}
 }
 
@@ -331,6 +349,10 @@ type result struct {
 	// run has no golden test: it is valid when the session ended, the fixture
 	// still builds and was not edited, and there is a review to score.
 	Review *reviewScore `json:"review,omitempty"`
+	// Perf is the perf corpus's score; nil on the other corpora. perfJob is
+	// the measurement still owed for it, run serially after every session.
+	Perf    *perfScore `json:"perf,omitempty"`
+	perfJob *perfJob
 	// ModelTests is pass, fail, or skipped (no test files). Older reports omit it.
 	ModelTests    string `json:"model_tests,omitempty"`
 	ModelTestFail string `json:"model_test_failure,omitempty"`
@@ -476,8 +498,11 @@ func run(o options) error {
 		abDir = filepath.Join(abDir, implementDir)
 	case corpusReview:
 		abDir = filepath.Join(abDir, reviewDir)
+	case corpusPerf:
+		abDir = filepath.Join(abDir, perfDir)
 	}
-	if o.prompt == "" {
+	// A perf fixture carries its own prompt in its key; -prompt still overrides.
+	if o.prompt == "" && o.corpus != corpusPerf {
 		o.prompt = corpusPrompt(o.corpus)
 	}
 	if o.variants == "" {
@@ -488,8 +513,11 @@ func run(o options) error {
 		return err
 	}
 	validate := validateFixtures
-	if o.corpus == corpusReview {
+	switch o.corpus {
+	case corpusReview:
 		validate = validateReviewFixtures
+	case corpusPerf:
+		validate = validatePerfFixtures
 	}
 	if err := validate(abDir, tasks); err != nil {
 		return err
@@ -555,6 +583,10 @@ func run(o options) error {
 		rep.Results[i] = res
 		printResult(res, o.verbose)
 	})
+	if o.corpus == corpusPerf {
+		fmt.Println()
+		measurePerfResults(o, root, rep.Results)
+	}
 	rep.Finished = time.Now()
 
 	fmt.Println()
@@ -578,8 +610,13 @@ func run(o options) error {
 }
 
 func validateOptions(o options) error {
-	if o.corpus != corpusRefactor && o.corpus != corpusImplement && o.corpus != corpusReview {
-		return exitError{2, fmt.Sprintf("-corpus must be %s, %s or %s", corpusRefactor, corpusImplement, corpusReview)}
+	if o.corpus != corpusRefactor && o.corpus != corpusImplement && o.corpus != corpusReview && o.corpus != corpusPerf {
+		return exitError{2, fmt.Sprintf("-corpus must be %s, %s, %s or %s", corpusRefactor, corpusImplement, corpusReview, corpusPerf)}
+	}
+	// A perf task is to measure: a claude session without a shell cannot run
+	// a benchmark, so its score would say nothing about the skill text.
+	if o.corpus == corpusPerf && o.runner == runnerClaude && o.shell == "" {
+		return exitError{2, "-corpus " + corpusPerf + " needs -shell " + shellGo + " for the claude runner"}
 	}
 	switch o.runner {
 	case runnerClaude, runnerCopilot, runnerCodex:
@@ -889,6 +926,9 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 			res.WorkDir = work
 			return
 		}
+		if res.perfJob != nil {
+			return // measurePerfResults removes it once the tree is measured
+		}
 		_ = os.RemoveAll(work) //nolint:errcheck // best-effort cleanup after the result is recorded
 	}()
 
@@ -978,7 +1018,18 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		return true
 	}
 
-	turn := runSession(o, a, work, fmt.Sprintf(o.prompt, taskName))
+	golden := filepath.Join(abDir, "_golden", taskName)
+	var pk perfKey
+	prompt := o.prompt
+	if o.corpus == corpusPerf {
+		if pk, err = loadPerfKey(filepath.Join(golden, perfKeyFile)); err != nil {
+			res.Err = fmt.Sprintf("perf key: %v", err)
+			return res
+		}
+		prompt = cmp.Or(prompt, pk.Prompt)
+		res.Perf = &perfScore{Expect: pk.Expect, Class: pk.Class, Prompt: fmt.Sprintf(prompt, taskName), Changed: []string{}}
+	}
+	turn := runSession(o, a, work, fmt.Sprintf(prompt, taskName))
 	res.merge(turn)
 	// The transcript is written before anything is measured, so it survives even
 	// a run that fails from here on. A final message that claims a measurement
@@ -991,7 +1042,6 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		return res
 	}
 
-	golden := filepath.Join(abDir, "_golden", taskName)
 	if o.corpus == corpusReview {
 		// The review is the final message; the key is resolved against the
 		// pristine fixture in the repository, never the scratch copy.
@@ -1051,6 +1101,9 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		res.BehaviorFailure, res.HarnessFailure = classifyGolden(res.Build, err.Error())
 	} else {
 		res.Golden = true
+	}
+	if o.corpus == corpusPerf {
+		scorePerf(abDir, taskName, work, pk, &res)
 	}
 	return res
 }
@@ -1498,9 +1551,10 @@ func fixtureDigest(dir string) (string, error) {
 
 // analyze counts the structure of every Go file in dir.
 func analyze(dir string) (metrics, error) {
-	var m metrics
+	m := metrics{TestLines: new(0), TestFuncs: new(0), TestCases: new(0)}
 	fset := token.NewFileSet()
 	packages := map[string][]*ast.File{}
+	testPackages := map[string][]*ast.File{}
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -1515,6 +1569,10 @@ func analyze(dir string) (metrics, error) {
 		}
 		if strings.HasSuffix(name, "_test.go") {
 			m.TestFiles++
+			if file, ok := m.addTestFile(fset, path, data); ok {
+				pkg := filepath.Dir(path) + ":" + file.Name.Name
+				testPackages[pkg] = append(testPackages[pkg], file)
+			}
 			return nil
 		}
 		m.Files++
@@ -1532,6 +1590,9 @@ func analyze(dir string) (metrics, error) {
 		return m, err
 	}
 	m.readability(fset, packages)
+	for _, files := range testPackages {
+		m.addTestPackage(files)
+	}
 	return m, nil
 }
 
@@ -2266,6 +2327,7 @@ type armSummary struct {
 	// them. A report written before those fields existed has none, and the
 	// summary prints a dash rather than a zero.
 	Readability readabilitySum
+	Tests       testSizeSum
 }
 
 type readabilitySum struct {
@@ -2311,6 +2373,8 @@ func skillFired(corpus string, skills []string) bool {
 		return len(skills) > 0
 	case corpusReview:
 		return slices.Contains(skills, "go-code-review")
+	case corpusPerf:
+		return slices.Contains(skills, "go-performance")
 	}
 	return slices.Contains(skills, "go-code-refactor")
 }
@@ -2387,6 +2451,7 @@ func summarizeArm(rep report, name string) armSummary {
 		summary.Exported += r.Delta.Exported
 		summary.Branches += r.Delta.Branches
 		summary.Readability.add(r.Delta)
+		summary.Tests.add(r.Delta)
 		if r.FixHunksBefore != nil && r.FixHunks != nil {
 			summary.FixMeasured++
 			summary.FixBefore += *r.FixHunksBefore
@@ -2411,8 +2476,12 @@ func summarizeArm(rep report, name string) armSummary {
 // pass their model tests (if present) and hidden golden test.
 // Failed sessions remain visible in the counts.
 func printSummary(rep report) {
-	if rep.Corpus == corpusReview {
+	switch rep.Corpus {
+	case corpusReview:
 		printReviewSummary(rep)
+		return
+	case corpusPerf:
+		printPerfSummary(rep)
 		return
 	}
 	fmt.Printf("%-24s %5s %6s %5s %8s %7s %7s %7s %6s %6s %9s %6s %8s %7s %7s %6s %8s\n",
@@ -2459,6 +2528,7 @@ func printSummary(rep report) {
 			"", summary.LineGatePasses, completed, summary.BehaviorFailures, summary.ReportedCounts, completed)
 		printRoutingSummary(rep, a.Name)
 		fmt.Printf("%-24s   %s\n", "", summary.Readability.line(summary.Valid))
+		fmt.Printf("%-24s   %s\n", "", summary.Tests.line(summary.Valid))
 		if summary.FixMeasured > 0 {
 			fixMean := func(sum int) float64 { return float64(sum) / float64(summary.FixMeasured) }
 			fmt.Printf("%-24s   go fix pending %.2f -> %.2f hunk(s)/run, nothing left to propose in %d/%d\n",

@@ -20,6 +20,45 @@ allowed-tools: Bash(bash:*)
 - `references/INTEGRATION.md` - Read when testing external services, HTTP handlers, databases, or long-running setup.
 - `../go-http/references/JSON-V2.md` - Read when testing JSON v2 defaults, migration compatibility, or golden bytes (Go 1.27+).
 
+## What Earns a Test
+
+> **Normative**: A test exists for the bug it catches. Before writing a test
+> or a case, name the plausible change to the code that turns it red; one that
+> no such change can fail is not written. Scope: the tests this task writes —
+> an existing passing test stays unless the user asks
+> ([Holding the Bar](../go-linting/SKILL.md#holding-the-bar)).
+
+- **Through the contract.** Call the exported entry point and assert what the
+  documentation promises. An unexported helper gets its own test only when
+  the entry point cannot reach its inputs (a parser, money arithmetic).
+  Observe through the contract too: after `Create`, a `Get`, not a `SELECT`
+  on the table behind it.
+- **`want` comes from outside the code**: a literal or a hand-checked
+  fixture, never the function under test, its helpers, or the same formula —
+  `want := a.Price + b.Price` for `Total` passes whatever `Total` does.
+- **One case per input class, plus each boundary**: nil and empty, one and
+  many, the limit and one past it, each error path. A row that takes the same
+  branch with the same class of input as another is a duplicate.
+- **Nothing that cannot break on its own**: a getter or setter, a constructor
+  that only assigns, a pass-through to the standard library or a dependency,
+  a restated constant, generated code, or what the compiler checks —
+  `var _ Store = (*memStore)(nil)` proves the interface. For a constant, test
+  what depends on it: not `MaxRetries == 5` but five attempts and no sixth.
+- **No mock echo.** Asserting that a double received what the code handed it
+  proves the wiring, not the behavior: assert the observable result, through a
+  fake ([TEST-ORGANIZATION.md](references/TEST-ORGANIZATION.md#test-double-types)).
+  A spy stays where the call is the contract — an email sent, an event emitted.
+- **Coverage is a question, not a target.** An uncovered line asks which bug
+  would go unnoticed there; when the answer is none, it stays uncovered.
+
+Before closing, mutate the body in your head: a wrong constant or comparison,
+the other branch, a dropped side effect, a zero-value return, a missing nil,
+empty, or unauthorized check. Each needs a test that turns red; the one none
+catches is the missing case. Review runs the same probe for real
+([go-code-review](../go-code-review/SKILL.md#testing)).
+
+---
+
 ## Use the Toolchain's Test APIs
 
 > **Normative**: Prefer the standard-library helper over hand-rolled setup and
@@ -96,10 +135,12 @@ t.Errorf("Add(2, 3) = %d, want %d", got, 5)
 Use `assert` for independent checks that can continue after failure and
 `require` for prerequisites, only from the test goroutine; a wrapped error is
 `require.ErrorIs`, not a match on its text. An `assert.New(t)` or
-`require.New(t)` bound to the parent `t` and used inside `t.Run` reports
-the failure on the parent and leaves the subtest green; a `require` through
-it calls `FailNow` on the parent from the subtest's goroutine. Build it
-from the subtest's own `t`.
+`require.New(t)` bound to the parent `t` and used inside `t.Run` fails the
+wrong test. Through `assert` the failure lands on the parent and the subtest
+stays green; the tell in `-v` output is a parent FAIL over subtests that all
+PASS. A `require` through it calls `FailNow` on the parent from the
+subtest's goroutine; the tell is `subtest may have called FailNow on a
+parent test`. Build it from the subtest's own `t`.
 
 For protocol buffers, add `protocmp.Transform()` as a cmp option. Always
 include the direction key `(-want +got)` in diff messages. Compare serialized
@@ -135,6 +176,13 @@ or multiple branches — write separate test functions instead.
   touches globals, `t.Setenv`, `t.Chdir`, or a shared fixture. Under a `go`
   directive of 1.22 or later no `tt := tt` capture line (`go fix -forvar`
   removes one in touched lines); below 1.22 it stays.
+
+A table holds the cases someone thought of. A parser, decoder, or encoder
+also gets a `FuzzX` seeded with the table's inputs and a property that needs
+no `want`: a round trip (`Decode(Encode(x))` equals `x`), or an error instead
+of a panic or a partial value. Plain `go test` runs the seeds; `-fuzz`
+explores. The time-capped fuzz run for a parser at a trust boundary is
+[go-security](../go-security/SKILL.md)'s.
 
 > **Validation**: Running the tests, with `-race` and the pipeline's flags,
 > belongs to the [go-linting](../go-linting/SKILL.md) gate, once, at the end

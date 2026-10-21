@@ -4,6 +4,65 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **bench-compare.sh decides keep or revert.** `--snapshot DIR` freezes one
+  package's test binary and copies its test files; `--verdict DIR` builds the
+  current code against those frozen test files (`go test -overlay`, so a
+  benchmark edited after the snapshot is not what gets compared), runs base
+  and new alternately `--count` times in the package directory, and hands
+  both outputs to the new `bench-verdict.go` (standard library only: medians,
+  the 95% interval, the Mann-Whitney U test). The verdict is `keep` (exit 0)
+  for a significant improvement with no significant regression, `noisy` when
+  the spread is wider than `--threshold` (default 5%), `revert` otherwise; a
+  snapshot from another toolchain is an error. `--new-env` measures a runtime
+  setting such as `GOGC` against an unchanged snapshot. The existing
+  `--save`/`--baseline` modes are unchanged, and the skill text does not use
+  the verdict mode yet.
+- **abrun -corpus perf.** Five fixtures under `evals/ab/_perf`: GC-bound
+  binary-trees, allocation-bound JSON lines, a contended mutex, a store
+  client called once per record, and a decline case asking to speed up a
+  function at 0.15% of the profile it ships with. Each key holds the prompt,
+  the golden benchmark, the targets, and cold bait functions. After every
+  session the harness measures the golden benchmark serially with
+  `bench-compare.sh --verdict` against the fixture as given; a speedup run
+  passes on `keep` with the golden test passing and no bait touched, a
+  decline run when its target is unchanged. The report also records the
+  functions changed and whether a benchmark or profile ran before the first
+  edit. Needs `-shell go` with claude. A first smoke (Sonnet 5.5 medium,
+  n=1, no-skill against baseline) passed 5/5 in both arms: the fixtures name
+  their hot path and are too easy to judge a skill edit yet.
+- **Quality eval 64** is the decline case without a shell: a request to
+  speed up a function a pasted profile puts at 0.5%.
+
+- **go-testing says which tests earn a place.** A new What Earns a Test
+  section: each test or case names the bug it catches; cases go per input
+  class and boundary, through the exported contract; getters, assigning
+  constructors, pass-throughs, restated constants and compiler-checked facts
+  get none; a mock echo is replaced by the observable result. The rule covers
+  tests a task writes, not existing ones. The Contract Table counts clauses of
+  the documentation, not branches of the body, and the restraint ladder's
+  test paragraph routes here. abrun reports `tests Δ/run` (lines, `Test`
+  functions, cases) from the tests a session wrote. Implement corpus
+  `catalog,gateway,ledger`, medium, n=5, against 1.38.0: Sonnet 5.5 cases
+  per run 10.5 → 9.0 and test lines 71 → 66, all of it on `gateway`; Opus 5.5
+  unchanged (12.0 → 11.9). Golden 15/15 in every arm. The case counts were
+  taken before the counter scoped a table to its own test function (a
+  file's last `tests` table stood for every test in it) and stopped counting
+  `TestMain` and zero-argument `Run` calls, and before it read a range's
+  table from the binding nearest before it (two groups that each declare
+  `tests` counted the last one twice), shared package-level tables across a
+  package's test files, counted tables of a named slice or map type, and
+  stopped counting a subtest over a table as one case more than its rows;
+  re-measure them before citing.
+- **What Earns a Test catches the tests that pass by construction.** Taken
+  from obra/superpowers `writing-good-tests.md` and mattpocock/skills `tdd`:
+  `want` is a literal or hand-checked fixture, never computed by the code
+  under test; a constant is tested through what depends on it; the contract
+  is observed through itself, not through the table behind it; a closing
+  mental mutation pass finds the missing case. `TEST-ORGANIZATION.md` says a
+  fake keeps the real contract (sentinels, filled fields). Table tests point
+  a parser or encoder at a `FuzzX` round trip, and the testify parent-`t`
+  trap names its tell. Not yet measured with abrun.
+
 ## [1.38.0] - 2026-10-20
 
 - **Traps a model writes without the skill, checked on go1.27.1.**

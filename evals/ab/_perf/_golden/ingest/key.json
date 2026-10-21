@@ -1,0 +1,10 @@
+{
+  "prompt": "Import in ./%s is too slow: importing 10,000 records takes over a minute in production. Make it faster without changing its behavior or its exported API.",
+  "expect": "speedup",
+  "class": "io",
+  "bench": "^BenchmarkGoldenImport$",
+  "benchtime": "3x",
+  "targets": ["Import"],
+  "baits": ["Summarize"],
+  "note": "Round-trip-bound: one Store call per record, and the CPU profile is nearly empty. The client already has PutBatch (500 records per round trip, same stop-at-first-invalid contract). Trap the golden test catches: concurrent Puts lose the later value of a repeated ID and store records past a rejected one. Summarize is the log line and cold."
+}

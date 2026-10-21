@@ -1,0 +1,10 @@
+{
+  "prompt": "WriteAll in ./%s is the hot path of our ingest service, which calls it for every batch of about a thousand events, and it is too slow. Make it faster without changing the bytes it writes or its exported API.",
+  "expect": "speedup",
+  "class": "alloc",
+  "bench": "^BenchmarkGoldenWriteAll$",
+  "benchtime": "100x",
+  "targets": ["WriteAll", "sortedTags"],
+  "baits": ["ParseKind"],
+  "note": "Allocation-bound: a map[string]any per event boxes every value, json.Marshal sorts the keys per call, and each line is a fresh slice. A struct with the keys in order, a reused buffer, and a copy-then-sort of the tags remove most of it. Traps the golden test catches: encoding/json/v2 does not escape <, >, & by default; sorting e.Tags in place reorders the caller's slice. ParseKind runs once at startup."
+}

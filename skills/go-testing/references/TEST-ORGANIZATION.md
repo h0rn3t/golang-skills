@@ -17,6 +17,12 @@
 **Prefer fakes over mocks.** Fakes are more readable and don't require mock
 frameworks. Reserve spies for verifying side effects (e.g., an analytics event).
 
+A fake keeps the real contract: the same sentinel errors (`ErrNotFound`
+below, never `nil, nil`), the fields the real store fills (an ID, a
+`CreatedAt`) even when this test reads none of them, and the same copy and
+ordering semantics. A fake looser than the implementation it stands in for
+passes tests that the integration fails.
+
 ```go
 // Fake: Working in-memory implementation
 type FakeUserStore struct {

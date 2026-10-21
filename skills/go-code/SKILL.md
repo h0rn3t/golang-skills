@@ -132,14 +132,17 @@ tests.
 
 Before the first production edit, turn the documentation and the request into
 a table-driven test in the package — a new `<pkg>_contract_test.go`, or cases
-added to the existing test file — one case per observable clause: each request
-or input class, each method and status code, ordering, error text, and the
-empty, nil, and invalid inputs; a clause that says what the code must *not*
-do is a case too. The empty case is built from nil — a nil slice, a nil map,
-a request with no body — not from an empty literal: `[]T{}` already has the
-shape the case is meant to prove, and `slices.Clone` of nil is nil. A case
-for a list that may come back empty compares the body text with `[]`
-(`strings.TrimSpace(rec.Body.String())`), never a decoded value:
+added to the existing test file — one case per observable clause of the
+documentation, not per branch of the body
+([go-testing](../go-testing/SKILL.md#what-earns-a-test) says which cases earn
+a place): each request or input class, each method and status code,
+ordering, error text, and the empty, nil, and invalid inputs; a clause that
+says what the code must *not* do is a case too. The empty case is built from
+nil — a nil slice, a nil map, a request with no body — not from an empty
+literal: `[]T{}` already has the shape the case is meant to prove, and
+`slices.Clone` of nil is nil. A case for a list that may come back empty
+compares the body text with `[]` (`strings.TrimSpace(rec.Body.String())`),
+never a decoded value:
 `json.Unmarshal` decodes `null` to a nil slice and `[]` to an empty one, both
 of length zero, and the case passes on the one body the contract forbids. A
 clause written as a class — "any other method", "any other value" — takes its

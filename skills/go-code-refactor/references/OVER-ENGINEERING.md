@@ -155,11 +155,11 @@ asked for is not prose debt; give it in full. A refactor reports through
 `assets/refactor-report.md`, whose table is already the short form.
 
 Lazy code without its check is unfinished. Non-trivial logic — a branch, a
-loop, a parser, a money or security path — leaves a runnable check behind: one
-check per behavior, several cases in one table, no fixtures, nothing that only
-mirrors the function list. YAGNI applies to tests too: a trivial one-liner
-needs none. Tests that fail when the logic breaks are never a cut;
-[go-testing](../../go-testing/SKILL.md) owns the form.
+loop, a parser, a money or security path — leaves a runnable check behind.
+YAGNI applies to tests too:
+[go-testing](../../go-testing/SKILL.md#what-earns-a-test) owns which tests
+earn their place and their form. Tests that fail when the logic breaks are
+never a cut.
 
 ## Tags
 

@@ -13,6 +13,7 @@ allowed-tools: Bash(bash:*)
 ## Resource Routing
 
 - `scripts/bench-compare.sh` - Run when comparing benchmark results, saving baselines, or producing JSON benchmark metadata.
+- `scripts/bench-verdict.go` - The statistics helper `bench-compare.sh --verdict` builds; `scripts/bench-verdict_test.go` holds its unit tests.
 - `references/BENCHMARKS.md` - Read when writing benchmarks, using benchstat, or profiling with pprof.
 - `references/STRING-OPTIMIZATION.md` - Read when optimizing concatenation or memory retained by substrings.
 

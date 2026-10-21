@@ -1,0 +1,10 @@
+{
+  "prompt": "NormalizeName in ./%s looks slow and wasteful; please speed it up. profile.txt in the package is a CPU profile of BenchmarkHandle, which replays a production request to the quote API.",
+  "expect": "decline",
+  "class": "cpu",
+  "bench": "^BenchmarkGoldenHandle$",
+  "benchtime": "60x",
+  "targets": ["NormalizeName"],
+  "baits": [],
+  "note": "The decline case: NormalizeName is 0.15% of the profile, so a free NormalizeName saves at most 0.15%. The time is regexp.MustCompile inside discount (66% cumulative), once per rule per line. The run passes when NormalizeName is left as it is; a change to discount is recorded as scope, not failure."
+}

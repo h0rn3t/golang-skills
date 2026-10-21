@@ -84,8 +84,12 @@ func TestAnalyzeIncludesNestedGoFiles(t *testing.T) {
 	if got.MaxFuncLines == nil || *got.MaxFuncLines != 1 {
 		t.Errorf("analyze(%q).MaxFuncLines = %v, want 1 for two one-line functions", root, got.MaxFuncLines)
 	}
+	if got.TestLines == nil || *got.TestLines != 1 {
+		t.Errorf("analyze(%q).TestLines = %v, want 1 for the one-line nested_test.go", root, got.TestLines)
+	}
 	got.MaxFuncLines, got.P90FuncLines, got.MaxNesting = nil, nil, nil
 	got.EchoDocs, got.OneCallHelpers, got.LogAndReturn = nil, nil, nil
+	got.TestLines, got.TestFuncs, got.TestCases = nil, nil, nil
 	want := metrics{Lines: 7, Files: 2, TestFiles: 1, Types: 2, Interfaces: 1, Funcs: 2, Exported: 4}
 	if got != want {
 		t.Errorf("analyze(%q) = %+v, want %+v", root, got, want)

@@ -1,0 +1,10 @@
+{
+  "prompt": "Counter.Inc in ./%s is a hot spot under load: the service runs with 8 CPUs, request goroutines call Inc all the time, and the metrics endpoint reads Snapshot every few seconds. Make it faster without changing its behavior or its exported API.",
+  "expect": "speedup",
+  "class": "contention",
+  "bench": "^BenchmarkGoldenInc$",
+  "benchtime": "2000000x",
+  "targets": ["Counter.Inc", "Counter.Add", "Counter.Get", "Counter.Snapshot", "New"],
+  "baits": ["Counter.String"],
+  "note": "Contention-bound: one mutex for every key. The mutex profile points at Counter.mu; per-key atomic counters behind a read-mostly map (sync.Map of *atomic.Int64, or an RWMutex-guarded map of them) or shards remove it. The golden test runs without -race, so a racy fix can still pass it; the session's own gate is what should catch that. String is the debug page and cold."
+}

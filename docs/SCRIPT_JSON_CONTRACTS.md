@@ -182,6 +182,57 @@ option missing its value, a bad `--count` or `--limit`, an existing `--save`
 target without `--force`, or a `--baseline` file that is missing or has no
 `Benchmark` lines.
 
+`--snapshot DIR` and `--verdict DIR` print one shape each. A snapshot:
+
+```json
+{"mode":"snapshot","package":"./join","import_path":"m/join","snapshot":"/abs/snap","go_version":"go1.27.1","filter":".","benchmarks":["BenchmarkLine"],"status":"ok","exit_code":0,"go_exit_code":0,"output":""}
+```
+
+It writes `base.test` (`go test -c`), a copy of every `*_test.go` in the
+package under `tests/`, and `meta` (import path and `go env GOVERSION`) into
+`DIR`, which is made absolute in `snapshot`. `benchmarks` lists the top-level
+names `-test.list` matches with `--filter`. `status` is `ok`, `error` (the
+build failed; `output` carries it), or `no_benchmarks` (no test files, or no
+benchmark matches); both exit 1 and remove `base.test`, so a failed snapshot
+cannot be compared against. A verdict:
+
+```json
+{"mode":"verdict","package":"./join","import_path":"m/join","snapshot":"/abs/snap","go_version":"go1.27.1","count":10,"filter":".","threshold_pct":5,"benchtime":"","new_env":[],"status":"ok","verdict":"keep","exit_code":0,"go_exit_code":0,"comparison":{"verdict":"keep","reason":"improved: BenchmarkLine-8 sec/op -97.11%","threshold_pct":5,"alpha":0.05,"rows":[{"name":"BenchmarkLine-8","unit":"sec/op","base":5.3e-06,"new":1.5e-07,"base_ci_pct":25,"new_ci_pct":38,"delta_pct":-97.11,"p":0.002,"n_base":6,"n_new":6,"significant":true,"change":"better"}],"unmatched":[]},"output":""}
+```
+
+The new binary is built with `go test -overlay` mapping each current test
+file to its snapshot copy and every test file added since to nothing, so it
+runs the snapshot's benchmarks against the current production code. Both
+binaries run `--count` times in the current package directory, one after
+the other with the first alternating, each with `-test.count 1
+-test.benchmem` and `--benchtime`; `--new-env` entries go to the new side
+only. `base.txt`, `new.txt`, `new.test`, and `overlay.json` in `DIR` are
+rewritten by every verdict. `comparison` is the object
+`scripts/bench-verdict.go --json` prints, `null` unless `status` is `ok`.
+`status` is `ok`, `error` (the current code does not build with the
+snapshot's test files, which happens when an API the benchmarks call
+changed, or a binary failed; `output` says which), or `no_benchmarks`.
+
+`verdict` is `keep` (exit 0), `revert`, or `noisy` (exit 1), and empty unless
+`status` is `ok`. Each row is one benchmark and unit present on both sides:
+`base` and `new` are medians (`ns/op` becomes `sec/op`), `*_ci_pct` the
+half-width of the median's 95% interval in percent (`null` when undefined),
+`delta_pct` the change of the median (`null` from zero to non-zero), and `p`
+the two-sided Mann-Whitney U p-value, exact without ties up to 50 samples
+and normal-approximated with the tie correction otherwise. `change` is
+`better` or `worse` when `p < alpha` and, for `sec/op` and `B/op`, the change
+is at least `threshold_pct`; any significant `allocs/op` change counts.
+Other units are `unjudged`. Any `worse` `sec/op` or `allocs/op` row makes the
+verdict `revert`; otherwise any `better` row makes it `keep`; otherwise a
+`sec/op` interval wider than the threshold makes it `noisy`; otherwise
+`revert`. `unmatched` lists rows present on one side only.
+
+A verdict exits 2 with no JSON for a missing snapshot, a snapshot of another
+package or built by another toolchain, `--count` below 6, a pattern that is
+not one package, a malformed `--threshold` or `--new-env`, `--new-env`
+outside `--verdict`, mixing modes, or a helper that does not build; a
+`comparison` the helper cannot compute has `status` `error` and exits 2.
+
 `go-testing/scripts/gen-table-test.sh`:
 
 ```json
@@ -353,7 +404,9 @@ the helper's source checksum and `go env GOVERSION`, so a toolchain upgrade
 rebuilds the parser that reads the target. The
 remaining regex-based scripts (`check-debt.sh`, `pre-review.sh`,
 `verify-refactor.sh`, `bench-compare.sh`, `setup-lint.sh`, `gen-table-test.sh`)
-orchestrate tools or match fixed markers, where regex is the right tool.
+orchestrate tools or match fixed markers, where regex is the right tool;
+`bench-compare.sh --verdict` builds `bench-verdict.go` the same way, for the
+statistics a shell should not compute.
 
 A single `go/analysis` multichecker across skills was considered and rejected:
 each skill directory must stay installable on its own, so a shared module

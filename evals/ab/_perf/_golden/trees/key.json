@@ -1,0 +1,10 @@
+{
+  "prompt": "Run in ./%s is too slow: our nightly job calls Run(18), and its CPU profile shows most of the time in the garbage collector. Make it faster without changing its output or its exported API.",
+  "expect": "speedup",
+  "class": "gc",
+  "bench": "^BenchmarkGoldenRun$",
+  "benchtime": "40x",
+  "targets": ["bottomUp", "node.check", "Run"],
+  "baits": ["formatLine"],
+  "note": "Allocation-bound: one 24-byte node per tree node and a long-lived tree the GC re-marks. The fix the class points to is a node arena (a slice of nodes with int32 children, reused per tree); a GOGC setting is a deployment recommendation, not a change to this package. formatLine is cold (one call per depth) and only looks slow."
+}

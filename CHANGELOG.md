@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.39.0] - 2026-10-21
+
 - **bench-compare.sh decides keep or revert.** `--snapshot DIR` freezes one
   package's test binary and copies its test files; `--verdict DIR` builds the
   current code against those frozen test files (`go test -overlay`, so a

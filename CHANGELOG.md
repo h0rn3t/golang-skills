@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.40.0] - 2026-10-22
+
 - **go-performance runs speed work as a loop the verdict closes.**
   Benchmarking and Profiling is now seven numbered steps:
   1. A benchmark of the caller's path, which is a sample, not the

@@ -132,6 +132,11 @@ names the rest, the Go 1.27 renames, and which hunks change behavior.
 Select a subset with `go fix -waitgroupgo ./...`, or exclude with
 `-NAME=false`. Review the diff: these carry fixes, not just diagnostics, and a
 few change allocation behavior.
+Fixes from two analyzers that overlap are not shown at all: `go fix -diff`
+exits 1 with only `fix: N of M fixes skipped (e.g. due to conflicts)`, and on
+go1.27.1 a plain `go fix` then reports them applied without writing a file.
+Preview and apply one analyzer at a time (`go fix -diff -rangeint ./pkg`), and
+confirm a write with `git diff --stat`.
 After applying fixes, build the affected packages and review retained comments:
 modernizers can leave unused imports/variables or discard comments inside a
 rewritten loop. Use the existing gate once on the final code, not a duplicate

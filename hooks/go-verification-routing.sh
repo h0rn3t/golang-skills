@@ -15,18 +15,23 @@ stopping=event.get("hook_event_name")=="Stop"
 if (not stopping and (event.get("hook_event_name")!="PreToolUse" or event.get("tool_name")!="Bash")) or os.environ.get("GOLANG_SKILLS_VERIFICATION_GATE")=="off":
     sys.exit(0)
 session=event.get("session_id") or "default"
+agent=event.get("agent_id") or ""
 command=(event.get("tool_input") or {}).get("command", "")
-if not isinstance(session,str) or not re.fullmatch(r"[A-Za-z0-9_-]+",session) or not isinstance(command,str):
+if not isinstance(session,str) or not re.fullmatch(r"[A-Za-z0-9_-]+",session) or not isinstance(agent,str) or not isinstance(command,str):
     sys.exit(0)
+agent=re.sub(r"[^A-Za-z0-9_-]","_",agent)[:64]
 root=Path(os.environ["GOLANG_SKILLS_VERIFICATION_ROOT"])
 base=Path(os.environ.get("CLAUDE_PLUGIN_DATA") or os.environ.get("TMPDIR","/tmp")+"/golang-skills-hooks")
-loaded_file=base/"routing"/session/"loaded"
+# Each agent of a session keeps its own loads and its own edits (go-code-routing.sh,
+# go-vet-on-edit.sh); a fork starts from its parent loads.
+routing=base/"routing"/session
+loaded_file=(routing/("agent-"+agent) if agent and event.get("agent_type")!="fork" else routing)/"loaded"
 loaded=set(loaded_file.read_text().splitlines()) if loaded_file.is_file() else set()
 if not loaded.intersection({"go-code","go-code-refactor"}):
     sys.exit(0)
 if not (root/"skills/go-linting/SKILL.md").is_file():
     sys.exit(0)
-state=base/"verification"/hashlib.sha256(session.encode()).hexdigest()
+state=base/"verification"/hashlib.sha256((session+"/"+agent if agent else session).encode()).hexdigest()
 if not (state/"latest").is_file():
     sys.exit(0)
 if stopping:

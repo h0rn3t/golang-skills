@@ -66,10 +66,12 @@ def snapshot(file, check, config, filter_kind, receipt_dir):
     stable_env["GOGCCFLAGS"] = re.sub(r"-(ffile|fdebug)-prefix-map=.*?go-build\d+=/tmp/go-build",
                                     r"-\1-prefix-map=<go-build>=/tmp/go-build", env.get("GOGCCFLAGS", ""))
     entries.append(("go-env", digest(json.dumps(stable_env, sort_keys=True).encode())))
+    # Only what the go command and golangci-lint read: the hook and the Bash
+    # tool differ in terminal, proxy, and session variables, and hashing those
+    # made every receipt stale for the shell that verifies it.
     build_env = {k: v for k, v in os.environ.items()
-                 if k not in ("PWD", "OLDPWD", "SHLVL", "_", "XPC_SERVICE_NAME", "XPC_FLAGS",
-                              "AI_AGENT", "CLAUDE_CODE_EXECPATH", "CLAUDE_PROJECT_DIR", "GIT_EDITOR")
-                 and not k.startswith(("GOLANG_SKILLS_", "CLAUDE_PLUGIN_"))}
+                 if (k.startswith(("GO", "CGO_", "PKG_CONFIG")) or k in ("CC", "CXX", "AR"))
+                 and not k.startswith("GOLANG_SKILLS_")}
     entries.append(("build-env", digest(json.dumps(build_env, sort_keys=True).encode())))
     roots, pending = set(), []
     gomod = env.get("GOMOD")
@@ -181,7 +183,8 @@ def status_for(check, code, output):
     if check == "lint" and code:
         return "fail" if code == 1 and re.search(r"^/.*:\d+:\d+: ", output, re.M) else "unavailable"
     if check == "fix":
-        if re.search(r"^--- ", output, re.M):
+        # Overlapping fixes print no hunk, only "fix: N of M fixes skipped".
+        if re.search(r"^--- |^fix: \d+ of \d+ fixes skipped", output, re.M):
             return "fail"
         return "pass" if code == 0 and not output.strip() else "unavailable"
     if check == "gofmt":
@@ -236,16 +239,20 @@ def run(args):
             if remaining() < 5:
                 status, reason = "unavailable", "hook deadline exceeded before check"
             else:
+                # The per-check cap of go-vet-on-edit.sh's run_check, applied
+                # here rather than through timeout(1), which macOS lacks.
+                limit = float(os.environ.get("GOLANG_SKILLS_CHECK_LIMIT") or 0)
+                capped = 0 < limit < remaining() - 4
                 p = subprocess.Popen(command, cwd=str(Path(file).resolve().parent),
                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
                 try:
-                    raw, _ = p.communicate(timeout=max(0.001, remaining() - 4))
+                    raw, _ = p.communicate(timeout=limit if capped else max(0.001, remaining() - 4))
                     code = p.returncode
                 except subprocess.TimeoutExpired:
                     os.killpg(p.pid, signal.SIGKILL)
                     raw, _ = p.communicate()
                     code = 124
-                    raw += b"\nedit-hook global deadline exceeded\n"
+                    raw += (f"\ncheck exceeded its {limit:g}s limit\n" if capped else "\nedit-hook global deadline exceeded\n").encode()
                 output = raw.decode("utf-8", "replace")
                 status = status_for(check, code, output)
         except OSError as e:
@@ -279,7 +286,9 @@ def verify(path, expected=None):
     valid = (record.get("version") == 1 and record.get("status") == "pass"
              and record.get("reusable") is True and not errors
              and record["inputs_before"] == record["inputs_after"] == current)
-    matching = (expected is not None and len(expected) >= 2
+    # A hook test run is -short without -race, and its exit 0 does not show
+    # that a test ran: it never stands in for a test check, as in verify_gate.
+    matching = (expected is not None and len(expected) >= 2 and record["check"] != "test"
                 and str(Path(expected[0]).resolve()) == record["cwd"]
                 and expected[1:] == record["command"])
     credit = valid and matching
@@ -315,7 +324,7 @@ def verify_gate(directory, target):
             if check == "vet": eligible = eligible and command == ["go", "vet", "."]
             elif check == "fix": eligible = eligible and command == ["go", "fix", "-diff", "."]
             elif check == "lint":
-                expected_lint = ["timeout", "60", "golangci-lint", "run", "--allow-parallel-runners", "--path-mode=abs",
+                expected_lint = ["golangci-lint", "run", "--allow-parallel-runners", "--path-mode=abs",
                                  "--output.text.print-issued-lines=false", "--show-stats=false", ".", "--config", r["config"]]
                 eligible = eligible and r["filter"] == "all" and bool(r["config"]) and command == expected_lint
             else: eligible = False
@@ -366,7 +375,7 @@ def report(directory, context_only=False):
         r = json.loads(path.read_text())
         rows.append(f'{check}: {r["status"]}; exit={r["exit_code"]}; scope={r["scope"]["kind"]}; '
                     f'filter={r["filter"]}; state-stable={r["reusable"]}; reuse=unverified; reason={r["reason"]}')
-        if r["reusable"]:
+        if r["reusable"] and check != "test":
             argv = ["bash", str(Path(__file__).resolve().with_suffix(".sh")),
                     str(path.resolve()), r["cwd"], *r["command"]]
             commands.append(" ".join(shlex.quote(arg) for arg in argv))

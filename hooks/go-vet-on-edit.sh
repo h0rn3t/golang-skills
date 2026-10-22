@@ -68,7 +68,15 @@ if command -v python3 >/dev/null 2>&1 && [[ -f "$receipt_helper" ]]; then
     if mkdir -p "$receipt_base"; then
         receipt_dir="$(mktemp -d "$receipt_base/run.XXXXXX")" || receipt_dir=""
         if [[ -n "$receipt_dir" ]]; then
-            session="$(printf '%s' "$input" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("session_id") or "default")')"
+            # The verification state is per agent: session, plus "/<agent_id>" in a
+            # subagent, as go-verification-routing.sh keys it.
+            session="$(printf '%s' "$input" | python3 -c '
+import json, re, sys
+d = json.load(sys.stdin)
+agent = d.get("agent_id")
+agent = re.sub(r"[^A-Za-z0-9_-]", "_", agent)[:64] if isinstance(agent, str) else ""
+print((d.get("session_id") or "default") + ("/" + agent if agent else ""))
+')"
             python3 "$receipt_helper" begin "$receipt_dir" "$file" "$session" "$(dirname "$receipt_base")" || receipt_dir=""
         fi
     fi
@@ -76,11 +84,16 @@ fi
 config=""
 filter="all"
 skip_reason="no module"
+# run_check <check> <limit seconds, 0 for none> <command...> — the receipt
+# runner kills the check's process group at the limit; timeout(1) is GNU
+# coreutils, which stock macOS lacks, so it is used only without the runner.
 run_check() {
-    local check="$1"
-    shift
+    local check="$1" limit="$2"
+    shift 2
     if [[ -n "$receipt_dir" ]]; then
-        python3 "$receipt_helper" run "$receipt_dir" "$check" "$file" "$config" "$filter" run "" "$@"
+        GOLANG_SKILLS_CHECK_LIMIT="$limit" python3 "$receipt_helper" run "$receipt_dir" "$check" "$file" "$config" "$filter" run "" "$@"
+    elif [[ "$limit" -gt 0 ]] && command -v timeout >/dev/null 2>&1; then
+        (cd -P "$dir" && timeout "$limit" "$@")
     else
         (cd -P "$dir" && "$@")
     fi
@@ -110,7 +123,7 @@ section() {
 }
 
 fmt_status=0
-unformatted="$(run_check gofmt gofmt -l "$file" 2>&1)" || fmt_status=$?
+unformatted="$(run_check gofmt 0 gofmt -l "$file" 2>&1)" || fmt_status=$?
 if [[ "$fmt_status" -ne 0 ]]; then
     findings+="$(section "gofmt: failed (exit $fmt_status):" "$unformatted")"$'\n'
 elif [[ -n "$unformatted" ]]; then
@@ -119,7 +132,7 @@ fi
 
 # go vet and go fix need a module; receipts distinguish skips from success.
 if has_module; then
-    if ! vet_out="$(run_check vet go vet . 2>&1)"; then
+    if ! vet_out="$(run_check vet 0 go vet . 2>&1)"; then
         findings+="$(section "go vet $pkg:" "$vet_out")"$'\n'
     fi
     # A package that does not type-check makes go fix restate vet's "vet: ..."
@@ -128,7 +141,14 @@ if has_module; then
     # Report only; -diff never writes.
     if ! printf '%s\n' "$vet_out" | grep -q '^vet: '; then
         fix_status=0
-        fix_out="$(run_check fix go fix -diff . 2>&1)" || fix_status=$?
+        fix_out="$(run_check fix 0 go fix -diff . 2>&1)" || fix_status=$?
+        # Fixes from two analyzers that overlap print no hunk at all: -diff
+        # exits 1 with only this line, and go1.27.1's plain go fix then reports
+        # them applied without writing a file.
+        fix_skipped="$(printf '%s\n' "$fix_out" | grep -m1 -E '^fix: [0-9]+ of [0-9]+ fixes skipped' || true)"
+        if [[ -n "$fix_skipped" ]]; then
+            findings+="go fix -diff $pkg: $fix_skipped; overlapping analyzers' hunks are not printed, and go fix may report them applied without writing. Preview one analyzer at a time (go fix -diff -<name> .; go tool fix help lists them)."$'\n'
+        fi
         if [[ -n "$fix_out" ]] && printf '%s\n' "$fix_out" | grep -q '^--- '; then
             # Hunks are grouped under "--- <abs path> (old)"; match the path as
             # given and as the directory resolves (a symlinked TMPDIR).
@@ -141,19 +161,19 @@ if has_module; then
             if [[ "$other_hunks" -gt 0 ]]; then
                 findings+="go fix -diff $pkg: $other_hunks hunk(s) in other files of the package; run go fix -diff . to list them"$'\n'
             fi
-        elif [[ -n "$fix_out" ]]; then
+        elif [[ -n "$fix_out" && -z "$fix_skipped" ]]; then
             findings+="$(section "go fix -diff $pkg:" "$fix_out")"$'\n'
-        elif [[ "$fix_status" -ne 0 ]]; then
+        elif [[ "$fix_status" -ne 0 && -z "$fix_skipped" ]]; then
             findings+="go fix -diff $pkg: failed (exit $fix_status)"$'\n'
         fi
 
         # The package type-checked, so its tests and the linter can run too.
-        # Both are capped at 60 s: a hook that outlives the host's timeout
+        # Both are capped (run_check): a hook that outlives the host's timeout
         # reports nothing at all.
         if [[ "${GOLANG_SKILLS_EDIT_TESTS:-on}" != "off" ]] && compgen -G "$dir/*_test.go" >/dev/null; then
             tt="${GOLANG_SKILLS_EDIT_TEST_TIMEOUT:-50}"
             [[ "$tt" =~ ^[0-9]+$ ]] || tt=50
-            if ! test_out="$(run_check test timeout "$((tt + 10))" go test -short -count=1 -timeout "${tt}s" . 2>&1)"; then
+            if ! test_out="$(run_check test "$((tt + 10))" go test -short -count=1 -timeout "${tt}s" . 2>&1)"; then
                 if printf '%s\n' "$test_out" | grep -q '^panic: test timed out after'; then
                     test_out="$(printf '%s\n' "$test_out" | awk '/^panic: test timed out after/{p=1} p && /^goroutine /{exit} p && NF')"
                     test_out+=$'\n'"(goroutine dump cut: the package's tests outlast the hook's ${tt}s; run go test yourself, or set GOLANG_SKILLS_EDIT_TESTS=off)"
@@ -174,9 +194,10 @@ if has_module; then
                 filter="new-since-HEAD"
             fi
             lint_args+=(.)
-            # Обираємо config у логічному каталозі до cd -P. `config path`
-            # пише шлях у stderr, відносно фізичного cwd; явно закріплюємо його,
-            # щоб пошук у фізичному каталозі не обрав іншу конфігурацію.
+            # Pick the config in the logical directory before cd -P. `config path`
+            # prints the path to stderr, relative to the physical cwd; pin it
+            # explicitly so a search from the physical directory cannot pick
+            # another configuration.
             lint_config_status=0
             if [[ -n "$receipt_dir" ]]; then
                 repo_config="$(python3 "$receipt_helper" config "$dir" 2>&1)" || lint_config_status=$?
@@ -196,8 +217,8 @@ if has_module; then
                 [[ -f "$bundled" ]] && config="$bundled"
                 lint_config_status=0
             fi
-            # Логічний PWD через symlink не збігається з фізичними шляхами
-            # findings: --new-from-rev=HEAD тоді відфільтровує навіть нові дефекти.
+            # A logical PWD through a symlink does not match the physical paths
+            # in findings: --new-from-rev=HEAD would then filter out new defects too.
             real="$(cd "$dir" && pwd -P)/$(basename "$file")"
             lint_status=0
             if [[ "$lint_config_status" -gt 1 ]]; then
@@ -205,11 +226,11 @@ if has_module; then
                 lint_status="$lint_config_status"
                 lint_out="$repo_config"
             else
-                lint_out="$(run_check lint timeout 60 golangci-lint "${lint_args[@]}" 2>&1)" || lint_status=$?
+                lint_out="$(run_check lint 60 golangci-lint "${lint_args[@]}" 2>&1)" || lint_status=$?
             fi
             if [[ -n "$lint_out" || "$lint_status" -ne 0 ]]; then
-                # Зберігаємо scope findings для обох варіантів шляху файлу;
-                # діагностика невдалого запуску не є finding іншого файлу.
+                # Keep the findings' scope for both spellings of the file path;
+                # diagnostics of a failed run are not a finding in another file.
                 issues="$(printf '%s\n' "$lint_out" | grep -E '^/.*:[0-9]+:[0-9]+: ' || true)"
                 mine="$(printf '%s\n' "$issues" | grep -F -e "$file:" -e "$real:" || true)"
                 others="$(printf '%s\n' "$issues" | grep -E '^/.*:[0-9]+:[0-9]+: ' | grep -vF -e "$file:" -e "$real:" | wc -l | tr -d ' ')"

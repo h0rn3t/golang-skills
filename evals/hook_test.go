@@ -32,13 +32,13 @@ func hookOutput(t *testing.T, script, state string, payload map[string]any, env 
 	}
 	cmd := exec.Command("bash", script)
 	cmd.Stdin = strings.NewReader(string(body))
-	// PLUGIN_ROOT сюди не ставимо: go-check-receipt.py хешує середовище, і
-	// порожня змінна відрізняється від невстановленої. Гейт вважає її
-	// відсутність ознакою Claude.
+	// Receipts hash only build variables, so the empty PLUGIN_ROOT changes no
+	// digest; the gate reads an empty one as unset, that is, as Claude.
 	cmd.Env = append(append(os.Environ(),
 		"CLAUDE_PLUGIN_ROOT="+repoRoot(t),
 		"CLAUDE_PLUGIN_DATA="+state,
-		"CLAUDE_PROJECT_DIR="+repoRoot(t)), env...)
+		"CLAUDE_PROJECT_DIR="+repoRoot(t),
+		"PLUGIN_ROOT="), env...)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -139,6 +139,54 @@ func TestRoutingGate(t *testing.T) {
 			if !strings.Contains(msg, want) {
 				t.Errorf("block without a router must name %s:\n%s", want, msg)
 			}
+		}
+	})
+
+	// A subagent shares the session_id but not the context: its records are its
+	// own, so neither side's loads lift the other's requirement. A fork starts
+	// from its parent's context and keeps the parent's record.
+	t.Run("each subagent keeps its own loads", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		as := func(p map[string]any, agent, agentType string) map[string]any {
+			if agent != "" {
+				p["agent_id"], p["agent_type"] = agent, agentType
+			}
+			return p
+		}
+		load := func(session, agent, agentType, skill string) {
+			t.Helper()
+			hookEvent(t, script, state, as(routingPayload("PostToolUse", session, "Skill", map[string]any{"skill": skill}), agent, agentType))
+		}
+		edit := func(session, agent, agentType string) int {
+			t.Helper()
+			code, _ := hookEvent(t, script, state, as(routingPayload("PreToolUse", session, "Write",
+				map[string]any{"file_path": "/repo/api/plain.go", "content": "package api\n"}), agent, agentType))
+			return code
+		}
+		load("s30", "", "", "golang-skills:go-code")
+		load("s30", "", "", "golang-skills:go-style-core")
+		if code := edit("s30", "", ""); code != 0 {
+			t.Fatalf("main thread after its loads: exit %d, want 0", code)
+		}
+		if code := edit("s30", "a1", "general-purpose"); code != 2 {
+			t.Errorf("subagent with no loads of its own: exit %d, want 2", code)
+		}
+		if code := edit("s30", "f1", "fork"); code != 0 {
+			t.Errorf("fork of the main thread: exit %d, want 0 on its parent's loads", code)
+		}
+		load("s30", "a1", "general-purpose", "golang-skills:go-code")
+		load("s30", "a1", "general-purpose", "golang-skills:go-style-core")
+		if code := edit("s30", "a1", "general-purpose"); code != 0 {
+			t.Errorf("subagent after its own loads: exit %d, want 0", code)
+		}
+		if code := edit("s30", "a2", "general-purpose"); code != 2 {
+			t.Errorf("second subagent: exit %d, want 2; a sibling's loads are not its own", code)
+		}
+		load("s31", "a1", "general-purpose", "golang-skills:go-code")
+		load("s31", "a1", "general-purpose", "golang-skills:go-style-core")
+		if code := edit("s31", "", ""); code != 2 {
+			t.Errorf("main thread after a subagent's loads: exit %d, want 2", code)
 		}
 	})
 
@@ -1485,8 +1533,29 @@ func TestPromptRouting(t *testing.T) {
 	})
 }
 
+// subagentStdout returns what the host adds to the context from a hook's
+// stdout: plain text for SessionStart, and for SubagentStart only the
+// additionalContext of a JSON reply — the host drops plain stdout there, so a
+// non-JSON SubagentStart reply fails the test.
+func subagentStdout(t *testing.T, event, out string) string {
+	t.Helper()
+	if event != "SubagentStart" || out == "" {
+		return out
+	}
+	var reply struct {
+		Hook struct {
+			Event   string `json:"hookEventName"`
+			Context string `json:"additionalContext"`
+		} `json:"hookSpecificOutput"`
+	}
+	if err := json.Unmarshal([]byte(out), &reply); err != nil || reply.Hook.Event != "SubagentStart" {
+		t.Fatalf("SubagentStart stdout = %q (%v), want JSON hookSpecificOutput.additionalContext: a subagent never sees plain stdout", out, err)
+	}
+	return reply.Hook.Context
+}
+
 // subagentEvent runs the SubagentStart hook and returns its exit code and
-// stdout, which the host adds to the subagent's context.
+// what the host adds to the subagent's context.
 func subagentEvent(t *testing.T, event, cwd, agentType string, env ...string) (int, string) {
 	t.Helper()
 	body, err := json.Marshal(map[string]any{
@@ -1513,13 +1582,13 @@ func subagentEvent(t *testing.T, event, cwd, agentType string, env ...string) (i
 		t.Errorf("subagent hook wrote to stderr, which a SubagentStart hook must not:\n%s", stderr.String())
 	}
 	if err == nil {
-		return 0, stdout.String()
+		return 0, subagentStdout(t, event, stdout.String())
 	}
 	exitErr, ok := err.(*exec.ExitError)
 	if !ok {
 		t.Fatalf("run subagent hook: %v", err)
 	}
-	return exitErr.ExitCode(), stdout.String()
+	return exitErr.ExitCode(), subagentStdout(t, event, stdout.String())
 }
 
 // TestSubagentRouting drives the SubagentStart hook: a subagent started in a
@@ -1622,14 +1691,15 @@ func ladderEvent(t *testing.T, state string, payload map[string]any, env ...stri
 	if stderr.Len() > 0 {
 		t.Errorf("ladder hook wrote to stderr:\n%s", stderr.String())
 	}
+	event, _ := payload["hook_event_name"].(string)
 	if err == nil {
-		return 0, stdout.String()
+		return 0, subagentStdout(t, event, stdout.String())
 	}
 	exitErr, ok := err.(*exec.ExitError)
 	if !ok {
 		t.Fatalf("run ladder hook: %v", err)
 	}
-	return exitErr.ExitCode(), stdout.String()
+	return exitErr.ExitCode(), subagentStdout(t, event, stdout.String())
 }
 
 // TestLadderHook drives the restraint ladder hook: a session or subagent

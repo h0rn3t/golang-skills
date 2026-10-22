@@ -4,6 +4,42 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **Subagents get the router note and the ladder.** On SubagentStart Claude
+  Code shows a subagent only JSON `additionalContext` and drops plain stdout;
+  `go-subagent-routing.sh` and `go-restraint-ladder.sh` printed plain text, so
+  no subagent received either. Both now wrap their text for that event;
+  SessionStart stays plain. `subagentEvent` and `ladderEvent` in
+  `evals/hook_test.go` fail on a plain SubagentStart reply.
+- **Each agent keeps its own hook state.** Subagents share the session id, so
+  one agent's skill loads lifted another's routing requirement, and one
+  agent's Go edit blocked every agent's `go test` until it ran a verifier for
+  a package it never touched. Routing records now live under
+  `routing/<session>/agent-<agent_id>/` (a fork keeps its parent's, since it
+  starts from the parent's context; `prompted` and the intensity stay
+  session-wide), and the verification state is keyed by session and agent.
+  Covered by `TestRoutingGate/each subagent keeps its own loads` and
+  `TestVerificationStatePerAgent`.
+- **The edit hook runs on macOS.** The package tests and the linter ran under
+  GNU `timeout`, which stock macOS lacks, so every `.go` edit there ended with
+  both checks `unavailable` and exit 2. The receipt runner now enforces the
+  per-check limit itself and kills the process group; `timeout` is used only
+  on the path without python3, when present.
+- **Receipts survive the Bash tool's environment.** The build-environment
+  digest covered every variable, and the Bash tool differs from the hook
+  process in `COLUMNS`, `CLAUDE_CODE_*`, and proxy settings, so `--gate`
+  credited nothing in interactive sessions (0 of 42 sessions with an attempt;
+  headless abrun 476 of 511). It now hashes `GO*`, `CGO_*`, `CC`, `CXX`, `AR`,
+  and `PKG_CONFIG*` beside `go env -json` and the tool binaries. A hook test
+  receipt no longer earns credit from the single-receipt verifier either, as
+  the batch verifier already refused it: the run is `-short` without `-race`,
+  and its exit 0 does not show that a test ran.
+- **Overlapping `go fix` fixes are reported.** When two analyzers' fixes
+  overlap, go1.27.1's `go fix -diff` prints no hunk and exits 1 with only
+  `fix: N of M fixes skipped`, and a plain `go fix` then reports them applied
+  without writing a file; the receipt called that `unavailable`. The hook now
+  records `fail` and says to preview one analyzer at a time, and go-linting's
+  Modernization section says the same.
+
 ## [1.41.0] - 2026-10-22
 
 - **A speedup claim needs a verdict.** After an edit of a non-test Go file,

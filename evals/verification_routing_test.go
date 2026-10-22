@@ -177,6 +177,48 @@ func TestVerificationRouting(t *testing.T) {
 	}
 }
 
+// TestVerificationStatePerAgent: a Go edit by one agent asks that agent for
+// the verifier attempt, not the main thread or a sibling, which share its
+// session_id.
+func TestVerificationStatePerAgent(t *testing.T) {
+	t.Parallel()
+	root, state, dir := repoRoot(t), t.TempDir(), t.TempDir()
+	file := filepath.Join(dir, "main.go")
+	for name, data := range map[string]string{"go.mod": "module peragent\n\ngo 1.27\n", "main.go": "package peragent\n\nfunc Value() int { return 1 }\n"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	guard := filepath.Join(root, "hooks", "go-verification-routing.sh")
+	as := func(p map[string]any, agent string) map[string]any {
+		if agent != "" {
+			p["agent_id"], p["agent_type"] = agent, "general-purpose"
+		}
+		return p
+	}
+	for _, agent := range []string{"", "a1", "a2"} {
+		for _, skill := range []string{"go-code", "go-linting"} {
+			hookEvent(t, filepath.Join(root, "hooks", "go-code-routing.sh"), state, as(routingPayload("PostToolUse", "peragent", "Skill", map[string]any{"skill": skill}), agent))
+		}
+	}
+	if code, _, msg := hookOutput(t, filepath.Join(root, "hooks", "go-vet-on-edit.sh"), state, as(routingPayload("PostToolUse", "peragent", "Write", map[string]any{"file_path": file}), "a1"), "GOWORK=off", "GOLANG_SKILLS_EDIT_LINT=off"); code != 0 {
+		t.Fatalf("subagent edit hook = (%d,%q), want 0", code, msg)
+	}
+	check := func(agent string) int {
+		t.Helper()
+		code, _ := hookEvent(t, guard, state, as(routingPayload("PreToolUse", "peragent", "Bash", map[string]any{"command": "go vet ./..."}), agent))
+		return code
+	}
+	if code := check("a1"); code != 2 {
+		t.Errorf("check by the editing subagent = %d, want 2 until its verifier attempt", code)
+	}
+	for _, agent := range []string{"", "a2"} {
+		if code := check(agent); code != 0 {
+			t.Errorf("check by %q after a1's edit = %d, want 0: the edit is not theirs", agent, code)
+		}
+	}
+}
+
 func TestSpeedClaimGate(t *testing.T) {
 	t.Parallel()
 	root, state, dir := repoRoot(t), t.TempDir(), t.TempDir()

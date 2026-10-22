@@ -88,14 +88,18 @@ Claude Code:
   with no SKILL.md in the plugin copy is reported, not required;
   `GOLANG_SKILLS_ROUTING_GATE=off` disables it. Messages use
   `golang-skills:<name>` when `CLAUDE_PLUGIN_ROOT` is set. State lives under
-  `${CLAUDE_PLUGIN_DATA:-$TMPDIR/golang-skills-hooks}/routing/<session>/`.
+  `${CLAUDE_PLUGIN_DATA:-$TMPDIR/golang-skills-hooks}/routing/<session>/`, a
+  subagent's under `<session>/agent-<agent_id>/` (a fork keeps its parent's);
+  verification state is keyed the same way.
 - `go-vet-on-edit.sh`: PostToolUse on `Edit|Write` of a `.go` file runs gofmt,
   vet, `go fix -diff`, the package tests, and golangci-lint.
   `GOLANG_SKILLS_EDIT_TESTS=off` / `GOLANG_SKILLS_EDIT_LINT=off` switch parts
   off. Never blocks.
 - `go-prompt-routing.sh` (UserPromptSubmit) and `go-subagent-routing.sh`
   (SessionStart and SubagentStart) inject one note naming the router and
-  `go-style-core` before the first edit; silent otherwise.
+  `go-style-core` before the first edit; silent otherwise. On SubagentStart
+  this hook and the ladder hook print JSON `additionalContext`: a subagent
+  never sees plain stdout.
 - `go-restraint-ladder.sh`: SessionStart and SubagentStart in a Go directory
   print the ladder section of `OVER-ENGINEERING.md` plus the session's
   `lite`/`full`/`ultra` row from go-code's Intensity table, both read at run

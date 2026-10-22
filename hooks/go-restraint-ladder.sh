@@ -12,6 +12,8 @@
 #     runs checks only and is skipped, as are the host's agents that write no
 #     Go (Explore, claude-code-guide, statusline-setup) — 3.6 KB each they
 #     would never use. Plan keeps the ladder: it shapes what a plan proposes.
+#     A subagent sees SubagentStart output only as JSON additionalContext, so
+#     that event prints the same text wrapped in it.
 #   UserPromptSubmit: a level word — `/go-code ultra <task>`, `ultra mode`,
 #     `режим ultra` — records the level for the rest of the session and
 #     prints that level's line. Any other prompt prints nothing.
@@ -109,8 +111,13 @@ section="$(awk '
 ' "$ladder_file" 2>/dev/null)"
 [[ -n "$section" ]] || exit 0
 
-printf 'golang-skills: this project holds Go. Before writing Go, climb the restraint ladder below, read from %s; its links resolve from that file.\n' "$ladder_file"
+note="$(printf 'golang-skills: this project holds Go. Before writing Go, climb the restraint ladder below, read from %s; its links resolve from that file.\n' "$ladder_file"
 printf 'Restraint level `%s`: %s Change it with `/go-code lite|full|ultra <task>` or `lite mode` / `ultra mode`; a behavior-preserving refactor runs at `full`.\n\n' \
     "$level" "$row"
-printf '%s\n' "$section"
+printf '%s\n' "$section")"
+if [[ "$event" == "SubagentStart" ]]; then
+    printf '%s' "$note" | python3 -c 'import json, sys; print(json.dumps({"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": sys.stdin.read()}}))'
+else
+    printf '%s\n' "$note"
+fi
 exit 0

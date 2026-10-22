@@ -68,6 +68,13 @@
 # and 2026-09-13 refactor runs such sessions loaded go-style-core in 2/20 and
 # 6/20; a gate keyed on go-code alone stayed silent for them. State lives under
 # CLAUDE_PLUGIN_DATA when the host provides it, else under TMPDIR.
+#
+# A subagent shares the session_id, so its records live under
+# routing/<session>/agent-<agent_id>: its context holds only the skills it
+# loaded itself, and its loads must not lift the main thread's requirement.
+# A fork starts from its parent's context, skills included, and keeps the
+# parent's record. prompted is the main thread's (UserPromptSubmit fires
+# there only) and names the entry router for every agent of the session.
 set -u
 
 # Root of this plugin copy: skills/ sits next to hooks/.
@@ -289,15 +296,19 @@ fi
 input="$(cat)"
 command -v python3 >/dev/null 2>&1 || exit 0
 
-# One parse: event, session, tool, skill name, file path, and the owner skills
-# inferred from the edited content. Fields are newline-separated; the hint
-# list is the last line and may be empty.
+# One parse: event, session, agent, tool, skill name, file path, the owner
+# skills inferred from the edited content, and the edit key. Fields are
+# newline-separated; the agent and the hint list may be empty.
 parsed="$(printf '%s' "$input" | python3 -c "$owner_hints_py"'
 import hashlib, json, sys
 try:
     d = json.load(sys.stdin)
 except Exception:
     sys.exit(0)
+agent = d.get("agent_id")
+if not isinstance(agent, str) or d.get("agent_type") == "fork":
+    agent = ""
+agent = re.sub(r"[^A-Za-z0-9_-]", "_", agent)[:64]
 ti = d.get("tool_input") or {}
 skill = ti.get("skill") or ti.get("name") or ""
 path = ti.get("file_path") or ""
@@ -308,14 +319,16 @@ owners = hints(path, text)
 # Edit key: a retry of the same edit after a block has the same key, while
 # parallel edits of different files in one message have different keys.
 key = hashlib.sha1((path + "\0" + text).encode("utf-8", "replace")).hexdigest()[:16]
-for v in (d.get("hook_event_name") or "", d.get("session_id") or "",
+for v in (d.get("hook_event_name") or "", d.get("session_id") or "", agent,
           d.get("tool_name") or "", skill, path, " ".join(owners), key):
     print(v.replace("\n", " "))
 ')" || exit 0
 [[ -n "$parsed" ]] || exit 0
-{ read -r event; read -r session; read -r tool; read -r skill; read -r path; read -r hints; read -r key; } <<< "$parsed"
+{ read -r event; read -r session; read -r agent; read -r tool; read -r skill; read -r path; read -r hints; read -r key; } <<< "$parsed"
 
-state="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/${session:-default}"
+routing="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing"
+session_state="$routing/${session:-default}"
+state="$session_state${agent:+/agent-$agent}"
 loaded="$state/loaded"
 reminded="$state/reminded"
 
@@ -340,19 +353,20 @@ PostToolUse)
         ;;
     esac
     # Sessions end without notice; drop state older than two days.
-    find "$(dirname "$state")" -mindepth 1 -maxdepth 1 -type d -mtime +2 -exec rm -rf {} + 2>/dev/null
+    find "$routing" -mindepth 1 -maxdepth 1 -type d -mtime +2 -exec rm -rf {} + 2>/dev/null
     exit 0
     ;;
 PreToolUse)
-    # apply_patch — це Codex: matcher Edit|Write його ловить, але tool_name
-    # лишається apply_patch, а патч лежить у command. Шлях у file_path тут
-    # не перетворюємо на вимогу Skill.
+    # apply_patch is Codex: the Edit|Write matcher catches it, but tool_name
+    # stays apply_patch and the patch sits in command. A path in file_path is
+    # not turned into a Skill requirement here.
     [[ "$tool" == "apply_patch" ]] && exit 0
     case "$path" in *.go) ;; *) exit 0 ;; esac
     [[ "${GOLANG_SKILLS_ROUTING_GATE:-}" == off ]] && exit 0
-    # Гейт лише на Claude Code: він експортує CLAUDE_PROJECT_DIR і шле Skill|Read.
-    # Codex ставить PLUGIN_ROOT (і CLAUDE_PLUGIN_ROOT). Хост із Edit, але без
-    # цих подій, інакше блокує кожну правку, а третя спроба зупиняє сесію.
+    # The gate runs on Claude Code only: it exports CLAUDE_PROJECT_DIR and sends
+    # Skill|Read. Codex sets PLUGIN_ROOT (and CLAUDE_PLUGIN_ROOT). A host with
+    # Edit but without those events would otherwise block every edit, and the
+    # third attempt would stop the session.
     [[ -n "${CLAUDE_PROJECT_DIR:-}" && -z "${PLUGIN_ROOT:-}" ]] || exit 0
     routers=""
     for r in go-code go-code-refactor go-code-review; do
@@ -362,7 +376,7 @@ PreToolUse)
     # go-prompt-routing.sh named last (the prompted file), else go-code.
     entry=""
     if [[ -z "$routers" ]]; then
-        entry="$(grep -x -E 'go-code|go-code-refactor|go-code-review' "$state/prompted" 2>/dev/null | tail -n 1)"
+        entry="$(grep -x -E 'go-code|go-code-refactor|go-code-review' "$session_state/prompted" 2>/dev/null | tail -n 1)"
         entry="${entry:-go-code}"
     fi
     # Only loaded lifts a requirement: reminded logs reminders, not loads.

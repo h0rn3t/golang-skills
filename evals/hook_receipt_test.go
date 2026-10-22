@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHookReceipts(t *testing.T) {
@@ -129,6 +130,10 @@ func TestHookReceipts(t *testing.T) {
 			v := read(t, state)["lint"]
 			if v.Status != tc.want || v.ExitCode == nil || v.Reusable || v.Config == "" || !strings.Contains(v.Diagnostic, tc.output) {
 				t.Errorf("lint %s receipt = %+v, want %s with exit/config/diagnostic", tc.name, v, tc.want)
+			}
+			// The runner caps the check itself: timeout(1) is not on stock macOS.
+			if len(v.Command) == 0 || v.Command[0] != "golangci-lint" {
+				t.Errorf("lint %s command = %q, want golangci-lint first", tc.name, v.Command)
 			}
 		})
 	}
@@ -596,6 +601,49 @@ func TestReceiptInvalidation(t *testing.T) {
 		}
 		if code, out := receiptCommand(t, "verify", filepath.Join(records, "vet.json")); code == 0 {
 			t.Fatalf("FIFO verify = (%d, %q), want incomplete snapshot", code, out)
+		}
+	})
+	t.Run("terminal and session variables do not invalidate", func(t *testing.T) {
+		t.Parallel()
+		_, record := newRecord(t, "vet", "", "go", "vet", ".")
+		// The Bash tool's environment differs from the hook's in these.
+		env := []string{"COLUMNS=0", "LINES=0", "HTTPS_PROXY=http://proxy.invalid:1", "CLAUDE_CODE_SESSION_ID=other", "LS_COLORS=x"}
+		if code, out := receiptCommandEnv(t, env, "verify", record); code != 0 {
+			t.Fatalf("unrelated environment = (%d, %q), want the receipt still current", code, out)
+		}
+	})
+	t.Run("a test receipt earns no credit", func(t *testing.T) {
+		t.Parallel()
+		dir, record := newRecord(t, "test", "", "go", "test", "-short", "-count=1", ".")
+		code, out := receiptCommand(t, "verify", record, dir, "go", "test", "-short", "-count=1", ".")
+		if code == 0 || !strings.Contains(out, `"hook_credit": false`) {
+			t.Fatalf("test receipt verify = (%d, %q), want no credit", code, out)
+		}
+	})
+	t.Run("the per-check limit stops a slow check", func(t *testing.T) {
+		t.Parallel()
+		dir, _ := newRecord(t, "vet", "", "go", "vet", ".")
+		start := time.Now()
+		code, out := receiptCommandEnv(t, []string{"GOLANG_SKILLS_CHECK_LIMIT=1"}, "run", t.TempDir(), "vet", filepath.Join(dir, "main.go"), "", "all", "run", "", "sleep", "30")
+		if elapsed := time.Since(start); code != 124 || !strings.Contains(out, "check exceeded its 1s limit") || elapsed > 20*time.Second {
+			t.Fatalf("slow check = (%d, %q) after %v, want 124 at the 1s limit", code, out, elapsed)
+		}
+	})
+	t.Run("overlapping go fix fixes are a failure", func(t *testing.T) {
+		t.Parallel()
+		dir, _ := newRecord(t, "vet", "", "go", "vet", ".")
+		records := t.TempDir()
+		// go1.27.1 prints only this line when two analyzers' fixes overlap.
+		receiptCommand(t, "run", records, "fix", filepath.Join(dir, "main.go"), "", "all", "run", "", "sh", "-c", "echo 'fix: 1 of 25 fixes skipped (e.g. due to conflicts)'; exit 1")
+		raw, err := os.ReadFile(filepath.Join(records, "fix.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var r struct {
+			Status string `json:"status"`
+		}
+		if err := json.Unmarshal(raw, &r); err != nil || r.Status != "fail" {
+			t.Fatalf("fix receipt = %s (%v), want status fail", raw, err)
 		}
 	})
 }

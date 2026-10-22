@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.41.0] - 2026-10-22
+
 - **A speedup claim needs a verdict.** After an edit of a non-test Go file,
   the Stop hook in `go-verification-routing.sh` blocks a final message that
   claims a speedup (`faster`, `speedup`, `sec/op −N%`) when no

@@ -207,6 +207,9 @@ def begin(directory, file, session, state_base):
     info = dict(run_dir=str(Path(directory).resolve()), package=str(Path(file).resolve().parent), state=str(state))
     atomic_json(Path(directory) / ".session", info)
     atomic_json(state / "latest", info)
+    # The speed gate only reads reports from sessions that changed code.
+    if not str(file).endswith("_test.go"):
+        (state / "production").touch()
 
 
 def mark_attempt(directory, credits, replace=True):

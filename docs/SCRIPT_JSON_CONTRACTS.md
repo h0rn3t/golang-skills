@@ -365,6 +365,13 @@ continuation; a repeated unsupported claim ends with an explicit incomplete
 reason rather than continuing indefinitely. It does not force code changes
 or mistake a direct passing rerun for hook credit.
 `GOLANG_SKILLS_VERIFICATION_GATE=off` opts out without granting credit.
+In the same sessions, a `bench-compare.sh --verdict` command seen at
+PreToolUse is recorded and never blocked. At Stop after an edit of a non-test
+Go file, a line that
+claims a speedup (`faster`, `speedup`, `sec/op −N%`, `latency −N%`) and does
+not call the comparison skipped or unmeasured is blocked when no verdict ran in
+the session, with the same one-continuation limit.
+`GOLANG_SKILLS_SPEED_GATE=off` disables only this check.
 This is workflow routing for supported command forms, not a shell sandbox.
 
 `bash hooks/go-check-receipt.sh <receipt.json> <expected-cwd> <command> [args...]`

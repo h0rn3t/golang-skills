@@ -4,6 +4,24 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **A speedup claim needs a verdict.** After an edit of a non-test Go file,
+  the Stop hook in `go-verification-routing.sh` blocks a final message that
+  claims a speedup (`faster`, `speedup`, `sec/op −N%`) when no
+  `bench-compare.sh --verdict` ran in the session; a line that reports the
+  comparison as skipped, or says there is no speedup, passes.
+  `GOLANG_SKILLS_SPEED_GATE=off` turns it off. Covered by
+  `TestSpeedClaimGate`. Perf corpus, Sonnet 5.5 medium, n=5, gate off vs
+  on: speedup sessions that ran a verdict 14/35→27/35 (Fisher p=0.003,
+  pre-registered), pass 45/45 in both, cost +7%; every one of 14 blocks
+  ended in a verdict or a report that called the speedup unmeasured. Opus
+  5.5 at n=2: verdicts per run 0.7→0.9.
+- **Perf fixtures without lint noise.** The `trees` bait (`formatLine`), the
+  `quotes` decline target (`NormalizeName`), and the `ingest` bait
+  (`Summarize`) had perfsprint, modernize, or `go fix` findings that the edit
+  hook pushed sessions to fix, failing the run for touching them. Each keeps
+  its slow look with zero findings. Perf runs from 1.40.0 are not comparable
+  with later ones on these three fixtures; take a new baseline.
+
 ## [1.40.0] - 2026-10-22
 
 - **go-performance runs speed work as a loop the verdict closes.**

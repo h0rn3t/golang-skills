@@ -31,8 +31,19 @@ if not (state/"latest").is_file():
     sys.exit(0)
 if stopping:
     text=event.get("last_assistant_message") or ""
+    reasons=[]
+    # A speedup claimed after an edit of production Go needs a
+    # bench-compare.sh --verdict call somewhere in the session; a line that
+    # says the comparison was skipped is the report go-performance asks for,
+    # not a claim.
+    if os.environ.get("GOLANG_SKILLS_SPEED_GATE")!="off" and (state/"production").is_file() and not (state/"verdict").is_file():
+        claim=re.compile(r"\b(?:faster|speed-?ups?|sped up)\b|[−-]\s?\d+(?:\.\d+)?\s?%\s*(?:sec/op|ns/op|time|latency|cpu)\b|\b(?:sec/op|ns/op|latency|run ?time|cpu time)\b[^.\n]{0,30}?[−-]\s?\d+(?:\.\d+)?\s?%",re.I)
+        hedge=re.compile(r"\b(?:skipped|unmeasured|not measured|no verdict|without a verdict|not faster|no faster|no (?:\w+ )?(?:speed-?up|gain))\b",re.I)
+        found=next((m.group(0) for line in text.splitlines() if not hedge.search(line) for m in [claim.search(line)] if m),None)
+        if found:
+            reasons.append("golang-skills speed gate: the report claims a speedup (\""+found+"\") but no bench-compare.sh --verdict ran in this session. Run the verdict as go-performance says (The verdict decides) and report its line, or report the comparison as skipped and drop the claim.")
     claims={m.group(1).lower() for m in re.finditer(r"\b(gofmt|vet|fix|lint|test)\s*(?:[:=]\s*)?pass\s*\([^)]*(?:\bhook\b|\breceipt\b)",text,re.I)}
-    if not claims: sys.exit(0)
+    if not claims and not reasons: sys.exit(0)
     try:
         latest=json.loads((state/"latest").read_text())
         attempted=json.loads((state/"attempted").read_text()) if (state/"attempted").is_file() else {}
@@ -43,7 +54,9 @@ if stopping:
     except (OSError,ValueError,subprocess.TimeoutExpired): credits=set()
     unsupported=claims-credits
     if unsupported:
-        reason="golang-skills verification gate: unsupported hook-pass report for "+", ".join(sorted(unsupported))+". Current verified credits: "+(", ".join(sorted(credits)) or "none")+". Correct the report to observed/unavailable or verify the current receipt. A direct rerun is pass (direct), not pass (hook)."
+        reasons.append("golang-skills verification gate: unsupported hook-pass report for "+", ".join(sorted(unsupported))+". Current verified credits: "+(", ".join(sorted(credits)) or "none")+". Correct the report to observed/unavailable or verify the current receipt. A direct rerun is pass (direct), not pass (hook).")
+    if reasons:
+        reason="\n".join(reasons)
         if event.get("stop_hook_active"):
             print(json.dumps({"continue":False,"stopReason":reason}))
         else: print(json.dumps(dict(decision="block",reason=reason)))
@@ -89,6 +102,8 @@ def forms(text,depth=0):
                     if name=="bash" and len(args)>2 and args[1]=="-c": result+=forms(args[2],depth+1)
                     elif name=="bash" and len(args)>1 and Path(args[1]).name=="go-check-receipt.sh":
                         if Path(args[1]).resolve()==(root/"hooks/go-check-receipt.sh").resolve(): result.append(("verifier",args[2:]))
+                    elif Path(args[1] if name=="bash" and len(args)>1 else args[0]).name=="bench-compare.sh":
+                        if any(a=="--verdict" or a.startswith("--verdict=") for a in args): result.append(("verdict",[]))
                     elif name=="go":
                         sub=args[1:]
                         if sub and sub[0]=="-C": sub=sub[2:]
@@ -103,6 +118,10 @@ def forms(text,depth=0):
     return result
 
 kinds=forms(command)
+if any(kind=="verdict" for kind,_ in kinds):
+    try: (state/"verdict").touch()
+    except OSError: pass
+kinds=[(kind,args) for kind,args in kinds if kind!="verdict"]
 if not kinds: sys.exit(0)
 try:
     latest=json.loads((state/"latest").read_text())

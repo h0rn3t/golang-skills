@@ -89,16 +89,12 @@ func NormalizeName(name string) string {
 		name = strings.ReplaceAll(name, "  ", " ")
 	}
 	words := strings.Split(name, " ")
-	result := ""
 	for i, w := range words {
-		if i > 0 {
-			result += " "
-		}
 		if w == "" {
 			continue
 		}
 		first, size := utf8.DecodeRuneInString(w)
-		result += string(unicode.ToUpper(first)) + strings.ToLower(w[size:])
+		words[i] = string(unicode.ToUpper(first)) + strings.ToLower(w[size:])
 	}
-	return result
+	return strings.Join(words, " ")
 }

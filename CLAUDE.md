@@ -105,8 +105,10 @@ Claude Code:
   PreToolUse on `Bash` blocks a repeated runtime check after a Go edit until
   `go-linting` is loaded and the receipt verifier the edit hook printed was
   attempted; Stop blocks a final message whose `pass (hook)` /
-  `pass (receipt)` claims lack current verifier credits.
-  `GOLANG_SKILLS_VERIFICATION_GATE=off` disables it.
+  `pass (receipt)` claims lack current verifier credits, or one that claims a
+  speedup when no `bench-compare.sh --verdict` ran in the session.
+  `GOLANG_SKILLS_VERIFICATION_GATE=off` disables it;
+  `GOLANG_SKILLS_SPEED_GATE=off` only the speed check.
 `evals/hook_test.go` drives the first five; `evals/verification_routing_test.go`
 drives the sixth.
 

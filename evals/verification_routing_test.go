@@ -176,3 +176,71 @@ func TestVerificationRouting(t *testing.T) {
 		t.Fatalf("old verifier = (%d,%q), want newer generation still blocked", code, msg)
 	}
 }
+
+func TestSpeedClaimGate(t *testing.T) {
+	t.Parallel()
+	root, state, dir := repoRoot(t), t.TempDir(), t.TempDir()
+	file, bench := filepath.Join(dir, "main.go"), filepath.Join(dir, "main_bench_test.go")
+	for name, data := range map[string]string{
+		"go.mod":             "module speedgate\n\ngo 1.27\n",
+		"main.go":            "package speedgate\n\nfunc Value() int { return 1 }\n",
+		"main_bench_test.go": "package speedgate\n\nimport \"testing\"\n\nfunc BenchmarkValue(b *testing.B) {\n\tfor b.Loop() {\n\t\tValue()\n\t}\n}\n",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	guard := filepath.Join(root, "hooks", "go-verification-routing.sh")
+	stop := func(message string, env ...string) string {
+		t.Helper()
+		payload := routingPayload("Stop", "speed", "", nil)
+		payload["last_assistant_message"] = message
+		_, out, _ := hookOutput(t, guard, state, payload, append(env, "GOWORK=off")...)
+		return out
+	}
+	hookEvent(t, filepath.Join(root, "hooks", "go-code-routing.sh"), state, routingPayload("PostToolUse", "speed", "Skill", map[string]any{"skill": "go-code"}))
+	if out := stop("strings.Builder is faster than += in a loop."); out != "" {
+		t.Errorf("answer before any Go edit = %q, want allowed", out)
+	}
+	edit := func(path string) {
+		t.Helper()
+		if code, _, msg := hookOutput(t, filepath.Join(root, "hooks", "go-vet-on-edit.sh"), state, routingPayload("PostToolUse", "speed", "Write", map[string]any{"file_path": path}), "GOWORK=off", "GOLANG_SKILLS_EDIT_LINT=off"); code != 0 {
+			t.Fatalf("edit hook on %s = (%d,%q), want 0", path, code, msg)
+		}
+	}
+	edit(bench)
+	if out := stop("SHA hardware support would hash several times faster."); out != "" {
+		t.Errorf("advice after a benchmark-only edit = %q, want allowed", out)
+	}
+	edit(file)
+	for _, claim := range []string{
+		"Run is now about 3x faster.",
+		"BenchmarkRun: sec/op −42%, allocs/op −99%",
+		"latency drops by -30% on the hot path",
+		"The arena gives a 2.1x speedup.",
+	} {
+		if out := stop(claim); !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "--verdict") {
+			t.Errorf("unmeasured claim %q = %q, want speed block", claim, out)
+		}
+	}
+	for _, report := range []string{
+		"speedup: skipped (no verdict)",
+		"Not measured: the change should be faster, but the comparison was skipped.",
+		"hex.EncodeToString would give the same names but no measurable speedup.",
+		"checks: gofmt pass · vet pass",
+	} {
+		if out := stop(report); out != "" {
+			t.Errorf("report %q = %q, want allowed", report, out)
+		}
+	}
+	if out := stop("Run is now 3x faster.", "GOLANG_SKILLS_SPEED_GATE=off"); out != "" {
+		t.Errorf("gate off = %q, want allowed", out)
+	}
+	verdict := "bash " + filepath.Join(root, "skills", "go-performance", "scripts", "bench-compare.sh") + " --verdict /tmp/perf-snap ./pkg 2>&1 | tail -5"
+	if code, msg := hookEvent(t, guard, state, routingPayload("PreToolUse", "speed", "Bash", map[string]any{"command": verdict})); code != 0 {
+		t.Fatalf("verdict command = (%d,%q), want allowed", code, msg)
+	}
+	if out := stop("BenchmarkRun: sec/op −42% (keep)"); out != "" {
+		t.Errorf("claim after a verdict = %q, want allowed", out)
+	}
+}

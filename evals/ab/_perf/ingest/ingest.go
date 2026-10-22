@@ -22,8 +22,8 @@ func Import(ctx context.Context, s *Store, records []Record) (int, error) {
 // Summarize describes an import for the job's log line.
 func Summarize(records []Record) string {
 	empty := 0
-	for i := 0; i < len(records); i++ {
-		if records[i].Value == "" {
+	for _, r := range records {
+		if r.Value == "" {
 			empty = empty + 1
 		}
 	}

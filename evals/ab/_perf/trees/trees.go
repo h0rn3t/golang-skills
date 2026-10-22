@@ -2,7 +2,7 @@
 // trees bottom-up, walks them for a checksum, and reports one line per depth.
 package trees
 
-import "fmt"
+import "strconv"
 
 type node struct {
 	left, right *node
@@ -46,7 +46,7 @@ func Run(maxDepth int) []string {
 		for i := 1; i <= iterations; i++ {
 			sum += bottomUp(uint32(i), depth).check()
 		}
-		lines = append(lines, formatLine(fmt.Sprint(iterations)+" trees", depth, sum))
+		lines = append(lines, formatLine(strconv.Itoa(iterations)+" trees", depth, sum))
 	}
 	return append(lines, formatLine("long lived tree", maxDepth, longLived.check()))
 }
@@ -56,8 +56,8 @@ func formatLine(label string, depth int, check uint32) string {
 	s := ""
 	s += label
 	s += " of depth "
-	s += fmt.Sprintf("%d", depth)
+	s += strconv.Itoa(depth)
 	s += "\t check: "
-	s += fmt.Sprintf("%d", check)
+	s += strconv.FormatUint(uint64(check), 10)
 	return s
 }

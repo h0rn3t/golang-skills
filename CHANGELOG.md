@@ -39,6 +39,48 @@ All notable changes to this repository are documented here.
   without writing a file; the receipt called that `unavailable`. The hook now
   records `fail` and says to preview one analyzer at a time, and go-linting's
   Modernization section says the same.
+- **PATCH copies the record's slices and maps.** go-http's Partial Updates
+  copied the record's fields into the request value and decoded the body onto
+  it; v2 writes a non-nil slice's array, merges into a non-nil map, and
+  decodes through a pointer, so a body later rejected had already changed a
+  shared record (`Tags:[evil]` after `RejectUnknownMembers` refused it). The
+  recipe now says to clone such fields, and the example has a `Tags` field,
+  `slices.Clone`, and `http.MaxBytesReader`; `TestHTTPExamplePartialUpdate`
+  has the rejected-tags case.
+- **A secret in an unexported field is redacted too.** `fmt` cannot call
+  `String` or `GoString` on an unexported field, so a struct holding the
+  go-logging `Token` there printed it raw through `TextHandler`, `%v`, `%+v`,
+  and `%#v`; the 2026-10-01 fix covered exported fields only. What NOT to Log
+  adds a holder that prints itself without the secret, go-security's row
+  points at it, and `TestLoggingExampleRedaction` logs it.
+- **Receiver consistency keeps its decoder exception.** "If any method needs
+  a pointer, use pointers for all" moved `MarshalJSON` and `String` onto `*T`
+  for a type whose `UnmarshalJSON` needs a pointer, and v1 JSON and `fmt`
+  then skip them for every value that is not addressable, with no error and
+  no vet finding. go-interfaces states the `time.Time` exception with the
+  pair in code and a value assertion; go-functions, go-data-structures, and
+  the go-code-review row agree with it.
+- **Float equality has an absolute floor.** go-defensive's relative tolerance
+  alone is never true against `0`, so a residual check never fired; the row
+  now gives `max(absTol, relTol*…)`.
+- **The cache example survives a leaving caller and a panicking load.**
+  go-performance's in-flight entry loaded under the first caller's `ctx`, so
+  that caller leaving failed every waiter, and a panicking `load` left the key
+  loading for good. The load now runs under `context.WithoutCancel(ctx)`, the
+  entry is finished in a `defer`, and Bounded says that replacing an expired
+  entry on read bounds nothing for keys never read again. `TestRates` covers
+  both failures.
+- **The speed verdict shares its significance level.** `bench-verdict.go`
+  tested each benchmark and unit at alpha and kept on any better row, so 20
+  unchanged benchmarks came out `keep` in about one verdict in five; alpha is
+  now divided among the judged rows whose runs vary (Bonferroni,
+  `TestVerdictSharesAlpha`). The loop's snapshot and verdict take
+  `--filter` for the step 1 benchmark, and a kept change is snapshotted
+  before the next one, which against the first snapshot would read `keep` on
+  the earlier gain. Also: `--snapshot` with a sub-benchmark filter no longer
+  reports no benchmarks, `--threshold 05` (not a JSON number) is a usage
+  error, and the speed gate no longer counts `--verdict=DIR`, which the
+  script rejects.
 
 ## [1.41.0] - 2026-10-22
 

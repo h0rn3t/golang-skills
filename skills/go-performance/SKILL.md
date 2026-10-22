@@ -82,10 +82,15 @@ Build in a loop with `strings.Builder`, calling `Grow(n)` first when the final s
   request to the origin at once. Use `golang.org/x/sync/singleflight` where the
   module already requires `golang.org/x/sync`, otherwise the in-flight entry
   below. The lock guards the map and is never held across the load, so one
-  slow key does not stall the rest. The load runs under the first caller's
-  `ctx`.
-- **Bounded**: cap the entries or replace expired ones as they are read; a map
-  that only grows is a leak.
+  slow key does not stall the rest. The load takes the first caller's `ctx`
+  values but not its cancellation (`context.WithoutCancel`), so a caller that
+  leaves fails no other waiter, and `load` sets its own deadline; the entry is
+  finished in a `defer`, so a panicking `load` does not leave its key loading
+  for good.
+- **Bounded**: a cap on the entry count, or a sweep of expired entries; a key
+  space the code does not bound (user IDs, query strings) needs one, since
+  replacing an expired entry on its next read never frees a key that is not
+  read again. A map that only grows is a leak.
 
 ```go
 type rateKey struct{ tenant, pair string } // every input the rate depends on
@@ -98,10 +103,9 @@ type entry struct {
 type Rates struct {
 	load    func(ctx context.Context, key rateKey) (float64, error)
 	ttl     time.Duration
-	mu      sync.Mutex // guards entries; never held across load
-	entries map[rateKey]*entry
+	mu      sync.Mutex         // guards entries; never held across load
+	entries map[rateKey]*entry // bounded: tenants times currency pairs
 }
-
 func (r *Rates) Get(ctx context.Context, key rateKey) (float64, error) {
 	r.mu.Lock()
 	e, ok := r.entries[key]
@@ -114,18 +118,19 @@ func (r *Rates) Get(ctx context.Context, key rateKey) (float64, error) {
 			return 0, ctx.Err()
 		}
 	}
-	e = &entry{done: make(chan struct{})}
+	e = &entry{done: make(chan struct{}), err: errors.New("rates: load panicked")}
 	r.entries[key] = e
 	r.mu.Unlock()
-	e.rate, e.err = r.load(ctx, key)
-	r.mu.Lock()
-	if e.err != nil {
-		delete(r.entries, key) // a failed load is not kept
-	} else {
+	defer func() { // also after a panic in load: waiters wake, the key is retried
+		r.mu.Lock()
 		e.at = time.Now()
-	}
-	r.mu.Unlock()
-	close(e.done)
+		if e.err != nil {
+			delete(r.entries, key) // a failed load is not kept
+		}
+		r.mu.Unlock()
+		close(e.done)
+	}()
+	e.rate, e.err = r.load(context.WithoutCancel(ctx), key) // its values, not its cancel
 	return e.rate, e.err
 }
 ```
@@ -147,10 +152,10 @@ site, `strings.Builder` in a loop) need none of them.
    kept between its iterations.
 2. **Freeze the baseline** after step 1 and before the first production edit,
    one package at a time; the snapshot keeps the test binary and the test
-   files as they are now:
+   files as they are now. `--filter` names the step 1 benchmark:
 
    ```bash
-   bash "<installed-skill-dir>/scripts/bench-compare.sh" --snapshot "${TMPDIR:-/tmp}/perf-snap" ./path/to/pkg
+   bash "<installed-skill-dir>/scripts/bench-compare.sh" --snapshot "${TMPDIR:-/tmp}/perf-snap" --filter '^BenchmarkX$' ./path/to/pkg
    ```
 
 3. **Profile the benchmark and name where the time is**, as
@@ -163,15 +168,21 @@ site, `strings.Builder` in a loop) need none of them.
 5. **The verdict decides**, run serially, never beside another benchmark:
 
    ```bash
-   bash "<installed-skill-dir>/scripts/bench-compare.sh" --verdict "${TMPDIR:-/tmp}/perf-snap" ./path/to/pkg
+   bash "<installed-skill-dir>/scripts/bench-compare.sh" --verdict "${TMPDIR:-/tmp}/perf-snap" --filter '^BenchmarkX$' ./path/to/pkg
    ```
 
-   `keep` (exit 0) keeps the change; `revert` reverts it; `noisy` raises
+   With the same `--filter`, the verdict judges the path the request is
+   about: every other benchmark of the package costs about 25 s at the
+   defaults and raises the bar each row must clear. `keep` (exit 0) keeps the
+   change; `revert` reverts it; `noisy` raises
    `--count` or `--benchtime` and asks again, and a change is never kept on
    `noisy`. A `keep` on `allocs/op` or `B/op` alone is a speedup only where the
    profile spent its time in allocation or GC; otherwise it is reported as
    fewer allocations. After a kept change, profile again and name the next
-   hotspot; chase it only within the request.
+   hotspot; chase it only within the request, and snapshot the kept code into
+   a new directory before that next change: against the first snapshot, a
+   second change that is slower still reads `keep` on the first one's gain.
+   A last verdict against the first snapshot gives the total.
 6. **Guard an allocation win** with an [allocation test](#allocation-guard)
    when the change exists to remove allocations.
 7. **Report** each kept change with its verdict line and the production lines

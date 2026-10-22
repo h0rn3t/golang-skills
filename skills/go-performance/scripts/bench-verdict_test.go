@@ -110,6 +110,46 @@ func TestVerdict(t *testing.T) {
 	}
 }
 
+// TestVerdictSharesAlpha: one row 6.9% faster at p≈0.029 keeps a one-benchmark
+// change, and is noise among twenty benchmarks that did not move, since any
+// of the twenty could have decided the verdict.
+func TestVerdictSharesAlpha(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		benchmarks int
+		want       string
+	}{{1, verdictKeep}, {20, verdictNoisy}} {
+		dir := t.TempDir()
+		var base, changed strings.Builder
+		for b := range tc.benchmarks {
+			for i := range 10 {
+				ns := 100 + 2*float64(i)
+				shift := 0.0
+				if b == 0 {
+					shift = 7.5
+				}
+				fmt.Fprintf(&base, "BenchmarkRow%d-8\t1000\t%g ns/op\t64 B/op\t3 allocs/op\n", b, ns)
+				fmt.Fprintf(&changed, "BenchmarkRow%d-8\t1000\t%g ns/op\t64 B/op\t3 allocs/op\n", b, ns-shift)
+			}
+		}
+		paths := []string{filepath.Join(dir, "base.txt"), filepath.Join(dir, "new.txt")}
+		for i, text := range []string{base.String(), changed.String()} {
+			if err := os.WriteFile(paths[i], []byte(text), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		var stdout, stderr bytes.Buffer
+		run(append([]string{"--json"}, paths...), &stdout, &stderr)
+		var rep report
+		if err := json.Unmarshal(stdout.Bytes(), &rep); err != nil {
+			t.Fatalf("run(--json) output is not a report: %v\n%s%s", err, stdout.String(), stderr.String())
+		}
+		if rep.Verdict != tc.want {
+			t.Errorf("%d benchmarks, one 6.9%% faster: verdict %q (%s), want %q", tc.benchmarks, rep.Verdict, rep.Reason, tc.want)
+		}
+	}
+}
+
 func TestRunUsage(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

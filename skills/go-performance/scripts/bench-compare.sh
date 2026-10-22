@@ -283,7 +283,9 @@ snapshot_mode() {
     else
         while IFS= read -r f; do
             if [[ $f == Benchmark* ]]; then benches+=("$f"); fi
-        done < <(cd "$PKG_DIR" && "$SNAP_DIR/base.test" -test.list "$FILTER" 2>/dev/null || true)
+        # -test.list sees top-level benchmarks only: a BenchmarkX/sub filter
+        # lists by its first element.
+        done < <(cd "$PKG_DIR" && "$SNAP_DIR/base.test" -test.list "${FILTER%%/*}" 2>/dev/null || true)
         if [[ ${#benches[@]} -eq 0 ]]; then status=no_benchmarks; fi
     fi
     if [[ $status == ok ]]; then
@@ -440,7 +442,8 @@ if [[ -n "$SNAPSHOT" || -n "$VERDICT" ]]; then
         echo "error: --snapshot, --verdict, and --save/--baseline are separate modes; give one" >&2
         exit 2
     fi
-    if ! [[ "$THRESHOLD" =~ ^[0-9]+(\.[0-9]+)?$ ]] || [[ "$THRESHOLD" =~ ^0+(\.0+)?$ ]]; then
+    # No leading zero: the value is written into the JSON as a number.
+    if ! [[ "$THRESHOLD" =~ ^(0|[1-9][0-9]*)(\.[0-9]+)?$ ]] || [[ "$THRESHOLD" =~ ^0(\.0+)?$ ]]; then
         echo "error: --threshold must be a positive number, got: $THRESHOLD" >&2
         exit 2
     fi

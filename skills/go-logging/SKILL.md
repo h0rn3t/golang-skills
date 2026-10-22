@@ -181,11 +181,25 @@ func (Token) LogValue() slog.Value         { return slog.StringValue("[REDACTED]
 func (Token) String() string               { return "[REDACTED]" }
 func (Token) GoString() string             { return "[REDACTED]" }
 func (Token) MarshalText() ([]byte, error) { return []byte("[REDACTED]"), nil }
+
+// client holds its token in an unexported field, where fmt cannot call
+// Token's methods, so client prints itself without it.
+type client struct {
+	baseURL string
+	token   Token
+}
+
+func (c client) String() string       { return "client{" + c.baseURL + "}" }
+func (c client) GoString() string     { return c.String() }
+func (c client) LogValue() slog.Value { return slog.StringValue(c.String()) }
 ```
 
-A struct with a secret field gets its redaction from the field's type, so a
-`Config` holding a `Token` logs whole. The one site that must send the secret
-converts with `string(tok)`.
+A struct with an exported secret field gets its redaction from the field's
+type, so a `Config` holding a `Token` logs whole. An unexported field does
+not: `fmt` cannot call `String` or `GoString` on it, so `TextHandler`, `%v`,
+`%+v`, and `%#v` print the raw secret. A struct that keeps a secret in an
+unexported field prints itself without it, as `client` does. The one site
+that must send the secret converts with `string(tok)`.
 
 ---
 

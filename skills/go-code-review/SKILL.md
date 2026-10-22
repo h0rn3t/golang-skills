@@ -121,7 +121,7 @@ allowed-tools: Bash(bash:*)
 
 - [ ] **Empty list on a v1 wire**: in a package on `encoding/json` v1, a list the contract writes as `[]` keeps `out := make([]T, 0, n)`, since v1 writes nil as `null`; a change to `var out []T` there is a finding → [go-data-structures](../go-data-structures/SKILL.md#declaring-empty-slices)
 - [ ] **Copy depth**: check the ownership contract: `slices.Clone`/`maps.Clone` are shallow, and a type's `Clone` follows its documented contract. Flag a copy that violates the contract or an unrequested depth change presented as cleanup; a deeper copy that fixes an existing contract violation is a bug fix → [go-defensive](../go-defensive/references/BOUNDARY-COPYING.md#copy-depth-is-part-of-the-contract)
-- [ ] **Copying values**: do not copy structs containing locks or other synchronization values after use; a value receiver on a type with `*T` methods is a finding → [go-data-structures](../go-data-structures/SKILL.md)
+- [ ] **Copying values**: do not copy structs containing locks or other synchronization values after use → [go-data-structures](../go-data-structures/SKILL.md); a value receiver on a type with `*T` methods is a finding, except encoders and `String` beside pointer decoders → [go-interfaces](../go-interfaces/SKILL.md#receiver-type)
 
 ## Security
 

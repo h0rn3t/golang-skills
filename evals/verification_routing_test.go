@@ -278,6 +278,12 @@ func TestSpeedClaimGate(t *testing.T) {
 	if out := stop("Run is now 3x faster.", "GOLANG_SKILLS_SPEED_GATE=off"); out != "" {
 		t.Errorf("gate off = %q, want allowed", out)
 	}
+	// bench-compare.sh rejects --verdict=DIR as an unknown option, so it runs no verdict.
+	equals := "bash " + filepath.Join(root, "skills", "go-performance", "scripts", "bench-compare.sh") + " --verdict=/tmp/perf-snap ./pkg"
+	hookEvent(t, guard, state, routingPayload("PreToolUse", "speed", "Bash", map[string]any{"command": equals}))
+	if out := stop("Run is now 3x faster."); !strings.Contains(out, `"decision": "block"`) {
+		t.Errorf("claim after --verdict=DIR = %q, want speed block", out)
+	}
 	verdict := "bash " + filepath.Join(root, "skills", "go-performance", "scripts", "bench-compare.sh") + " --verdict /tmp/perf-snap ./pkg 2>&1 | tail -5"
 	if code, msg := hookEvent(t, guard, state, routingPayload("PreToolUse", "speed", "Bash", map[string]any{"command": verdict})); code != 0 {
 		t.Fatalf("verdict command = (%d,%q), want allowed", code, msg)

@@ -116,6 +116,7 @@ func parse(r io.Reader) (samples, error) {
 
 func compare(base, changed samples, threshold, alpha float64) (report, error) {
 	rep := report{Threshold: threshold, Alpha: alpha, Rows: []row{}, Unmatched: []string{}}
+	tests := 0
 	for _, k := range base.order {
 		if _, ok := changed.vals[k]; !ok {
 			rep.Unmatched = append(rep.Unmatched, k.name+" "+k.unit+": base only")
@@ -136,21 +137,32 @@ func compare(base, changed samples, threshold, alpha float64) (report, error) {
 		r.BaseCIPct, r.NewCIPct = ciPct(x, r.Base), ciPct(y, r.New)
 		r.DeltaPct = deltaPct(r.Base, r.New)
 		r.P = uTest(x, y)
-		r.Significant = r.P < alpha
-		r.Change = judge(r, threshold)
+		if judged(k.unit) && (x[0] != x[len(x)-1] || y[0] != y[len(y)-1] || x[0] != y[0]) {
+			tests++ // a row whose every run gives one value tests nothing
+		}
 		rep.Rows = append(rep.Rows, r)
 	}
 	if len(rep.Rows) == 0 {
 		return rep, errors.New("no benchmark appears in both files")
 	}
+	// Any judged row can decide the verdict, so the rows share alpha
+	// (Bonferroni): at alpha per row, 20 unchanged benchmarks came out keep in
+	// about one verdict in five.
+	for i := range rep.Rows {
+		rep.Rows[i].Significant = rep.Rows[i].P < alpha/float64(max(tests, 1))
+		rep.Rows[i].Change = judge(rep.Rows[i], threshold)
+	}
 	rep.Verdict, rep.Reason = decide(rep.Rows, threshold)
 	return rep, nil
 }
 
+// judged reports whether the verdict reads a unit; the others are only shown.
+func judged(unit string) bool {
+	return unit == unitSec || unit == unitBytes || unit == unitAllocs
+}
+
 func judge(r row, threshold float64) string {
-	switch r.Unit {
-	case unitSec, unitBytes, unitAllocs:
-	default:
+	if !judged(r.Unit) {
 		return changeUnjudged
 	}
 	if !r.Significant || r.New == r.Base {

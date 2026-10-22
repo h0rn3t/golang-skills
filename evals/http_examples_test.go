@@ -118,29 +118,32 @@ func TestBody(t *testing.T) {
 
 // The PATCH recipe keeps absent members as stored, clears a member sent as
 // null, and refuses a top-level null, an unknown or storage-only member, and
-// a null required member without touching the record.
+// a null required member without touching the record — a slice field
+// included, which v2 would decode into the record's own array.
 func TestHTTPExamplePartialUpdate(t *testing.T) {
 	code := exampleBlock(t, "skills/go-http/SKILL.md", "### Partial Updates")
 	runExampleTest(t, `package example
-import (json "encoding/json/v2"; "net/http"; "net/http/httptest"; "strings"; "testing")
-type Account struct { Email, Phone, PasswordHash string }
+import (json "encoding/json/v2"; "net/http"; "net/http/httptest"; "reflect"; "slices"; "strings"; "testing")
+type Account struct { Email, Phone, PasswordHash string; Tags []string }
 func patch(w http.ResponseWriter, r *http.Request, acct *Account) {
 `+code+`
 }
 func TestPatch(t *testing.T) {
  for _, tt := range []struct { body string; status int; want Account }{
-  {"{\"phone\":\"+2\"}", 200, Account{"a@x", "+2", "hash"}},
-  {"{\"phone\":null}", 200, Account{"a@x", "", "hash"}},
-  {"{}", 200, Account{"a@x", "+1", "hash"}},
-  {"null", 400, Account{"a@x", "+1", "hash"}},
-  {"{\"email\":null}", 400, Account{"a@x", "+1", "hash"}},
-  {"{\"password_hash\":\"x\"}", 400, Account{"a@x", "+1", "hash"}},
-  {"{\"phone\":\"+3\",\"x\":1}", 400, Account{"a@x", "+1", "hash"}},
+  {"{\"phone\":\"+2\"}", 200, Account{"a@x", "+2", "hash", []string{"go"}}},
+  {"{\"phone\":null}", 200, Account{"a@x", "", "hash", []string{"go"}}},
+  {"{}", 200, Account{"a@x", "+1", "hash", []string{"go"}}},
+  {"{\"tags\":[\"db\"]}", 200, Account{"a@x", "+1", "hash", []string{"db"}}},
+  {"null", 400, Account{"a@x", "+1", "hash", []string{"go"}}},
+  {"{\"email\":null}", 400, Account{"a@x", "+1", "hash", []string{"go"}}},
+  {"{\"password_hash\":\"x\"}", 400, Account{"a@x", "+1", "hash", []string{"go"}}},
+  {"{\"phone\":\"+3\",\"x\":1}", 400, Account{"a@x", "+1", "hash", []string{"go"}}},
+  {"{\"tags\":[\"admin\"],\"x\":1}", 400, Account{"a@x", "+1", "hash", []string{"go"}}},
  } {
-  acct := Account{"a@x", "+1", "hash"}
+  acct := Account{"a@x", "+1", "hash", []string{"go"}}
   w := httptest.NewRecorder()
   patch(w, httptest.NewRequest("PATCH", "/accounts/1", strings.NewReader(tt.body)), &acct)
-  if w.Code != tt.status || acct != tt.want {
+  if w.Code != tt.status || !reflect.DeepEqual(acct, tt.want) {
    t.Errorf("PATCH %s: status=%d account=%+v, want %d and %+v", tt.body, w.Code, acct, tt.status, tt.want)
   }
  }
@@ -268,7 +271,8 @@ func TestFanOut(t *testing.T) {
 
 // The redaction type in go-logging's What NOT to Log is the form go-security
 // routes to: no stdlib handler, attribute form, group, nested value, format
-// verb, or JSON encoder may print the secret.
+// verb, or JSON encoder may print the secret — nor a struct that holds it in
+// an unexported field, where fmt cannot reach the type's methods.
 func TestLoggingExampleRedaction(t *testing.T) {
 	code := exampleBlock(t, "skills/go-logging/SKILL.md", "## What NOT to Log")
 	runExampleTest(t, `package example
@@ -278,6 +282,7 @@ type Config struct { Host string; Token Token }
 func TestRedacted(t *testing.T) {
  tok := Token("s3cr3t")
  cfg := Config{Host: "db", Token: tok}
+ c := client{baseURL: "https://api", token: tok}
  var buf bytes.Buffer
  for _, h := range []slog.Handler{slog.NewJSONHandler(&buf, nil), slog.NewTextHandler(&buf, nil)} {
   logger := slog.New(h)
@@ -287,8 +292,10 @@ func TestRedacted(t *testing.T) {
   logger.Info("config", "cfg", cfg)
   logger.Info("tokens", "tokens", []Token{tok})
   logger.Info("denied", "err", fmt.Errorf("login with %s: denied", tok))
+  logger.Info("client", "client", c)
  }
  fmt.Fprintf(&buf, "%v %#v\n", cfg, cfg)
+ fmt.Fprintf(&buf, "%v %+v %#v %v\n", c, c, c, fmt.Errorf("call %v: denied", c))
  for _, marshal := range []func(any) ([]byte, error){jsonv1.Marshal, func(v any) ([]byte, error) { return json.Marshal(v) }} {
   b, err := marshal(cfg)
   if err != nil { t.Fatal(err) }

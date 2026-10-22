@@ -191,7 +191,8 @@ target without `--force`, or a `--baseline` file that is missing or has no
 It writes `base.test` (`go test -c`), a copy of every `*_test.go` in the
 package under `tests/`, and `meta` (import path and `go env GOVERSION`) into
 `DIR`, which is made absolute in `snapshot`. `benchmarks` lists the top-level
-names `-test.list` matches with `--filter`. `status` is `ok`, `error` (the
+names `-test.list` matches with `--filter` up to its first `/`, since
+`-test.list` sees no sub-benchmarks. `status` is `ok`, `error` (the
 build failed; `output` carries it), or `no_benchmarks` (no test files, or no
 benchmark matches); both exit 1 and remove `base.test`, so a failed snapshot
 cannot be compared against. A verdict:
@@ -219,11 +220,14 @@ changed, or a binary failed; `output` says which), or `no_benchmarks`.
 half-width of the median's 95% interval in percent (`null` when undefined),
 `delta_pct` the change of the median (`null` from zero to non-zero), and `p`
 the two-sided Mann-Whitney U p-value, exact without ties up to 50 samples
-and normal-approximated with the tie correction otherwise. `change` is
-`better` or `worse` when `p < alpha` and the change is at least
-`threshold_pct` (a change from zero, whose `delta_pct` is `null`, always
-counts); a fix that drops `sec/op` by 89% and adds 7 allocations to 6000 is
-kept.
+and normal-approximated with the tie correction otherwise. `significant`
+means `p` is below `alpha` divided by the number of judged rows whose runs are
+not all one value (Bonferroni: any of them can decide the verdict, and at
+`alpha` per row 20 unchanged benchmarks came out `keep` in about one verdict
+in five). `change` is `better` or `worse` for a significant row whose change
+is at least `threshold_pct` (a change from zero, whose `delta_pct` is `null`,
+always counts); a fix that drops `sec/op` by 89% and adds 7 allocations to
+6000 is kept.
 Other units are `unjudged`. Any `worse` `sec/op` or `allocs/op` row makes the
 verdict `revert`; otherwise any `better` row makes it `keep`; otherwise a
 `sec/op` interval wider than the threshold makes it `noisy`; otherwise

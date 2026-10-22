@@ -108,7 +108,7 @@ def forms(text,depth=0):
                     elif name=="bash" and len(args)>1 and Path(args[1]).name=="go-check-receipt.sh":
                         if Path(args[1]).resolve()==(root/"hooks/go-check-receipt.sh").resolve(): result.append(("verifier",args[2:]))
                     elif Path(args[1] if name=="bash" and len(args)>1 else args[0]).name=="bench-compare.sh":
-                        if any(a=="--verdict" or a.startswith("--verdict=") for a in args): result.append(("verdict",[]))
+                        if "--verdict" in args: result.append(("verdict",[])) # bench-compare.sh rejects --verdict=DIR
                     elif name=="go":
                         sub=args[1:]
                         if sub and sub[0]=="-C": sub=sub[2:]

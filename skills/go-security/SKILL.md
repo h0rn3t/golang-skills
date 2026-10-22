@@ -82,7 +82,7 @@ once — not at every call site downstream, where it is forgotten.
 | `CurvePreferences` | No list: the default has `X25519MLKEM768`, `SecP256r1MLKEM768`, and `SecP384r1MLKEM1024`. A list that omits any is a finding, fixed by deleting it, not reordering it (order is ignored); only opt-in `MLKEM1024` needs a list ([SECRETS-AND-CRYPTO.md](references/SECRETS-AND-CRYPTO.md#tls)) | review |
 | CSRF | `http.NewCrossOriginProtection().Handler(mux)` | review |
 | CORS with credentials | Exact-origin allowlist, `Vary: Origin`; the same list in `AddTrustedOrigin` ([HTTP Surface](#http-surface)) | review |
-| Secret in a log, `fmt`, or JSON | The secret type in [go-logging](../go-logging/SKILL.md#what-not-to-log), also when it is a struct field | review |
+| Secret in a log, `fmt`, or JSON | The secret type in [go-logging](../go-logging/SKILL.md#what-not-to-log), which covers an exported struct field; a struct with the secret in an unexported field prints itself without it (same section) | review |
 | Known CVE in deps | `govulncheck ./...` (gate) | gate |
 
 `gosec` is in the baseline `.golangci.yml`; a finding it raises is a gate

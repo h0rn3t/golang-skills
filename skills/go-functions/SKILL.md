@@ -68,7 +68,9 @@ The same holds for every parameter the function reads only as `*x`: a
 a pointer to save a copy. Take a pointer when the callee writes through it,
 when the type holds a lock (`go vet` copylocks reports the copy), or when the
 type's methods have pointer receivers — large structs among them, per
-[RECEIVER-TYPE.md](../go-interfaces/references/RECEIVER-TYPE.md):
+[RECEIVER-TYPE.md](../go-interfaces/references/RECEIVER-TYPE.md); a type
+whose only pointer methods are decoders, such as `time.Time`, still travels
+by value:
 
 ```go
 func greet(name string) string { ... } // not *string: only read

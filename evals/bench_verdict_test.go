@@ -94,6 +94,10 @@ func TestBenchCompareVerdict(t *testing.T) {
 	if got := bench(0, "--snapshot", snap, "./join"); got.Mode != "snapshot" || len(got.Benchmarks) != 1 {
 		t.Fatalf("--snapshot = %+v, want one benchmark", got)
 	}
+	// -test.list sees no sub-benchmarks; the snapshot lists by the first element.
+	if got := bench(0, "--snapshot", filepath.Join(t.TempDir(), "sub"), "--filter", "BenchmarkLine/n=64", "./join"); len(got.Benchmarks) != 1 {
+		t.Fatalf("--snapshot --filter BenchmarkLine/n=64 = %+v, want BenchmarkLine", got)
+	}
 	write("join/join.go", joinFast)
 	if got := bench(0, append([]string{"--verdict", snap}, run...)...); got.Verdict != "keep" || got.Comparison == nil || got.Comparison.Verdict != "keep" {
 		t.Fatalf("--verdict after removing 62 allocations = %+v, want keep", got)
@@ -119,6 +123,7 @@ func TestBenchCompareVerdict(t *testing.T) {
 	runCommandInDir(t, mod, 2, "bash", script, "--verdict", snap, "-n", "3", "./join")
 	runCommandInDir(t, mod, 2, "bash", script, "--verdict", filepath.Join(mod, "nosnap"), "./join")
 	runCommandInDir(t, mod, 2, "bash", script, "--verdict", snap, "--threshold", "0", "./join")
+	runCommandInDir(t, mod, 2, "bash", script, "--verdict", snap, "--threshold", "05", "./join") // not a JSON number
 	runCommandInDir(t, mod, 2, "bash", script, "--verdict", snap, "--new-env", "not-a-var", "./join")
 	runCommandInDir(t, mod, 2, "bash", script, "--new-env", "GOGC=400", "./join")
 	write("other/other.go", "package other\n")

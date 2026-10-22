@@ -153,6 +153,18 @@ receivers fit maps, funcs, channels, slices that are not resliced or
 reallocated, and small immutable structs or basic types;
 [RECEIVER-TYPE.md](references/RECEIVER-TYPE.md) has the full decision list.
 
+One exception: a value type whose only pointer methods are decoders keeps its
+encoders and `String` on the value, as `time.Time` and `netip.Addr` do. Moved
+to `*T`, they are skipped for a value that is not addressable — a field of a
+struct passed by value, a map element — and `encoding/json` v1 and `fmt`
+print the raw value with no error and no `vet` finding:
+
+```go
+func (c Celsius) MarshalJSON() ([]byte, error) { return json.Marshal(c.String()) } // value
+func (c *Celsius) UnmarshalJSON(b []byte) error { ... }                            // writes *c
+var _ json.Marshaler = Celsius{} // a value: (*Celsius)(nil) passes even when values are skipped
+```
+
 ---
 
 ## Related Skills

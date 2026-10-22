@@ -156,13 +156,19 @@ client-writable fields into the request value, and unmarshal the body onto
 that value. v2 leaves an absent member as loaded and sets one sent as `null`
 to its zero value (v1 leaves it unchanged). `RejectUnknownMembers(true)`
 refuses `password_hash` and any member the request type does not hold, and a
-top-level `null` leaves the pointer nil:
+top-level `null` leaves the pointer nil. v2 decodes into what the request
+value already holds — it writes a non-nil slice's array, merges into a
+non-nil map, decodes through a non-nil pointer — so a slice, map, or pointer
+field is copied with `slices.Clone`, `maps.Clone`, or a new value; copied as
+is, the record changes before the body is rejected:
 
 ```go
+r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 req := &struct {
-    Email string `json:"email"`
-    Phone string `json:"phone"` // "phone": null clears it
-}{acct.Email, acct.Phone}
+    Email string   `json:"email"`
+    Phone string   `json:"phone"` // "phone": null clears it
+    Tags  []string `json:"tags"`
+}{acct.Email, acct.Phone, slices.Clone(acct.Tags)} // never acct.Tags: v2 writes into its array
 if err := json.UnmarshalRead(r.Body, &req, json.RejectUnknownMembers(true)); err != nil || req == nil {
     http.Error(w, "invalid JSON body", http.StatusBadRequest)
     return
@@ -171,7 +177,7 @@ if req.Email == "" { // "email": null arrives as ""
     http.Error(w, "email is required", http.StatusBadRequest)
     return
 }
-acct.Email, acct.Phone = req.Email, req.Phone // a rejected body never touched acct
+acct.Email, acct.Phone, acct.Tags = req.Email, req.Phone, req.Tags // a rejected body never touched acct
 ```
 
 ### Mapping errors to status codes

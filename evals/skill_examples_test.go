@@ -746,7 +746,8 @@ func listOrders(ctx context.Context, db *sql.DB, customerID int) ([]Order, error
 }
 
 // The caching example coalesces concurrent misses into one load, keys by
-// tenant, and does not keep a failed load.
+// tenant, and does not keep a failed load; the first caller leaving does not
+// fail the other waiters, and a panicking load does not leave its key loading.
 func TestPerformanceExampleCache(t *testing.T) {
 	code := exampleBlock(t, "skills/go-performance/SKILL.md", "## Caching")
 	runExampleTest(t, `package example
@@ -788,6 +789,48 @@ func TestRates(t *testing.T) {
 	}
 	if n := loads.Load(); n != 4 {
 		t.Errorf("loads = %d, want 4: a failed load is not kept", n)
+	}
+
+	gate := make(chan struct{})
+	shared := &Rates{ttl: time.Minute, entries: map[rateKey]*entry{}, load: func(ctx context.Context, key rateKey) (float64, error) {
+		<-gate
+		return 1, ctx.Err()
+	}}
+	first, leave := context.WithCancel(t.Context())
+	firstDone := make(chan struct{})
+	go func() {
+		defer close(firstDone)
+		_, _ = shared.Get(first, rateKey{"acme", "GBPUSD"})
+	}()
+	time.Sleep(20 * time.Millisecond) // the first caller owns the load
+	waiter := make(chan error, 1)
+	go func() {
+		_, err := shared.Get(t.Context(), rateKey{"acme", "GBPUSD"})
+		waiter <- err
+	}()
+	time.Sleep(20 * time.Millisecond)
+	leave()
+	close(gate)
+	if err := <-waiter; err != nil {
+		t.Errorf("waiter after the first caller left: err = %v, want nil", err)
+	}
+	<-firstDone
+
+	var calls atomic.Int32
+	flaky := &Rates{ttl: time.Minute, entries: map[rateKey]*entry{}, load: func(ctx context.Context, key rateKey) (float64, error) {
+		if calls.Add(1) == 1 {
+			panic("upstream bug")
+		}
+		return 2, nil
+	}}
+	func() {
+		defer func() { _ = recover() }()
+		_, _ = flaky.Get(t.Context(), rateKey{"acme", "EURUSD"})
+	}()
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	if got, err := flaky.Get(ctx, rateKey{"acme", "EURUSD"}); err != nil || got != 2 {
+		t.Errorf("Get after a panicking load = %v, %v; want 2, nil: the key must not stay loading", got, err)
 	}
 }
 `)

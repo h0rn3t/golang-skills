@@ -112,7 +112,8 @@ presence.
 ## Copying
 
 A struct whose methods have pointer receivers or that holds a lock
-(`bytes.Buffer`, `sync.Mutex`) is passed by pointer, never copied;
+(`bytes.Buffer`, `sync.Mutex`) is passed by pointer, never copied — except a
+value type whose only pointer methods are decoders, such as `time.Time`;
 [go-functions](../go-functions/SKILL.md#pointers-to-interfaces) owns the rule.
 
 ---

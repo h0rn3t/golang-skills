@@ -25,8 +25,8 @@ sense.
 - **Map, func, or chan**: Don't use a pointer to them
 - **Slice without reslicing/reallocating**: Don't use a pointer if the method
   doesn't reslice or reallocate the slice
-- **Small value types with no mutable fields**: Types like `time.Time` with no
-  mutable fields and no pointers work well as value receivers
+- **Small value types with no mutable fields**: types like `time.Time` and
+  `netip.Addr`, whose only pointer methods are decoders (the exception below)
 - **Simple basic types**: `int`, `string`, etc.
 
 ## Consistency Rule
@@ -34,3 +34,9 @@ sense.
 **Don't mix receiver types**. Choose either pointers or struct types for all
 available methods on a type. If any method needs a pointer receiver, use pointer
 receivers for all methods.
+
+The exception is a value type whose only pointer methods are decoders
+(`UnmarshalJSON`, `UnmarshalText`, `Scan`): its encoders and `String` stay on
+the value. On `*T` they are skipped for any value that is not addressable,
+and `encoding/json` v1 and `fmt` print the raw value without an error —
+[go-interfaces](../SKILL.md#receiver-type) shows the pair.

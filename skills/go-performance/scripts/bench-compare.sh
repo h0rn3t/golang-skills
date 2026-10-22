@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="1.5.0"
+VERSION="1.5.1"
 SCRIPT_NAME="$(basename "$0")"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -30,8 +30,8 @@ DESCRIPTION
     binaries one after the other, alternating which goes first, --count
     times in the package directory; and passes both outputs to
     bench-verdict.go. The verdict is keep for a significant improvement
-    (sec/op or B/op by at least --threshold percent, or fewer allocs/op) with
-    no significant regression (sec/op by the threshold, or more allocs/op);
+    (sec/op, B/op or allocs/op by at least --threshold percent) with no
+    significant regression (sec/op or allocs/op by the threshold);
     noisy when nothing changed by the threshold and a sec/op interval is
     wider than it; revert otherwise. A toolchain change since the snapshot is
     an error: re-snapshot on the new toolchain.
@@ -68,7 +68,8 @@ OPTIONS
     --snapshot DIR       Freeze the package's test binary and test files in DIR
     --verdict DIR        Compare the current code against DIR's snapshot and
                          decide keep (exit 0), revert or noisy (exit 1)
-    --threshold PCT      Smallest sec/op or B/op change that counts (default: 5)
+    --threshold PCT      Smallest sec/op, B/op or allocs/op change that counts
+                         (default: 5)
     --new-env KEY=VALUE  Environment for the changed side's runs only, e.g.
                          GOGC=400 against an unchanged snapshot (repeatable)
 

@@ -220,8 +220,10 @@ half-width of the median's 95% interval in percent (`null` when undefined),
 `delta_pct` the change of the median (`null` from zero to non-zero), and `p`
 the two-sided Mann-Whitney U p-value, exact without ties up to 50 samples
 and normal-approximated with the tie correction otherwise. `change` is
-`better` or `worse` when `p < alpha` and, for `sec/op` and `B/op`, the change
-is at least `threshold_pct`; any significant `allocs/op` change counts.
+`better` or `worse` when `p < alpha` and the change is at least
+`threshold_pct` (a change from zero, whose `delta_pct` is `null`, always
+counts); a fix that drops `sec/op` by 89% and adds 7 allocations to 6000 is
+kept.
 Other units are `unjudged`. Any `worse` `sec/op` or `allocs/op` row makes the
 verdict `revert`; otherwise any `better` row makes it `keep`; otherwise a
 `sec/op` interval wider than the threshold makes it `noisy`; otherwise

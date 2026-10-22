@@ -1,0 +1,11 @@
+{
+  "prompt": "Export in ./%s is too slow: the nightly export of about 20,000 order lines takes most of a minute. Make it faster without changing the bytes it writes or its exported API.",
+  "expect": "speedup",
+  "class": "cpu",
+  "bench": "^BenchmarkGoldenExport$",
+  "benchtime": "3x",
+  "min_speedup_pct": 50,
+  "targets": ["customers", "addUnique", "Export"],
+  "baits": ["header"],
+  "note": "Hidden quadratic: customers dedupes with slices.Contains over the list built so far, 93% of a CPU profile at 6,000 rows and 4,500 customers. A set beside the list makes it linear (-85% sec/op). Rewriting formatRow with strconv is kept by the verdict at about -13% and fails the 50% floor; the profile, not the fmt.Sprintf calls, says where the time is. header compiles a regexp but runs once per export."
+}

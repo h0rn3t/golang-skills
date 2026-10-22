@@ -3,7 +3,7 @@
 > Sources: https://pkg.go.dev/testing#hdr-Benchmarks; https://pkg.go.dev/golang.org/x/perf/cmd/benchstat
 > Authority: advisory; `testing.B` semantics normative
 > Minimum Go: `b.Loop` 1.24
-> Last verified: 2026-10-01
+> Last verified: 2026-10-22
 
 ## Contents
 
@@ -16,7 +16,9 @@
 
 Go benchmarks use the `testing.B` type and live in `_test.go` files. Function
 names must start with `Benchmark`. Use `b.Loop()` (Go 1.24+): unlike `b.N`
-loops, it keeps the loop body from being optimized away.
+loops, it keeps the loop body from being optimized away, and since Go 1.26 it
+no longer blocks inlining in the body, so the body compiles as the caller's
+code does.
 
 ```go
 func BenchmarkStrconv(b *testing.B) {
@@ -44,10 +46,13 @@ Key rules:
   the stack, so store it where the real caller would (`sink = data`), and when
   B/op is 0 check `go test -gcflags=-m` for `does not escape`
 - `b.Loop()` resets the timer on its first call, so setup before the loop is
-  excluded automatically; `b.ResetTimer()` is for `b.N` loops
-- `b.N` is the iteration count only after `b.Loop()` has returned false, so a
-  benchmark that sizes a fixture by `b.N` is restructured — a constant size, or
-  a fixture built per iteration — not translated line by line
+  excluded automatically; `b.ResetTimer()` is for `b.N` loops, and a
+  `b.StopTimer()` carried over before the loop fails the benchmark with
+  `B.Loop called with timer stopped`
+- `b.N` is 0 inside the loop and the iteration count only after `b.Loop()` has
+  returned false, so a benchmark that sizes a fixture by `b.N` is restructured
+  — a constant size, or a fixture built per iteration — not translated line by
+  line
 - Use `b.ReportAllocs()` or the `-benchmem` flag for allocation tracking
 
 ### Sub-benchmarks
@@ -114,8 +119,15 @@ run, then read the profile with `go tool pprof`:
 
 ```bash
 go test -run '^$' -bench=BenchmarkHotPath -cpuprofile=cpu.prof -memprofile=mem.prof ./path/to/pkg
-go tool pprof -top cpu.prof            # or: -alloc_space mem.prof
+go tool pprof -top -cum cpu.prof       # or: -sample_index=alloc_space mem.prof
+go test -run '^$' -bench=BenchmarkHotPath -mutexprofile=mutex.prof -blockprofile=block.prof ./path/to/pkg
 ```
+
+The CPU profile's header gives `Duration` and `Total samples`. Samples well
+below the duration on a single-goroutine benchmark mean the time is spent
+off the CPU — I/O, a round trip, a lock — and the block profile, not the CPU
+profile, says where. Contention shows only in a `RunParallel` benchmark, and
+`-cpu=1,4,8` shows whether a fix holds as the CPUs grow.
 
 Profiling a running service, `pprof` endpoints, execution traces, and reading
 the output belong to
@@ -130,7 +142,7 @@ for the next bottleneck.
 ### Compiler Elision with `b.Loop`
 
 In the exact `for b.Loop() { ... }` form (Go 1.24+), the compiler keeps
-arguments and results of calls inside the loop alive.
+arguments and results of calls, and variables assigned inside the loop, alive.
 
 That guarantee does not cover manual `b.N` loops or `RunParallel`. In a `b.N`
 loop assign the result to a package-level sink (`sink = expensiveFunc()`); in

@@ -793,6 +793,74 @@ func TestRates(t *testing.T) {
 `)
 }
 
+// The allocation guard holds one allocation per call outside -race, and its
+// build constraint keeps it out of the race run the gate makes, where the
+// detector changes what allocates.
+func TestPerformanceExampleAllocsGuard(t *testing.T) {
+	dir := t.TempDir()
+	for name, content := range map[string]string{
+		"go.mod": "module example\n\ngo 1.27\n",
+		"report.go": `package ledger
+
+import (
+	"io"
+	"strconv"
+)
+
+type Row struct {
+	ID   int64
+	Name string
+}
+
+func WriteReport(w io.Writer, rows []Row) error {
+	buf := make([]byte, 0, 32*len(rows))
+	for _, r := range rows {
+		buf = strconv.AppendInt(buf, r.ID, 10)
+		buf = append(buf, ' ')
+		buf = append(buf, r.Name...)
+		buf = append(buf, '\n')
+	}
+	_, err := w.Write(buf)
+	return err
+}
+`,
+		"helpers_test.go": `package ledger
+
+import (
+	"strconv"
+	"testing"
+)
+
+func sampleRows(t *testing.T, n int) []Row {
+	t.Helper()
+	rows := make([]Row, n)
+	for i := range rows {
+		rows[i] = Row{ID: int64(i), Name: "row-" + strconv.Itoa(i)}
+	}
+	return rows
+}
+`,
+		"report_allocs_test.go": exampleBlock(t, "skills/go-performance/SKILL.md", "### Allocation Guard"),
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, args := range [][]string{{"vet", "./..."}, {"test", "-count=1", "-race", "./..."}} {
+		cmd := exec.CommandContext(t.Context(), "go", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("go %s: %v\n%s", strings.Join(args, " "), err, out)
+		}
+	}
+	cmd := exec.CommandContext(t.Context(), "go", "test", "-count=1", "-v", "-run", "TestWriteReportAllocs", ".")
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "--- PASS: TestWriteReportAllocs") {
+		t.Fatalf("go test without -race: %v\n%s", err, out)
+	}
+}
+
 func TestPerformanceExampleByteReuse(t *testing.T) {
 	code := exampleBlock(t, "skills/go-performance/SKILL.md", "## Avoid Repeated String-to-Byte Conversions")
 	runExampleTest(t, `package example

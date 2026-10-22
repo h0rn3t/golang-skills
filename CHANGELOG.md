@@ -4,6 +4,143 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **go-performance runs speed work as a loop the verdict closes.**
+  Benchmarking and Profiling is now seven numbered steps:
+  1. A benchmark of the caller's path, which is a sample, not the
+     specification.
+  2. `bench-compare.sh --snapshot` before the first production edit.
+  3. The profile read first; a function under 5% of it is left alone and
+     its share reported.
+  4. One change from the cheapest class.
+  5. `--verdict` as the keep or revert decision. `noisy` is never kept, and
+     a `keep` on allocations alone is not reported as faster.
+  6. An `AllocsPerRun` guard for an allocation win.
+  7. A report of kept and reverted attempts with the lines each added.
+
+  New subsections back the steps. Read the Profile maps the profile row to
+  the class of fix (repeated work, allocation and GC, contention, time off
+  the CPU, platform work to decline). Fix Order puts doing less before
+  allocating less, contending less, more CPUs per request, and hand-written
+  replacements of the standard library. Allocation Guard carries
+  `//go:build !race` and no `t.Parallel` in the sample, since the race
+  detector drops pooled objects and `AllocsPerRun` panics under parallel
+  tests.
+
+  Runtime Settings gains:
+  - the rule that `GOGC`, `GOMEMLIMIT`, `GOMAXPROCS`, and `runtime.GC` belong
+    to the process, never to a package;
+  - `GOGC` measured with `--new-env`;
+  - `GOMEMLIMIT` headroom, and its misuse near an OOM;
+  - PGO from a production `default.pgo`.
+
+  Related Skills routes round trips to go-database and go-http. BENCHMARKS.md
+  adds mutex and block profiles from a benchmark and reading `Total samples`
+  against `Duration`. Research behind it: SWE-fficiency, GSO, and PerfAgent
+  on where agents fail at optimization (the wrong function, a fast path
+  keyed to the benchmark, no measurement).
+
+  Measurement setup: `abrun -corpus perf -shell go`, all nine fixtures,
+  medium effort, with the reference arm taken from a 1.39.0 worktree.
+
+  - **Opus 5.5, n=2:**
+    - Pass 11/18 → 16/18; the declines in digest and quotes 0/4 → 3/4.
+    - Profiles per run 0.1 → 2.9; the session's own `--verdict` 0 → 0.8;
+      measured before the first edit 16/18 → 18/18.
+    - Δlines per run +8.8 → +6.4. On events the unaided arm once
+      hand-wrote a JSON encoder (+73 lines) and the skilled arm stayed at +1
+      both times. On tally the skilled arm kept `Snapshot` consistent across
+      keys, at +29 and +51 lines against +8.
+    - Cost was flat: $0.87 vs $0.85 per run.
+  - **Sonnet 5.5, n=2, before step 3 named the request's function as a
+    guess:**
+    - Pass 16/18 → 18/18; profiles per run 0.2 → 2.3; `--verdict` 0 → 0.9.
+    - Cost $0.34 → $0.38.
+  - **Sonnet 5.5 decline fixtures (digest, quotes):**
+    - Before the step 3 wording, n=5: 7/10 in both arms. The two baseline
+      failures on digest never ran a benchmark.
+    - With the wording (the text shipped here), the test was pre-registered:
+      Fisher's exact test on all runs of each arm pooled. The comparison is
+      reference 30/44 → 36/40 passes, p = 0.018.
+    - The gain is in quotes: 16/22 → 20/20 (p = 0.022). The unaided arm
+      rewrites `NormalizeName` beside the real fix.
+    - Digest moves 14/22 → 16/20 (p = 0.32): both arms still swap `toHex`
+      for `hex.EncodeToString`, sometimes after measuring.
+    - The n=15 run alone gives 21/30 → 27/30 (p = 0.10); its cost per run
+      was $0.245 → $0.261.
+    - A sentence forbidding tidy-ups on the way did not help digest (9/15)
+      and was dropped. Only 27 of 57 digest sessions had loaded
+      go-performance at all; with it loaded the shipped text passed 16 of
+      17, without it 16 of 30 passed.
+- **The prompt hook routes a request for speed.**
+  - A prompt asking to make code faster ("speed it up", "faster",
+    "optimize", "reduce latency", "allocate less", and the Ukrainian and
+    Russian forms) now gets the go-code note with
+    `go-performance … too, since the request asks for speed`.
+  - Before, such a prompt with no work verb got no note at all.
+  - A path to Go source in the prompt (`./digest`) now counts as a code
+    element, like a noun does.
+  - Bare "slow", "optimistic", and "high-performance" do not match.
+  - Measured on Sonnet 5.5 decline fixtures, n=15, against the reference
+    arm's pooled runs:
+    - digest loaded go-performance 14/15 (was 27/57) and passed 14/15
+      against 14/22 (p = 0.056: the pre-registered p < 0.05 is missed
+      narrowly);
+    - quotes 15/15 against 16/22 (p = 0.063);
+    - both together 29/30 against 30/44 (p = 0.003);
+    - $0.26 per run.
+  - Regression check on the seven speedup fixtures, n=2, baseline only:
+    - pass 13/14 against the reference arm's 14/14; go-performance loaded
+      14/14 (was 11/14); $0.387 against $0.351 per run.
+    - The one failure rewrote trees' bait `formatLine` to clear the
+      `perfsprint` finding the edit hook printed.
+  - Known confound: trees' bait `formatLine` and quotes' target
+    `NormalizeName` carry lint and `go fix` findings, which the edit hook
+    shows to every arm with the plugin. The new fixtures keep their baits
+    and targets lint-clean.
+  - The new speedup fixtures (exporter, tariff, thumbs) passed in every
+    arm. On these models they measure code cost, not outcome.
+- **Version facts checked against go1.27.1.**
+  - On 1.27, `encoding/json` itself runs on the v2 implementation
+    (`internal/buildcfg` `JSONv2: true`), so switching the import is not a
+    speed lever. Corrected in go-performance, the go-packages replacement
+    table, and COMPATIBILITY.md.
+  - Removing `automaxprocs` changes `GOMAXPROCS` under a small or fractional
+    CPU limit: the runtime rounds up with a floor of 2, where automaxprocs
+    rounded down with a floor of 1.
+  - BENCHMARKS.md: `b.N` is 0 inside a `b.Loop` loop; `StopTimer` before the
+    loop fails the benchmark; `b.Loop` keeps assigned variables alive and,
+    since 1.26, no longer blocks inlining.
+  - go-concurrency: `NumCPU` counts the logical CPUs in the affinity mask,
+    not hardware cores.
+- **bench-verdict 1.1.0: allocations clear the threshold too.** A
+  hidden-quadratic fix measured −89% `sec/op` and added 7 map allocations to
+  6000 (+0.12%), and the verdict was `revert`, because any significant
+  `allocs/op` change counted. Allocations now need `--threshold` percent like
+  time and bytes; a change from zero still always counts. `bench-compare.sh`
+  1.5.1 updates its help to match.
+- **abrun perf corpus: code cost and harder fixtures.**
+  - The summary and the per-run lines report Δlines and Δfuncs (closures
+    included) beside pass.
+  - Golden tests run under `-race`; tally's golden test now reads `Snapshot`
+    while it counts.
+  - A key may set `min_speedup_pct`: a kept change below it fails the
+    fixture.
+  - Four new fixtures, each checked against its intended fix and its trap
+    with the verdict:
+    - `exporter`: a hidden quadratic. The prompt names only the API. The set
+      fix is −85%, while polishing `fmt.Sprintf` is −13% and fails the 50%
+      floor.
+    - `tariff`: rules re-parsed per call. Parsing once is −89%. A memo of
+      totals keyed by the cart is −88% on the visible one-cart benchmark and
+      +22% on the golden one.
+    - `thumbs`: `image.Image.At` per pixel. A `Pix` fast path is −92%.
+      Averaging at 8 bits fails the golden test, and a row fan-out is
+      `noisy` under the golden `RunParallel`.
+    - `digest`: a decline without a profile; 99% of the time is in SHA-256.
+
+  Each new fixture's baits and targets are lint-clean, so the edit hook in
+  a skilled arm does not point at them.
+
 ## [1.39.0] - 2026-10-21
 
 - **bench-compare.sh decides keep or revert.** `--snapshot DIR` freezes one

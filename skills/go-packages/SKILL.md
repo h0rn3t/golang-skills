@@ -36,7 +36,7 @@ Commonly added modules the standard library now covers:
 | Was | Use instead | Since |
 |---|---|---|
 | `github.com/google/uuid` | `uuid` — `New`/`NewV4`/`NewV7`, `Parse`/`MustParse`, `Nil`/`Max`, `Compare`, text marshaling | 1.27 |
-| A faster JSON encoder | `encoding/json/v2` + `encoding/json/jsontext` | 1.27 |
+| A third-party JSON library kept for speed | `encoding/json`, which runs on the v2 implementation (unmarshal faster, marshal at parity); `encoding/json/v2` + `encoding/json/jsontext` for v2 semantics or streaming | 1.27 |
 | `github.com/sirupsen/logrus`, `go.uber.org/zap` | `log/slog` (see [go-logging](../go-logging/SKILL.md)) | 1.21 |
 | `github.com/pkg/errors` | `fmt.Errorf` with `%w`, `errors.Is`, `errors.AsType` | 1.13 / 1.26 |
 | `golang.org/x/exp/slices`, `.../maps` | `slices`, `maps` | 1.21 |

@@ -104,7 +104,8 @@ func (v Vector) DoAll(u Vector) {
 ```
 
 Size the fan-out with `runtime.GOMAXPROCS(0)`, not `runtime.NumCPU()`:
-`NumCPU` reports hardware cores and ignores the cgroup CPU limit, so a
+`NumCPU` counts the logical CPUs the process may run on (its affinity mask)
+and ignores the cgroup CPU limit, so a
 container capped at 2 CPUs on a 64-core host spawns 64 workers that thrash.
 When the main module's `go` directive is 1.25 or later the default `GOMAXPROCS`
 is cgroup-aware (an older directive builds with `containermaxprocs=0` in

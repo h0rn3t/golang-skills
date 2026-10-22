@@ -1,0 +1,11 @@
+{
+  "prompt": "Checkout p99 latency went up after the spring sale rules were loaded, and the profile points into ./%s. Make Price faster without changing its results or the package's exported API.",
+  "expect": "speedup",
+  "class": "cpu",
+  "bench": "^BenchmarkGoldenPrice$",
+  "benchtime": "20000x",
+  "min_speedup_pct": 50,
+  "targets": ["Book.Price", "parseRules", "Book.SetRules", "NewBook"],
+  "baits": ["CurrencySymbol"],
+  "note": "Price re-parses the rules text on every call (87% of it). Parsing in NewBook and SetRules and storing the rules with the parse error under the lock is -89% sec/op and 0 allocs. The memo trap: a cache of totals keyed by the cart is -88% on the visible BenchmarkPrice, which repeats one cart, and +22% (revert) on the golden benchmark, which prices a new cart every iteration. The golden tests change the rules between calls, check that a bad rule set fails every Price and a good one restores it, and run SetRules against Price under -race. CurrencySymbol builds a map literal per call but runs once per receipt."
+}

@@ -168,7 +168,7 @@ def go_files(p):
         return []
     return [os.path.join(p, n) for n in names if n.endswith(".go") and not n.endswith("_test.go")]
 
-def target_files():
+def target_files(pathlike_only=False):
     files, seen = [], set()
     cwd = d.get("cwd") or ""
     if not os.path.isdir(cwd):
@@ -179,6 +179,8 @@ def target_files():
             continue
         seen.add(tok)
         pathlike = "/" in tok or tok.endswith(".go")
+        if pathlike_only and not pathlike:
+            continue
         p = os.path.normpath(os.path.join(cwd, tok))
         if os.path.isdir(p):
             files.extend(go_files(p))
@@ -188,12 +190,28 @@ def target_files():
 
 # A slash command already names its router; the wording tests below are for the
 # prompts that do not.
+# A request to make code faster often has no work verb: "NormalizeName looks
+# slow; please speed it up" got no note, and the digest perf fixture prompt
+# ("Name in ./digest feels slow ... speed it up") loaded go-performance in 27
+# of 57 Sonnet 5.5 sessions (2026-10-22). Without it the function the request
+# named was rewritten for nothing in 14 of 30; with it, at the skill text that
+# calls that function a guess, in 1 of 17. Bare
+# "slow" asks why, not for a change; "optimistic" and "high-performance" are
+# not requests.
+speed = re.search(
+    r"\b(?:faster|speed\s+(?:\w+\s+){0,3}?up|speed-?up|optimi[sz](?:e|es|ed|ing|ation)|"
+    r"(?:reduce|cut|lower)\s+(?:the\s+|its\s+)?(?:latency|allocations?|allocs|cpu\s+time|memory\s+use)|"
+    r"allocate\s+less|fewer\s+allocations|"
+    r"прискор\w*|оптиміз\w*|ускор\w*|оптимиз\w*)\b",
+    prompt, re.I) is not None
+
 if slash:
     print((d.get("session_id") or "default").replace("\n", " "))
     print(slash.group(1))
     print("")
     print("slash")
     print("new" if new_code else "")
+    print("speed" if speed else "")
     for p in target_files()[:40]:
         print(p)
     sys.exit(0)
@@ -203,6 +221,7 @@ if mention:
     print("")
     print("mention")
     print("new" if new_code else "")
+    print("speed" if speed else "")
     for p in target_files()[:40]:
         print(p)
     sys.exit(0)
@@ -219,14 +238,15 @@ if prose_edit:
     sys.exit(0)
 
 # A prompt that does not name Go counts as Go work only when the working
-# directory holds Go and the prompt names a code element; "add a line to the
-# README" in a Go repository must not fire.
+# directory holds Go and the prompt names a code element, by a noun or by a
+# path to Go source ("./digest"); "add a line to the README" in a Go
+# repository must not fire, nor a bare word that happens to name a directory.
 code_noun = re.compile(
     r"\b(?:function\w?|func|method\w?|package\w?|handler\w?|endpoint\w?|struct\w?|interface\w?|type\w?|"
     r"test\w*|stub\w?|bug\w?|panic|бод[иі]\w*|функці\w*|метод\w*|пакет\w*|хендлер\w*|обробник\w*|"
     r"структур\w*|інтерфейс\w*|тест\w*|заглушк\w*|баг\w*|функци\w*|обработчик\w*|эндпоинт\w*)\b", re.I)
 if not names_go(prompt):
-    if not (has_go_files(d.get("cwd") or "") and code_noun.search(prompt)):
+    if not (has_go_files(d.get("cwd") or "") and (code_noun.search(prompt) or target_files(pathlike_only=True))):
         sys.exit(0)
 
 refactor = re.compile(
@@ -280,6 +300,8 @@ elif refactor.search(prompt):
     skill, kind = "go-code-refactor", "a behavior-preserving refactor"
 elif work.search(prompt):
     skill, kind = "go-code", "Go code to write, implement, or fix"
+elif speed:
+    skill, kind = "go-code", "a request to make Go code faster"
 else:
     sys.exit(0)
 print((d.get("session_id") or "default").replace("\n", " "))
@@ -287,11 +309,12 @@ print(skill)
 print(kind)
 print("note")
 print("new" if new_code else "")
+print("speed" if speed else "")
 for p in target_files()[:40]:
     print(p)
 ')" || exit 0
 [[ -n "$parsed" ]] || exit 0
-{ read -r session; read -r skill; read -r kind; read -r mode; read -r newcode; mapfile -t files; } <<< "$parsed"
+{ read -r session; read -r skill; read -r kind; read -r mode; read -r newcode; read -r speed; mapfile -t files; } <<< "$parsed"
 [[ -n "$skill" ]] || exit 0
 
 state="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/${session:-default}"
@@ -396,6 +419,10 @@ elif [[ "$skill" == "go-code" && "$mode" != "slash" ]]; then
     # fixtures without hints (Opus, medium, n=3): golden 9/9 both, skills per
     # run 4.33 -> 4.67, $/run +3%.
     line+="${sep}and the owners the task touches, picked by their skill descriptions (\`$(q go-generics)\` for type parameters, \`$(q go-database)\` for SQL, \`$(q go-security)\` when user input reaches a shell, file, or URL)"
+fi
+if [[ "$speed" == "speed" && " $owners " != *" go-performance "* ]]; then
+    line+="${sep}\`$(q go-performance)\` (Skill tool, name \`$(q go-performance)\`$(read_alt go-performance)) too, since the request asks for speed"
+    sep="; "
 fi
 if [[ "$skill" == "go-code" && "$newcode" == "new" ]]; then
     line+="${sep}$tt too, since new code starts with its contract test"

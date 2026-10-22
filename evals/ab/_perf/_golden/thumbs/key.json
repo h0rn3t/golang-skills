@@ -1,0 +1,11 @@
+{
+  "prompt": "Thumbnail requests in ./%s are slow under load. The gallery service runs on 8 CPUs with one goroutine per request, and every request calls AverageColor on the *image.RGBA our resizer produces. Make it faster without changing its results or its exported API.",
+  "expect": "speedup",
+  "class": "alloc",
+  "bench": "^BenchmarkGoldenAverageColor$",
+  "benchtime": "200x",
+  "min_speedup_pct": 50,
+  "targets": ["AverageColor"],
+  "baits": ["ParseHex"],
+  "note": "Each pixel goes through image.Image.At, an interface call that boxes a color.RGBA (65,536 allocs/op). Summing *image.RGBA's Pix row by row (PixOffset for a sub-image's Min and Stride) and scaling the sums by 257 to the 16 bits RGBA() reports is -92% sec/op. Traps: averaging the 8-bit values and widening the result rounds differently (the golden test's three-pixel case); a fast path that drops the At loop breaks the NRGBA, Gray and YCbCr cases; fanning rows out to goroutines is faster in a one-call benchmark and noisy on the golden RunParallel benchmark, where every CPU already serves a request. ParseHex uses fmt.Sscanf and runs once at startup."
+}

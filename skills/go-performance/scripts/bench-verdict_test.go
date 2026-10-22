@@ -86,6 +86,7 @@ func TestVerdict(t *testing.T) {
 		{"faster", tight, scale(tight, 0.5), 3, 3, verdictKeep, 0},
 		{"fewer allocations", tight, tight, 7, 3, verdictKeep, 0},
 		{"more allocations", tight, scale(tight, 0.5), 3, 7, verdictRevert, 1},
+		{"allocations up by less than the threshold", tight, scale(tight, 0.1), 6000, 6007, verdictKeep, 0},
 		{"slower", tight, scale(tight, 1.5), 3, 3, verdictRevert, 1},
 		{"unchanged", tight, tight, 3, 3, verdictRevert, 1},
 		{"spread too wide", []float64{100, 60, 140, 80, 120, 70, 130, 90, 110, 100}, []float64{95, 65, 135, 85, 115, 75, 125, 95, 105, 100}, 3, 3, verdictNoisy, 1},

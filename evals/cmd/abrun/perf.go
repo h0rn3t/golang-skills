@@ -53,16 +53,19 @@ const perfRounds = 10
 // functions the request is about and Baits cold ones that only look slow,
 // both as funcKey spells them (Name, or Type.Name for a method). Class names
 // what the profile shows (gc, alloc, cpu, contention, io); Note says why, for
-// the reader of a report.
+// the reader of a report. MinSpeedupPct, when set, is the sec/op drop a kept
+// speedup must reach: polishing a 10% function while a quadratic loop stays
+// is kept by the verdict and still fails the fixture.
 type perfKey struct {
-	Prompt    string   `json:"prompt"`
-	Expect    string   `json:"expect"`
-	Class     string   `json:"class"`
-	Bench     string   `json:"bench"`
-	Benchtime string   `json:"benchtime"`
-	Targets   []string `json:"targets"`
-	Baits     []string `json:"baits"`
-	Note      string   `json:"note"`
+	Prompt        string   `json:"prompt"`
+	Expect        string   `json:"expect"`
+	Class         string   `json:"class"`
+	Bench         string   `json:"bench"`
+	Benchtime     string   `json:"benchtime"`
+	MinSpeedupPct float64  `json:"min_speedup_pct,omitempty"`
+	Targets       []string `json:"targets"`
+	Baits         []string `json:"baits"`
+	Note          string   `json:"note"`
 }
 
 func loadPerfKey(path string) (perfKey, error) {
@@ -108,6 +111,7 @@ type perfScore struct {
 	Expect         string   `json:"expect"`
 	Class          string   `json:"class"`
 	Prompt         string   `json:"prompt"`
+	MinSpeedupPct  float64  `json:"min_speedup_pct,omitempty"`
 	Verdict        string   `json:"verdict,omitempty"`
 	SecDeltaPct    *float64 `json:"sec_delta_pct,omitempty"`
 	AllocsDeltaPct *float64 `json:"allocs_delta_pct,omitempty"`
@@ -132,6 +136,9 @@ func (s *perfScore) decide(golden bool) {
 		return
 	}
 	s.Pass = golden && s.Verdict == perfKeep && len(s.BaitsChanged) == 0
+	if s.MinSpeedupPct > 0 {
+		s.Pass = s.Pass && s.SecDeltaPct != nil && -*s.SecDeltaPct >= s.MinSpeedupPct
+	}
 }
 
 // perfJob is a measurement still owed. base is a module holding the fixture as
@@ -445,8 +452,9 @@ func printPerfResult(r result) {
 		}
 		return fmt.Sprintf("%+.1f%%", *v)
 	}
-	fmt.Printf("[perf] %-24s %-8s #%d  %-7s verdict=%s sec/op=%s allocs/op=%s golden=%v pass=%v changed=%v baits=%v measured_first=%v bench=%d profiles=%d verdicts=%d\n",
-		r.Arm, r.Task, r.Rep, p.Expect, cmp.Or(p.Verdict, "-"), delta(p.SecDeltaPct), delta(p.AllocsDeltaPct), r.Golden, p.Pass, p.Changed, p.BaitsChanged, p.MeasuredFirst, p.BenchRuns, p.Profiles, p.Verdicts)
+	fmt.Printf("[perf] %-24s %-8s #%d  %-7s verdict=%s sec/op=%s allocs/op=%s golden=%v pass=%v lines=%+d funcs=%+d types=%+d changed=%v baits=%v measured_first=%v bench=%d profiles=%d verdicts=%d\n",
+		r.Arm, r.Task, r.Rep, p.Expect, cmp.Or(p.Verdict, "-"), delta(p.SecDeltaPct), delta(p.AllocsDeltaPct), r.Golden, p.Pass,
+		r.Delta.Lines, r.Delta.Funcs+r.Delta.Closures, r.Delta.Types, p.Changed, p.BaitsChanged, p.MeasuredFirst, p.BenchRuns, p.Profiles, p.Verdicts)
 	if p.Unmeasured != "" {
 		fmt.Printf("       unmeasured: %s\n", p.Unmeasured)
 	}
@@ -455,12 +463,15 @@ func printPerfResult(r result) {
 // printPerfSummary is the perf corpus's table: one row per arm, then the
 // passes per fixture, since the speedup fixtures and the decline one are
 // scored on different things and a mean over both hides which one moved.
+// Δlines and Δfuncs are the production code a run added for its speedup:
+// two arms that both pass can differ only there, by a hand-written encoder
+// against a reused one.
 func printPerfSummary(rep report) {
-	fmt.Printf("%-24s %5s %6s %7s %5s %5s %6s %8s %7s %7s %7s %8s\n",
-		"arm", "runs", "errors", "golden", "pass", "keep", "baits", "measured", "bench/r", "prof/r", "verd/r", "$/run")
+	fmt.Printf("%-24s %5s %6s %7s %5s %5s %6s %7s %7s %8s %7s %7s %7s %8s\n",
+		"arm", "runs", "errors", "golden", "pass", "keep", "baits", "Δlines", "Δfuncs", "measured", "bench/r", "prof/r", "verd/r", "$/run")
 	var tasks []string
 	for _, a := range rep.Arms {
-		var runs, errs, golden, pass, keep, baits, first, bench, profiles, verdicts, costed int
+		var runs, errs, golden, pass, keep, baits, lines, funcs, first, bench, profiles, verdicts, costed int
 		var cost float64
 		for _, r := range rep.Results {
 			if r.Arm != a.Name {
@@ -487,6 +498,8 @@ func printPerfSummary(rep report) {
 					*hit.n++
 				}
 			}
+			lines += r.Delta.Lines
+			funcs += r.Delta.Funcs + r.Delta.Closures
 			bench += p.BenchRuns
 			profiles += p.Profiles
 			verdicts += p.Verdicts
@@ -501,25 +514,30 @@ func printPerfSummary(rep report) {
 		if costed > 0 {
 			cost /= float64(costed)
 		}
-		fmt.Printf("%-24s %5d %6d %7s %5s %5d %6d %8s %7.1f %7.1f %7.1f %8.4f\n",
+		fmt.Printf("%-24s %5d %6d %7s %5s %5d %6d %+7.1f %+7.1f %8s %7.1f %7.1f %7.1f %8.4f\n",
 			a.Name, runs, errs, fmt.Sprintf("%d/%d", golden, done), fmt.Sprintf("%d/%d", pass, done), keep, baits,
-			fmt.Sprintf("%d/%d", first, done), perRun(bench), perRun(profiles), perRun(verdicts), cost)
+			perRun(lines), perRun(funcs), fmt.Sprintf("%d/%d", first, done), perRun(bench), perRun(profiles), perRun(verdicts), cost)
 		printRoutingSummary(rep, a.Name)
 	}
 	slices.Sort(tasks)
 	for _, task := range tasks {
 		fmt.Printf("  %-10s", task)
 		for _, a := range rep.Arms {
-			var n, pass int
+			var n, pass, lines int
 			for _, r := range rep.Results {
 				if r.Arm == a.Name && r.Task == task && r.Perf != nil {
 					n++
+					lines += r.Delta.Lines
 					if r.Perf.Pass {
 						pass++
 					}
 				}
 			}
-			fmt.Printf("  %s %d/%d", a.Name, pass, n)
+			if n == 0 {
+				fmt.Printf("  %s 0/0", a.Name)
+				continue
+			}
+			fmt.Printf("  %s %d/%d %+.0f lines", a.Name, pass, n, float64(lines)/float64(n))
 		}
 		fmt.Println()
 	}

@@ -81,7 +81,7 @@ scope for this repository.
 | API | Replaces |
 |---|---|
 | `uuid` (`New`, `NewV4`, `NewV7`, `Parse`, `MustParse`, `Nil`, `Max`, `Compare`) | `github.com/google/uuid` for the common cases |
-| `encoding/json/v2` + `encoding/json/jsontext` | `encoding/json` for new code that needs its semantics or streaming |
+| `encoding/json/v2` + `encoding/json/jsontext` | `encoding/json` for new code that needs its semantics or streaming; `encoding/json` itself runs on the v2 implementation in 1.27 (unmarshal faster, marshal at parity; `GOEXPERIMENT=nojsonv2` restores the old one), so the import is not a speed change |
 | `httptest.NewTestServer(tb, handler)` (in-memory through `srv.Client()`; loopback after `srv.Start()`; without `Start`, `srv.URL` is `http://example.com` once `Client()` runs, so any other client reaches the real host) | `httptest.NewServer` + `defer srv.Close()` |
 | `synctest.Sleep` | Real sleeps inside `synctest.Test` bubbles |
 | `strings.CutLast`, `bytes.CutLast` | `LastIndex` + manual slicing |
@@ -112,14 +112,14 @@ scope for this repository.
 | `testing/synctest.Test`, `synctest.Wait` | Sleep-based waits in concurrency tests |
 | `slog.GroupAttrs(key, attrs...)` | `slog.Group` with `any` varargs |
 | `http.NewCrossOriginProtection()` | Hand-rolled CSRF origin checks |
-| `runtime.SetDefaultGOMAXPROCS()` | Manual `GOMAXPROCS` math; 1.25 makes the default cgroup-aware when the main module's `go` directive is 1.25+ (an older directive builds with `containermaxprocs=0`) |
+| `runtime.SetDefaultGOMAXPROCS()` | Manual `GOMAXPROCS` math; 1.25 makes the default cgroup-aware when the main module's `go` directive is 1.25+ (an older directive builds with `containermaxprocs=0`); the default rounds a fractional CPU limit up and stays at 2 or more on a machine with two CPUs or more |
 | `testing.TB.Output()`, `TB.Attr()` | Output of a logger or command under test written to stdout/stderr (`slog.NewTextHandler(t.Output(), nil)`; `fmt.Println` in a test is `t.Log`), untyped metadata in failure text |
 
 ### Go 1.24
 
 | API | Replaces |
 |---|---|
-| `b.Loop()` | `for i := 0; i < b.N; i++` |
+| `b.Loop()` | `for i := 0; i < b.N; i++`; since 1.26 the loop body is inlined as ordinary code, so a `b.N` benchmark converts with no ill effects |
 | `t.Context()` | `context.Background()` in tests; `go fix` analyzer `testingcontext` |
 | `crypto/rand.Text()` | Manual random-string generation |
 | `cipher.NewGCMWithRandomNonce` | Manual random nonce generation/prefixing for AES-GCM in new formats |

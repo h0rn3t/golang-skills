@@ -31,7 +31,8 @@ the other clients. The plugin's hooks enforce the same order:
   work, including a prompt that only names a router (`use go-code`,
   `/opsx:apply add-auth /go-code`), with the exact Skill names: the router
   and `go-style-core` in one line, then `go-testing` and the owners the
-  target's code points at; a review prompt gets `go-code-review` alone.
+  target's code points at, and `go-performance` when the prompt asks for
+  speed; a review prompt gets `go-code-review` alone.
 - `hooks/go-code-routing.sh` holds every `.go` edit until a router,
   `go-style-core` (which carries the idiom card), and the owners the edit's
   content points at are recorded. A session with no router is told which one to

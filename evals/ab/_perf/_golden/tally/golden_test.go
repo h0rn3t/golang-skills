@@ -9,6 +9,12 @@ import (
 func TestGoldenCounter(t *testing.T) {
 	c := New()
 	var wg sync.WaitGroup
+	wg.Go(func() { // the metrics endpoint reads while requests count
+		for range 50 {
+			_ = c.Snapshot()
+			_ = c.Get("k0")
+		}
+	})
 	for g := range 16 {
 		wg.Go(func() {
 			for i := range 1000 {

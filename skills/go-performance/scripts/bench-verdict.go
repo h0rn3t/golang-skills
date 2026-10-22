@@ -22,7 +22,7 @@ import (
 	"text/tabwriter"
 )
 
-const version = "1.0.0"
+const version = "1.1.0"
 
 const (
 	verdictKeep   = "keep"
@@ -156,9 +156,10 @@ func judge(r row, threshold float64) string {
 	if !r.Significant || r.New == r.Base {
 		return changeSame
 	}
-	// An allocation count barely varies between runs, so any significant
-	// change in it counts; time and bytes must also clear the threshold.
-	if r.Unit != unitAllocs && r.DeltaPct != nil && math.Abs(*r.DeltaPct) < threshold {
+	// Allocations clear the threshold like time and bytes: a fix that drops
+	// time by 89% and adds 7 map allocations to 6000 is kept. A change from 0
+	// has no percentage and always counts.
+	if r.DeltaPct != nil && math.Abs(*r.DeltaPct) < threshold {
 		return changeSame
 	}
 	if r.New > r.Base {
@@ -397,7 +398,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("bench-verdict", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	jsonOut := fs.Bool("json", false, "print the report as JSON")
-	threshold := fs.Float64("threshold", 5, "smallest sec/op or B/op change in percent that counts")
+	threshold := fs.Float64("threshold", 5, "smallest sec/op, B/op or allocs/op change in percent that counts")
 	alpha := fs.Float64("alpha", 0.05, "significance level of the U test")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {

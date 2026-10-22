@@ -1027,7 +1027,7 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 			return res
 		}
 		prompt = cmp.Or(prompt, pk.Prompt)
-		res.Perf = &perfScore{Expect: pk.Expect, Class: pk.Class, Prompt: fmt.Sprintf(prompt, taskName), Changed: []string{}}
+		res.Perf = &perfScore{Expect: pk.Expect, Class: pk.Class, Prompt: fmt.Sprintf(prompt, taskName), MinSpeedupPct: pk.MinSpeedupPct, Changed: []string{}}
 	}
 	turn := runSession(o, a, work, fmt.Sprintf(prompt, taskName))
 	res.merge(turn)
@@ -1096,7 +1096,12 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		res.Err = fmt.Sprintf("copy golden: %v", err)
 		return res
 	}
-	if err := goCmd(o.timeout, work, "test", "./"+taskName+"/..."); err != nil {
+	goldenArgs := []string{"test", "./" + taskName + "/..."}
+	if o.corpus == corpusPerf {
+		// A speedup made by dropping a lock passes a plain run of the same test.
+		goldenArgs = []string{"test", "-race", "./" + taskName + "/..."}
+	}
+	if err := goCmd(o.timeout, work, goldenArgs...); err != nil {
 		res.GoFail = err.Error()
 		res.BehaviorFailure, res.HarnessFailure = classifyGolden(res.Build, err.Error())
 	} else {

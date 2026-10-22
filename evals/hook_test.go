@@ -1183,6 +1183,46 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
+	// A request for speed often carries no work verb and no code noun; the
+	// digest perf fixture prompt loaded go-performance in 27 of 57 Sonnet 5.5
+	// sessions (2026-10-22) and rewrote the function it named in half of the
+	// rest. The path to the package names the code.
+	const speedOwner = "`golang-skills:go-performance` (Skill tool, name `golang-skills:go-performance`) too, since the request asks for speed"
+	t.Run("a request for speed names go-performance", func(t *testing.T) {
+		t.Parallel()
+		cwd := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(cwd, "digest"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(cwd, "digest", "digest.go"), []byte("package digest\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		for _, prompt := range []string{
+			"Name in ./digest feels slow: uploads of a few megabytes wait on it before they are stored. Please speed it up without changing the names it returns.",
+			"Make Export in ./digest faster without changing its output",
+			"Optimize the Go JSON encoder in ./digest; it allocates on every event",
+			"Прискор функцію Name у ./digest",
+			"Ускорь Name в ./digest",
+		} {
+			code, out := promptEvent(t, t.TempDir(), "p-speed", cwd, prompt)
+			if code != 0 || !strings.Contains(out, "`golang-skills:go-code`") || !strings.Contains(out, speedOwner) {
+				t.Errorf("speed request %q: exit %d, stdout %q; want go-code and go-performance", prompt, code, out)
+			}
+		}
+		for _, prompt := range []string{
+			"Why is ./digest slow?",
+			"Compare Go and Rust for building a high-performance network proxy",
+		} {
+			if code, out := promptEvent(t, t.TempDir(), "p-nospeed", cwd, prompt); code != 0 || out != "" {
+				t.Errorf("prompt %q: exit %d, stdout %q; want silent 0", prompt, code, out)
+			}
+		}
+		_, out := promptEvent(t, t.TempDir(), "p-optimistic", cwd, "Add optimistic locking to the Go store in ./digest")
+		if !strings.Contains(out, "`golang-skills:go-code`") || strings.Contains(out, "go-performance") {
+			t.Errorf("optimistic locking is not a speed request: stdout %q; want go-code without go-performance", out)
+		}
+	})
+
 	// The VS Code extension prepends its context to the prompt. On 2026-10-11
 	// the opened path below routed a request to study a paper as a refactor:
 	// `golang` named Go and `MODERNIZATION` matched the refactor wording. A

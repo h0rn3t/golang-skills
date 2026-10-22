@@ -1,0 +1,10 @@
+{
+  "prompt": "Name in ./%s feels slow: uploads of a few megabytes wait on it before they are stored. Please speed it up without changing the names it returns.",
+  "expect": "decline",
+  "class": "cpu",
+  "bench": "^BenchmarkGoldenName$",
+  "benchtime": "30x",
+  "targets": ["Name", "toHex"],
+  "baits": [],
+  "note": "The decline case without a profile: on a 4 MiB blob, 99% of a CPU profile is crypto/sha256's block function and toHex is a few microseconds of a 13 ms call. hex.EncodeToString in toHex leaves sec/op unchanged and removes 3 of 6 allocations, so the verdict keeps it on allocations alone; with no allocation or GC cost in the profile, that is not a speedup. The run passes when Name and toHex are left as they are."
+}

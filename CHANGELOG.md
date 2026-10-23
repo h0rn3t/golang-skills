@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.43.0] - 2026-10-23
+
 The remaining findings of the 2026-10-22 review. The wording changes under
 "Measured" were checked by abrun against the tree with every other change
 here (reference) on 2026-10-23, medium effort, n=2, no regression:

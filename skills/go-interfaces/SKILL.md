@@ -1,6 +1,6 @@
 ---
 name: go-interfaces
-description: Use when designing or implementing Go interfaces, abstractions, mockable boundaries, embedding, assertions, type switches, or interface versus concrete API types. Generics belong to go-generics.
+description: Use when designing or implementing Go interfaces, abstractions, mockable boundaries, embedding, assertions, type switches, pointer versus value receiver types, or interface versus concrete API types. Generics belong to go-generics.
 allowed-tools: Bash(bash:*)
 ---
 
@@ -78,8 +78,11 @@ Bad case above, whatever the type's method set.
 
 Without checking, a failed assertion panics. Use the comma-ok idiom whenever
 the dynamic type is data-dependent; a bare `x.(T)` is acceptable only where a
-mismatch is a programming error that should panic, such as a recover guard
-re-panicking a foreign value ([PANIC-RECOVER.md](../go-defensive/references/PANIC-RECOVER.md)).
+mismatch is a programming error that should panic — a value the package
+itself stored under a key only it writes. A recover guard is not one: a bare
+assertion replaces a foreign panic value with a `*runtime.TypeAssertionError`,
+so it uses comma-ok and re-panics `p` unchanged
+([PANIC-RECOVER.md](../go-defensive/references/PANIC-RECOVER.md)).
 Reflection code uses `reflect.TypeAssert[T]` (Go 1.25+) instead of
 `v.Interface().(T)`.
 

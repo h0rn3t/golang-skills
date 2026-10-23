@@ -1,4 +1,4 @@
-# Time and Struct Tag Patterns
+# Time on the Wire
 
 > Sources: source/uber-go-style/style.md (Use "time" to handle time, Start Enums at One, Use field tags in marshaled structs)
 > Authority: advisory

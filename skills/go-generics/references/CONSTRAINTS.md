@@ -6,7 +6,7 @@
 > Last verified: 2026-09-10
 
 Constraints define what operations a type parameter supports. Choose the
-narrowest constraint that satisfies your function's needs — no more.
+loosest constraint that permits the operations the body uses.
 
 ---
 

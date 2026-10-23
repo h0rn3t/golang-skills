@@ -54,6 +54,9 @@ collected without `Stop`.
 - The old drain `if !t.Stop() { <-t.C }` now blocks forever: `Stop` returns
   false only when the value was already received or the timer was already
   stopped. Delete it; `t.Reset(d)` alone is correct.
+- A leftover `GODEBUG=asynctimerchan=1` in the deployment's environment stops
+  a binary built with Go 1.27 at startup (`removed GODEBUG "asynctimerchan"`);
+  delete it with the drain.
 - `time.After` in a `select` loop allocates a timer per iteration and restarts
   the timeout every time another case wins. A per-message idle timeout is one
   `time.NewTimer` before the loop and `t.Reset(d)` after each message; a

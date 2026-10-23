@@ -16,7 +16,8 @@ DESCRIPTION
     By default writes to stdout; use --output to write to a file.
 
     Exits 0 on success, 2 on a usage error (a missing --output value, an
-    extra argument, an invalid name) or an existing --output file without
+    extra argument, an invalid name, a black-box *_test package) or an
+    --output that is a directory, cannot be written, or exists without
     --force.
 
 OPTIONS
@@ -123,6 +124,11 @@ case "$PKG" in
         ;;
 esac
 
+if [[ "$PKG" == *_test ]]; then
+    echo "error: black-box package '$PKG': the scaffold calls $FUNC unqualified; generate for '${PKG%_test}' or add the import and qualifier by hand" >&2
+    exit 2
+fi
+
 generate_test() {
     local parallel_top="" parallel_sub=""
     if $PARALLEL; then
@@ -164,11 +170,18 @@ if [[ -n "$OUTPUT" ]]; then
         echo "error: directory '$OUTPUT_DIR' does not exist" >&2
         exit 2
     fi
+    if [[ -d "$OUTPUT" ]]; then
+        echo "error: '$OUTPUT' is a directory" >&2
+        exit 2
+    fi
     if [[ -f "$OUTPUT" ]] && ! $FORCE; then
         echo "error: '$OUTPUT' already exists (use --force to overwrite)" >&2
         exit 2
     fi
-    generate_test > "$OUTPUT"
+    if ! generate_test 2>/dev/null > "$OUTPUT"; then
+        echo "error: cannot write '$OUTPUT'" >&2
+        exit 2
+    fi
     if $JSON_OUTPUT; then
         FUNC_ESC="$(json_escape "$FUNC")"
         PKG_ESC="$(json_escape "$PKG")"

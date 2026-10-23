@@ -1,6 +1,6 @@
 ---
 name: go-concurrency
-description: Use when writing concurrent Go code with goroutines, channels, or mutexes; parallelizing work; fixing data races; or protecting shared state. Context cancellation belongs to go-context.
+description: Use when writing concurrent Go code with goroutines, channels, mutexes, timers, or tickers; parallelizing work; fixing data races; or protecting shared state. Context cancellation belongs to go-context.
 ---
 
 # Go Concurrency
@@ -34,7 +34,9 @@ holds a reference to the channel.
    `Shutdown`) instead
 4. **Keep synchronization scoped** — constrain to function scope, factor logic
    into synchronous functions
-5. **Bound fan-out** — `errgroup.Group.SetLimit(n)` or a semaphore; never one
+5. **Bound fan-out** — `errgroup.Group.SetLimit(n)` when `go.mod` already
+   requires `golang.org/x/sync`, otherwise a buffered-channel semaphore with
+   `wg.Go`; never one
    goroutine per element of an unbounded input
 
 ```go
@@ -73,7 +75,7 @@ Do you need a goroutine at all?
 └─ Yes
    ├─ Handing a value or ownership to another goroutine → channel
    ├─ Protecting shared state (cache, counter, map)      → sync.Mutex / RWMutex; atomic.* for one word
-   ├─ Fan-out that must be bounded                       → errgroup.Group with SetLimit
+   ├─ Fan-out that must be bounded                       → errgroup SetLimit (x/sync in go.mod) or wg.Go + semaphore
    └─ Both fit                                           → the one with fewer lines
 ```
 

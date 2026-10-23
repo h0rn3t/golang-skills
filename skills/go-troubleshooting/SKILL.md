@@ -56,7 +56,10 @@ code version, and a check that could disprove them.
    git bisect run sh -c 'go build ./pkg || exit 125; go test -list "^TestName$" ./pkg | grep -qx TestName || exit 125; go test -count=1 -run "^TestName$" ./pkg'
    ```
 
-   Compare dependency versions with `go version -m` on both binaries, not on
+   Keep a test written for this investigation uncommitted, in its own new
+   file: an untracked file stays at every revision bisect checks out; one
+   committed only at HEAD is absent from all of them and every step is
+   skipped. Compare dependency versions with `go version -m` on both binaries, not on
    the checkout.
 3. **Locate the first divergence.** Follow the relevant execution/data path or
    capture the artifact below. List the callers of the diverging function; each

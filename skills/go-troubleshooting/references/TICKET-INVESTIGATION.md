@@ -89,6 +89,10 @@ After a negative result, update or discard the hypothesis. Check whether the
 experiment exercised the intended revision, input, and path. Do not reinterpret
 every result as support or turn repeated failures into arbitrary code changes.
 
+Keep the note in a file outside the source tree (for example
+`$TMPDIR/<ticket>-investigation.md`) from the first check on, and name its
+path in every report.
+
 When the investigation pauses before its result — the session ends or the work
 passes to another agent — the note also carries what a fresh reader cannot
 rebuild: the revision and environment each check ran against, the exact

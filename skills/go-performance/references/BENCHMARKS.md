@@ -118,10 +118,14 @@ A benchmark says how much; a profile says where. Capture both from the same
 run, then read the profile with `go tool pprof`:
 
 ```bash
-go test -run '^$' -bench=BenchmarkHotPath -cpuprofile=cpu.prof -memprofile=mem.prof ./path/to/pkg
-go tool pprof -top -cum cpu.prof       # or: -sample_index=alloc_space mem.prof
-go test -run '^$' -bench=BenchmarkHotPath -mutexprofile=mutex.prof -blockprofile=block.prof ./path/to/pkg
+out=${TMPDIR:-/tmp}   # -o and absolute paths keep pkg.test and profiles out of the tree
+go test -run '^$' -bench=BenchmarkHotPath -o "$out/pkg.test" -cpuprofile="$out/cpu.prof" -memprofile="$out/mem.prof" ./path/to/pkg
+go tool pprof -top -cum "$out/cpu.prof"   # or: -sample_index=alloc_space "$out/mem.prof"
+go test -run '^$' -bench=BenchmarkHotPath -o "$out/pkg.test" -mutexprofile="$out/mutex.prof" -blockprofile="$out/block.prof" ./path/to/pkg
 ```
+
+The mutex profile records the holder's stack at `sync.(*Mutex).Unlock`; the
+waiters' `sync.(*Mutex).Lock` appears only in the block profile.
 
 The CPU profile's header gives `Duration` and `Total samples`. Samples well
 below the duration on a single-goroutine benchmark mean the time is spent
@@ -132,8 +136,10 @@ profile, says where. Contention shows only in a `RunParallel` benchmark, and
 Profiling a running service, `pprof` endpoints, execution traces, and reading
 the output belong to
 [go-troubleshooting](../../go-troubleshooting/references/DIAGNOSTIC-TOOLS.md).
-Re-benchmark after each change and compare with `benchstat`; then re-profile
-for the next bottleneck.
+After each change `bench-compare.sh --verdict` decides
+([the speed loop](../SKILL.md#benchmarking-and-profiling)); `benchstat` reads a
+refactor's `--save`/`--baseline` comparison. Then re-profile for the next
+bottleneck.
 
 ---
 

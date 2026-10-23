@@ -33,7 +33,8 @@ target project using the resolved absolute script path.
 - `scripts/check-architecture.go` - The checker the wrapper builds; `scripts/check-architecture_test.go` holds its unit tests.
 - `references/STRUCTURAL.md` - Before moving a type between packages, breaking an import cycle, or changing an exported API.
 - `references/MODERNIZATION.md` - When a hunk adopts a newer API or `go fix -diff` proposes one: safe, conditional, report-only.
-- `references/OVER-ENGINEERING.md` - When a step adds a helper, type, layer, option, or import, and when the ask is "what can we delete".
+- `references/LADDER.md` - When a step adds a helper, type, layer, option, or import.
+- `references/OVER-ENGINEERING.md` - When the ask is "what can we delete", or a simpler stdlib API is sought.
 - `scripts/verify-refactor.sh` - Baseline and final check results, and production LOC before and after.
 - `scripts/check-debt.sh` - Harvest `Kept:` markers and flag the ones naming no ceiling and no fix.
 - `assets/refactor-report.md` - The final report structure.
@@ -232,7 +233,7 @@ radius pushes every transform up a tier except those its Low / zero row allows.
 
 | Tier | Transforms | Required before the step |
 |---|---|---|
-| **Low** | `go fix` inline of a `//go:fix inline` function; rename of an unexported symbol with no reflection or string-based contract; extract variable or constant; `gofmt -s`; organize imports; guard clauses | Baseline plus the focused check after it |
+| **Low** | `go fix` inline of a `//go:fix inline` function; rename of an unexported symbol with no reflection or string-based contract; extract variable or constant (not an operand of `&&`/`||` or a call with side effects: that is Medium); `gofmt -s`; organize imports; guard clauses | Baseline plus the focused check after it |
 | **Medium** | Extract function or method, inline across packages, adding or removing one parameter, introducing generics, a bulk rewrite ([MECHANICAL.md](references/MECHANICAL.md)) | Tests that provably reach the touched lines |
 | **High** | Signature change across many callers, cross-package moves, package split or merge, breaking an import cycle, a module or layer boundary move (`references/ARCHITECTURE.md`), any exported API change | Full net, and it is a findings-list item unless the user asked for it |
 
@@ -275,7 +276,7 @@ both ways: an existing helper that meets one stays, even with one caller;
 inlining is for a wrapper that meets none.
 
 Before writing any new line — helper, wrapper, interface — climb the restraint
-ladder in `references/OVER-ENGINEERING.md` and stop at the first rung that
+ladder in `references/LADDER.md` and stop at the first rung that
 holds; on a refactor the top one usually does.
 
 Delete only what is **provably** unreachable — "looks unused" is a finding, not

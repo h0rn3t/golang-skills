@@ -55,17 +55,29 @@ finding:
 
 A `missing` entry is an exported interface implemented in its own package that
 nothing there converts to (assignment, return, argument, composite-literal
-element, send, or conversion); a generic interface counts through the
-instantiations the package names. An entry with `returned_by` is one that the
+element, send, conversion, or a type argument its constraint checks); a
+generic interface counts through the instantiations the package names. An
+alias and an interface with a type set (a constraint only) are not listed. An
+entry with `returned_by` is one that the
 named exported function of the same package returns while no function or method
 there takes it as a parameter. Its `file` and `line` are the interface's.
 `--limit N` bounds `missing` only: `interfaces` lists every exported interface
 scanned, and `count_missing` is the total before the limit. Generated files and
 what `go ./...` skips (`testdata`, `vendor`, names beginning with `_` or `.`)
 are not scanned. Go files with no exported interface are a successful scan with
-an empty `interfaces` array and `"status":"no_exported_interfaces"`. The script
-exits 1 when `missing` is non-empty, and 2 when its helper does not build or a
-scanned file does not parse.
+an empty `interfaces` array and `"status":"no_exported_interfaces"`. A
+candidate pair whose method signatures hold a type from an import without
+export data (no module, a dependency not in the module cache) is left
+undecided, never counted as implemented: the result then carries
+`"status":"incomplete_types"` and the package directories in `incomplete`.
+Nested modules and `go.work` modules under the target are resolved from their
+own roots. The script exits 1 when `missing` is non-empty, and 2 when its
+helper does not build or a scanned file does not parse; an unscanned test file
+that does not parse is skipped.
+
+```json
+{"interfaces":[{"name":"Finder","file":"path","line":19}],"missing":[],"count_interfaces":1,"count_missing":0,"truncated":false,"status":"incomplete_types","incomplete":["store"]}
+```
 
 ```json
 {"interfaces":[],"missing":[],"count_interfaces":0,"count_missing":0,"truncated":false,"status":"no_exported_interfaces"}
@@ -113,8 +125,17 @@ the other files are still checked and their findings reported, the JSON adds
 `go-code-review/scripts/pre-review.sh`:
 
 ```json
-{"gofmt":{"status":"pass","files":[]},"govet":{"status":"pass","output":""},"golangci_lint":{"status":"pass","config":"baseline","output":""},"bar":{"status":"fail","findings":[{"rule":"test-skipped","file":"calc_test.go","line":6,"text":"t.Skip(\"flaky\")"}]},"passed":false}
+{"gofmt":{"status":"pass","files":[]},"govet":{"status":"pass","output":""},"golangci_lint":{"status":"pass","config":"baseline","output":""},"bar":{"status":"fail","findings":[{"rule":"test-skipped","file":"calc_test.go","line":6,"text":"t.Skip(\"flaky\")"}]},"passed":false,"result":"fail"}
 ```
+
+The script takes one package pattern; a second exits 2. `govet.status` is
+`pass`, `fail` (output naming a file position, or a `vet:` line),
+`no_go_files` (the pattern matched no package), or `unavailable` (any other
+failure: no `go.mod`, a module that cannot load; `--strict` turns it into
+exit 2). `passed` is false only when a check failed; `result` is `pass`,
+`fail`, or `incomplete` (nothing failed, but go vet, golangci-lint, or the bar
+was unavailable), matching the text mode's last line. Exit codes follow
+`passed`.
 
 `golangci_lint.status` is `pass`, `fail` (golangci-lint exit 1), or
 `unavailable` (not installed, or any other non-zero exit; `output` carries its
@@ -135,7 +156,8 @@ REV that turns a check green without fixing the code; `rule` is one of
 removed from one that stays), `assertions-dropped` (more assertion lines
 removed than added in a test file that stays), `stub-added`
 (`panic("not implemented")`), `golden-changed` (a `testdata/*.golden` file),
-`lint-config-changed` (a `.golangci.*` file), or `race-dropped` (`-race` gone
+`lint-config-changed` (a `.golangci.*` file changed or added, untracked
+included), or `race-dropped` (`-race` gone
 from a Makefile, CI, or shell file). `line` is the new line number for an added
 line and 0 for a whole-file finding. Any finding sets `passed` to false and
 exits 1; `--limit` caps `findings` and adds `"truncated":true`.
@@ -387,10 +409,13 @@ cwd, scope, config, filter and reason. A wider command or different cwd is
 rejected even when the receipt is current. Exit 1 means stale, nonpassing or
 mismatched evidence; exit 2 means usage/environment/unusable evidence.
 
-`hooks/go-check-receipt.py verify <receipt.json>` remains a state-only check:
-exit 0 / `valid=true` grants **no hook credit**, and `hook_credit=false` is
-explicit. This keeps old state-verification callers compatible. The Bash
-entry passes expected cwd/argv to the Python helper for matched verification.
+`bash hooks/go-hook-helper.sh receipt verify <receipt.json>` remains a
+state-only check: exit 0 / `valid=true` grants **no hook credit**, and
+`hook_credit=false` is explicit. The Bash entry passes expected cwd/argv to
+the same Go helper (`hooks/helper`) for matched verification. A lint receipt
+credits only a command whose `--config` is the receipt's `config`: where a
+repository config declares custom linters, the hook lints with the bundled
+baseline, records the repository config and the reason, and earns no credit.
 The caller still must select the gate and report the record's exact scope;
 the verifier does not choose a gate or broaden it.
 
@@ -404,7 +429,7 @@ Findings use stderr and exit 2, with the same explicit Skill/Bash next step
 before the findings and receipt directory. Passing checks still offer matched
 verification even if another check failed. This follows
 the [Claude hook output contract](https://code.claude.com/docs/en/hooks#posttooluse-decision-control);
-it does not prove live host delivery. Without Python/helper/writable storage,
+it does not prove live host delivery. Without Go (the helper)/writable storage,
 legacy checks still run and evidence unavailability is explicit. Hook results
 are reusable only under the `go-linting` gate's freshness/scope rules.
 

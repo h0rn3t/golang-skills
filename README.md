@@ -4,7 +4,7 @@
 
 AI [Agent Skills](https://agentskills.io/) for writing idiomatic,
 production-quality Go 1.27 code. The pack contains **24 modular skills**,
-**70 reference files**, **11 bundled scripts**, and **5 asset templates**.
+**71 reference files**, **11 bundled scripts**, and **5 asset templates**.
 The Claude Code plugin also ships a `go-verify` agent and hooks for routing and
 post-edit verification.
 
@@ -135,9 +135,23 @@ project where every Go edit must start from the router, paste the short block
 from [`docs/PROJECT_INSTRUCTIONS.md`](docs/PROJECT_INSTRUCTIONS.md) into its
 `CLAUDE.md` or `AGENTS.md`: router first, then `go-style-core` with its
 idiom card, then only the owner skills the task needs. Under the Claude
-Code plugin the routing gate also holds every `.go` edit until those loads
-are recorded (`GOLANG_SKILLS_ROUTING_GATE=off` turns it off); Codex, Copilot,
-and Cursor run no hooks, so the instruction is all there is.
+Code plugin the routing gate also holds each `.go` edit made through Edit,
+Write, or MultiEdit until those loads are recorded; a shell edit (`sed -i`,
+`gofmt -w`) is not held, and without `go` on PATH the gate is off and says
+so once per session (`GOLANG_SKILLS_ROUTING_GATE=off` turns it off). The
+hooks need nothing beyond bash and Go: their parser is a small
+standard-library program in `hooks/helper`, built on first use into the user
+cache directory. Skills installed with
+`npx skills` or copied get no hooks, so the instruction is all there is; a host
+that loads the plugin's `hooks/hooks.json` (Codex) runs the hooks with the
+routing gate off.
+
+After each `.go` edit the post-edit hook runs gofmt, `go vet`, `go fix -diff`,
+the package's tests (`go test -short`), and golangci-lint with the
+repository's own config, without asking: repository code runs (`TestMain`,
+`init`). Review an untrusted change with `GOLANG_SKILLS_EDIT_TESTS=off` and
+`GOLANG_SKILLS_EDIT_LINT=off`. A lint config that loads `custom:` plugins is
+replaced by the bundled baseline.
 
 ## Validation
 

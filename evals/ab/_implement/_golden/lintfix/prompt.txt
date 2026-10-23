@@ -1,0 +1,6 @@
+golangci-lint, run with the repository's configuration, reports these findings for the Go package in ./%s:
+
+sync.go:26:16: Error return value of `json.Unmarshal` is not checked (errcheck)
+sync.go:35:27: G404: Use of weak random number generator (math/rand or math/rand/v2 instead of crypto/rand) (gosec)
+
+Make the package lint-clean. Apply the changes to the files.

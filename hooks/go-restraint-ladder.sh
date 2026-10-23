@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Restraint ladder hook, wired the way ponytail wires its ruleset. The ladder
-# lives in go-code-refactor/references/OVER-ENGINEERING.md, and a model sees it
+# lives in go-code-refactor/references/LADDER.md, and a model sees it
 # only if it reads that file: go-code requires the ladder on every task, yet
 # the file was read in 0 of 20 skilled sessions of the 2026-09-10
 # implementation control. This hook puts it in context without a Read.
@@ -18,7 +18,7 @@
 #     `режим ultra` — records the level for the rest of the session and
 #     prints that level's line. Any other prompt prints nothing.
 #
-# Both texts are read at run time — the ladder from OVER-ENGINEERING.md, the
+# Both texts are read at run time — the ladder from LADDER.md, the
 # level line from the table in go-code/references/INTENSITY.md — so neither is a
 # second copy. GOLANG_SKILLS_LADDER=lite|full|ultra sets the level a session
 # starts at; off turns the hook off. Never blocks: exit 0 always.
@@ -26,63 +26,17 @@ set -u
 
 input="$(cat)"
 [[ "${GOLANG_SKILLS_LADDER:-}" == "off" ]] && exit 0
-command -v python3 >/dev/null 2>&1 || exit 0
+# shellcheck source=go-hook-helper.sh
+source "$(dirname "${BASH_SOURCE[0]}")/go-hook-helper.sh"
+helper="$(hook_helper)" || exit 0
 
-parsed="$(printf '%s' "$input" | python3 -c '
-import json, os, re, sys
-try:
-    d = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-
-def has_go_files(root, depth=2):
-    if not root or not os.path.isdir(root):
-        return False
-    base = root.rstrip(os.sep).count(os.sep)
-    seen = 0
-    for cur, dirs, files in os.walk(root):
-        seen += 1
-        if seen > 200:
-            return False
-        dirs[:] = [x for x in dirs if not x.startswith(".") and x not in ("vendor", "node_modules", "testdata")]
-        if cur.count(os.sep) - base >= depth:
-            dirs[:] = []
-        if "go.mod" in files or any(f.endswith(".go") for f in files):
-            return True
-    return False
-
-event = d.get("hook_event_name") or ""
-word = ""
-if event == "UserPromptSubmit":
-    prompt = d.get("prompt")
-    if not isinstance(prompt, str):
-        sys.exit(0)
-    # IDE context (<ide_opened_file>, <ide_selection>) is not the user typing a
-    # level word, and a prefix of it would hide a leading /go-code from re.match.
-    prompt = re.sub(r"<(ide_[a-z_]+)\b[^>]*>.*?</\1>", " ", prompt, flags=re.S)
-    # `/go-code-refactor ultra` sets nothing: a refactor runs at full.
-    m = re.match(r"\s*/(?:[\w.-]+:)?go-code\s+(lite|full|ultra)\b", prompt) or \
-        re.search(r"\b(lite|full|ultra)[ -]mode\b|\bрежим\s+(lite|full|ultra)\b", prompt, re.I)
-    if not m:
-        sys.exit(0)
-    word = next(g for g in m.groups() if g).lower()
-elif event in ("SessionStart", "SubagentStart"):
-    if (d.get("agent_type") or "").rsplit(":", 1)[-1].lower() in ("go-verify", "explore", "claude-code-guide", "statusline-setup"):
-        sys.exit(0)
-    if not has_go_files(d.get("cwd") or ""):
-        sys.exit(0)
-else:
-    sys.exit(0)
-print(event)
-print((d.get("session_id") or "default").replace("\n", " "))
-print(word)
-')" || exit 0
+parsed="$(printf '%s' "$input" | "$helper" ladder-parse)" || exit 0
 [[ -n "$parsed" ]] || exit 0
 { read -r event; read -r session; read -r word; } <<< "$parsed"
 
 state="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/${session:-default}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)" || exit 0
-ladder_file="$root/skills/go-code-refactor/references/OVER-ENGINEERING.md"
+ladder_file="$root/skills/go-code-refactor/references/LADDER.md"
 levels_file="$root/skills/go-code/references/INTENSITY.md"
 
 if [[ -n "$word" ]]; then
@@ -116,7 +70,7 @@ printf 'Restraint level `%s`: %s Change it with `/go-code lite|full|ultra <task>
     "$level" "$row"
 printf '%s\n' "$section")"
 if [[ "$event" == "SubagentStart" ]]; then
-    printf '%s' "$note" | python3 -c 'import json, sys; print(json.dumps({"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": sys.stdin.read()}}))'
+    printf '%s' "$note" | "$helper" context-json SubagentStart
 else
     printf '%s\n' "$note"
 fi

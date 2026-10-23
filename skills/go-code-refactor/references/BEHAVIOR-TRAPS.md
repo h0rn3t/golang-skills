@@ -213,4 +213,5 @@ Before calling a step behavior-preserving, confirm none of these moved:
 exported signatures · error text and `%w` chains · nil-vs-empty returns ·
 defer order and arguments · channel buffers and lock scopes · struct tags and
 field order · numeric types · receiver kinds · goroutine counts · timeout
-durations · JSON field presence.
+durations · JSON field presence · evaluation order and short-circuit (an
+operand hoisted above `&&`/`||`) · order and count of side effects.

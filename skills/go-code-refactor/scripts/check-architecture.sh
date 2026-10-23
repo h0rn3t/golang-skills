@@ -45,7 +45,7 @@ if ! command -v go >/dev/null 2>&1; then
 fi
 
 CACHE_ROOT="${XDG_CACHE_HOME:-${HOME:-${TMPDIR:-/tmp}}/.cache}/golang-skills"
-if ! mkdir -p "$CACHE_ROOT"; then
+if ! { mkdir -p "$CACHE_ROOT" && [[ -w "$CACHE_ROOT" ]]; } 2>/dev/null; then
     CACHE_ROOT="${TMPDIR:-/tmp}/golang-skills-cache"
     mkdir -p "$CACHE_ROOT"
 fi
@@ -55,18 +55,28 @@ SRC="$SCRIPT_DIR/check-architecture.go"
 # The helper parses with the toolchain that builds it. It is built with the
 # toolchain the target project selects when that one resolves (else the local
 # one), outside the project so its go.mod, go.work, and GOFLAGS cannot break a
-# standard-library-only build, and the cache key names that toolchain, so a Go
-# upgrade rebuilds it. A helper that does not build is an environment error (2).
+# standard-library-only build, and for the host platform whatever GOOS/GOARCH
+# the caller exports. The cache key names that toolchain and platform, so a Go
+# upgrade rebuilds it. A helper that does not build or run is an environment
+# error (2).
 WANT_GO="$(go env GOVERSION 2>/dev/null)" || WANT_GO=""
-BUILD_ENV=(env GOWORK=off GOFLAGS= "GOTOOLCHAIN=${WANT_GO:-local}")
+HOSTOS="" HOSTARCH=""
+if HOSTENV="$(cd "$CACHE_ROOT" && GOWORK=off GOFLAGS= GOTOOLCHAIN=local go env GOHOSTOS GOHOSTARCH)"; then
+    { read -r HOSTOS; read -r HOSTARCH; } <<< "$HOSTENV" || true
+fi
+if [[ -z "$HOSTOS" || -z "$HOSTARCH" ]]; then
+    echo "error: go env GOHOSTOS GOHOSTARCH failed" >&2
+    exit 2
+fi
+BUILD_ENV=(env GOWORK=off GOFLAGS= "GOOS=$HOSTOS" "GOARCH=$HOSTARCH" "GOTOOLCHAIN=${WANT_GO:-local}")
 if ! GOVERSION="$(cd "$CACHE_ROOT" && "${BUILD_ENV[@]}" go env GOVERSION 2>/dev/null)"; then
-    BUILD_ENV=(env GOWORK=off GOFLAGS= GOTOOLCHAIN=local)
+    BUILD_ENV=(env GOWORK=off GOFLAGS= "GOOS=$HOSTOS" "GOARCH=$HOSTARCH" GOTOOLCHAIN=local)
     if ! GOVERSION="$(cd "$CACHE_ROOT" && "${BUILD_ENV[@]}" go env GOVERSION)"; then
         echo "error: go env GOVERSION failed" >&2
         exit 2
     fi
 fi
-STAMP="$(cksum "$SRC" | awk '{print $1 "-" $2}')-$GOVERSION"
+STAMP="$(cksum "$SRC" | awk '{print $1 "-" $2}')-$GOVERSION-${HOSTOS}_$HOSTARCH"
 BIN="$CACHE_ROOT/check-architecture-$STAMP"
 
 if [[ ! -x "$BIN" ]]; then
@@ -76,4 +86,10 @@ if [[ ! -x "$BIN" ]]; then
     fi
 fi
 
-exec "$BIN" "$@"
+rc=0
+"$BIN" "$@" || rc=$?
+if ((rc == 126 || rc == 127)); then
+    echo "error: cannot run $BIN" >&2
+    exit 2
+fi
+exit "$rc"

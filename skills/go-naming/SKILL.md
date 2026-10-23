@@ -1,6 +1,6 @@
 ---
 name: go-naming
-description: Use when naming Go packages, types, functions, methods, variables, constants, or receivers, including new types and exported APIs. Package organization belongs to go-packages.
+description: Use when naming Go packages, types, functions, methods, variables, constants, or receiver names, including new types and exported APIs. Package organization belongs to go-packages.
 allowed-tools: Bash(bash:*)
 ---
 
@@ -32,7 +32,9 @@ word; layer directories take the plural layer names `handlers`, `services`,
 
 > **Normative**: Sentinel errors are `ErrNotFound` when exported and
 > `errNotFound` when not; error types end in `Error` (`NotFoundError`), never
-> `ErrNotFoundError`. `errname` in the lint baseline enforces both.
+> `ErrNotFoundError`. `errname` in the lint baseline enforces the `Err`/`err`
+> prefix and the `Error` suffix; it accepts `ErrNotFoundError`, so a name with
+> both is a review item.
 
 ---
 

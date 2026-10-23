@@ -93,8 +93,7 @@ skill_ns=""
 init_ns() {
     local manifest="${CLAUDE_PLUGIN_ROOT:-}/.claude-plugin/plugin.json"
     [[ -n "${CLAUDE_PLUGIN_ROOT:-}" && -f "$manifest" ]] || return 0
-    skill_ns="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("name") or "")' \
-        "$manifest" 2>/dev/null)" || skill_ns=""
+    skill_ns="$("$helper" plugin-name "$manifest")" || skill_ns=""
 }
 # names <skill>... — `plugin:skill`, `plugin:skill2` for a message.
 names() {
@@ -108,182 +107,34 @@ names() {
 # not repeat an edit the gate will not pass; notice only shows the text to the
 # user.
 emit_json() {
-    python3 -c '
-import json, sys
-kind, text = sys.argv[1], sys.argv[2]
-out = {"systemMessage": text}
-if kind == "stop":
-    out = {"continue": False, "stopReason": text,
-           "hookSpecificOutput": {"hookEventName": "PreToolUse",
-                                  "permissionDecision": "deny",
-                                  "permissionDecisionReason": text}}
-print(json.dumps(out))
-' "$1" "$2"
+    "$helper" emit-json "$1" "$2"
 }
 
-# owner_hints_py is the one owner table, as python: hints(path, text) names
-# the owner skills the decision-bearing forms in text point at. The gate runs
+# The owner table lives in the helper (hooks/helper/hints.go): the gate runs
 # it over an edit; --hints runs it over whole files for go-prompt-routing.sh,
-# Prompt hints additionally resolve imports/signatures/stub contracts in
-# prompt_hints; those advisory additions never widen the edit gate.
-owner_hints_py='
-import re
-# A test file has one owner. Its body is test plumbing — a defer, an
-# http.Request, an errors.Is on a want — not the decisions the content hints
-# below recognize; running them over a _test.go named go-defensive for every
-# contract test in the 2026-09-10 runs.
-# Heuristics, one decision-bearing pattern per owner. go-code/SKILL.md owns
-# the routing decision; keep each regex narrow enough that ordinary syntax
-# (fmt.Errorf with %v, r.Context(), http.StatusOK, "<-" inside a string, an
-# empty interface{}, a sha256 content hash) does not name an owner.
-OWNER_PATTERNS = [
-    ("go-http", r"\bnet/http\b|\bhttp\.(Handle|HandleFunc|Server\b|Client\b|NewServeMux|NewRequest|ResponseWriter|Error|ListenAndServe|Redirect)"),
-    ("go-error-handling", r"fmt\.Errorf\([^)]*%w|\berrors\.(Is|As|AsType|Join|New)\("),
-    ("go-concurrency", r"\bgo\s+func\b|\bgo\s+[A-Za-z_]\w*\(|\bmake\(chan\b|\bchan\s|\bsync\.(Mutex|RWMutex|WaitGroup|Once|Map)\b"),
-    ("go-context", r"\bcontext\.(Background|TODO|With[A-Za-z]+|AfterFunc)\b|^\s+\w+\s+context\.Context\s*(//.*)?$"),
-    ("go-database", r"database/sql|\bsql\.(Open|DB|Tx|Rows|Null)\b|\bpgx(pool)?\."),
-    ("go-logging", r"\bslog\."),
-    ("go-security", r"os/exec|html/template|text/template|\bcrypto/(?!(?:sha256|sha3|sha512)\b)|\bexec\.Command|\bhttp\.(SetCookie|Cookie)\b|\bfilepath\.Join\("),
-    ("go-defensive", r"\bdefer\s+func\b|\brecover\(\)"),
-    ("go-generics", r"\[[A-Z][A-Za-z0-9]*\s+(any|comparable|~|[A-Za-z]+\.[A-Za-z]+)\b"),
-    ("go-interfaces", r"\binterface\s*\{\s*[^\s}]"),
-    ("go-packages", r"^package main\b|\bfunc main\("),
-    ("go-resilience", r"x/time/rate|\bbackoff\b|\bRetry-After\b"),
-]
-def hints(path, text):
-    if path.endswith("_test.go"):
-        return ["go-testing"]
-    return [owner for owner, pat in OWNER_PATTERNS if re.search(pat, text, re.M)]
-
-def prompt_hints(path, text):
-    # Prompt-only lexical hints: do not widen PreToolUse decisions with stub
-    # contracts or an import. Comments and literals are not executable code.
-    if path.endswith("_test.go"):
-        return ["go-testing"]
-    tokens = list(re.finditer(r"//[^\n]*|/\*.*?\*/|\"(?:\\.|[^\"\\])*\"|`[^`]*`|\x27(?:\\.|[^\x27\\])*\x27", text, re.S))
-    comments = []
-    code = list(text)
-    literal_code = list(text)
-    literals = {}
-    for token in tokens:
-        value = token.group()
-        is_comment = value.startswith(("//", "/*"))
-        if is_comment:
-            comments.append(value)
-        else:
-            literals[token.start()] = value
-        for i in range(token.start(), token.end()):
-            if code[i] != "\n":
-                code[i] = " "
-            if is_comment and literal_code[i] != "\n":
-                literal_code[i] = " "
-    code = "".join(code)
-    lexical_code = code
-    literal_code = "".join(literal_code)
-    # Locate import spans in literal/comment-free code, then recover only
-    # their string tokens. This handles grouped, aliased and raw imports.
-    imports = {}
-    dot = []
-    extra_imports = []
-    canonical = {"context": "context", "sync": "sync", "errors": "errors",
-                 "log/slog": "slog", "net/http": "http", "database/sql": "sql",
-                 "os/exec": "exec", "fmt": "fmt", "html/template": "template",
-                 "text/template": "template"}
-    for start in re.finditer(r"\bimport\b", code):
-        tail = code[start.end():]
-        grouped = re.match(r"\s*\(", tail)
-        end = code.find(")", start.end()) + 1 if grouped else code.find("\n", start.end())
-        if end <= start.end():
-            end = len(code)
-        for pos, value in literals.items():
-            if not start.end() <= pos < end:
-                continue
-            if value[0] not in (chr(34), "`"):
-                continue
-            package = value[1:-1]
-            prefix = re.split(r"[;\n(]", code[start.end():pos])[-1]
-            alias_match = re.search(r"([A-Za-z_]\w*|\.)\s*$", prefix)
-            alias = alias_match.group(1) if alias_match else package.rsplit("/", 1)[-1]
-            if alias == ".":
-                if package in canonical:
-                    dot.append(canonical[package])
-            elif alias != "_":
-                extra_owner = ""
-                if package.startswith("crypto/") and package not in ("crypto/sha256", "crypto/sha3", "crypto/sha512"):
-                    extra_owner = "go-security"
-                if package == "x/time/rate" or package == "golang.org/x/time/rate":
-                    extra_owner = "go-resilience"
-                imports[alias] = canonical.get(package, alias if extra_owner else "foreign")
-                if extra_owner:
-                    extra_imports.append((imports[alias], extra_owner))
-    code = re.sub(r"\b([A-Za-z_]\w*)\s*\.",
-                  lambda m: imports.get(m.group(1), m.group(1)) + ".", code)
-    # Import paths themselves are blanked, so existing decision patterns
-    # now match usage rather than an unused import or a prose example.
-    out = hints(path, code)
-    for owner, pattern in [
-        ("go-http", r"\bhttp\.(?:Request|Response|Transport|RoundTripper|Handler)\b"),
-        ("go-database", r"\bsql\.(?:Conn|Stmt|Result|NamedArg|Null\w*)\b"),
-        ("go-security", r"\b(?:template\.\w+|exec\.Cmd)\b")]:
-        if re.search(pattern, code):
-            out.append(owner)
-    for alias, owner in extra_imports:
-        if re.search(r"\b" + re.escape(alias) + r"\s*\.\s*\w+", code):
-            out.append(owner)
-    if re.search(r"\bcontext\.Context\b", code) or ("context" in dot and re.search(r"(?<![\w.])Context\b", code)):
-        out.append("go-context")
-    dot_patterns = [("sync", "go-concurrency", r"(?:Mutex|RWMutex|WaitGroup|Once|Map)\b"),
-                    ("errors", "go-error-handling", r"(?:Is|As|AsType|Join|New)\s*\("),
-                    ("slog", "go-logging", r"(?:Logger|Handler|Attr|LogAttrs|Info|Error)\b"),
-                    ("http", "go-http", r"(?:ResponseWriter|Request|Server|Client|NewServeMux)\b"),
-                    ("sql", "go-database", r"(?:DB|Tx|Rows|Open)\b"),
-                    ("exec", "go-security", r"(?:Command|CommandContext|Cmd)\b")]
-    for package, owner, pattern in dot_patterns:
-        if package in dot and re.search(r"(?<![\w.])" + pattern, code):
-            out.append(owner)
-    # A %w literal matters only as an argument of an actual Errorf call.
-    fmt_names = [alias for alias, name in imports.items() if name == "fmt"]
-    if "fmt" not in imports:
-        fmt_names.append("fmt")
-    for alias in fmt_names:
-        for call in re.finditer(r"\b" + re.escape(alias) + r"\.Errorf\s*\(", lexical_code):
-            for pos, value in literals.items():
-                if pos >= call.end() and not lexical_code[call.end():pos].strip() and "%w" in value:
-                    out.append("go-error-handling")
-    stub = False
-    for call in re.finditer(r"\bpanic\s*\(", lexical_code):
-        for pos, value in literals.items():
-            if pos >= call.end() and not lexical_code[call.end():pos].strip() and value in (chr(34) + "not implemented" + chr(34), "`not implemented`"):
-                stub = True
-    contract = " ".join(comments)
-    if stub and re.search(r"\bbounded\b.{0,50}\bworkers?\b|\bat most\b.{0,70}\bin flight\b|\bowns\b.{0,40}\bgoroutines\b", contract, re.I):
-        out.append("go-concurrency")
-    if stub and re.search(r"\b(?:honor(?:s|ing)?|respect(?:s|ing)?|retr(?:ies|ied|ying)|retry(?!-))\b.{0,100}\b(?:Retry-After|backoff)\b", contract, re.I | re.S):
-        out.append("go-resilience")
-    # A cache stub (key, ttl, a shared miss) is go-performance when the task
-    # is to implement one. Prompt-only: an edit of finished code does not gain
-    # a gate requirement. Cache-Control is not a cache.
-    if stub and re.search(r"\bcach(?:e[sd]?|ing)\b(?!-).{0,160}\bttl\b|\bttl\b.{0,160}\bcach(?:e[sd]?|ing)\b(?!-)", contract, re.I | re.S):
-        out.append("go-performance")
-    return list(dict.fromkeys(out))
-'
+# adding advisory import, signature, and stub-contract signals that never
+# widen the edit gate.
+# shellcheck source=go-hook-helper.sh
+source "$(dirname "${BASH_SOURCE[0]}")/go-hook-helper.sh"
+if ! helper="$(hook_helper)"; then
+    [[ "${1:-}" == "--hints" ]] && exit 0
+    # The gate cannot read its input without the helper. Say so once per
+    # session instead of passing every edit in silence; the note lives in the
+    # session's own state, so the next session hears it again.
+    input="$(cat)"
+    [[ "$input" =~ \"hook_event_name\"[[:space:]]*:[[:space:]]*\"PreToolUse\" ]] || exit 0
+    session="default"
+    [[ "$input" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([A-Za-z0-9_-]+)\" ]] && session="${BASH_REMATCH[1]}"
+    note="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/$session/helper-unavailable"
+    if [[ ! -e "$note" ]] && mkdir -p "$(dirname "$note")" && touch "$note"; then
+        printf '{"systemMessage": "golang-skills: the routing gate is off for this session: its Go helper does not build (go missing from PATH, or the build failed)."}\n'
+    fi
+    exit 0
+fi
 
 if [[ "${1:-}" == "--hints" ]]; then
     shift
-    command -v python3 >/dev/null 2>&1 || exit 0
-    python3 -c "$owner_hints_py"'
-import sys
-seen = []
-for p in sys.argv[1:]:
-    try:
-        text = open(p, encoding="utf-8", errors="replace").read()
-    except OSError:
-        continue
-    for h in prompt_hints(p, text):
-        if h not in seen:
-            seen.append(h)
-print(" ".join(seen))
-' "$@" | while read -r -a owners; do
+    "$helper" hints "$@" | while read -r -a owners; do
         # A skill missing from this copy is not named: the gate does not
         # require it.
         out=()
@@ -294,35 +145,11 @@ print(" ".join(seen))
 fi
 
 input="$(cat)"
-command -v python3 >/dev/null 2>&1 || exit 0
 
 # One parse: event, session, agent, tool, skill name, file path, the owner
 # skills inferred from the edited content, and the edit key. Fields are
 # newline-separated; the agent and the hint list may be empty.
-parsed="$(printf '%s' "$input" | python3 -c "$owner_hints_py"'
-import hashlib, json, sys
-try:
-    d = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-agent = d.get("agent_id")
-if not isinstance(agent, str) or d.get("agent_type") == "fork":
-    agent = ""
-agent = re.sub(r"[^A-Za-z0-9_-]", "_", agent)[:64]
-ti = d.get("tool_input") or {}
-skill = ti.get("skill") or ti.get("name") or ""
-path = ti.get("file_path") or ""
-text = ti.get("new_string") or ti.get("content") or ""
-for e in ti.get("edits") or []:
-    text += "\n" + (e.get("new_string") or "")
-owners = hints(path, text)
-# Edit key: a retry of the same edit after a block has the same key, while
-# parallel edits of different files in one message have different keys.
-key = hashlib.sha1((path + "\0" + text).encode("utf-8", "replace")).hexdigest()[:16]
-for v in (d.get("hook_event_name") or "", d.get("session_id") or "", agent,
-          d.get("tool_name") or "", skill, path, " ".join(owners), key):
-    print(v.replace("\n", " "))
-')" || exit 0
+parsed="$(printf '%s' "$input" | "$helper" gate-parse)" || exit 0
 [[ -n "$parsed" ]] || exit 0
 { read -r event; read -r session; read -r agent; read -r tool; read -r skill; read -r path; read -r hints; read -r key; } <<< "$parsed"
 
@@ -352,8 +179,10 @@ PostToolUse)
         esac
         ;;
     esac
-    # Sessions end without notice; drop state older than two days.
-    find "$routing" -mindepth 1 -maxdepth 1 -type d -mtime +2 -exec rm -rf {} + 2>/dev/null
+    # Sessions end without notice; drop state older than two days, with the
+    # edit hook's receipt runs and the verification state beside it.
+    find "$routing" "${routing%/routing}/checks" "${routing%/routing}/verification" \
+        -mindepth 1 -maxdepth 1 -type d -mtime +2 -exec rm -rf {} + 2>/dev/null
     exit 0
     ;;
 PreToolUse)

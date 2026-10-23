@@ -61,7 +61,14 @@ An exhausted pool shows `db.Stats().WaitCount` climbing and every endpoint slow
 at once. Fix it where connections are held: rows left open, or a transaction
 kept across a network call. Raising `SetMaxOpenConns` past that budget only
 moves the queue into the database. Instances that scale without a fixed count
-share the budget through a pooler such as PgBouncer.
+share the budget through a pooler such as PgBouncer. Behind PgBouncer in
+transaction pooling, pgx's default named prepared statements need PgBouncer
+1.21+ with `max_prepared_statements` > 0; otherwise set
+`default_query_exec_mode=exec` in the DSN.
+
+A read that must see this request's own write — the response to a create, an
+idempotency-key or permission check — goes to the primary pool; a replica
+answers from before the write.
 
 ---
 
@@ -92,10 +99,20 @@ return orders, nil
   loop silently and looks like an empty result. `rowserrcheck` flags it.
 - `defer rows.Close()` immediately after the error check; `sqlclosecheck`
   flags a missing close.
+- Name the columns. `SELECT *` into a positional `Scan` returns
+  `sql: expected 6 destination arguments in Scan, not 5` on every row once a
+  migration adds a column — on each instance still on the old binary, the
+  expand step of expand-contract.
 - For lookups, match `sql.ErrNoRows` with `errors.Is` and map it to the domain
   sentinel (`ErrNotFound`) at the repository boundary. For writes with
   `RETURNING`, interpret a missing row according to the write contract. Keep
   `sql.ErrNoRows` out of handlers — [go-error-handling](../go-error-handling/SKILL.md) owns wrapping.
+- A value that must be unique is decided by its constraint, not by a lookup
+  before the `INSERT`: two concurrent requests both pass the lookup. Insert,
+  then map the violation to the domain sentinel — with pgx,
+  `pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23505"`
+  (`pgErr.ConstraintName` names the key) — or write `ON CONFLICT DO NOTHING`
+  and read zero rows affected as the conflict.
 
 ---
 
@@ -139,7 +156,9 @@ if err := tx.Commit(); err != nil {
 return nil
 ```
 
-- Check the `Commit` error — it is where serialization failures surface.
+- Check the `Commit` error; under Repeatable Read or Serializable any statement
+  can also fail with 40001, so the retry reruns the whole transaction on
+  either ([SQL-PATTERNS.md](references/SQL-PATTERNS.md)).
 - Everything inside uses `tx`, never `db`: a `db` call inside a transaction
   takes a second connection and deadlocks the pool at its limit.
 - Keep transactions short: no network calls, no user waits, no logging that

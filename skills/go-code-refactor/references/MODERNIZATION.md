@@ -26,7 +26,12 @@ Since Go 1.26, `go fix` hosts modernizers that rewrite code to current idioms.
 A default run includes `hostport` and `omitzero`, whose hunks are Tier 2: keep
 `hostport` hunks only where IPv6 cannot reach the code and `omitzero` hunks only
 where every marshaler of the type is `encoding/json` v1, or leave them out with
-`-hostport=false` and `-omitzero=false`. Scope
+`-hostport=false` and `-omitzero=false`. Two more default hunks change behavior
+on inputs the old code got wrong — review them as Tier 3: `waitgroupgo` on a
+goroutine whose trailing `wg.Done()` a `return`, a recovered panic, or
+`runtime.Goexit` skips (the old `Wait` hung, the new one returns), and
+`slicessort` on a float slice that can hold NaN (`slices.Sort` puts NaN first;
+`sort.Slice` with `<` left the slice unsorted). Scope
 follows [Scope mechanical modernization](../SKILL.md#3-scope-mechanical-modernization).
 `go tool fix help` is authoritative; the analyzers the
 [idiom card](../../go-style-core/SKILL.md#current-go-idiom-card) does not show:
@@ -60,7 +65,8 @@ on existing code, and the `go fix` analyzer where one exists.
   `go fix -errorsastype`.
 - **`wg.Go`** (Go 1.25): preserve goroutine count and `Add`-before-start. If the
   old code calls `Add` inside the goroutine, correcting that race is a Tier 3
-  fix for that call site. `go fix -waitgroupgo`.
+  fix for that call site, and so is a trailing `wg.Done()` an early `return`
+  skips — `go fix` rewrites it anyway. `go fix -waitgroupgo`.
 - **`strings.Cut`, `bytes.Cut`** (Go 1.18) **and `CutLast`** (Go 1.27): without
   the separator both return `(s, "", false)`, so check what the old `-1`
   branch returned before folding it into `ok` — anything other than `(s, "")`
@@ -134,8 +140,10 @@ because for equal keys the output order is observable.
   [PLAYBOOK.md](PLAYBOOK.md#5-error-handling-in-an-existing-codebase) lists it.
 - **`net.JoinHostPort` over `fmt.Sprintf("%s:%d", host, port)`.** Identical for
   IPv4 and hostnames; for IPv6 the old form produced an unusable address, so if
-  IPv6 can reach this code the swap is a **bug fix** — Tier 3. `go vet` flags
-  these, and a default `go fix` rewrites them (`hostport`).
+  IPv6 can reach this code the swap is a **bug fix** — Tier 3. `go vet` and a
+  default `go fix` (`hostport`) catch only an address passed to `net.Dial`,
+  `net.DialTimeout`, or `(*net.Dialer).Dial`; grep `"%s:%d"` for
+  `DialContext`, `net.Listen`, `http.Server.Addr`, and URLs.
 - **`os.Root` over `os.Open` with path joining.** `os.Root` refuses paths that
   escape the directory, including via symlinks. That is the point, and it is a
   behavior change wherever an escaping path currently succeeds.
@@ -198,7 +206,7 @@ The target module must support the replacement; report unproven Tier 2 swaps.
 | Deprecated | Deprecated in | Use instead | Tier |
 |---|---|---|---|
 | `math/rand.Seed` with a random seed (`time.Now().UnixNano()`) — the package itself is not deprecated | 1.20 | Delete the call: the generator seeds itself since 1.20, and at a `go` directive of 1.24 or later `Seed` is a no-op (`randseednop`); Tier 2 where a `godebug randseednop=0` line restores it | 1 |
-| `math/rand.Seed(k)` with a fixed `k` | 1.20 | `r := rand.New(rand.NewSource(k))`, which keeps the v1 sequence; at a `go` directive of 1.24 or later the call is already a no-op, so code that relies on the sequence is a live bug and a finding | 3 |
+| `math/rand.Seed(k)` with a fixed `k` | 1.20 | `r := rand.New(rand.NewSource(k))`, which keeps the v1 sequence but is not safe for concurrent use (a generator shared by goroutines needs a mutex, or one per goroutine); at a `go` directive of 1.24 or later the call is already a no-op, so code that relies on the sequence is a live bug and a finding | 3 |
 | `math/rand.Read` | 1.20 | `crypto/rand.Read`; `(*rand.ChaCha8).Read` from `math/rand/v2` (1.23) when the stream must be deterministic — `math/rand/v2` has no package-level `Read` | 3 |
 | `crypto/elliptic` key-agreement helpers (`GenerateKey`, `Marshal`, `Unmarshal`, `Curve` arithmetic) | 1.21 | `crypto/ecdh` (1.20); custom-curve arithmetic has no replacement | 3 |
 | `reflect.SliceHeader`, `reflect.StringHeader` | 1.21 | `unsafe.Slice`, `unsafe.String` — recheck what keeps the backing memory alive | 2 |
@@ -220,15 +228,17 @@ Attribute before rewriting. Verified against go1.27.0:
   is on). Marshal/unmarshal semantics are preserved, but the exact text of
   error messages can differ — a test asserting a JSON error string breaks with
   no diff from you. `GOEXPERIMENT=nojsonv2` restores the old backend while you
-  confirm the cause.
+  confirm the cause, and removes `encoding/json/v2` and `jsontext` from the
+  build: run it on packages that import only `encoding/json`.
 - **Seven `GODEBUG` keys were removed in Go 1.27** (`asynctimerchan`,
   `gotypesalias`, `tlsunsafeekm`, `tlsrsakex`, `tls3des`, `tls10server`,
   `x509keypairleaf`). A `godebug` line or `//go:debug` comment pinning any of
   them to its old value now fails the build — delete the pin rather than
   carrying it forward.
-- **Float results can move across a toolchain bump.** At `GOAMD64=v3` and above
-  the compiler may fuse `a*b + c` into a single FMA. `float64(a*b) + c`
-  prevents fusing. Relevant wherever money or aggregates are compared exactly.
+- **Float results differ by architecture.** arm64 always fuses `a*b + c` into a
+  single FMA, amd64 from `GOAMD64=v3`; an exact float compare can pass on amd64
+  CI and fail on an arm64 laptop. `float64(a*b) + c` prevents fusing. Relevant
+  wherever money or aggregates are compared exactly.
 
 Attribute suspected toolchain failures by rerunning the unchanged source
 on that toolchain in an isolated checkout, preserving the user's working tree.

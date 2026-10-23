@@ -147,6 +147,36 @@ func Walk(items []int) int {
 	}
 }
 
+// TestAnalyzeCountsSuppressions pins the silencer forms the column counts:
+// a directive needs the slashes against its keyword, gosec's marker counts
+// anywhere, and a test file never contributes.
+func TestAnalyzeCountsSuppressions(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "quiet.go"), `package quiet
+
+import "os"
+
+func Close(f *os.File) {
+	f.Close() //nolint:errcheck // read-only file
+	_ = os.Remove("x") //lint:ignore SA9003 kept
+	_, _ = os.Open(os.Args[1]) // #nosec G304 -- operator path
+	// nolint is not a directive with a space after the slashes
+}
+`)
+	writeTestFile(t, filepath.Join(root, "quiet_test.go"), `package quiet
+
+func helper() {} //nolint:unused // tests do not count
+`)
+
+	got, err := analyze(root)
+	if err != nil {
+		t.Fatalf("analyze(%q) error = %v, want nil", root, err)
+	}
+	if got.Suppressions != 3 {
+		t.Errorf("analyze suppressions = %d, want 3", got.Suppressions)
+	}
+}
+
 func TestHideTestFilesRecurses(t *testing.T) {
 	root := t.TempDir()
 	paths := []string{
@@ -185,6 +215,21 @@ func TestValidateFixturesRequiresGoldenGoFile(t *testing.T) {
 	writeTestFile(t, filepath.Join(abDir, "_golden", "task", "golden_test.go"), "package task\n")
 	if err := validateFixtures(abDir, []string{"task"}); err != nil {
 		t.Fatalf("validateFixtures(task with golden) error = %v, want nil", err)
+	}
+
+	golden := filepath.Join(abDir, "_golden", "task")
+	if got, err := fixturePrompt(golden); got != "" || err != nil {
+		t.Errorf("fixturePrompt(no prompt.txt) = %q, %v, want \"\", nil", got, err)
+	}
+	for _, bad := range []string{"no directive", "two %s and %s", "a stray 100% in ./%s"} {
+		writeTestFile(t, filepath.Join(golden, fixturePromptFile), bad)
+		if err := validateFixtures(abDir, []string{"task"}); err == nil {
+			t.Errorf("validateFixtures(prompt.txt %q) error = nil, want non-nil", bad)
+		}
+	}
+	writeTestFile(t, filepath.Join(golden, fixturePromptFile), "Make ./%s 100%% clean.\n")
+	if got, err := fixturePrompt(golden); got != "Make ./%s 100%% clean." || err != nil {
+		t.Errorf("fixturePrompt(valid) = %q, %v, want the trimmed template", got, err)
 	}
 }
 

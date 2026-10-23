@@ -101,6 +101,8 @@ type class struct {
 
 type pkgInfo struct {
 	ImportPath   string
+	GoFiles      []string
+	CgoFiles     []string
 	Imports      []string
 	TestImports  []string
 	XTestImports []string
@@ -436,7 +438,13 @@ func loadConfig(path string) (*config, error) {
 }
 
 func goList(root string, args ...string) ([]byte, error) {
-	cmd := exec.Command("go", append([]string{"list", "-mod=readonly"}, args...)...)
+	// A vendored module builds offline from vendor/; -mod=readonly would
+	// ignore it and reach for the module cache.
+	mode := "-mod=readonly"
+	if _, err := os.Stat(filepath.Join(root, "vendor", "modules.txt")); err == nil {
+		mode = "-mod=vendor"
+	}
+	cmd := exec.Command("go", append([]string{"list", mode}, args...)...)
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	var stderr bytes.Buffer
@@ -448,13 +456,20 @@ func goList(root string, args ...string) ([]byte, error) {
 	return out, nil
 }
 
-func loadPackages(root string) (string, []pkgInfo, error) {
-	mod, err := goList(root, "-m", "-f", "{{.Path}}")
+// loadPackages lists the module rooted at root. Without includeTests a
+// package with only _test.go files has no production imports and is left out.
+func loadPackages(root string, includeTests bool) (string, []pkgInfo, error) {
+	mod, err := goList(root, "-m", "-f", "{{.Path}}\t{{.Dir}}")
 	if err != nil {
 		return "", nil, err
 	}
-	modulePath := strings.TrimSpace(string(mod))
-	raw, err := goList(root, "-json=ImportPath,Imports,TestImports,XTestImports", "./...")
+	modulePath, modDir, _ := strings.Cut(strings.TrimSpace(string(mod)), "\t")
+	// A directory without its own go.mod lists its parent's module, whose
+	// internal/ prefix matches nothing under root: an empty check, not a pass.
+	if !sameDir(root, modDir) {
+		return "", nil, fmt.Errorf("%s is not a module root; its go.mod is in %s", root, modDir)
+	}
+	raw, err := goList(root, "-json=ImportPath,GoFiles,CgoFiles,Imports,TestImports,XTestImports", "./...")
 	if err != nil {
 		return "", nil, err
 	}
@@ -467,9 +482,25 @@ func loadPackages(root string) (string, []pkgInfo, error) {
 		} else if err != nil {
 			return "", nil, fmt.Errorf("parse go list output: %w", err)
 		}
+		if !includeTests && len(p.GoFiles)+len(p.CgoFiles) == 0 {
+			continue
+		}
 		pkgs = append(pkgs, p)
 	}
 	return modulePath, pkgs, nil
+}
+
+func sameDir(a, b string) bool {
+	resolve := func(p string) string {
+		if abs, err := filepath.Abs(p); err == nil {
+			p = abs
+		}
+		if real, err := filepath.EvalSymlinks(p); err == nil {
+			p = real
+		}
+		return p
+	}
+	return resolve(a) == resolve(b)
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
@@ -483,7 +514,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "error:", err)
 		return 2
 	}
-	modulePath, pkgs, err := loadPackages(o.root)
+	modulePath, pkgs, err := loadPackages(o.root, o.includeTests)
 	if err != nil {
 		fmt.Fprintln(stderr, "error:", err)
 		return 2

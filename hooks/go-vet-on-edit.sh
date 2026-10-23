@@ -32,21 +32,16 @@ set -u
 
 input="$(cat)"
 
-# tool_input.file_path, parsed as JSON like go-code-routing.sh does, so an
-# escaped quote or a "file_path" string inside the edited content cannot
-# redirect the hook. Without python3 fall back to the regex extraction.
+# tool_input.file_path, parsed as JSON by the helper, so an escaped quote or
+# a "file_path" string inside the edited content cannot redirect the hook.
+# Without the helper (no Go) fall back to the regex extraction.
+# shellcheck source=go-hook-helper.sh
+source "$(dirname "${BASH_SOURCE[0]}")/go-hook-helper.sh"
+helper="$(hook_helper)" || helper=""
+export GOLANG_SKILLS_HOOK_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 file=""
-if command -v python3 >/dev/null 2>&1; then
-    file="$(printf '%s' "$input" | python3 -c '
-import json, sys
-try:
-    d = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-path = (d.get("tool_input") or {}).get("file_path") or ""
-if isinstance(path, str):
-    sys.stdout.write(path.replace("\n", ""))
-' 2>/dev/null)" || file=""
+if [[ -n "$helper" ]]; then
+    file="$(printf '%s' "$input" | "$helper" edit-file 2>/dev/null)" || file=""
 else
     file="$(printf '%s' "$input" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
 fi
@@ -61,27 +56,21 @@ dir="$(dirname "$file")"
 pkg="./$(basename "$dir")"
 findings=""
 export GOLANG_SKILLS_HOOK_DEADLINE="$(( $(date +%s) + 135 ))"
-receipt_helper="$(cd "$(dirname "$0")" && pwd)/go-check-receipt.py"
 receipt_dir=""
-if command -v python3 >/dev/null 2>&1 && [[ -f "$receipt_helper" ]]; then
+if [[ -n "$helper" ]]; then
     receipt_base="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/checks"
     if mkdir -p "$receipt_base"; then
         receipt_dir="$(mktemp -d "$receipt_base/run.XXXXXX")" || receipt_dir=""
         if [[ -n "$receipt_dir" ]]; then
             # The verification state is per agent: session, plus "/<agent_id>" in a
             # subagent, as go-verification-routing.sh keys it.
-            session="$(printf '%s' "$input" | python3 -c '
-import json, re, sys
-d = json.load(sys.stdin)
-agent = d.get("agent_id")
-agent = re.sub(r"[^A-Za-z0-9_-]", "_", agent)[:64] if isinstance(agent, str) else ""
-print((d.get("session_id") or "default") + ("/" + agent if agent else ""))
-')"
-            python3 "$receipt_helper" begin "$receipt_dir" "$file" "$session" "$(dirname "$receipt_base")" || receipt_dir=""
+            session="$(printf '%s' "$input" | "$helper" session-key)"
+            "$helper" receipt begin "$receipt_dir" "$file" "$session" "$(dirname "$receipt_base")" || receipt_dir=""
         fi
     fi
 fi
 config=""
+check_reason=""
 filter="all"
 skip_reason="no module"
 # run_check <check> <limit seconds, 0 for none> <command...> — the receipt
@@ -91,7 +80,7 @@ run_check() {
     local check="$1" limit="$2"
     shift 2
     if [[ -n "$receipt_dir" ]]; then
-        GOLANG_SKILLS_CHECK_LIMIT="$limit" python3 "$receipt_helper" run "$receipt_dir" "$check" "$file" "$config" "$filter" run "" "$@"
+        GOLANG_SKILLS_CHECK_LIMIT="$limit" "$helper" receipt run "$receipt_dir" "$check" "$file" "$config" "$filter" run "$check_reason" "$@"
     elif [[ "$limit" -gt 0 ]] && command -v timeout >/dev/null 2>&1; then
         (cd -P "$dir" && timeout "$limit" "$@")
     else
@@ -100,11 +89,11 @@ run_check() {
 }
 skip_check() {
     [[ -n "$receipt_dir" ]] || return 0
-    python3 "$receipt_helper" run "$receipt_dir" "$1" "$file" "$config" "$filter" "$2" "$3" "${@:4}" >/dev/null
+    "$helper" receipt run "$receipt_dir" "$1" "$file" "$config" "$filter" "$2" "$3" "${@:4}" >/dev/null
 }
 has_module() {
     if [[ -n "$receipt_dir" ]]; then
-        python3 "$receipt_helper" module "$dir" >/dev/null 2>&1
+        "$helper" receipt module "$dir" >/dev/null 2>&1
     else
         (cd "$dir" && go list -m >/dev/null 2>&1)
     fi
@@ -173,7 +162,11 @@ if has_module; then
         if [[ "${GOLANG_SKILLS_EDIT_TESTS:-on}" != "off" ]] && compgen -G "$dir/*_test.go" >/dev/null; then
             tt="${GOLANG_SKILLS_EDIT_TEST_TIMEOUT:-50}"
             [[ "$tt" =~ ^[0-9]+$ ]] || tt=50
-            if ! test_out="$(run_check test "$((tt + 10))" go test -short -count=1 -timeout "${tt}s" . 2>&1)"; then
+            # Under the receipt runner the tests run with -json: it prints them
+            # back as text and records "skipped" when exit 0 ran no test.
+            test_json=()
+            [[ -n "$receipt_dir" ]] && test_json=(-json)
+            if ! test_out="$(run_check test "$((tt + 10))" go test -short -count=1 "${test_json[@]+"${test_json[@]}"}" -timeout "${tt}s" . 2>&1)"; then
                 if printf '%s\n' "$test_out" | grep -q '^panic: test timed out after'; then
                     test_out="$(printf '%s\n' "$test_out" | awk '/^panic: test timed out after/{p=1} p && /^goroutine /{exit} p && NF')"
                     test_out+=$'\n'"(goroutine dump cut: the package's tests outlast the hook's ${tt}s; run go test yourself, or set GOLANG_SKILLS_EDIT_TESTS=off)"
@@ -198,9 +191,10 @@ if has_module; then
             # prints the path to stderr, relative to the physical cwd; pin it
             # explicitly so a search from the physical directory cannot pick
             # another configuration.
+            bundled="$GOLANG_SKILLS_HOOK_ROOT/skills/go-linting/assets/golangci.yml"
             lint_config_status=0
             if [[ -n "$receipt_dir" ]]; then
-                repo_config="$(python3 "$receipt_helper" config "$dir" 2>&1)" || lint_config_status=$?
+                repo_config="$("$helper" receipt config "$dir" 2>&1)" || lint_config_status=$?
             else
                 repo_config="$(cd "$dir" && golangci-lint config path 2>&1)" || lint_config_status=$?
             fi
@@ -209,10 +203,20 @@ if has_module; then
                     /*) ;;
                     *) repo_config="$(cd "$dir" && pwd -P)/$repo_config" ;;
                 esac
-                lint_args+=(--config "$repo_config")
+                # A config that declares custom linters makes golangci-lint
+                # load plugin code from the repository; the hook runs unasked,
+                # so it lints with the bundled baseline instead. The receipt
+                # keeps the repository's config: a run under other rules earns
+                # no hook credit, and an edit of that config invalidates it.
+                lint_config="$repo_config"
+                if grep -Eq '^[[:space:]]*"?custom"?[[:space:]]*[:=]|^[[:space:]]*\[linters\.settings\.custom' "$repo_config" 2>/dev/null; then
+                    lint_config="$bundled"
+                    check_reason="the repository config declares custom linters, which the hook does not load; linted with the bundled baseline, so no hook credit"
+                    [[ -f "$bundled" ]] || lint_config_status=2 repo_config="bundled config missing: $bundled"
+                fi
+                lint_args+=(--config "$lint_config")
                 config="$repo_config"
             elif [[ "$lint_config_status" -eq 1 ]] || { [[ "$lint_config_status" -eq 6 ]] && [[ "$repo_config" == *"No config file detected"* ]]; }; then
-                bundled="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}/skills/go-linting/assets/golangci.yml"
                 [[ -f "$bundled" ]] && lint_args+=(--config "$bundled")
                 [[ -f "$bundled" ]] && config="$bundled"
                 lint_config_status=0
@@ -271,17 +275,17 @@ if [[ -n "$receipt_dir" ]]; then
         fi
     done
 else
-    findings+="Edit-hook receipts unavailable (python3, helper or writable state missing); silence cannot count as pass (hook)."$'\n'
+    findings+="Edit-hook receipts unavailable (the Go helper or writable state is missing); silence cannot count as pass (hook)."$'\n'
 fi
 if [[ -n "$findings" ]]; then
     if [[ -n "$receipt_dir" ]]; then
         # Exit 2 ignores structured stdout: put the same concrete next step
         # on stderr before findings, including verification for passing checks.
-        receipt_context="$(python3 "$receipt_helper" context "$receipt_dir" 2>&1)" || receipt_context="Edit-hook receipts unavailable; do not credit pass (hook)."
+        receipt_context="$("$helper" receipt context "$receipt_dir" 2>&1)" || receipt_context="Edit-hook receipts unavailable; do not credit pass (hook)."
         printf '%s\n' "$receipt_context" >&2
     fi
     printf '%s' "$findings" >&2
     exit 2
 fi
-python3 "$receipt_helper" report "$receipt_dir"
+"$helper" receipt report "$receipt_dir"
 exit 0

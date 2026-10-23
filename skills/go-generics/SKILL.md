@@ -62,6 +62,9 @@ Constraints:
 - A generic method cannot satisfy an interface; [go-interfaces](../go-interfaces/SKILL.md#generic-methods-cannot-satisfy-interfaces)
   owns that rule and the assertion that catches it.
 - The receiver's own type parameters stay on the receiver; do not redeclare them.
+- Reflection does not see a generic method (`MethodByName`, `NumMethod`): a
+  method that `text/template`, `html/template`, or RPC calls by name stays
+  non-generic, or the template fails at run time.
 - Same restraint as generic functions: add the parameter when a second type
   actually appears, not in anticipation.
 
@@ -123,7 +126,7 @@ keys; a custom `Hasher` is a two-method type.
 ```go
 type table[K, V any] struct {
     hasher maphash.Hasher[K] // maphash.ComparableHasher[string]{} at an ordinary call site
-    seed   maphash.Seed      // one seed per table instance
+    seed   maphash.Seed      // maphash.MakeSeed() per table; a zero Seed panics in SetSeed
 }
 
 func (t *table[K, V]) hash(k K) uint64 {
@@ -177,7 +180,8 @@ func ProcessAll[T io.Reader](rs []T) error
 ```
 
 **Don't over-constrain.** `comparable` beats `interface{ ~int | ~string }` when
-you only need `==`.
+you only need `==`, but it admits interface types: `==` or a map key on `T`
+panics at run time when a caller passes `any` holding a slice or map.
 
 ---
 
@@ -186,4 +190,3 @@ you only need `==`.
 - [go-interfaces](../go-interfaces/SKILL.md): whether an interface already models the shared behavior.
 - [go-style-core](../go-style-core/SKILL.md): declaration and scope mechanics for new types.
 - [go-documentation](../go-documentation/SKILL.md): doc comments and examples for generic APIs.
-- [go-naming](../go-naming/SKILL.md): type parameter and constraint names.

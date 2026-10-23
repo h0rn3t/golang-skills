@@ -54,7 +54,7 @@ the complete-buffer approach in [go-http](../SKILL.md#bounded-response-bodies).
 | Area | v2 default | Compatibility option when required |
 |---|---|---|
 | Nil non-byte slices and maps | `[]` and `{}` | `FormatNilSliceAsNull(true)`, `FormatNilMapAsNull(true)` |
-| Struct field matching | Case-sensitive | `MatchCaseInsensitiveNames(true)` with `jsonv1.MatchCaseSensitiveDelimiter(true)`: the first alone also ignores `_` and `-`, so `user_id` fills `UserID`, which v1 rejects |
+| Struct field matching | Case-sensitive | `MatchCaseInsensitiveNames(true)` with `jsonv1.MatchCaseSensitiveDelimiter(true)`: the first alone also ignores `_` and `-`, so `user_id` fills `UserID`, which v1 leaves unmatched (ignored) |
 | Unknown object members | Ignored | `RejectUnknownMembers(true)` to reject them |
 | Duplicate names and invalid UTF-8 | Rejected | `jsontext.AllowDuplicateNames(true)`, `jsontext.AllowInvalidUTF8(true)`, only when the existing contract accepts them |
 | Map order | Unspecified | `Deterministic(true)` for sorted keys |

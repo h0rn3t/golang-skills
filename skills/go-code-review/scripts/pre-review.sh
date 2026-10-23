@@ -43,7 +43,13 @@ DESCRIPTION
     run is then INCOMPLETE, not clean); gofmt and go vet still run. Use
     --strict where the linter is guaranteed (CI) to make that an error.
 
-    Exits 0 if no check failed, 1 if issues found, 2 on error.
+    A go vet that fails for the environment (no go.mod, a module or
+    toolchain that cannot load, the network) is reported as unavailable too,
+    and --strict makes it an error; a path that matches no package is
+    no_go_files. Any other go vet failure, an import cycle included, fails.
+
+    Exits 0 if no check failed, 1 if issues found, 2 on error. The JSON
+    result field says pass, fail, or incomplete (a check unavailable).
 
 OPTIONS
     -h, --help       Show this help message
@@ -57,7 +63,7 @@ OPTIONS
                      and list the bar moves since REV
 
 ARGUMENTS
-    path             Package pattern to check (default: ./...)
+    path             Package pattern to check (default: ./...); one at most
 
 EXAMPLES
     bash $SCRIPT_NAME
@@ -126,7 +132,13 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -*)           echo "error: unknown option: $1" >&2; usage >&2; exit 2 ;;
-        *)            TARGET="$1"; shift ;;
+        *)
+            # One pattern: a second would silently replace the first.
+            if [[ -n "$TARGET" ]]; then
+                echo "error: one path at most (got $TARGET and $1)" >&2
+                exit 2
+            fi
+            TARGET="$1"; shift ;;
     esac
 done
 
@@ -185,7 +197,24 @@ fi
 GOVET_STATUS="pass"
 GOVET_OUTPUT=""
 if ! GOVET_OUTPUT=$(go vet "$TARGET" 2>&1); then
-    GOVET_STATUS="fail"
+    # A finding or a compile error names a file position. Without one, a
+    # missing module or toolchain, the network, or a go.sum that needs an
+    # update is the environment; anything else, an import cycle among them,
+    # is the code.
+    if grep -qE '\.go:[0-9]+:[0-9]+: |^vet: ' <<< "$GOVET_OUTPUT"; then
+        GOVET_STATUS="fail"
+    elif grep -qE 'matched no packages|^no Go files in |: lstat [^:]*: no such file or directory|directory not found' <<< "$GOVET_OUTPUT"; then
+        GOVET_STATUS="no_go_files"
+    elif grep -qE 'go\.mod file not found|cannot find main module|does not contain main module|outside (main module|the main module)|missing go\.sum entry|updates to go\.mod needed|inconsistent vendoring|cannot find module providing package|toolchain|GOPROXY|dial tcp|i/o timeout|TLS handshake|no such host' <<< "$GOVET_OUTPUT"; then
+        GOVET_STATUS="unavailable"
+    else
+        GOVET_STATUS="fail"
+    fi
+fi
+if [[ "$GOVET_STATUS" == "unavailable" ]] && $STRICT; then
+    echo "error: go vet could not run (--strict):" >&2
+    echo "$GOVET_OUTPUT" >&2
+    exit 2
 fi
 
 LINT_STATUS="unavailable"
@@ -259,7 +288,7 @@ hdr && /^--- / { old = substr($0, 5); sub(/^a\//, "", old); next }
 hdr && /^\+\+\+ / {
     file = substr($0, 5); sub(/^b\//, "", file)
     if (file == "/dev/null") { file = old; gone[file] = 1 }
-    else if (old != "/dev/null") changed[file] = 1
+    else if (old != "/dev/null" || file ~ /(^|\/)\.golangci\.(ya?ml|toml|json)$/) changed[file] = 1
     next
 }
 /^@@/ { hdr = 0; if (match($0, /\+[0-9]+/)) line = substr($0, RSTART + 1, RLENGTH - 1) + 0; next }
@@ -297,9 +326,10 @@ if [[ -n "$NEW_FROM_REV" ]]; then
     if BAR_DIFF=$(git -c core.quotePath=false diff --no-color --no-ext-diff --no-textconv \
         --unified=0 --src-prefix=a/ --dst-prefix=b/ --relative "$NEW_FROM_REV" -- "$GOFMT_DIR" 2>/dev/null); then
         # git diff cannot see untracked files; only a new .go file can hold an
-        # added-line move, so those are read in as all-added.
+        # added-line move, so those are read in as all-added, and a new
+        # golangci-lint config replaces the baseline the run linted with.
         while IFS= read -r f; do
-            [[ "$f" == *.go && -f "$f" ]] || continue
+            [[ ( "$f" == *.go || "$f" =~ (^|/)\.golangci\.(ya?ml|toml|json)$ ) && -f "$f" ]] || continue
             BAR_DIFF+=$'\n'"diff untracked"$'\n'"--- /dev/null"$'\n'"+++ b/$f"$'\n'"@@ -0,0 +1 @@"$'\n'"$(sed 's/^/+/' "$f")"
         done < <(git -c core.quotePath=false ls-files --others --exclude-standard -- "$GOFMT_DIR" 2>/dev/null)
         while IFS= read -r entry; do
@@ -316,6 +346,12 @@ FAILED=0
 [[ "$GOVET_STATUS" == "fail" ]] && FAILED=1
 [[ "$LINT_STATUS" == "fail" ]] && FAILED=1
 [[ "$BAR_STATUS" == "fail" ]] && FAILED=1
+RESULT="pass"
+if [[ $FAILED -eq 1 ]]; then
+    RESULT="fail"
+elif [[ "$GOVET_STATUS" == "unavailable" || "$LINT_STATUS" == "unavailable" || "$BAR_STATUS" == "unavailable" ]]; then
+    RESULT="incomplete"
+fi
 
 if $JSON_OUTPUT; then
     GOFMT_TRUNCATED=false
@@ -394,7 +430,7 @@ if $JSON_OUTPUT; then
     BAR_JSON+="]"
 
     cat <<EOF
-{"gofmt":{"status":"$GOFMT_STATUS","files":$GOFMT_JSON$GOFMT_TRUNC},"govet":{"status":"$GOVET_STATUS","output":"$GOVET_ESC"$GOVET_TRUNC},"golangci_lint":{"status":"$LINT_STATUS","config":"$LINT_CONFIG","output":"$LINT_ESC"$LINT_TRUNC},"bar":{"status":"$BAR_STATUS","findings":$BAR_JSON$BAR_TRUNC},"passed":$( [[ $FAILED -eq 0 ]] && echo true || echo false )}
+{"gofmt":{"status":"$GOFMT_STATUS","files":$GOFMT_JSON$GOFMT_TRUNC},"govet":{"status":"$GOVET_STATUS","output":"$GOVET_ESC"$GOVET_TRUNC},"golangci_lint":{"status":"$LINT_STATUS","config":"$LINT_CONFIG","output":"$LINT_ESC"$LINT_TRUNC},"bar":{"status":"$BAR_STATUS","findings":$BAR_JSON$BAR_TRUNC},"passed":$( [[ $FAILED -eq 0 ]] && echo true || echo false ),"result":"$RESULT"}
 EOF
 else
     echo "=== gofmt ==="
@@ -415,7 +451,13 @@ else
 
     echo ""
     echo "=== go vet ==="
-    if [[ "$GOVET_STATUS" == "fail" ]]; then
+    [[ "$GOVET_STATUS" == "no_go_files" ]] && echo "No Go packages matched $TARGET"
+    if [[ "$GOVET_STATUS" == "unavailable" ]]; then
+        echo "Unavailable (go vet could not load the packages):"
+        echo "$GOVET_OUTPUT"
+    elif [[ "$GOVET_STATUS" == "no_go_files" ]]; then
+        :
+    elif [[ "$GOVET_STATUS" == "fail" ]]; then
         if [[ $LIMIT -gt 0 ]]; then
             GOVET_ARR=()
             while IFS= read -r line; do
@@ -487,6 +529,8 @@ else
     echo ""
     if [[ $FAILED -eq 1 ]]; then
         echo "Pre-review checks FAILED — report the findings above before the manual review."
+    elif [[ "$GOVET_STATUS" == "unavailable" ]]; then
+        echo "Pre-review checks INCOMPLETE — go vet could not load the packages."
     elif [[ "$LINT_STATUS" == "unavailable" ]]; then
         echo "Pre-review checks INCOMPLETE — golangci-lint unavailable; gofmt and go vet passed."
     elif [[ "$BAR_STATUS" == "unavailable" ]]; then

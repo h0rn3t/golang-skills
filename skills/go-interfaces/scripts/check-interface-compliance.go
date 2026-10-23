@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-const version = "1.4.0"
+const version = "1.5.0"
 
 type ifaceInfo struct {
 	Name string `json:"name"`
@@ -38,6 +38,7 @@ type result struct {
 	CountMissing   int         `json:"count_missing"`
 	Truncated      bool        `json:"truncated"`
 	Status         string      `json:"status,omitempty"`
+	Incomplete     []string    `json:"incomplete,omitempty"`
 }
 
 type sourceFile struct {
@@ -104,6 +105,9 @@ func main() {
 	scanned := 0
 	for _, path := range files {
 		pkgName, generated, err := packageClause(path)
+		if err != nil && strings.HasSuffix(path, "_test.go") && !opts.includeTest {
+			continue
+		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: parse package %s: %v\n", path, err)
 			os.Exit(2)
@@ -131,12 +135,16 @@ func main() {
 	interfaces := []ifaceInfo{}
 	localImpl := map[string]map[string]bool{}
 	returned := map[string]map[string]string{}
+	var incompleteDirs []string
 
 	for _, group := range groups {
-		groupAssertions, groupInterfaces, groupImpls, groupReturned, err := analyzePackage(group, exports)
+		groupAssertions, groupInterfaces, groupImpls, groupReturned, incomplete, err := analyzePackage(group, exports)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(2)
+		}
+		if incomplete {
+			incompleteDirs = append(incompleteDirs, group.dir)
 		}
 		assertions[group.key] = groupAssertions
 		interfaces = append(interfaces, groupInterfaces...)
@@ -187,6 +195,10 @@ func main() {
 	}
 	if len(interfaces) == 0 {
 		out.Status = "no_exported_interfaces"
+	} else if len(incompleteDirs) > 0 {
+		sort.Strings(incompleteDirs)
+		out.Status = "incomplete_types"
+		out.Incomplete = incompleteDirs
 	}
 
 	emit(out, opts.jsonOutput)
@@ -216,6 +228,9 @@ func emit(out result, jsonOutput bool) {
 	}
 
 	fmt.Printf("Exported interfaces found: %d\n\n", out.CountInterface)
+	if len(out.Incomplete) > 0 {
+		fmt.Printf("Imports without export data left these packages undecided (build them, or run from their module): %s\n\n", strings.Join(out.Incomplete, ", "))
+	}
 	if out.CountMissing == 0 {
 		fmt.Println("No interface implemented beside its declaration lacks a static conversion or is returned by an exported function.")
 		return
@@ -239,14 +254,19 @@ func emit(out result, jsonOutput bool) {
 	fmt.Printf("Total: %d interface(s) to question\n", out.CountMissing)
 }
 
-func analyzePackage(group packageGroup, exports exportIndex) (map[string]bool, []ifaceInfo, map[string]bool, map[string]string, error) {
+// analyzePackage reports incomplete when an unresolved import left a
+// candidate pair undecided.
+func analyzePackage(group packageGroup, exports exportIndex) (assertions map[string]bool, interfaces []ifaceInfo, impls map[string]bool, returned map[string]string, incomplete bool, err error) {
 	fset := token.NewFileSet()
 	parsed := make([]*ast.File, 0, len(group.files))
 	fileByAST := map[*ast.File]sourceFile{}
 	for _, sf := range group.files {
 		file, err := parser.ParseFile(fset, sf.path, nil, 0)
+		if err != nil && !sf.includeInScan {
+			continue // a broken file the scan skips only loses its types
+		}
 		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("parse %s: %w", sf.path, err)
+			return nil, nil, nil, nil, false, fmt.Errorf("parse %s: %w", sf.path, err)
 		}
 		parsed = append(parsed, file)
 		fileByAST[file] = sf
@@ -264,8 +284,8 @@ func analyzePackage(group packageGroup, exports exportIndex) (map[string]bool, [
 	}
 	_, _ = conf.Check(group.key, fset, parsed, info)
 
-	assertions := map[string]bool{}
-	interfaces := []ifaceInfo{}
+	assertions = map[string]bool{}
+	interfaces = []ifaceInfo{}
 	typeNames := []*types.TypeName{}
 
 	for _, file := range parsed {
@@ -302,11 +322,12 @@ func analyzePackage(group packageGroup, exports exportIndex) (map[string]bool, [
 						continue
 					}
 					typeNames = append(typeNames, obj)
-					if !sf.includeInScan || !ast.IsExported(ts.Name.Name) {
+					// An alias names an interface declared elsewhere; one with
+					// a type set may only be a constraint, never asserted.
+					if !sf.includeInScan || !ast.IsExported(ts.Name.Name) || obj.IsAlias() {
 						continue
 					}
-					if iface, ok := obj.Type().Underlying().(*types.Interface); ok {
-						iface.Complete()
+					if iface, ok := obj.Type().Underlying().(*types.Interface); ok && iface.Complete().IsMethodSet() {
 						interfaces = append(interfaces, ifaceInfo{
 							Name: ts.Name.Name,
 							File: sf.path,
@@ -320,7 +341,7 @@ func analyzePackage(group packageGroup, exports exportIndex) (map[string]bool, [
 		}
 	}
 
-	impls := map[string]bool{}
+	impls = map[string]bool{}
 	for _, iface := range interfaces {
 		for _, ifaceType := range interfaceForms(iface.obj, info) {
 			ifaceType.Complete()
@@ -337,10 +358,17 @@ func analyzePackage(group packageGroup, exports exportIndex) (map[string]bool, [
 				if _, ok := typeName.Type().Underlying().(*types.Interface); ok {
 					continue
 				}
-				if implements(typeName.Type(), ifaceType) {
-					impls[iface.Name] = true
-					break
+				if !implements(typeName.Type(), ifaceType) {
+					continue
 				}
+				// Two unresolved types are identical to go/types, so a
+				// signature with one decides nothing.
+				if mentionsInvalid(ifaceType, map[types.Type]bool{}) || methodsMentionInvalid(typeName.Type(), ifaceType) {
+					incomplete = true
+					continue
+				}
+				impls[iface.Name] = true
+				break
 			}
 		}
 	}
@@ -352,7 +380,7 @@ func analyzePackage(group packageGroup, exports exportIndex) (map[string]bool, [
 	for file, sf := range fileByAST {
 		scanned[file] = sf.includeInScan
 	}
-	return assertions, interfaces, impls, returnedInterfaces(parsed, scanned, info, interfaces), nil
+	return assertions, interfaces, impls, returnedInterfaces(parsed, scanned, info, interfaces), incomplete, nil
 }
 
 // staticConversions returns the interfaces that a concrete value is assigned,
@@ -373,6 +401,31 @@ func staticConversions(files []*ast.File, info *types.Info, interfaces []ifaceIn
 		}
 	}
 	typeOf := func(e ast.Expr) types.Type { return info.Types[e].Type }
+
+	// An instantiation makes the compiler check each type argument against
+	// its constraint.
+	for id, inst := range info.Instances {
+		var params *types.TypeParamList
+		switch obj := info.Uses[id].(type) {
+		case *types.Func:
+			params = obj.Type().(*types.Signature).TypeParams()
+		case *types.TypeName:
+			if named, ok := types.Unalias(obj.Type()).(*types.Named); ok {
+				params = named.TypeParams()
+			}
+		}
+		for i := range min(params.Len(), inst.TypeArgs.Len()) {
+			arg := inst.TypeArgs.At(i)
+			if types.IsInterface(arg) {
+				continue
+			}
+			for _, iface := range interfaces {
+				if sameInterface(params.At(i).Constraint(), iface.obj) {
+					converted[iface.Name] = true
+				}
+			}
+		}
+	}
 
 	var walk func(root ast.Node, results *types.Tuple)
 	walk = func(root ast.Node, results *types.Tuple) {
@@ -602,6 +655,71 @@ func sameInterface(t types.Type, obj *types.TypeName) bool {
 	return ok && decl.TypeParams().Len() > 0 && named.Origin() == decl.Origin()
 }
 
+// methodsMentionInvalid reports whether t's method for any method of iface has
+// an unresolved type in its signature.
+func methodsMentionInvalid(t types.Type, iface *types.Interface) bool {
+	for m := range iface.Methods() {
+		obj, _, _ := types.LookupFieldOrMethod(t, true, m.Pkg(), m.Name())
+		if obj != nil && mentionsInvalid(obj.Type(), map[types.Type]bool{}) {
+			return true
+		}
+	}
+	return false
+}
+
+// mentionsInvalid reports whether t is or contains a type go/types could not
+// resolve, such as one from an import without export data.
+func mentionsInvalid(t types.Type, seen map[types.Type]bool) bool {
+	if t == nil || seen[t] {
+		return false
+	}
+	seen[t] = true
+	switch t := t.(type) {
+	case *types.Basic:
+		return t.Kind() == types.Invalid
+	case *types.Alias:
+		return mentionsInvalid(types.Unalias(t), seen)
+	case *types.Named:
+		for arg := range t.TypeArgs().Types() {
+			if mentionsInvalid(arg, seen) {
+				return true
+			}
+		}
+		return mentionsInvalid(t.Underlying(), seen)
+	case *types.Pointer:
+		return mentionsInvalid(t.Elem(), seen)
+	case *types.Slice:
+		return mentionsInvalid(t.Elem(), seen)
+	case *types.Array:
+		return mentionsInvalid(t.Elem(), seen)
+	case *types.Chan:
+		return mentionsInvalid(t.Elem(), seen)
+	case *types.Map:
+		return mentionsInvalid(t.Key(), seen) || mentionsInvalid(t.Elem(), seen)
+	case *types.Signature:
+		return mentionsInvalid(t.Params(), seen) || mentionsInvalid(t.Results(), seen)
+	case *types.Tuple:
+		for v := range t.Variables() {
+			if mentionsInvalid(v.Type(), seen) {
+				return true
+			}
+		}
+	case *types.Struct:
+		for f := range t.Fields() {
+			if mentionsInvalid(f.Type(), seen) {
+				return true
+			}
+		}
+	case *types.Interface:
+		for m := range t.Methods() {
+			if mentionsInvalid(m.Type(), seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func implements(t types.Type, iface *types.Interface) bool {
 	if types.Implements(t, iface) {
 		return true
@@ -666,9 +784,10 @@ type exportIndex struct {
 	dirs  map[string]bool   // absolute directories of the packages go list saw
 }
 
-// listExports runs go list once for the target. Outside a module, or where go
-// list fails, the index stays empty and importerFor falls back to
-// importer.Default, which resolves the standard library only.
+// listExports runs go list for the target and again in every module root
+// beneath it, which the target's ./... does not reach. Outside a module, or
+// where go list fails, a package stays out of the index and importerFor falls
+// back to importer.Default, which resolves the standard library only.
 func listExports(target string) exportIndex {
 	idx := exportIndex{files: map[string]string{}, dirs: map[string]bool{}}
 	dir, pattern := target, "./..."
@@ -680,11 +799,42 @@ func listExports(target string) exportIndex {
 	} else if info, err := os.Stat(target); err == nil && !info.IsDir() {
 		dir, pattern = filepath.Dir(target), "."
 	}
+	// Workspace mode rejects -mod=mod, from the environment or go env -w, and
+	// lists nothing; "-mod=" restores the default and keeps the other flags.
+	goflags := "-mod="
+	if out, err := exec.Command("go", "env", "GOFLAGS").Output(); err == nil {
+		for _, flag := range strings.Fields(string(out)) {
+			if !strings.HasPrefix(strings.TrimLeft(flag, "-"), "mod=") {
+				goflags += " " + flag
+			}
+		}
+	}
+	idx.add(dir, pattern, goflags)
+	if pattern == "./..." {
+		_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil || !d.IsDir() || path == dir {
+				return nil
+			}
+			if ignored(d.Name()) {
+				return filepath.SkipDir
+			}
+			if _, err := os.Stat(filepath.Join(path, "go.mod")); err == nil {
+				idx.add(path, "./...", goflags)
+			}
+			return nil
+		})
+	}
+	return idx
+}
+
+// add records what go list reports for pattern run in dir.
+func (idx exportIndex) add(dir, pattern, goflags string) {
 	cmd := exec.Command("go", "list", "-e", "-export", "-deps", "-test",
 		"-f", "{{.ImportPath}}\t{{.Dir}}\t{{.Export}}", pattern)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GOPROXY=off") // never download to resolve an import
-	out, _ := cmd.Output()                        // with -e, a partial listing is still usable
+	// Never download to resolve an import.
+	cmd.Env = append(os.Environ(), "GOPROXY=off", "GOFLAGS="+goflags)
+	out, _ := cmd.Output() // with -e, a partial listing is still usable
 	for line := range strings.Lines(string(out)) {
 		fields := strings.Split(strings.TrimSuffix(line, "\n"), "\t")
 		// Test variants ("p [p.test]") carry test-only declarations.
@@ -698,7 +848,6 @@ func listExports(target string) exportIndex {
 			idx.files[fields[0]] = fields[2]
 		}
 	}
-	return idx
 }
 
 func (idx exportIndex) importerFor(fset *token.FileSet, dir string) types.Importer {

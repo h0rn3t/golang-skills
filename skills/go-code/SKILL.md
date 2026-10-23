@@ -1,6 +1,6 @@
 ---
 name: go-code
-description: Use when writing, fixing, or refactoring Go code, whether or not the task has one obvious topic — it loads the go-* skills the task needs and runs the closing gate. Also use when asked to implement a Go package, function, or handler whose declarations and documentation already exist — write the bodies, fill in a stub, replace panic("not implemented") — even if the request names only the package. Use it too when /go-code modifies another workflow (e.g. /opsx:apply /go-code); as a modifier it selects Go rules, not a change name or path.
+description: Use when writing or fixing Go code (a behavior-preserving refactor routes to go-code-refactor), whether or not the task has one obvious topic — it loads the go-* skills the task needs and runs the closing gate. Also use when asked to implement a Go package, function, or handler whose declarations and documentation already exist — write the bodies, fill in a stub, replace panic("not implemented") — even if the request names only the package. Use it too when /go-code modifies another workflow (e.g. /opsx:apply /go-code); as a modifier it selects Go rules, not a change name or path.
 ---
 
 # Go Code Profile
@@ -18,7 +18,8 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
 - `../go-linting/SKILL.md` — With a shell, load alongside go-style-core at step 2; its gate and receipt verifier close step 6.
 - `references/INTENSITY.md` — Read when the prompt carries `lite` or `ultra` (`/go-code ultra <task>`, `ultra mode`): what each level changes.
 - `references/NEW-CODE-EXAMPLES.md` — Read when the shape of a Contract Table case, Plain Code body, or budgeted helper is in doubt.
-- `../go-code-refactor/references/OVER-ENGINEERING.md` — Read before the first edit on every task, unless the session-start hook already printed its ladder: step 5 climbs the ladder for each added entity; its replacement catalog when seeking a simpler existing API.
+- `../go-code-refactor/references/LADDER.md` — Read before the first edit on every task, unless the session-start hook already printed its ladder: step 5 climbs it for each added entity.
+- `../go-code-refactor/references/OVER-ENGINEERING.md` — Read its replacement table only when seeking a simpler existing API.
 
 ## Workflow
 
@@ -33,11 +34,14 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    idiom card. Then inspect repository instructions, `go.mod` (its `go`
    directive sets the idiom), neighboring code and tests. Without a shell
    tool, step 6 runs nothing and `go-linting` stays unread. A new function,
-   package, or stub body makes step 4 apply; a fix or a restructuring skips it.
+   package, or stub body makes step 4 apply. A fix skips the table but adds
+   one case that fails on the code before it and passes after
+   ([go-troubleshooting](../go-troubleshooting/SKILL.md#fix-and-regression-proof)),
+   so `go-testing` is loaded for it too; a restructuring skips both.
 3. **Load the owners before the first edit.** Match the task against
    [Route Before The First Edit](#route-before-the-first-edit) and load each
    matched owner plus every `Also load` entry whose condition holds, all in
-   one message. When step 4 applies, `go-testing` is one of them. Select by the decisions being changed: a routine local
+   one message. When step 4 applies or the task is a fix, `go-testing` is one of them. Select by the decisions being changed: a routine local
    variable or `if` triggers no owner. No edit before every selected skill is
    in context; add owners when new evidence requires them. Wait for successful
    Skill results before the edit message; do not dispatch loads and edits together.
@@ -48,7 +52,7 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    reads.
 5. **Implement the authorized scope.** Every task — new code, a fix, a
    restructuring — climbs the restraint ladder in
-   [OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder)
+   [LADDER.md](../go-code-refactor/references/LADDER.md#the-restraint-ladder)
    before each helper, type, layer, interface, option, or import it adds,
    once per entity, and a fix lands at the root cause the ladder names. New
    code takes the [Plain Code](#plain-code) form, counts every package-level
@@ -66,10 +70,8 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
 6. **Verify and report.** With a shell, **load the `go-linting` skill**
    (`Skill` tool with the router's namespace, otherwise read its `SKILL.md`),
    select the gate scope, then run the Contract Table file with that gate.
-   Where hook receipts exist, run their `bash .../go-check-receipt.sh --gate ...`
-   command after the final edit, before repeating checks. Use only the returned
-   `hook_credit=true` checks; run the required direct checks. Without a shell, read each
-   case against its code path and report unverified hook results as observed.
+   Hook receipts count only as [go-linting](../go-linting/SKILL.md#verification-gate)
+   verifies them. Without a shell, read each case against its code path.
    Report as [go-style-core](../go-style-core/SKILL.md#how-much-to-say) says,
    in this shape and order:
 
@@ -80,9 +82,6 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    <one sentence per material gap, or nothing>
    ```
 
-   Reuse only [verified matching receipts](../go-linting/SKILL.md#verification-gate);
-   require `hook_credit=true` and label their exact scope. With no successful
-   verification, run the check directly or report required evidence unavailable.
    Name the test file and result, not each case.
 
 ## Route Before The First Edit
@@ -94,19 +93,19 @@ does not require `go-naming` or `go-documentation`.
 | Task touches | Skill | Also load |
 |---|---|---|
 | errors, wrapping, `errors.Is`/`errors.AsType` | [go-error-handling](../go-error-handling/SKILL.md) | — |
-| goroutines, channels, mutexes, races | [go-concurrency](../go-concurrency/SKILL.md) | [go-context](../go-context/SKILL.md) if anything is cancelled |
+| goroutines, channels, mutexes, races, timers and tickers | [go-concurrency](../go-concurrency/SKILL.md) | [go-context](../go-context/SKILL.md) if anything is cancelled |
 | `context.Context`, timeouts, cancellation | [go-context](../go-context/SKILL.md) | [go-concurrency](../go-concurrency/SKILL.md) if goroutines are started |
 | tests, table-driven cases, `synctest` | [go-testing](../go-testing/SKILL.md) | — |
 | API naming changes or a naming question | [go-naming](../go-naming/SKILL.md) | — |
 | new or changed exported API, doc comments | [go-documentation](../go-documentation/SKILL.md) | [go-naming](../go-naming/SKILL.md) if API names change; [go-functions](../go-functions/SKILL.md#changing-an-exported-api) if an existing exported signature, interface, or struct changes |
-| interfaces, embedding, test doubles | [go-interfaces](../go-interfaces/SKILL.md) | — |
+| interfaces, embedding, test doubles, pointer vs value receivers | [go-interfaces](../go-interfaces/SKILL.md) | — |
 | function API design, constructor configuration, ordering, signatures, `Printf` helpers | [go-functions](../go-functions/SKILL.md) | — |
 | slices, maps, arrays, sets | [go-data-structures](../go-data-structures/SKILL.md) | — |
 | declaration, enum, or initialization decisions | [go-style-core references](../go-style-core/SKILL.md#resource-routing) | — |
 | loop/switch mechanics or statement scoping decisions | [go-style-core references](../go-style-core/SKILL.md#resource-routing) | — |
 | type parameters, constraints, generic methods | [go-generics](../go-generics/SKILL.md) | — |
 | `slog`, log levels, request-scoped fields, metrics and trace correlation | [go-logging](../go-logging/SKILL.md) | [go-security](../go-security/SKILL.md) if a secret or PII could reach a log line |
-| panic/recover and `Must` helpers, a deferred closure or a written file's `Close`, boundary copies, mutable globals, nil/aliasing/overflow traps | [go-defensive](../go-defensive/SKILL.md) | — |
+| panic/recover and `Must` helpers, a deferred closure or a written file's `Close`, boundary copies, mutable globals, nil/aliasing/overflow traps, `time.Time`/`Duration` values | [go-defensive](../go-defensive/SKILL.md) | — |
 | a cache, hot paths, allocations, benchmarks | [go-performance](../go-performance/SKILL.md) | [go-troubleshooting](../go-troubleshooting/SKILL.md) if the cause of slowness is unknown |
 | package layout, imports, dependencies | [go-packages](../go-packages/SKILL.md) | — |
 | restructuring or deleting existing code | [go-code-refactor](../go-code-refactor/SKILL.md) | — |
@@ -136,7 +135,8 @@ added to the existing test file — one case per observable clause of the
 documentation, not per branch of the body
 ([go-testing](../go-testing/SKILL.md#what-earns-a-test) says which cases earn
 a place): each request or input class, each method and status code,
-ordering, error text, and the empty, nil, and invalid inputs; a clause that
+ordering, the error a caller matches and any error text the documentation
+promises, and the empty, nil, and invalid inputs; a clause that
 says what the code must *not* do is a case too. The empty case is built from
 nil — a nil slice, a nil map, a request with no body — not from an empty
 literal: `[]T{}` already has the shape the case is meant to prove, and
@@ -285,7 +285,7 @@ The named helpers in skill examples (`validate`, `writeJSON`, `writeError`)
 show the order of an operation, not a list to reproduce.
 
 The budget counts what survives the restraint ladder in
-[OVER-ENGINEERING.md](../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder),
+[LADDER.md](../go-code-refactor/references/LADDER.md#the-restraint-ladder),
 climbed per declaration before the four rules are checked. Never trade input validation at a trust boundary,
 failure behavior, or a security control for a smaller count.
 
@@ -310,9 +310,7 @@ install can drop the scripts' executable bit.
 
 Run routine checks inline. The report carries only results observed for the
 current diff and scope, each as `pass`, `fail`, `unavailable (reason)`, or
-`skipped (reason)` per go-linting. Where the plugin hook runs, reuse its
-[edit hook record](../go-style-core/SKILL.md#the-edit-hook-record) only under
-go-linting's scope and freshness rules; silence never counts as pass.
+`skipped (reason)` per go-linting.
 
 ## Related Skills
 

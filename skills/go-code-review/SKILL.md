@@ -73,7 +73,7 @@ allowed-tools: Bash(bash:*)
 ## Less Code
 
 - [ ] **Subtract first**: for each added block, what can stop existing? Name the cut tag and show the shorter form; the hunt list and the reach-for table live with the owner → [go-code-refactor](../go-code-refactor/SKILL.md#delete-before-you-restructure)
-- [ ] **Shorter only where it reads as well**: never golf; validation at trust boundaries, data-loss error handling, and security checks are never "simplified" away, nor are the tests that fail when the logic breaks → [go-code-refactor](../go-code-refactor/references/OVER-ENGINEERING.md)
+- [ ] **Shorter only where it reads as well**: never golf; validation at trust boundaries, data-loss error handling, and security checks are never "simplified" away, nor are the tests that fail when the logic breaks → [go-code-refactor](../go-code-refactor/references/LADDER.md#the-restraint-ladder)
 - [ ] **Already in the repo**: for each added helper or type, search the module for one doing the same job; a near-duplicate is `reuse:` naming the existing symbol and its file → [go-code-refactor](../go-code-refactor/references/OVER-ENGINEERING.md#tags)
 - [ ] **What the diff orphaned**: a declaration whose last caller the diff removed is `delete:`; the `unused` linter sees only unexported ones, `deadcode -test ./...` the rest in a module with a `main` package → [go-code-refactor](../go-code-refactor/references/MECHANICAL.md#after-every-bulk-rewrite)
 
@@ -121,7 +121,7 @@ allowed-tools: Bash(bash:*)
 
 - [ ] **Empty list on a v1 wire**: in a package on `encoding/json` v1, a list the contract writes as `[]` keeps `out := make([]T, 0, n)`, since v1 writes nil as `null`; a change to `var out []T` there is a finding → [go-data-structures](../go-data-structures/SKILL.md#declaring-empty-slices)
 - [ ] **Copy depth**: check the ownership contract: `slices.Clone`/`maps.Clone` are shallow, and a type's `Clone` follows its documented contract. Flag a copy that violates the contract or an unrequested depth change presented as cleanup; a deeper copy that fixes an existing contract violation is a bug fix → [go-defensive](../go-defensive/references/BOUNDARY-COPYING.md#copy-depth-is-part-of-the-contract)
-- [ ] **Copying values**: do not copy structs containing locks or other synchronization values after use → [go-data-structures](../go-data-structures/SKILL.md); a value receiver on a type with `*T` methods is a finding, except encoders and `String` beside pointer decoders → [go-interfaces](../go-interfaces/SKILL.md#receiver-type)
+- [ ] **Copying values**: do not copy structs containing locks or other synchronization values after use (`go vet` copylocks reports the copy) → [go-functions](../go-functions/SKILL.md#pointers-to-interfaces); a value receiver on a type with `*T` methods is a finding, except encoders and `String` beside pointer decoders → [go-interfaces](../go-interfaces/SKILL.md#receiver-type)
 
 ## Security
 
@@ -197,7 +197,7 @@ allowed-tools: Bash(bash:*)
 - [ ] **The bar held**: a check the diff silences, skips, deletes, or loosens instead of fixing the code — the `bar` findings of `pre-review.sh --new-from-rev`, plus a removed table case the script cannot see — is a Should Fix without a reason a reviewer can check, a Must Fix when it hides a failure the diff causes → [go-linting](../go-linting/SKILL.md#holding-the-bar)
 - [ ] **Examples**: Include runnable `Example` functions or tests demonstrating usage → [go-documentation](../go-documentation/SKILL.md)
 - [ ] **Useful test failures**: Messages include what was wrong, inputs, got, and want; order is `got != want` → [go-testing](../go-testing/SKILL.md)
-- [ ] **Real transports**: Prefer a test server over mocking HTTP: `httptest.NewTestServer(t, h)` (Go 1.27+) when every request goes through `srv.Client()`, which is the only client that reaches the in-memory server — until `srv.Start()`, `srv.URL` is empty and then `http://example.com`, so another client sends the request to the real host; code under test that builds its own client gets `srv.Start()` first, which listens on loopback and sets `srv.URL`. At a 1.26 directive, `httptest.NewServer(h)` plus `t.Cleanup(srv.Close)` → [go-testing](../go-testing/SKILL.md)
+- [ ] **Real transports**: Prefer a test server over mocking HTTP: `httptest.NewTestServer(t, h)` (Go 1.27+) when every request goes through `srv.Client()`, which is the only client that reaches the in-memory server — `srv.URL` is empty until the first `srv.Client()` and `http://example.com` after it, so another client sends the request to the real host; code under test that builds its own client gets `srv.Start()` before any `Client()` (after one, `Start` panics `Server already started`), which listens on loopback and sets `srv.URL`. At a 1.26 directive, `httptest.NewServer(h)` plus `t.Cleanup(srv.Close)` → [go-testing](../go-testing/SKILL.md)
 - [ ] **Test context**: Tests use `t.Context()`, not `context.Background()`; work inside `t.Cleanup` uses `context.WithoutCancel(t.Context())`, since `t.Context()` is canceled before cleanup runs → [go-testing](../go-testing/SKILL.md)
 - [ ] **No sleep-based waits**: Timing tests use `synctest`, not `time.Sleep` → [go-testing](../go-testing/SKILL.md)
 

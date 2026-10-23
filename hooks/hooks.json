@@ -18,12 +18,12 @@
           {
             "type": "command",
             "command": "[ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/go-restraint-ladder.sh\" ] || exit 0; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/go-restraint-ladder.sh\"",
-            "timeout": 10
+            "timeout": 90
           },
           {
             "type": "command",
             "command": "[ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/go-subagent-routing.sh\" ] || exit 0; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/go-subagent-routing.sh\"",
-            "timeout": 10
+            "timeout": 90
           }
         ]
       }

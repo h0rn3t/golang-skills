@@ -103,7 +103,7 @@ the diagnostics.
 `go/ast` desyncs comments from the nodes a rewrite moves; `github.com/dave/dst`
 keeps them attached. Reach for it only when a bespoke fixer has to preserve
 comments — it is a dependency, and the ladder in
-[OVER-ENGINEERING.md](OVER-ENGINEERING.md) applies to tooling too.
+[LADDER.md](LADDER.md) applies to tooling too.
 
 ## After every bulk rewrite
 

@@ -12,7 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Claude Code plugin and Agent Skills pack: 24 Go skills under `skills/go-*/`,
 each a `SKILL.md` plus optional `references/`, `scripts/`, `assets/`. There is
-no Go application. The only Go module is `evals/`, whose tests are the
+no Go application. Two Go modules: `hooks/helper` (the hooks' parser and
+receipt runner, standard library only) and `evals/`, whose tests are the
 structural suite for the Markdown, shell scripts, and hooks, plus two headless
 runners (`evalrun`, `abrun`) that drive real model sessions. `source/` holds
 upstream style-guide snapshots and is never edited. `docs/` holds the retained
@@ -24,7 +25,7 @@ entry is removed.
 ## Commands
 
 Everything the tests shell out to must be on PATH: `go` (1.27), `gofmt`, and
-`golangci-lint` (v2.14.0 is pinned in CI; `TestScriptFunctional/SetupLintDryRun`
+`golangci-lint` (v2.15.0 is pinned in CI; `TestScriptFunctional/SetupLintDryRun`
 fails without the binary).
 
 ```bash
@@ -77,7 +78,10 @@ behavior-preserving changes. Skills link to siblings relatively
 copied into `~/.claude/skills/`.
 
 `hooks/hooks.json` wires six scripts that make the routing enforceable in
-Claude Code:
+Claude Code. They need bash and Go only: JSON parsing, the owner heuristics,
+the verification gate, and the check receipts live in `hooks/helper`, which
+`hooks/go-hook-helper.sh` builds on first use into
+`${XDG_CACHE_HOME:-~/.cache}/golang-skills/hook-helper-<cksum>`:
 
 - `go-code-routing.sh`: PostToolUse on `Skill|Read` records loaded skills;
   PreToolUse on `Edit|Write` blocks (exit 2) every `.go` edit until a router
@@ -101,7 +105,7 @@ Claude Code:
   this hook and the ladder hook print JSON `additionalContext`: a subagent
   never sees plain stdout.
 - `go-restraint-ladder.sh`: SessionStart and SubagentStart in a Go directory
-  print the ladder section of `OVER-ENGINEERING.md` plus the session's
+  print the ladder section of `LADDER.md` plus the session's
   `lite`/`full`/`ultra` row from go-code's Intensity table, both read at run
   time; UserPromptSubmit records a level word in `<state>/intensity`.
   `GOLANG_SKILLS_LADDER=lite|full|ultra|off`.

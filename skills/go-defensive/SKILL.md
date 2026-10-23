@@ -1,6 +1,6 @@
 ---
 name: go-defensive
-description: Use when hardening Go API boundaries or checking slice/map copies, aliasing, typed nils, cleanup/defer, narrowing overflow, float equality, nil channels, time, globals, interface compliance, or filesystem/crypto safety. Error strategy belongs to go-error-handling.
+description: Use when hardening Go API boundaries or checking slice/map copies, aliasing, typed nils, cleanup/defer, narrowing overflow, float equality, nil channels, time.Time and Duration values, globals, interface compliance, or filesystem/crypto safety. Error strategy belongs to go-error-handling.
 ---
 
 # Go Defensive Programming Patterns
@@ -16,7 +16,7 @@ description: Use when hardening Go API boundaries or checking slice/map copies, 
 - `references/GLOBAL-STATE.md` - Read when introducing or removing package globals.
 - `references/MUST-FUNCTIONS.md` - Read when deciding whether a panic-on-error helper is acceptable.
 - `references/PANIC-RECOVER.md` - Read when evaluating panic, recover, or crash containment.
-- `references/TIME-ENUMS-TAGS.md` - Read when handling time types or struct tags.
+- `references/TIME-ENUMS-TAGS.md` - Read when a `time.Duration` or `time.Time` field crosses JSON or another wire format.
 - `../go-http/references/JSON-V2.md` - Read when JSON v2 changes nil collections, tags, accepted input, or compatibility at an API boundary (Go 1.27+).
 
 ## Defensive Checklist Priority
@@ -179,12 +179,14 @@ confines nothing.
 
 ### Deletes Name What They Remove
 
-`RemoveAll` empties the root when the name resolves to the directory itself.
-`filepath.Join(dir, "")` and `filepath.Join(dir, "a/..")` are both `dir`, and
-`filepath.IsLocal("a/..")` is true, since `a/..` cleans to `.`. A `{id}`
-wildcard receives `ws/..` from `ws%2F..` and `..` from `%2E%2E`, and on
-go1.27.1 `root.RemoveAll("ws/..")`, with `ws` an existing entry, deletes
-everything under the root before it returns `invalid argument`. Rebuild the
+`os.RemoveAll(filepath.Join(dir, name))` deletes `dir` itself when the name
+cleans to `.`: `filepath.Join(dir, "")` and `filepath.Join(dir, "a/..")` are
+both `dir`, and `filepath.IsLocal("a/..")` is true. `root.RemoveAll` refuses
+`.` and `..`, but a name that reaches the root through an existing entry
+does not: on go1.27.1 `root.RemoveAll("ws/..")`, with `ws` present, deletes
+everything under the root before it returns `invalid argument`. A `{id}`
+wildcard receives `ws/..` from `ws%2F..`, `.` from `%2E`, and `..` from
+`%2E%2E`. Rebuild the
 name from a parsed value, so it names exactly one entry:
 
 ```go

@@ -260,6 +260,10 @@ func TestSpeedClaimGate(t *testing.T) {
 		"BenchmarkRun: sec/op −42%, allocs/op −99%",
 		"latency drops by -30% on the hot path",
 		"The arena gives a 2.1x speedup.",
+		"No allocation remains, and Run is 3x faster.",
+		// A negation earlier in the line is about something else.
+		"This doesn't change the API and makes Parse 3x faster.",
+		"It no longer allocates and runs 40% faster.",
 	} {
 		if out := stop(claim); !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "--verdict") {
 			t.Errorf("unmeasured claim %q = %q, want speed block", claim, out)
@@ -270,6 +274,8 @@ func TestSpeedClaimGate(t *testing.T) {
 		"Not measured: the change should be faster, but the comparison was skipped.",
 		"hex.EncodeToString would give the same names but no measurable speedup.",
 		"checks: gofmt pass · vet pass",
+		"This change does not make Parse faster; it only removes one copy.",
+		"The pool isn't measurably faster here.",
 	} {
 		if out := stop(report); out != "" {
 			t.Errorf("report %q = %q, want allowed", report, out)

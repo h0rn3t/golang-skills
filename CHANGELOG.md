@@ -4,6 +4,208 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+The remaining findings of the 2026-10-22 review. The wording changes under
+"Measured" were checked by abrun against the tree with every other change
+here (reference) on 2026-10-23, medium effort, n=2, no regression:
+
+| Corpus | Model | golden ref → base | $/run ref → base | Other |
+|---|---|---|---|---|
+| implement (12) | Sonnet 5.5 | 24/24 → 24/24 | 0.261 → 0.252 | gate blocks 23 → 18; test first 8/24 → 11/24 |
+| implement (12) | Opus 5.5 | 24/24 → 24/24 | 0.628 → 0.601 | test first 22/24 → 22/24 |
+| refactor (5) | Sonnet 5.5 | 10/10 → 10/10 | 0.201 → 0.202 | Δlines −18.4 → −18.8 |
+| refactor (5) | Opus 5.5 | 10/10 → 10/10 | 0.458 → 0.464 | Δlines −18.6 → −19.6 |
+| review (10) | Sonnet 5.5 | recall 0.92 → 0.96 | 0.176 → 0.177 | as-must 0.89 → 0.83 (noise band ±0.04) |
+
+### Measured
+
+- **One owner for the receipt protocol.** go-style-core and go-code route to
+  go-linting's Verification Gate instead of restating it, and the edit hook
+  prints one `--gate` verifier instead of one command per check.
+- **The restraint ladder lives in `go-code-refactor/references/LADDER.md`.**
+  The ladder hook reads it there; a host without the hook reads 5.1K
+  characters instead of the whole OVER-ENGINEERING.md (14K).
+- go-code: a fix skips the Contract Table but adds one case that fails before
+  the fix, and loads go-testing for it; the table's error case is the error a
+  caller matches plus any text the documentation promises. The routing table
+  names timers, receiver types, and `time.Time`/`Duration` values; five
+  descriptions say the same, and go-code's routes a behavior-preserving
+  refactor to go-code-refactor.
+- go-testing: the error-semantics example names the error (`wantErr`,
+  `errors.Is`); the main example no longer imports go-cmp; a parent-bound
+  `require` under `t.Parallel`; integration packages share one database; the
+  fake and the real store run one contract table.
+- go-linting: the default gate always runs `-race`; govulncheck without a
+  dependency change is `skipped (no dependency change)`; "Quiet the compiler"
+  joins Holding the Bar, and a check failing the same way after two fixes
+  goes to go-troubleshooting.
+- go-code-refactor: "usually deletable" names only what is provably safe; the
+  checklist covers evaluation order and side effects; `cmp.Diff` replaces an
+  `if` ladder only when go-cmp is already required and no field is
+  unexported.
+- go-concurrency, go-error-handling: errgroup only when go.mod already
+  requires `golang.org/x/sync`; go-concurrency defers `GOMAXPROCS` to
+  go-performance.
+- go-generics: reflection and `text/template` do not see a generic method;
+  `comparable` admits interfaces, so `==` panics on `any` holding a slice.
+- go-database: a unique value is decided by its constraint (`23505` to the
+  domain sentinel, or `ON CONFLICT DO NOTHING`); read-your-writes go to the
+  primary; pgx behind PgBouncer transaction pooling. go-logging: OTel
+  `trace_id` from the span context. go-resilience: deduplication is not
+  ordering (`version < $2`). go-performance: a cache write deletes the key.
+  go-error-handling: wrap context names the operation, not "failed to".
+  go-troubleshooting: the investigation note lives outside the tree.
+
+### abrun
+
+- `routing.contract_first` records whether a session's first `.go` edit was
+  a test file; `suppressions` counts new `//nolint`, `//lint:ignore`, and
+  `#nosec` in production files; a fixture can carry its own prompt in
+  `_golden/<task>/prompt.txt`.
+- New implement fixtures `signup` (uniqueness decided by the constraint) and
+  `lintfix` (one real errcheck finding, one gosec false positive). Both are
+  saturated: every session in every arm, no-skill included, passes the
+  golden. In `lintfix` no-skill swaps jitter to `crypto/rand` 3/3; the skill
+  arms add a reasoned `//nolint:gosec` in 6/8 sessions, the same with and
+  without a drafted "no new suppression without approval" rule, which was
+  therefore dropped.
+
+### Hooks
+
+- **The hooks no longer need `python3`.** Their JSON parsing, the routing
+  heuristics, the verification gate's shell parser, and the receipt runner
+  (`go-check-receipt.py`) are one standard-library Go program in
+  `hooks/helper`, which `hooks/go-hook-helper.sh` builds on first use into
+  the user cache directory, keyed by a checksum of its sources. SessionStart
+  hooks get 90 s for that first build. Without `go` the routing gate says
+  once per session that it is off; its marker lives in the session's state,
+  not one file for the whole machine. CI no longer runs Python either: the
+  link check is `TestRelativeLinks`, the Go release watch reads the download
+  index with `jq`. abrun, Sonnet 5.5 medium with `-shell go`, 1.42.0 hooks →
+  these: implement (feed, gateway, catalog, roster, n=2) golden 8/8 → 8/8,
+  $0.321 → $0.333 per run; refactor (five fixtures, n=1) 5/5 → 5/5, Δlines
+  −18.4 → −19.0; gate blocks, receipts, and `hook_credit` counts alike, no
+  helper failure in any trace.
+- **A test receipt passes only when a test ran.** The edit hook runs the
+  package tests with `-json` under the receipt runner and records `skipped`
+  ("no test ran") when exit 0 ran no test (a `TestMain` without `m.Run`, every
+  test skipped); a failure shows only the failing tests' output.
+- **An unasked lint run loads no repository plugin.** A repository config that
+  declares `custom:` linters is replaced by the bundled baseline in the edit
+  hook; the receipt keeps the repository config and says why, so that run
+  earns no hook credit and an edit of the config invalidates it. README says
+  the hook runs repository code and names the switches.
+- The routing gate counts only a whole Read of a `SKILL.md`. README says shell
+  edits are not held and that Codex runs the hooks with the routing gate off.
+- The prompt hook no longer reads "Go ahead and …" as the language, nor "Go
+  to", "Go through", "Go over", or "Go on" where a sentence starts ("in Go to
+  cut latency" still names it), and no longer uses `mapfile` (macOS bash 3.2); `TestPortability` checks
+  `hooks/*.sh` for bash 4 features.
+- The speed gate accepts a negated claim ("does not make Parse faster") when
+  at most three words, none of them `and`/`but`, stand between the negation
+  and the claim: "doesn't change the API and makes Parse 3x faster" is still
+  a claim.
+- Receipt runs and verification state older than two days are removed with
+  the routing state.
+- The verification gate names a Read fallback for go-linting; `go-verify`
+  without a repository config lints with the bundled baseline and reports
+  `INCOMPLETE` when only golangci-lint's defaults ran.
+- Hook comments are in English.
+- `TestSkillBodyArgumentPlaceholders` also rejects `${CLAUDE_*}`.
+
+### Scripts
+
+- **The five AST wrappers build their helper for the host**, whatever
+  `GOOS`/`GOARCH` the caller exports, key the cache by platform, fall back to
+  `$TMPDIR` when the cache directory is read-only, and exit 2 when the helper
+  cannot run.
+- **A second positional path exits 2** in `pre-review.sh`, `check-naming`, and
+  `verify-refactor.sh` instead of silently checking only the last one.
+- `pre-review.sh`: a `go vet` that fails for the environment (no module, a
+  toolchain or network failure) is `unavailable` (`--strict` exits 2), one
+  that matches nothing or a missing path is `no_go_files`, and any other
+  failure, an import cycle included, is `fail`; JSON gains
+  `"result": "pass|fail|incomplete"`; a new `.golangci.*`, untracked included,
+  is `lint-config-changed`.
+- `check-interface-compliance` leaves a pair undecided
+  (`"status":"incomplete_types"`) when an import has no export data instead of
+  reporting a false implementation, resolves nested and `go.work` modules from
+  their own roots, skips aliases and type-set constraints, counts an
+  instantiation as the compiler's check, and no longer stops on a broken test
+  file it does not scan.
+- `check-errors` sees logrus, zap, zerolog, klog, glog, and sugared loggers,
+  keeps the pair across `err = fmt.Errorf(..., err)` and a returned
+  `&opError{Err: err}`, and no longer flags `err.Error() != ""` or a
+  `catalog` field. It and `check-docs` skip nested modules and go.mod
+  `ignore` directories.
+- `check-architecture`: a `module-root` without its own go.mod exits 2, and
+  so does a `go env` that cannot name the host platform; a
+  vendored module lists with `-mod=vendor`; a test-only package is skipped
+  without `--include-tests`.
+- `verify-refactor.sh` runs one gofmt over the files of the directories
+  `go list` resolves (no `testdata/` or nested modules); `//line` no longer
+  lowers code LOC.
+- `check-debt.sh` no longer reports a clean ledger past ARG_MAX; a scan
+  failure exits 2. `gen-table-test.sh` exits 2 on an unwritable `--output` and
+  rejects a black-box `*_test` package.
+
+### CI
+
+- **CI pins golangci-lint v2.15.0.** The bundled baseline config verifies
+  unchanged under it; it sets none of the `exhaustive` options 2.15.0
+  renamed. go-linting and the release checklist name the same version.
+
+### Skills
+
+- **go-linting baseline** sets `run.relative-path-mode: gomod` (exclusions
+  matched the project's ancestors, so revive `exported` never ran under
+  `cmd/` or `internal/`) and enables revive `defer` with `loop`. Gate rules:
+  a check's result is its own exit status, not a pipeline's; an all-skipped
+  package is a run with no tests.
+- go-style-core: the idiom card writes JSON with `json.Marshal` then one write
+  (`MarshalWrite` leaves a truncated 200 on a mid-encode failure); the
+  directive rule names the forms the compiler does not gate; ServeMux
+  patterns need Go 1.22.
+- go-code-refactor: `waitgroupgo` and `slicessort` hunks are Tier 3; an alias
+  move changes `%T`, `reflect`, and `gob` names; plus `hostport` scope,
+  `nojsonv2`, FMA by architecture, `rand.NewSource` concurrency, `COALESCE`,
+  and a summary line before `Deprecated:`.
+- go-code-review and OVER-ENGINEERING route to the right owners; the
+  test-server item says `Start` comes before any `Client()`.
+- go-performance: a per-write syscall is batched with `bufio` before
+  declining; mutex profiles show `Unlock`, block profiles `Lock`; profile
+  commands write under `$TMPDIR`; BENCHMARKS.md decides with `--verdict`.
+- go-context: only `WithCancelCause` takes `cancel(nil)`; the value example
+  goes through an accessor. go-concurrency: `SetLimit(max(limit, 1))`; a
+  leftover `GODEBUG=asynctimerchan=1` stops a 1.27 binary at startup.
+- go-logging: the route label comes from `mux.Handler(r)` before `next`; one
+  composite propagator; the custom level example sets the handler level and
+  names `TRACE`.
+- go-http, go-security: one `CrossOriginProtection` per server; mTLS identity
+  is `VerifiedChains[0][0]`; outbound bodies read `limit+1`; sniffing and v1
+  unknown-field behavior corrected; delete-path facts match go1.27.1.
+- go-database: `sql.Open` does not parse a pgx DSN; 40001 can come from any
+  statement; name the columns instead of `SELECT *` with positional `Scan`;
+  `CREATE INDEX CONCURRENTLY` sits alone in its migration; backfills walk the
+  key. go-packages: a checksum mismatch is a finding; `main` exits through
+  `slog.Error` + `os.Exit(1)`.
+- go-interfaces: a recover guard uses comma-ok and re-panics `p` unchanged.
+  go-functions: options go on a new constructor, not an existing one; the
+  embedding row covers fields; the `Formatter` example is errcheck-clean.
+  go-naming: `errname` checks prefix and suffix only. go-generics: a zero
+  `maphash.Seed` panics.
+- go-defensive and go-data-structures examples compile, wait for their
+  goroutine, and print what the comments say.
+- go-testing: the fake store returns copies; `go 1.26` fallbacks for
+  `NewTestServer` and `synctest.Sleep`; the duplicate acceptance section is
+  gone.
+- go-troubleshooting: `%v` wrapping is confirmed with errorlint; CI-only
+  races, deadlock-detector blind spots, untracked bisect tests, untruncated
+  goroutine dumps grouped by function and line, `curl -fsS`, sampled heap
+  profiles, and the right owners for timers and `GOMEMLIMIT`.
+- COMPATIBILITY.md: `forvar` scope, `b.N` inside `b.Loop`, slogtest versions,
+  nine recommended APIs, and the missing-`go`-line rule under
+  `-mod=readonly`.
+
 ## [1.42.0] - 2026-10-23
 
 - **Subagents get the router note and the ladder.** On SubagentStart Claude

@@ -727,7 +727,10 @@ func TestRun(t *testing.T) {
 func TestPackagesExampleRunPattern(t *testing.T) {
 	code := exampleBlock(t, "skills/go-packages/SKILL.md", "## Exit in Main")
 	buildExampleModule(t, map[string]string{"main.go": `package main
-import "log"
+import (
+ "log/slog"
+ "os"
+)
 func run() error { return nil }
 ` + code + `
 `})

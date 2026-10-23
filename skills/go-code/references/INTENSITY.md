@@ -6,7 +6,7 @@
 
 A level word right after the command — `/go-code lite <task>`,
 `/go-code ultra <task>` — or `lite mode` / `ultra mode` in the prompt sets how
-hard the [restraint ladder](../../go-code-refactor/references/OVER-ENGINEERING.md#the-restraint-ladder)
+hard the [restraint ladder](../../go-code-refactor/references/LADDER.md#the-restraint-ladder)
 pushes. The word is never part of the task. The level holds for the rest of
 the session, until another level word; `full` is the default and returns to
 it. A behavior-preserving refactor runs at `full` whatever the word: the

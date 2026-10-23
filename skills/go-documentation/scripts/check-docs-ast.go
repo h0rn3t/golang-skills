@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const version = "1.4.0"
+const version = "1.5.0"
 
 // standardMethods implement a standard interface whose documentation covers
 // them. It is revive exported's commonMethods (v1.15.0); revive also skips
@@ -66,8 +66,9 @@ DESCRIPTION
     go-linting gate, it skips generated files (a "Code generated ... DO NOT
     EDIT." line); unlike the gate, whose revive excludes internal/ and cmd/,
     it reports those too.
-    As go ./... does, it skips vendor and testdata directories and directories
-    or files whose names begin with "." or "_".
+    As go ./... does, it skips vendor and testdata directories, directories
+    or files whose names begin with "." or "_", nested modules, and
+    directories the go.mod ignore directive names.
 
     Exits 0 if everything is documented, 1 if symbols lack docs, 2 on a usage
     error, when the helper does not build, or when a file does not parse. The other files are still checked;
@@ -333,11 +334,13 @@ func findGoFiles(target string) ([]string, error) {
 
 func walkGoFiles(root string) ([]string, error) {
 	var files []string
+	modRoot, ignores := moduleIgnores(root)
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		// Skip what go ./... skips (go help packages), but never the root.
+		// Skip what go ./... skips (go help packages), but never the root; nested
+		// modules and ignore directives are handled below.
 		if name := d.Name(); path != root && (name == "vendor" || name == "testdata" ||
 			strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")) {
 			if d.IsDir() {
@@ -346,6 +349,9 @@ func walkGoFiles(root string) ([]string, error) {
 			return nil
 		}
 		if d.IsDir() {
+			if path != root && outsideModule(modRoot, ignores, path) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
@@ -355,6 +361,75 @@ func walkGoFiles(root string) ([]string, error) {
 	})
 	sort.Strings(files)
 	return files, err
+}
+
+// moduleIgnores finds the go.mod at or above root and returns its directory
+// and its ignore directives (Go 1.25+), which go ./... also leaves out.
+func moduleIgnores(root string) (string, []string) {
+	dir, err := filepath.Abs(root)
+	if err != nil {
+		return "", nil
+	}
+	for {
+		data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+		if err == nil {
+			return dir, parseIgnores(string(data))
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", nil
+		}
+		dir = parent
+	}
+}
+
+func parseIgnores(gomod string) []string {
+	var patterns []string
+	inBlock := false
+	for line := range strings.Lines(gomod) {
+		line, _, _ = strings.Cut(line, "//")
+		fields := strings.Fields(line)
+		switch {
+		case inBlock && len(fields) == 1 && fields[0] == ")":
+			inBlock = false
+		case inBlock && len(fields) == 1:
+			patterns = append(patterns, strings.Trim(fields[0], "\"`"))
+		case len(fields) == 2 && fields[0] == "ignore" && fields[1] == "(":
+			inBlock = true
+		case len(fields) == 2 && fields[0] == "ignore":
+			patterns = append(patterns, strings.Trim(fields[1], "\"`"))
+		}
+	}
+	return patterns
+}
+
+// outsideModule reports a directory below the walk root that go ./... does
+// not enter: one holding its own go.mod, or one an ignore directive names
+// ("./x" from the module root, "x" anywhere in it).
+func outsideModule(modRoot string, ignores []string, dir string) bool {
+	if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+		return true
+	}
+	if modRoot == "" || len(ignores) == 0 {
+		return false
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(modRoot, abs)
+	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
+		return false
+	}
+	rel = "/" + filepath.ToSlash(rel) + "/"
+	for _, pattern := range ignores {
+		anchored, relative := strings.CutPrefix(pattern, "./")
+		anchored = "/" + strings.Trim(filepath.ToSlash(anchored), "/") + "/"
+		if relative && strings.HasPrefix(rel, anchored) || !relative && strings.Contains(rel, anchored) {
+			return true
+		}
+	}
+	return false
 }
 
 func packageKey(path, name string) string {

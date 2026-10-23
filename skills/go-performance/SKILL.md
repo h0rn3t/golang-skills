@@ -77,7 +77,10 @@ Build in a loop with `strings.Builder`, calling `Grow(n)` first when the final s
   `ctx`. A key of the user ID alone serves one tenant's record to another.
 - **One expiry rule, stated.** The TTL is the staleness the caller accepts. A
   balance, a permission, or stock at checkout is not cached. A failed load is
-  returned and not kept.
+  returned and not kept. A write deletes the key after its transaction
+  commits and never stores the value it was handed: two writers that commit
+  in one order and set the cache in the other keep the older value until the
+  TTL. Only a load fills.
 - **Concurrent misses share one load**, or a cold hot key sends every waiting
   request to the origin at once. Use `golang.org/x/sync/singleflight` where the
   module already requires `golang.org/x/sync`, otherwise the in-flight entry
@@ -197,16 +200,19 @@ slower — and keeps `--save`/`--baseline` with `benchstat`
 
 ### Read the Profile
 
-`go test -run '^$' -bench <name> -cpuprofile cpu.prof`, then
-`go tool pprof -top -cum cpu.prof`; the row decides the class of fix:
+`go test -run '^$' -bench <name> -o "${TMPDIR:-/tmp}/pkg.test" -cpuprofile "${TMPDIR:-/tmp}/cpu.prof" ./path/to/pkg`
+(`-o` and absolute paths keep the test binary and the profile out of the
+tree), then `go tool pprof -top -cum "${TMPDIR:-/tmp}/cpu.prof"`; the row
+decides the class of fix:
 
 | The profile shows | The time goes to | First move |
 |---|---|---|
 | a package function and what it calls: `slices.Index`, `strings.Fields`, `regexp.Compile`, a parse per call | repeated or superlinear work | do it once where its input changes; a set in place of a scan |
 | `runtime.mallocgc` above about 15% cumulative, or `gcBgMarkWorker` and `gcAssistAlloc` above about 5% | allocation and GC | `-memprofile`, then `pprof -sample_index=alloc_space`; fewer values on the heap per call |
-| `sync.(*Mutex).Lock` in a `-mutexprofile` of a `RunParallel` benchmark | contention | a shorter critical section; per-key state behind a read-mostly map ([go-concurrency](../go-concurrency/SKILL.md)) |
+| `sync.(*Mutex).Unlock` at the top of a `-mutexprofile`, or `sync.(*Mutex).Lock` in a `-blockprofile`, of a `RunParallel` benchmark | contention | a shorter critical section; per-key state behind a read-mostly map ([go-concurrency](../go-concurrency/SKILL.md)) |
 | total samples far below the profile's duration | waiting on I/O, a round trip per item, or a lock | an existing batch API; [go-database](../go-database/SKILL.md) for a query per row |
-| `crypto/*`, `compress/*`, or a syscall at the top | work the platform already does at speed | nothing in this code: report the share and decline |
+| a syscall (`syscall.Write`, `Syscall6`) at the top | one system call per small read or write | count calls per op: a `bufio.Writer`/`bufio.Reader` or one batched call is class 1; decline only when each unit of work already makes one call |
+| `crypto/*` or `compress/*` doing the payload's own work, set up once | work the platform already does at speed | nothing in this code: report the share and decline |
 
 ### Fix Order
 

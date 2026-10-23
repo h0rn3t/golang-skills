@@ -77,6 +77,11 @@ not have (v1, v3, v5, custom sources).
   declares: the `// indirect` and `go.sum` lines are part of the diff, and
   `go mod graph | grep <module>@` names who pulled a surprise version. Tests
   run before and after; `govulncheck` covers the new versions.
+- **A checksum mismatch is a finding.** `SECURITY ERROR` from the `go` command
+  means the bytes differ from `go.sum` or the checksum database: report the
+  module, version, and both hashes. Never edit `go.sum` or set `GOSUMDB`,
+  `GONOSUMDB`, or `GOPRIVATE` to get past it; `go clean -modcache` fixes only
+  what `go mod verify` reports as `dir has been modified`.
 - **Pin executable tools with `go get -tool <package>@<version>`** (Go 1.24+),
   then run them via `go tool <name>`. Tool dependencies share the module graph.
   For golangci-lint, prefer a version-pinned release binary; if using `go tool`,
@@ -154,7 +159,8 @@ return errors.
 ```go
 func main() {
     if err := run(); err != nil {
-        log.Fatal(err)
+        slog.Error("run", "err", err)
+        os.Exit(1)
     }
 }
 ```

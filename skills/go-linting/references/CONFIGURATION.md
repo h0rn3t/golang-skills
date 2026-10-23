@@ -1,7 +1,7 @@
 # Linter Configuration and CI
 
 > Sources: golangci-lint v2 configuration schema and linter catalogue; source/uber-go-style/style.md (Linting); GitHub Actions docs; `go help testflag`
-> Authority: project policy for the baseline config and the CI pipeline shape; tool behavior follows golangci-lint 2.14.0 and go1.27.2
+> Authority: project policy for the baseline config and the CI pipeline shape; tool behavior follows golangci-lint 2.15.0 and go1.27.2
 > Last verified: 2026-10-10
 
 ## Setup Procedure
@@ -17,7 +17,11 @@
 as the minimum, adds `bodyclose`, `gocyclo`, `gosec`, `ineffassign`, and
 `misspell` for production code, and turns on the skill-enforcing set below; the
 comment beside each entry names the rule it enforces. `goimports` runs as a
-formatter under `formatters`, not as a linter.
+formatter under `formatters`, not as a linter. `run.relative-path-mode: gomod`
+resolves the `exclusions` paths from the target's `go.mod`: under the default
+they resolve from the config file, so a baseline passed with `--config` from the
+skill directory matches the project's own ancestors, and a module under any
+`cmd/` or `internal/` directory lost revive's `exported` check.
 
 ## Linters That Enforce the Skills
 
@@ -53,7 +57,7 @@ owns the directive).
 
 ```bash
 # Pin the version this skill is verified against
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 ```
 
 ## CI/CD Integration

@@ -12,10 +12,10 @@
 original := []int{1, 2, 3, 4, 5}
 subset := original[1:3]
 subset[0] = 99
-fmt.Println(original)  // [1, 99, 3, 4, 5] - modified!
+fmt.Println(original) // [1 99 3 4 5] - modified!
 
 // Fix: make independent copy
-subset := slices.Clone(original[1:3])
+subset = slices.Clone(original[1:3])
 ```
 
 ### 2. Append May or May Not Reallocate
@@ -25,6 +25,7 @@ a := make([]int, 3, 5)  // len=3, cap=5
 b := a[0:3]
 a = append(a, 4)    // Fits in capacity - still shared
 a = append(a, 5, 6) // Exceeds capacity - now independent
+fmt.Println(b)      // [0 0 0]: b still sees the old array
 ```
 
 ### 3. Memory Leaks from Large Backing Arrays

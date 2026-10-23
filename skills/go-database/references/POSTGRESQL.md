@@ -81,12 +81,19 @@ Source: [ALTER TABLE](https://www.postgresql.org/docs/17/sql-altertable.html).
 
 - On busy ordinary tables, `CREATE INDEX CONCURRENTLY` permits writes but must
   run outside a transaction block. Use the runner's per-migration setting or a
-  separately tracked step. Partitioned tables require a different build plan.
+  separately tracked step, and keep it alone in its migration file: statements
+  sent as one string run in one implicit transaction, and it fails with
+  `cannot run inside a transaction block`. Partitioned tables require a
+  different build plan.
 - After a failed concurrent build, inspect `pg_index.indisvalid`; an invalid
   unique index can still enforce uniqueness. Resolve the cause and plan cleanup
   or rebuild before retrying. `IF NOT EXISTS` does not establish index validity.
 
 Source: [CREATE INDEX](https://www.postgresql.org/docs/17/sql-createindex.html).
+
+A batch backfill walks the key (`WHERE id > $1 ORDER BY id LIMIT $2`), never
+`WHERE new_col IS NULL`: a row whose new value computes to NULL matches every
+batch, and `SKIP LOCKED` returns no rows while locked ones remain.
 
 For rolling deployments, add compatible schema first, coordinate writers,
 backfill if needed, switch readers, and remove old fields only after old code

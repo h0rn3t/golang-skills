@@ -172,6 +172,9 @@ func withCORS(next http.Handler, origins ...string) (http.Handler, error) {
 }
 ```
 
+`withCORS` replaces the server-level `CrossOriginProtection`; do not wrap it in
+another.
+
 - `net/http/pprof` and `expvar` register on `http.DefaultServeMux` in `init`,
   so one blank import anywhere in the binary publishes them on every server
   whose `Handler` is nil. Serve the public listener from your own mux and

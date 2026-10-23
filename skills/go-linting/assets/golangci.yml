@@ -1,4 +1,8 @@
 version: "2"
+run:
+  # Exclusion paths are relative to go.mod, not to this file: the gate
+  # passes --config from the installed skill directory.
+  relative-path-mode: gomod
 linters:
   enable:
     # Minimum recommended
@@ -51,6 +55,9 @@ linters:
         - name: early-return
         - name: indent-error-flow
         - name: superfluous-else
+        # go-defensive: a defer in a loop runs at function exit, not per iteration
+        - name: defer
+          arguments: [["loop"]]
     iface:
       # opaque only: `unused` and `identical` report exported interfaces a
       # library declares for its callers.

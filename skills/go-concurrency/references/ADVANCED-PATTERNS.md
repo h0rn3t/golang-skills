@@ -9,15 +9,18 @@ CPU-bound parallelization.
 
 ## Bounded Work with errgroup
 
-Use `golang.org/x/sync/errgroup` for related operations when one failure should
-cancel the remaining work. For finite input, `SetLimit` bounds active tasks
+When `go.mod` already requires `golang.org/x/sync`, use its `errgroup` for
+related operations when one failure should cancel the remaining work; without
+it, `wg.Go` with a buffered-channel semaphore and `context.WithCancelCause`
+does the same, and adding the module goes through
+[go-packages](../../go-packages/SKILL.md). For finite input, `SetLimit` bounds active tasks
 without a separate worker pool. Keep a worker pool when queue ownership or
 long-lived workers are part of the contract.
 
 ```go
 func processAll(ctx context.Context, items []Item, limit int) error {
     g, groupCtx := errgroup.WithContext(ctx)
-    g.SetLimit(limit)
+    g.SetLimit(max(limit, 1)) // 0 blocks every Go forever; a negative limit is unbounded
     for _, item := range items {
         g.Go(func() error { return process(groupCtx, item) })
     }
@@ -35,8 +38,8 @@ ignores its context turns one failure into a full run.
 - `WithContext` cancels the derived context on the first task error **or when
   `Wait` returns**, even on success. Use the parent context for subsequent work.
   Cancellation is cooperative; it cannot stop a task that ignores it.
-- `SetLimit(0)` prevents new tasks; a negative limit means unbounded concurrency.
-  The caller passes a positive limit.
+- `SetLimit(0)` blocks every `Go` call forever (an unset config field is enough);
+  a negative limit means unbounded concurrency.
   Set the limit before starting tasks and do not change it while tasks run.
 - `Go` blocks while the limit is full; that wait is not context-selectable.
   Avoid nested submissions to the same saturated group. If admission itself
@@ -107,7 +110,5 @@ Size the fan-out with `runtime.GOMAXPROCS(0)`, not `runtime.NumCPU()`:
 `NumCPU` counts the logical CPUs the process may run on (its affinity mask)
 and ignores the cgroup CPU limit, so a
 container capped at 2 CPUs on a 64-core host spawns 64 workers that thrash.
-When the main module's `go` directive is 1.25 or later the default `GOMAXPROCS`
-is cgroup-aware (an older directive builds with `containermaxprocs=0` in
-`DefaultGODEBUG`, and the default stays the host's CPU count), and
-`runtime.SetDefaultGOMAXPROCS()` restores that default after a manual override.
+How `GOMAXPROCS` itself follows the cgroup limit is
+[go-performance](../../go-performance/SKILL.md#runtime-settings)'s.

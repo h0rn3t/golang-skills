@@ -138,16 +138,22 @@ A feature in a service is not done until an operator can see it fail:
   that reads a metric next to its declaration.
 - **Cardinality** — label values stay bounded (method, route pattern, status);
   never user IDs, full URLs, or request bodies. The route label is the
-  `Pattern` field (Go 1.23+) of the `*Request` the mux received, read after
-  it returns: after `next.ServeHTTP(w, r2)` with `r2 := r.WithContext(ctx)`,
-  that is `r2.Pattern`, while the middleware's own `r.Pattern` stays empty.
-  `cmp.Or(r2.Pattern, "unmatched")` (Go 1.22+) labels a request no pattern
-  matched.
+  pattern the mux will match, read before `next` with
+  `_, route := mux.Handler(r)` (`""` for a 404 or 405), labelled
+  `cmp.Or(route, "unmatched")` (Go 1.22+). The `Pattern` field (Go 1.23+) of
+  a request the middleware passed on is set only when `next` is the mux
+  itself: a wrapper in between that passes `r.WithContext(…)`, like
+  go-security's auth wrapper, leaves it empty.
 - **Logs** — structured key-value records carrying the request or trace ID,
-  which needs the enriched logger or context handler described above.
+  which needs the enriched logger or context handler described above. In an
+  OpenTelemetry stack that handler reads `sc := trace.SpanContextFromContext(ctx)`
+  and, when `sc.IsValid()`, adds `trace_id`/`span_id` from
+  `sc.TraceID().String()`/`sc.SpanID().String()`, never a key of its own, so
+  logs join the traces.
 - **Traces** — in an OpenTelemetry stack, `otel.SetTextMapPropagator` with
-  `propagation.TraceContext{}` (plus `propagation.Baggage{}` when baggage is
-  used) beside `otel.SetTracerProvider`: the global propagator is a no-op, so
+  `propagation.TraceContext{}` beside `otel.SetTracerProvider`; with baggage,
+  one call with `propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})`,
+  since a second `Set…` call replaces the first. The global propagator is a no-op, so
   without it `otelhttp.NewHandler` and `otelhttp.NewTransport` neither read
   nor send `traceparent` and each service starts its own trace. A failed span
   gets `span.RecordError(err)` and `span.SetStatus(codes.Error, …)`, since

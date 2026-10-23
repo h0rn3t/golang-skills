@@ -62,8 +62,11 @@ for _, item := range items {
 With `context.WithCancelCause`, `WithTimeoutCause`, or `WithDeadlineCause`,
 `ctx.Err()` still returns `Canceled` or `DeadlineExceeded`; only
 `context.Cause(ctx)` returns the reason supplied, so a caller that must tell
-this cancellation or timeout from an upstream one reads `Cause`, and
-`defer cancel(nil)` releases a cause context on the success path.
+this cancellation or timeout from an upstream one reads `Cause`.
+`WithCancelCause` returns a `CancelCauseFunc`, released on the success path
+with `defer cancel(nil)`; `WithTimeoutCause` and `WithDeadlineCause` return a
+plain `CancelFunc` (`defer cancel()`), and their cause is set only when the
+timer fires.
 
 `context.WithoutCancel(ctx)` keeps the values but drops cancellation; use it
 for work that must outlive the request (audit log, cleanup) and give that work

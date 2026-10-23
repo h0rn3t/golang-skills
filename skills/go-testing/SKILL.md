@@ -48,6 +48,10 @@ allowed-tools: Bash(bash:*)
   proves the wiring, not the behavior: assert the observable result, through a
   fake ([TEST-ORGANIZATION.md](references/TEST-ORGANIZATION.md#test-double-types)).
   A spy stays where the call is the contract — an email sent, an event emitted.
+  Where the package has the real store too, the cases live in one
+  `func testStore(t *testing.T, s Store)` run against the fake and, under the
+  `integration` tag, the real store; a case only the fake passes is a bug in
+  the fake.
 - **Coverage is a question, not a target.** An uncovered line asks which bug
   would go unnoticed there; when the answer is none, it stays uncovered.
 
@@ -67,8 +71,8 @@ catches is the missing case. Review runs the same probe for real
 | Instead of | Use | Since |
 |---|---|---|
 | `context.Background()` in a test | `t.Context()`; work inside `t.Cleanup` uses `context.WithoutCancel(t.Context())`, since `t.Context()` is cancelled before cleanups run | 1.24 |
-| `httptest.NewServer` + `defer srv.Close()` | `httptest.NewTestServer(t, h)` — registers cleanup; only `srv.Client()` reaches it until `srv.Start()` (below) | 1.27 |
-| Real waits for timeout paths | `synctest.Sleep` inside a bubble (fake clock), from the test goroutine only: it calls `synctest.Wait`, which panics with `wait already in progress` when two goroutines reach it at once, so a goroutine the code under test starts sleeps with `time.Sleep` | 1.27 |
+| `httptest.NewServer` + `defer srv.Close()` | `httptest.NewTestServer(t, h)` — registers cleanup; only `srv.Client()` reaches it until `srv.Start()` (below). At a `go 1.26` directive: `srv := httptest.NewServer(h); t.Cleanup(srv.Close)` | 1.27 |
+| Real waits for timeout paths | `synctest.Sleep` inside a bubble (fake clock), from the test goroutine only: it calls `synctest.Wait`, which panics with `wait already in progress` when two goroutines reach it at once, so a goroutine the code under test starts sleeps with `time.Sleep`. At 1.26: `time.Sleep(d); synctest.Wait()` | 1.27 |
 | A logger or command under test writing to `os.Stdout`/`os.Stderr` | `slog.New(slog.NewTextHandler(t.Output(), nil))` — printed with its test, on failure or `-v`; a `fmt.Println` in the test itself is `t.Log` | 1.25 |
 | Ad-hoc temp dir for output to keep | `t.ArtifactDir()` with `go test -artifacts -outputdir=DIR` — otherwise removed after the test | 1.26 |
 
@@ -80,8 +84,8 @@ func TestFetch(t *testing.T) {
     if err != nil {
         t.Fatalf("Fetch(%q) error = %v, want nil", srv.URL, err)
     }
-    if diff := cmp.Diff(want, got); diff != "" {
-        t.Errorf("Fetch(%q) mismatch (-want +got):\n%s", srv.URL, diff)
+    if got != want {
+        t.Errorf("Fetch(%q) = %q, want %q", srv.URL, got, want)
     }
 }
 ```
@@ -140,7 +144,9 @@ wrong test. Through `assert` the failure lands on the parent and the subtest
 stays green; the tell in `-v` output is a parent FAIL over subtests that all
 PASS. A `require` through it calls `FailNow` on the parent from the
 subtest's goroutine; the tell is `subtest may have called FailNow on a
-parent test`. Build it from the subtest's own `t`.
+parent test`; under `t.Parallel` subtests the binary dies instead with
+`panic: test executed panic(nil) or runtime.Goexit`. Build it from the
+subtest's own `t`.
 
 For protocol buffers, add `protocmp.Transform()` as a cmp option. Always
 include the direction key `(-want +got)` in diff messages. Compare serialized
@@ -218,15 +224,22 @@ func newStore(t *testing.T) *Store {
 
 ## Test Error Semantics
 
-> **Advisory**: Test error semantics, not error message strings.
+> **Advisory**: Test the error a Go caller receives by its semantics
+> (`errors.Is`, `errors.AsType`), not its message string. Text the
+> documentation promises on the wire (a response body, a CLI message) is the
+> contract and is compared as text.
 
-For simple presence checks when specific semantics don't matter:
+A case that expects an error names which one, as `wantErr error`; a bare
+`err != nil` stays green when an earlier step fails first. A nil `wantErr`
+makes the same check require success:
 
 ```go
-if gotErr := err != nil; gotErr != tt.wantErr {
-    t.Errorf("f(%v) error = %v, want error presence = %t", tt.input, err, tt.wantErr)
+if !errors.Is(err, tt.wantErr) {
+    t.Errorf("Parse(%q) error = %v, want %v", tt.in, err, tt.wantErr)
 }
 ```
+
+Presence alone fits only a function with one error path.
 
 ---
 

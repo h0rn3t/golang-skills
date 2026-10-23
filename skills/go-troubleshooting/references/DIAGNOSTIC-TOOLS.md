@@ -38,7 +38,7 @@ read-only diagnostic step. Capture one profile at a time with bounded duration;
 | `GODEBUG=asyncpreemptoff=1` | Disable async preemption | Ruling preemption in or out for a tight-loop hang |
 | `GODEBUG=inittrace=1` | Time and allocation per package `init` | Slow startup |
 | `GODEBUG=http2debug=2` | HTTP/2 frame log | Client/server stall on HTTP/2 |
-| `GOMAXPROCS=1` | One P | Making a race or ordering bug reproduce |
+| `GOMAXPROCS=1` | One P | Making an ordering bug reproduce |
 | `GOMEMLIMIT=500MiB` | Soft limit on Go runtime-managed memory (Go 1.19+) | Tuning memory/GC tradeoffs; excludes native allocations and is not an RSS cap or leak diagnosis |
 | `GOFLAGS=-race` | Race detector on for every build in the shell | CI parity locally |
 
@@ -71,11 +71,7 @@ read once — take the total from the output.
 Programmatic (requires existing instrumentation or an authorized code change):
 
 ```go
-buf := make([]byte, 1<<20)
-n := runtime.Stack(buf, true)            // true = all goroutines
-os.Stderr.Write(buf[:n])
-
-pprof.Lookup("goroutine").WriteTo(w, 2)  // same as ?debug=2, from inside the process
+pprof.Lookup("goroutine").WriteTo(w, 2)  // every goroutine, as ?debug=2; runtime.Stack truncates silently at len(buf)
 if p := pprof.Lookup("goroutineleak"); p != nil { // nil on a 1.26 toolchain without the GOEXPERIMENT
     p.WriteTo(w, 1)                      // leaked goroutines only
 }
@@ -84,7 +80,7 @@ if p := pprof.Lookup("goroutineleak"); p != nil { // nil on a 1.26 toolchain wit
 Grouping a `debug=2` dump by top frame:
 
 ```bash
-awk '/^goroutine /{getline; print}' goroutines.txt | sort | uniq -c | sort -rn | head -20
+awk '/^goroutine /{getline f; getline l; sub(/\(.*/, "", f); sub(/ \+0x.*/, "", l); print f, l}' goroutines.txt | sort | uniq -c | sort -rn | head -20
 ```
 
 ---
@@ -96,7 +92,7 @@ awk '/^goroutine /{getline; print}' goroutines.txt | sort | uniq -c | sort -rn |
 ```bash
 go tool pprof http://localhost:6060/debug/pprof/block                 # needs runtime.SetBlockProfileRate
 go tool pprof http://localhost:6060/debug/pprof/mutex                 # needs runtime.SetMutexProfileFraction
-curl -s -o heap.pb.gz http://localhost:6060/debug/pprof/heap          # save for later / diff
+curl -fsS --max-time 10 -o heap.pb.gz 'http://localhost:6060/debug/pprof/heap?gc=1'  # save for later / diff
 go test -memprofilerate=1 -memprofile mem.out ./pkg   # every allocation, slow but exact
 ```
 
@@ -114,8 +110,9 @@ go tool pprof -sample_index=alloc_objects -top mem.out   # object count: small-o
 go tool pprof -base heap1.pb.gz heap2.pb.gz         # what grew between two snapshots
 ```
 
-Heap profiles are as of the last GC; call `runtime.GC()` before a programmatic
-`WriteHeapProfile` for an exact live set.
+Heap profiles are as of the last GC and sampled (`runtime.MemProfileRate`,
+512 KiB by default); `?gc=1` or `runtime.GC()` before a programmatic
+`WriteHeapProfile` gives the current live set, still sampled.
 
 ---
 
@@ -126,7 +123,7 @@ what the GC did — the tool for latency spikes and "the CPU is idle but the
 request is slow".
 
 ```bash
-curl -s -o trace.out 'http://localhost:6060/debug/pprof/trace?seconds=5'
+curl -fsS --max-time 15 -o trace.out 'http://localhost:6060/debug/pprof/trace?seconds=5'
 go test -trace trace.out ./pkg
 go tool trace trace.out                 # opens the browser UI
 go tool trace -pprof=sync trace.out > sync.pprof   # extract a blocking profile from a trace

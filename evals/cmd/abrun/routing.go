@@ -11,12 +11,16 @@ import (
 // Перші чотири поля зберігають legacy-визначення запитів, включно з
 // unattributed hook blocks; Confirmed відокремлює докази tool results.
 type routingStats struct {
-	FirstTool      string            `json:"first_tool,omitempty"`
-	FirstLoads     []string          `json:"first_loads,omitempty"`
-	EditBeforeLoad bool              `json:"edit_before_load,omitempty"`
-	GateBlocks     int               `json:"gate_blocks,omitempty"`
-	Confirmed      *routingEvidence  `json:"confirmed,omitempty"`
-	Turns          []routingEvidence `json:"turns,omitempty"`
+	FirstTool      string   `json:"first_tool,omitempty"`
+	FirstLoads     []string `json:"first_loads,omitempty"`
+	EditBeforeLoad bool     `json:"edit_before_load,omitempty"`
+	// ContractFirst reports whether the first .go edit the session attempted
+	// was a _test.go file: the Contract Table written before the body it
+	// checks. nil when the session attempted no .go edit.
+	ContractFirst *bool             `json:"contract_first,omitempty"`
+	GateBlocks    int               `json:"gate_blocks,omitempty"`
+	Confirmed     *routingEvidence  `json:"confirmed,omitempty"`
+	Turns         []routingEvidence `json:"turns,omitempty"`
 }
 
 // Успіх tool_result не доводить повного model-visible вмісту чи retention.
@@ -286,7 +290,8 @@ func legacyClaudeRouting(out []byte) routingStats {
 					Type  string `json:"type"`
 					Name  string `json:"name"`
 					Input struct {
-						Skill string `json:"skill"`
+						Skill    string `json:"skill"`
+						FilePath string `json:"file_path"`
 					} `json:"input"`
 				} `json:"content"`
 			} `json:"message"`
@@ -323,6 +328,9 @@ func legacyClaudeRouting(out []byte) routingStats {
 				if !loaded {
 					st.EditBeforeLoad = true
 				}
+				if st.ContractFirst == nil && strings.HasSuffix(c.Input.FilePath, ".go") {
+					st.ContractFirst = new(strings.HasSuffix(c.Input.FilePath, "_test.go"))
+				}
 			}
 		}
 	}
@@ -344,6 +352,9 @@ func (st *routingStats) add(t routingStats) {
 		return
 	}
 	st.GateBlocks += t.GateBlocks
+	if st.ContractFirst == nil {
+		st.ContractFirst = t.ContractFirst
+	}
 	if t.Confirmed == nil {
 		return
 	}
@@ -363,7 +374,24 @@ func (st *routingStats) add(t routingStats) {
 	}
 }
 
-// Спільні знаменники для implement/refactor і review; partial — нижня межа.
+// contractFirst counts an arm's completed runs whose first .go edit was a
+// test file, over the runs that edited Go at all. The Contract Table costs a
+// session about a quarter more; this is whether it is written first.
+func contractFirst(rep report, armName string) (first, measured int) {
+	for _, r := range rep.Results {
+		if r.Arm != armName || r.Err != "" || r.Routing == nil || r.Routing.ContractFirst == nil {
+			continue
+		}
+		measured++
+		if *r.Routing.ContractFirst {
+			first++
+		}
+	}
+	return first, measured
+}
+
+// printRoutingSummary prints the routing counters shared by the implement,
+// refactor, and review corpora; a partial count is a lower bound.
 func printRoutingSummary(rep report, armName string) {
 	toolStatus := map[string]int{}
 	hookStatus := map[string]int{}

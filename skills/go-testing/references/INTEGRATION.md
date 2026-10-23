@@ -57,46 +57,9 @@ Key points:
 
 ## Acceptance Testing
 
-> **Source**: Google Go Style Guide (best-practices)
-
-Acceptance testing validates that an implementation upholds a contract, treating
-it as a black box. This pattern is useful when users implement your interfaces
-and you want to provide a reusable validation suite.
-
-### Structure
-
-1. Create a test helper package (e.g., `chesstest` for package `chess`)
-2. Export a validation function that accepts the implementation under test:
-
-```go
-// Package chesstest provides acceptance tests for chess.Player implementations.
-package chesstest
-
-// ExercisePlayer tests a Player implementation in a single turn.
-// Returns nil if the player makes a correct move, or an error describing
-// the violation.
-func ExercisePlayer(b *chess.Board, p chess.Player) error {
-    move := p.Move()
-    if putsOwnKingIntoCheck(b, move) {
-        return &IllegalMoveError{Move: move, Reason: "puts own king in check"}
-    }
-    return nil
-}
-```
-
-3. End users write simple tests against the validation function:
-
-```go
-func TestAcceptance(t *testing.T) {
-    player := deepblue.New()
-    if err := chesstest.ExercisePlayer(chesstest.StartingBoard(), player); err != nil {
-        t.Errorf("Deep Blue player failed acceptance test: %v", err)
-    }
-}
-```
-
-Reserve `t.Fatal` for setup failures only---validation errors should be returned,
-not fataled.
+A reusable suite that checks an implementation of your interface as a black
+box (`chesstest.ExercisePlayer`) is a validation API:
+[VALIDATION-APIS.md](VALIDATION-APIS.md) owns the pattern.
 
 ---
 
@@ -128,9 +91,10 @@ serves over an in-memory network, usable inside a `synctest` bubble and
 reachable only through `srv.Client()`: its URL is `http://example.com`, so a
 constructor that builds its own client from the URL alone reaches the real
 example.com. Take an `*http.Client` as a parameter, or, when the code under
-test dials `srv.URL` itself, call `srv.Start()` before the first request: the
-same server then listens on loopback, `srv.URL` names `127.0.0.1`, and its
-cleanup stays registered.
+test dials `srv.URL` itself, call `srv.Start()` right after `NewTestServer`,
+before any `srv.Client()`: once `Client()` has started the in-memory server,
+`Start` panics `Server already started`. The started server listens on
+loopback, `srv.URL` names `127.0.0.1`, and its cleanup stays registered.
 
 ---
 
@@ -177,9 +141,13 @@ func openTestDB(t *testing.T) *sql.DB {
 }
 ```
 
-Run it with `go test -tags integration -race ./...`. A skip is not a pass:
-`go test -v` prints `--- SKIP` with the reason, and a run whose database tests
-skipped is reported as skipped.
+Run it with `go test -tags integration -race ./...`. The packages' test
+binaries run in parallel (`-p` defaults to GOMAXPROCS) against the one
+`TEST_DATABASE_URL`: give each test its own schema or keys only it writes, or
+run the set with `-p 1`. A skip is not a pass:
+`go test -v` prints `--- SKIP` with the reason. Without `-v`, a package whose
+tests all skipped prints `ok` (and a package `"Action":"pass"`): report the run
+as skipped unless `-v` shows `--- PASS` for the database tests.
 
 ---
 
@@ -221,7 +189,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-    db, dbErr = openTestDB()
+    db, dbErr = openSharedDB()
     m.Run()
 }
 ```

@@ -48,8 +48,10 @@ return errors.Join(closeErr, flushErr)
 ```
 
 Related concurrent work returns through
-[`errgroup.WithContext`](https://pkg.go.dev/golang.org/x/sync/errgroup): the
-first failure cancels the rest and is what `Wait` returns.
+[`errgroup.WithContext`](https://pkg.go.dev/golang.org/x/sync/errgroup) when
+`go.mod` already requires `golang.org/x/sync`: the first failure cancels the
+rest and is what `Wait` returns. Without it, `wg.Go` with
+`context.WithCancelCause` and `errors.Join` covers the same.
 
 ---
 
@@ -104,8 +106,9 @@ receives the typed nil, and `AsType` panics unwrapping it.
 **Key rules**: Place `%w` at the end (two causes of one failure take two `%w`
 verbs in one `fmt.Errorf`). Add context callers don't have: an `os` error
 already names its path, so `launch codes unavailable: %w` rather than
-`read settings.txt: %w`. If
-annotation adds nothing, return `err` directly. One error often serves two
+`read settings.txt: %w`. Context names the operation — `load config: %w`,
+not `failed to load config: %w`: each layer that says "failed to" repeats it.
+If annotation adds nothing, return `err` directly. One error often serves two
 audiences — the operator reading a log line and the caller matching with
 `errors.Is` — and `fmt.Errorf("resolve %q: %w", sku, err)` serves both where
 `%v` serves only the first.

@@ -63,18 +63,18 @@
 # Sonnet 5 medium read it (0/24 on 2026-09-18).
 set -u
 
-# Корінь плагіна: skills/ лежить поруч із hooks/.
+# The plugin root: skills/ sits beside hooks/.
 plugin_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# claude_note — нотатка Claude лишається рядком роутера. Інший хост не має
-# Skill tool: CLAUDE_PROJECT_DIR ставить лише Claude Code, PLUGIN_ROOT — Codex.
+# claude_note — the Claude note stays the router line. Another host has no
+# Skill tool: only Claude Code sets CLAUDE_PROJECT_DIR, and Codex sets PLUGIN_ROOT.
 claude_note() {
     [[ -n "${CLAUDE_PROJECT_DIR:-}" && -z "${PLUGIN_ROOT:-}" ]]
 }
 
-# read_alt <skill> — порожньо на Claude; інакше абсолютний SKILL.md, щоб файл
-# прочитали цілком. Вставка стоїть перед дужкою, тож порожній результат не
-# змінює рядок роутера.
+# read_alt <skill> — empty on Claude; otherwise the absolute SKILL.md, so the
+# file is read whole. It is inserted before the parenthesis, so an empty
+# result leaves the router line unchanged.
 read_alt() {
     if claude_note; then
         return 0
@@ -83,238 +83,20 @@ read_alt() {
 }
 
 input="$(cat)"
-command -v python3 >/dev/null 2>&1 || exit 0
+# shellcheck source=go-hook-helper.sh
+source "$(dirname "${BASH_SOURCE[0]}")/go-hook-helper.sh"
+helper="$(hook_helper)" || exit 0
 
 # One parse: session id and the skill to name, or nothing. The prompt text
-# never leaves python; only the verdict is printed.
-parsed="$(printf '%s' "$input" | python3 -c '
-import json, os, re, sys
-try:
-    d = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-event = d.get("hook_event_name") or "UserPromptSubmit"
-if event != "UserPromptSubmit":
-    sys.exit(0)
-prompt = d.get("prompt") or ""
-if not isinstance(prompt, str):
-    sys.exit(0)
-# An IDE host sends its own context inside the prompt: the VS Code extension
-# prepends <ide_opened_file>The user opened the file /path ...</ide_opened_file>,
-# and <ide_selection> carries the selected text. On 2026-10-11 the opened path
-# .../golang-skills/.../MODERNIZATION.md alone routed "study this paper" as a
-# refactor: `golang` named Go and `MODERNIZATION` matched the refactor wording.
-# A report from a subagent reaches this event the same way, wrapped in
-# <agent-message>: on 2026-10-12 "go test" and "unreadable" in one routed it as
-# a refactor. Only the words the user typed are classified.
-prompt = re.sub(r"<(ide_[a-z_]+|agent-message)\b[^>]*>.*?</\1>", " ", prompt, flags=re.S)
-if not prompt.strip():
-    sys.exit(0)
-# A slash command raises this event and no other: the host expands it, inserts
-# the router SKILL.md, and calls no tool, so nothing else records the load.
-slash = re.match(r"\s*/(?:[A-Za-z0-9_.-]+:)?(go-code-refactor|go-code-review|go-code)\b", prompt)
-# A router named in the text is selected: a word at a boundary (space, $,
-# quote, bracket), possibly with / or a namespace, and not part of a path or
-# of a longer name.
-mention = None if slash else re.search(
-    r"(?:^|(?<=[\s`\x27\"(\[$]))/?(?:[A-Za-z0-9_.-]+:)?(go-code-refactor|go-code-review|go-code)(?![\w/-]|\.\w)",
-    prompt)
-
-# New code starts with its contract test (go-code step 4), so a prompt that
-# asks for new code gets go-testing without a condition; "if you write or edit
-# a test" left 43 of 73 implement gate blocks to go-testing on 2026-09-30
-# (abrun low, both 5.5 models): the model judged it would write no test, then
-# wrote the contract test first. A refactor gets the same unconditional load:
-# it often edits _test.go after judging it would not, and the gate blocks the
-# edit. On 2026-10-11 (refactor corpus, Haiku 5.5, -shell go, 4x5 per arm) the
-# condition left 14 of 20 sessions blocked for go-testing, the unconditional
-# load 0 of 20; Δlines -17.9 vs -18.4, golden 20/20 in both, $0.033 vs $0.038
-# per run (11 of 20 sessions then wrote a test file, against 3). A fix keeps
-# the condition. `implement` counts as a verb only: "one
-# implementation" in a design question is not new code.
-new_code = re.search(
-    r"\b(?:implement(?:s|ed|ing)?|write|add|create|build|stub\w*|not implemented|fill in|"
-    r"реаліз\w*|реализ\w*|напиш\w*|напис\w*|дода\w*|добав\w*|створ\w*|созда\w*|допиш\w*|заполн\w*)\b",
-    prompt, re.I) is not None
-
-def names_go(text):
-    return re.search(
-        r"\bGo\b|\bgolang\b|\b[\w./-]+\.go\b|\bgo\.mod\b|\bgoroutines?\b|\bgofmt\b|\bgo (?:build|test|vet|run|mod|fix)\b|"
-        # Pasted code names its language in the fence.
-        r"```go\b",
-        text) is not None
-
-def has_go_files(root, depth=2):
-    if not root or not os.path.isdir(root):
-        return False
-    base = root.rstrip(os.sep).count(os.sep)
-    seen = 0
-    for cur, dirs, files in os.walk(root):
-        seen += 1
-        if seen > 200:
-            return False
-        dirs[:] = [x for x in dirs if not x.startswith(".") and x not in ("vendor", "node_modules", "testdata")]
-        if cur.count(os.sep) - base >= depth:
-            dirs[:] = []
-        if "go.mod" in files or any(f.endswith(".go") for f in files):
-            return True
-    return False
-
-# The Go files the prompt points at, for the owner hints.
-def go_files(p):
-    try:
-        names = sorted(os.listdir(p))
-    except OSError:
-        return []
-    return [os.path.join(p, n) for n in names if n.endswith(".go") and not n.endswith("_test.go")]
-
-def target_files(pathlike_only=False):
-    files, seen = [], set()
-    cwd = d.get("cwd") or ""
-    if not os.path.isdir(cwd):
-        return files
-    for tok in re.findall(r"(?<![\w./-])(?:\.{1,2}/)?[\w.-]+(?:/[\w.-]+)*", prompt):
-        tok = tok.rstrip(".,;:!?")
-        if not tok or tok in seen or tok in (".", ".."):
-            continue
-        seen.add(tok)
-        pathlike = "/" in tok or tok.endswith(".go")
-        if pathlike_only and not pathlike:
-            continue
-        p = os.path.normpath(os.path.join(cwd, tok))
-        if os.path.isdir(p):
-            files.extend(go_files(p))
-        elif pathlike and os.path.isfile(p) and p.endswith(".go") and not p.endswith("_test.go"):
-            files.append(p)
-    return files
-
-# A slash command already names its router; the wording tests below are for the
-# prompts that do not.
-# A request to make code faster often has no work verb: "NormalizeName looks
-# slow; please speed it up" got no note, and the digest perf fixture prompt
-# ("Name in ./digest feels slow ... speed it up") loaded go-performance in 27
-# of 57 Sonnet 5.5 sessions (2026-10-22). Without it the function the request
-# named was rewritten for nothing in 14 of 30; with it, at the skill text that
-# calls that function a guess, in 1 of 17. Bare
-# "slow" asks why, not for a change; "optimistic" and "high-performance" are
-# not requests.
-speed = re.search(
-    r"\b(?:faster|speed\s+(?:\w+\s+){0,3}?up|speed-?up|optimi[sz](?:e|es|ed|ing|ation)|"
-    r"(?:reduce|cut|lower)\s+(?:the\s+|its\s+)?(?:latency|allocations?|allocs|cpu\s+time|memory\s+use)|"
-    r"allocate\s+less|fewer\s+allocations|"
-    r"прискор\w*|оптиміз\w*|ускор\w*|оптимиз\w*)\b",
-    prompt, re.I) is not None
-
-if slash:
-    print((d.get("session_id") or "default").replace("\n", " "))
-    print(slash.group(1))
-    print("")
-    print("slash")
-    print("new" if new_code else "")
-    print("speed" if speed else "")
-    for p in target_files()[:40]:
-        print(p)
-    sys.exit(0)
-if mention:
-    print((d.get("session_id") or "default").replace("\n", " "))
-    print(mention.group(1))
-    print("")
-    print("mention")
-    print("new" if new_code else "")
-    print("speed" if speed else "")
-    for p in target_files()[:40]:
-        print(p)
-    sys.exit(0)
-
-# Translating or copy-editing prose that mentions Go is not Go work: "Translate
-# this bug report into Ukrainian only" used to reach go-code through `bug`.
-# Translating code into Go names no human language and still routes.
-human_language = (r"\b(?:english|ukrainian|russian|german|french|spanish|polish|"
-                  r"англ\w*|українськ\w*|російськ\w*|німецьк\w*|русск\w*|украинск\w*|немецк\w*)")
-prose_edit = re.search(r"\b(?:grammar|proofread\w*)\b", prompt, re.I) or (
-    re.search(r"\b(?:translat\w*|переклад\w*|перекла\w*|перевед\w*|перевод\w*)", prompt, re.I)
-    and re.search(human_language, prompt, re.I))
-if prose_edit:
-    sys.exit(0)
-
-# A prompt that does not name Go counts as Go work only when the working
-# directory holds Go and the prompt names a code element, by a noun or by a
-# path to Go source ("./digest"); "add a line to the README" in a Go
-# repository must not fire, nor a bare word that happens to name a directory.
-code_noun = re.compile(
-    r"\b(?:function\w?|func|method\w?|package\w?|handler\w?|endpoint\w?|struct\w?|interface\w?|type\w?|"
-    r"test\w*|stub\w?|bug\w?|panic|бод[иі]\w*|функці\w*|метод\w*|пакет\w*|хендлер\w*|обробник\w*|"
-    r"структур\w*|інтерфейс\w*|тест\w*|заглушк\w*|баг\w*|функци\w*|обработчик\w*|эндпоинт\w*)\b", re.I)
-if not names_go(prompt):
-    if not (has_go_files(d.get("cwd") or "") and (code_noun.search(prompt) or target_files(pathlike_only=True))):
-        sys.exit(0)
-
-refactor = re.compile(
-    r"\b(?:refactor\w*|clean(?:\s|-)?up|simplif\w*|restructur\w*|moderni[sz]\w*|tidy(?:\s|-)?up|reads? better|"
-    r"messy|mess|bloated|over-?engineer\w*|over-?abstract\w*|dead code|too long|hard to follow|monolith\w*|modulari[sz]\w*|"
-    r"(?:more\s+|make\s+(?:it|this|the\s+code)\s+)readable|readability|unreadable|"
-    r"split(?:ting)?\s+(?:this|the|that|it)\s+(?:[\w-]+\s+)?(?:function|method|file|package|handler|type|struct)\w*|"
-    r"into\s+smaller\s+(?:ones|functions|methods|pieces|parts|files|packages)|"
-    r"extract\w*\s+(?:an?\s+|the\s+)?(?:helper|function|method|interface|package|type)|"
-    r"рефактор\w*|спрост\w*|упрост\w*|почист\w*|переструктур\w*|модерніз\w*|модерниз\w*|монол[иі]т\w*|модуляриз\w*)\b",
-    re.I)
-# An audit for what can stop existing is the over-engineering audit of
-# go-code-refactor (docs/RULE_OWNERSHIP.md), not a review: its wording is checked before
-# the review words, which "Audit this Go repo for over-engineering" matched.
-subtract = re.compile(
-    r"\b(?:over-?engineer\w*|over-?abstract\w*|dead code|what (?:can|could|should) (?:we|i|be) (?:delete|remove|cut)\w*)\b",
-    re.I)
-# Work verbs select an edit router; questions get no note.
-work = re.compile(
-    r"\b(?:implement(?:s|ed|ing)?|write|add|create|build|make|fix\w*|bug\w*|stub\w*|not implemented|fill in|"
-    r"реаліз\w*|реализ\w*|напиш\w*|напис\w*|дода\w*|добав\w*|виправ\w*|исправ\w*|створ\w*|созда\w*|зроби|сделай|баг\w*|"
-    r"почин\w*|поправ\w*|допиш\w*|заполн\w*)\b",
-    re.I)
-navigate = re.search(
-    r"\b(?:explain|find|locate|where|who calls|how does|show|trace|understand|"
-    r"поясн\w*|объясн\w*|знайд\w*|найд\w*|покаж\w*|де\b|где\b|хто виклика\w*|кто вызыва\w*|"
-    r"як працю\w*|как работа\w*)\b", prompt, re.I)
-question = navigate and (prompt.strip().endswith("?") or re.match(
-    r"\s*(?:explain|find|locate|where|who|how|show|trace|understand|"
-    r"поясн\w*|объясн\w*|знайд\w*|найд\w*|покаж\w*|де\b|где\b|хто\b|кто\b|як\b|как\b)", prompt, re.I))
-# Review is checked before the work verbs: the review corpus prompt says
-# "what is wrong, and the fix", and `fix` used to send it to go-code with the
-# condition "before the first edit", which a review never reaches.
-review = re.compile(r"\b(?:review\w*|audit\w*|рев[ьи]ю\w*|ревью\w*)\b", re.I)
-# A pasted runtime trace with no work verb asks what went wrong. Sonnet 5.5
-# answered "panic: ... goroutine 42 [running]: ... what does this mean?" without
-# go-troubleshooting in 7 of 7 plugin-eval runs (2026-10-12) and offered a nil
-# check at the faulting line; with the skill loaded, 5 of 5 traced the nil to
-# its origin and 0 of 5 without it. "Fix this panic" keeps go-code, whose
-# route table sends an unknown cause to go-troubleshooting.
-trace = re.search(r"\b(?:panic|fatal error): ", prompt) and re.search(r"\bgoroutine \d+ \[", prompt)
-if trace and not work.search(prompt):
-    skill, kind = "go-troubleshooting", "a pasted Go panic or goroutine trace"
-elif question:
-    sys.exit(0)
-elif subtract.search(prompt):
-    skill, kind = "go-code-refactor", "a behavior-preserving refactor"
-elif review.search(prompt):
-    skill, kind = "go-code-review", "a Go code review"
-elif refactor.search(prompt):
-    skill, kind = "go-code-refactor", "a behavior-preserving refactor"
-elif work.search(prompt):
-    skill, kind = "go-code", "Go code to write, implement, or fix"
-elif speed:
-    skill, kind = "go-code", "a request to make Go code faster"
-else:
-    sys.exit(0)
-print((d.get("session_id") or "default").replace("\n", " "))
-print(skill)
-print(kind)
-print("note")
-print("new" if new_code else "")
-print("speed" if speed else "")
-for p in target_files()[:40]:
-    print(p)
-')" || exit 0
+# never reaches the shell; only the verdict is printed.
+parsed="$(printf '%s' "$input" | "$helper" prompt-parse)" || exit 0
 [[ -n "$parsed" ]] || exit 0
-{ read -r session; read -r skill; read -r kind; read -r mode; read -r newcode; read -r speed; mapfile -t files; } <<< "$parsed"
+# A read loop, not mapfile: macOS ships bash 3.2, which has no mapfile.
+files=()
+{
+    read -r session; read -r skill; read -r kind; read -r mode; read -r newcode; read -r speed
+    while IFS= read -r f; do [[ -n "$f" ]] && files+=("$f"); done
+} <<< "$parsed"
 [[ -n "$skill" ]] || exit 0
 
 state="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/${session:-default}"
@@ -345,11 +127,11 @@ esac
 ns=""
 manifest="${CLAUDE_PLUGIN_ROOT:-}/.claude-plugin/plugin.json"
 if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" && -f "$manifest" ]]; then
-    ns="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("name") or "")' "$manifest" 2>/dev/null)" || ns=""
+    ns="$("$helper" plugin-name "$manifest")" || ns=""
 fi
 q() { printf '%s%s' "${ns:+$ns:}" "$1"; }
 owners=""
-if (( ${#files[@]} > 0 )); then
+if [[ -n "${files[*]-}" ]]; then
     owners="$(bash "$(dirname "${BASH_SOURCE[0]}")/go-code-routing.sh" --hints "${files[@]}" 2>/dev/null)" || owners=""
 fi
 # A review writes nothing: the note names go-code-review and sets the boundary

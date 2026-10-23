@@ -39,7 +39,9 @@ that depends on them on the CI toolchain.
 ## Which version governs
 
 The `go` directive of the module's `go.mod`. A `go.mod` with no `go` line is
-language version 1.16 ([go.dev/ref/mod](https://go.dev/ref/mod#go-mod-file-go)),
+language version 1.16 ([go.dev/ref/mod](https://go.dev/ref/mod#go-mod-file-go))
+under `-mod=readonly` (with `GOFLAGS=-mod=mod` the first go command writes
+`go <toolchain>` into it instead),
 and a `go.work` with none is 1.18; a workspace's directive selects the
 toolchain for the workspace and does not raise a member module's language
 version. A file whose `//go:build` line names a Go version takes that
@@ -66,7 +68,7 @@ write-time list of forms per version is the Current Go Idiom Card in
 | `new(expr)` — allocate and initialize in one expression | 1.26 | `p := new(compute())`; `go fix` analyzer `newexpr` rewrites `&v` pointer helpers and their calls |
 | Generic type aliases | 1.24 | `type Set[T comparable] = map[T]struct{}` |
 | `tool` directive in `go.mod`, run with `go tool <name>` | 1.24 | Tracked tool dependencies; replaces a `tools.go` of blank imports |
-| Per-iteration loop variables | 1.22 | The `x := x` capture line is dead code; `go fix` analyzer `forvar` removes it |
+| Per-iteration loop variables | 1.22 | The `x := x` capture line in a `range` loop is dead and the `go fix` analyzer `forvar` removes it; in a three-clause loop it stays when the body assigns the copy |
 | `range` over integer and over function iterators | 1.22 / 1.23 | `for i := range n`, `for v := range seq` |
 | `min`, `max`, `clear` builtins | 1.21 | `go fix` analyzer `minmax` |
 | `any` as the spelling of `interface{}` | 1.18 | Predeclared alias; `go fix` analyzer `any` |
@@ -81,7 +83,7 @@ scope for this repository.
 | API | Replaces |
 |---|---|
 | `uuid` (`New`, `NewV4`, `NewV7`, `Parse`, `MustParse`, `Nil`, `Max`, `Compare`) | `github.com/google/uuid` for the common cases |
-| `encoding/json/v2` + `encoding/json/jsontext` | `encoding/json` for new code that needs its semantics or streaming; `encoding/json` itself runs on the v2 implementation in 1.27 (unmarshal faster, marshal at parity; `GOEXPERIMENT=nojsonv2` restores the old one), so the import is not a speed change |
+| `encoding/json/v2` + `encoding/json/jsontext` | `encoding/json` for new code that needs its semantics or streaming; `encoding/json` itself runs on the v2 implementation in 1.27 (unmarshal faster, marshal at parity; `GOEXPERIMENT=nojsonv2` restores the old one and removes `encoding/json/v2` and `jsontext` from the build), so the import is not a speed change |
 | `httptest.NewTestServer(tb, handler)` (in-memory through `srv.Client()`; loopback after `srv.Start()`; without `Start`, `srv.URL` is `http://example.com` once `Client()` runs, so any other client reaches the real host) | `httptest.NewServer` + `defer srv.Close()` |
 | `synctest.Sleep` | Real sleeps inside `synctest.Test` bubbles |
 | `strings.CutLast`, `bytes.CutLast` | `LastIndex` + manual slicing |
@@ -113,13 +115,16 @@ scope for this repository.
 | `slog.GroupAttrs(key, attrs...)` | `slog.Group` with `any` varargs |
 | `http.NewCrossOriginProtection()` | Hand-rolled CSRF origin checks |
 | `runtime.SetDefaultGOMAXPROCS()` | Manual `GOMAXPROCS` math; 1.25 makes the default cgroup-aware when the main module's `go` directive is 1.25+ (an older directive builds with `containermaxprocs=0`); the default rounds a fractional CPU limit up and stays at 2 or more on a machine with two CPUs or more |
+| `reflect.TypeAssert[T](v)` | `v.Interface().(T)`, which allocates |
+| `os.Root.ReadFile`, `MkdirAll`, `RemoveAll` (and the other `Root` file methods) | Opening through the root and reading or walking by hand |
+| `runtime/trace.FlightRecorder` | A continuous full trace kept only to catch a rare event |
 | `testing.TB.Output()`, `TB.Attr()` | Output of a logger or command under test written to stdout/stderr (`slog.NewTextHandler(t.Output(), nil)`; `fmt.Println` in a test is `t.Log`), untyped metadata in failure text |
 
 ### Go 1.24
 
 | API | Replaces |
 |---|---|
-| `b.Loop()` | `for i := 0; i < b.N; i++`; since 1.26 the loop body is inlined as ordinary code, so a `b.N` benchmark converts with no ill effects |
+| `b.Loop()` | `for i := 0; i < b.N; i++`; since 1.26 the loop body is inlined as ordinary code; a benchmark that uses `b.N` inside the loop or sizes a fixture by it is restructured (`b.N` is 0 inside the loop) |
 | `t.Context()` | `context.Background()` in tests; `go fix` analyzer `testingcontext` |
 | `crypto/rand.Text()` | Manual random-string generation |
 | `cipher.NewGCMWithRandomNonce` | Manual random nonce generation/prefixing for AES-GCM in new formats |
@@ -128,6 +133,7 @@ scope for this repository.
 | `omitzero` struct tag option | `omitempty` plus a custom `IsZero` |
 | `slog.DiscardHandler` | Hand-written no-op handlers |
 | `t.Chdir()` | `os.Chdir` plus a restore in cleanup |
+| `crypto/pbkdf2`, `crypto/hkdf`, `crypto/sha3` | `golang.org/x/crypto` for the same primitives |
 | top-level `math/rand.Seed` is a no-op (GODEBUG `randseednop`) | `rand.New(rand.NewPCG(...))` from `math/rand/v2` for a fixed sequence |
 
 ### Go 1.18–1.23
@@ -142,7 +148,9 @@ the typed atomics `atomic.Bool`, `atomic.Int64`, `atomic.Pointer[T]` (1.19);
 `WithoutCancel`, `WithTimeoutCause`/`WithDeadlineCause` (1.21); `cmp.Or`,
 `slices.Concat`, `math/rand/v2` (`IntN`, `N`, `NewPCG`), `sql.Null[T]`, `reflect.TypeFor`, `http.ServeMux` method and
 wildcard patterns with `r.PathValue`, `http.ServeFileFS` and
-`http.FileServerFS`, `testing/slogtest` (1.22); `iter.Seq` with the iterator
+`http.FileServerFS`, `slogtest.Run` (1.22, beside `slogtest.TestHandler` from 1.21);
+`http.Request.Pattern`, `slices.Backward`, `debug.SetCrashOutput`, and
+`iter.Seq` with the iterator
 forms in `slices` (`All`, `Values`, `Collect`, `Sorted`, `AppendSeq`) and
 `maps` (`All`, `Keys`, `Values`, `Collect`), and a `time.Tick` ticker the
 garbage collector reclaims once unreferenced (1.23) — the `strings` `*Seq`

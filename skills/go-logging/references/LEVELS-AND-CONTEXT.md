@@ -31,11 +31,21 @@ Is the error returned to the caller?
 
 ```go
 const (
-    LevelTrace = slog.Level(-8)  // below Debug
+    LevelTrace  = slog.Level(-8) // below Debug
     LevelNotice = slog.Level(2)  // between Info and Warn
 )
 
-slog.Log(ctx, LevelTrace, "detailed trace", "span_id", spanID)
+logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+    Level: LevelTrace, // the default minimum is Info: trace records are dropped without it
+    ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+        // without this the level prints as "DEBUG-4" ("INFO+2" for LevelNotice)
+        if lvl, ok := a.Value.Any().(slog.Level); ok && a.Key == slog.LevelKey && len(groups) == 0 && lvl == LevelTrace {
+            a.Value = slog.StringValue("TRACE")
+        }
+        return a
+    },
+}))
+logger.Log(ctx, LevelTrace, "detailed trace", "span_id", spanID)
 ```
 
 ---

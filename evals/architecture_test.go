@@ -186,4 +186,30 @@ func TestArchitectureFixtureAndChecker(t *testing.T) {
 		}
 		runArchCheck(t, 2, dir)
 	})
+
+	// A package with only _test.go files has no production imports: it is
+	// classified only under --include-tests.
+	t.Run("test-only package", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		copyTree(t, fixture, dir)
+		writeFile(t, filepath.Join(dir, "internal", "e2e", "e2e_test.go"), "package e2e\n\nimport \"testing\"\n\nfunc TestE2E(t *testing.T) {}\n")
+		runArchCheck(t, 0, dir)
+		if rep := runArchCheck(t, 1, "--include-tests", dir); len(rep.Violations) != 1 || rep.Violations[0].Rule != "unclassified" {
+			t.Fatalf("--include-tests violations = %+v, want one unclassified test-only package", rep.Violations)
+		}
+	})
+
+	// A directory without its own go.mod lists its parent's module, whose
+	// internal/ prefix matches nothing: an error, not an empty pass.
+	t.Run("module root without go.mod", func(t *testing.T) {
+		t.Parallel()
+		parent := t.TempDir()
+		writeFile(t, filepath.Join(parent, "go.mod"), "module example.com/parent\n\ngo 1.27\n")
+		copyTree(t, fixture, filepath.Join(parent, "sub"))
+		if err := os.Remove(filepath.Join(parent, "sub", "go.mod")); err != nil {
+			t.Fatal(err)
+		}
+		runArchCheck(t, 2, filepath.Join(parent, "sub"))
+	})
 }

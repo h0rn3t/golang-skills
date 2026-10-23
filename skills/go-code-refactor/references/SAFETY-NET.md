@@ -102,7 +102,7 @@ type Report struct {
 
 func newReport(db *sql.DB) *Report {
     return &Report{monthTotal: func(ctx context.Context, month string) (total int64, err error) {
-        err = db.QueryRowContext(ctx, "SELECT sum(cents) FROM sales WHERE month = $1", month).Scan(&total)
+        err = db.QueryRowContext(ctx, "SELECT COALESCE(sum(cents), 0) FROM sales WHERE month = $1", month).Scan(&total)
         return total, err
     }}
 }
@@ -116,7 +116,7 @@ does.
 Two cautions before this becomes a habit. It is a seam for code that has no
 net — not a licence to split every struct into an interface plus an
 implementation; PLAYBOOK §8 and the ladder in
-[OVER-ENGINEERING.md](OVER-ENGINEERING.md) still apply, and
+[LADDER.md](LADDER.md) still apply, and
 [go-interfaces](../../go-interfaces/SKILL.md) owns where an interface belongs.
 Changing an **exported** constructor's signature to accept the seam is an API
 change and stays outside a behavior-preserving refactor. Prefer an internal seam

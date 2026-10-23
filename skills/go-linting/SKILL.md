@@ -10,14 +10,14 @@ This skill owns the repository's verification gate — the commands that decide
 whether Go work is finished.
 
 > Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). Analyzer and
-> linter names are checked against go1.27.2 and golangci-lint 2.14.0.
+> linter names are checked against go1.27.2 and golangci-lint 2.15.0.
 
 ## Resource Routing
 
 - `scripts/setup-lint.sh` - Run from the target module as `bash <installed-skill-dir>/scripts/setup-lint.sh [local-prefix]` when generating a `.golangci.yml`, validating the first lint pass, or producing JSON metadata.
 - `assets/golangci.yml` - Use as the v2 golangci-lint baseline for established projects, and as the gate's lint config where the repository has none.
 - `../../hooks/go-check-receipt.sh` - Where the plugin hook runs, execute the matching Bash verification command it prints before crediting a receipt; absent on standalone installs.
-- `../../hooks/go-check-receipt.py` - Internal receipt runner behind the Bash entry point; inspect only when debugging the hook or verifier.
+- `../../hooks/helper/receipt.go` - Internal receipt runner behind the Bash entry point; inspect only when debugging the hook or verifier.
 - `../../hooks/go-verification-routing.sh` - The plugin's Bash verification prerequisite after a Go edit; inspect only when diagnosing routing or opt-out behavior.
 - `references/CONFIGURATION.md` - Read for any linter configuration, CI, or first-lint setup task.
 
@@ -58,15 +58,24 @@ Gate rules:
   `sqlclosecheck`, `gosec`, or `sloglint` checks the skills name runs, and
   `errcheck` reports the deferred `rows.Close`, `tx.Rollback`, and
   `resp.Body.Close` the baseline excludes.
-- Use `-race` for concurrency changes and wherever the repository requires it.
-  Inspect a `make test` recipe before using it: a plain `go test` is not evidence
-  of a race check. Retain its setup and use a race-enabled equivalent if needed.
+- The default gate always runs `-race`. A repository gate without it gets one
+  `-race` run of the changed packages for a concurrency change: inspect a
+  `make test` recipe first, since a plain `go test` is not evidence of a race
+  check, and keep its setup in the race-enabled equivalent.
+- A check's result is its own exit status, not the pipeline's: `go test ./... | tail`
+  exits 0 on a failure, and `| head` kills `go test` with SIGPIPE before later
+  packages run. Run gate commands unpiped or under `set -o pipefail`.
 - Run `govulncheck` before release, for dependency changes in the requested diff
-  (including staged changes), or when requested. Otherwise mark it not applicable.
+  (including staged changes), or when requested. Otherwise report it
+  `skipped (no dependency change)`.
 - Fix attributable failures in the code, not in the check
   ([Holding the Bar](#holding-the-bar)), then rerun affected checks. Reuse passing results
   for unchanged code and configuration, including across checklist items. Repeat
   or broaden only for new edits, failures, unresolved concerns, or required gates.
+  A check that fails the same way after two fixes aimed at it has a cause not
+  yet found: stop patching, take [go-troubleshooting](../go-troubleshooting/SKILL.md)'s
+  loop from the first diagnostic, and if it does not close, report the check
+  `fail` with both attempts.
 - Where the plugin edit hook runs, a receipt can satisfy only the selected check
   with the same command/flags, canonical target, config, toolchain and inputs.
   With a shell, first run the `bash .../go-check-receipt.sh --gate <receipt-dir> <package-dir>`
@@ -83,7 +92,7 @@ Gate rules:
   loading this skill and attempting a current verifier; a subsequent Go edit
   requires a new attempt. `GOLANG_SKILLS_VERIFICATION_GATE=off` disables that
   prerequisite, without granting credit. This is a workflow guard, not a shell sandbox.
-  `valid=true` from the state-only Python verifier is insufficient. Hook output
+  `valid=true` from the state-only verifier is insufficient. Hook output
   with `reuse=unverified` is not a final pass. If the command is unavailable or
   rejects the receipt, run the selected check directly or report it unavailable.
   A later edit to any input, config, dependency or build environment invalidates it;
@@ -99,14 +108,15 @@ Gate rules:
   File-only gofmt and package vet do not satisfy a wider repository gate;
   new-findings-only lint does not satisfy full lint. Hook tests use `-short`
   without `-race`. Run build, the required race check, broader fix/lint and
-  applicable govulncheck whenever matching evidence is absent. Current Codex
-  and opencode runners do not connect this plugin hook; use their normal gate.
+  applicable govulncheck whenever matching evidence is absent. A host that
+  runs no plugin hooks (opencode, a copied skill) leaves no hook evidence; use
+  the normal gate there.
 - A test check passes on evidence that the tests ran, not on exit 0.
   `ok … [no tests to run]` (a `-run` pattern that matches nothing, or a file
   behind a `//go:build` tag the run did not pass), `[no test files]`, and a
   `TestMain` that returns before `m.Run`
-  ([INTEGRATION.md](../go-testing/references/INTEGRATION.md#returning-before-mrun))
-  all exit 0 having run nothing; an `Example` without `// Output:` is compiled
+  ([INTEGRATION.md](../go-testing/references/INTEGRATION.md#returning-before-mrun)),
+  and a package whose tests all called `t.Skip` all exit 0 having run nothing; an `Example` without `// Output:` is compiled
   and never run. The evidence is `--- PASS: TestX` under `-v` or its
   `"Action":"pass"` event under `-json`.
 - Report each selected check as `pass`, `fail`, or `unavailable (reason)`;
@@ -171,6 +181,7 @@ The cheap road to green, and what it looks like in a diff:
 | Make a test easier | a new `t.Skip` or `testing.Short()` guard; a test file or test function deleted; an assertion, `// Output:` line, or table case removed from a test that stays; a `testdata/*.golden` file rewritten to match the new output |
 | Drop a check | `-race` removed from the `Makefile`, CI, or a script |
 | Leave the work unfinished | `panic("not implemented")` where the behavior should be |
+| Quiet the compiler | `_` on an error a changed signature now returns; `return nil, nil` or a zero value added for `missing return`; `n, _ := strconv.Atoi(s)`: the build passes and the behavior is invented |
 
 Each move is legitimate only with a reason a reviewer can check, on the line
 or in the report: the directive's reason ([Nolint Directives](#nolint-directives)),

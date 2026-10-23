@@ -219,7 +219,7 @@ Construct an `http.Server`; bare `http.ListenAndServe` sets no timeouts.
 | `ReadTimeout`, `WriteTimeout` | Bound slow clients; `WriteTimeout` exceeds the slowest handler |
 | `IdleTimeout` | Reclaim keep-alive connections |
 | `MaxHeaderBytes`, `MaxHeaderValueCount` (Go 1.27+) | Only to change the defaults, 1 MiB and 500 values: `MaxHeaderBytes: 1 << 20` restates zero |
-| `Handler: http.NewCrossOriginProtection().Handler(mux)` | CSRF for state-changing requests (Go 1.25+) |
+| `Handler: http.NewCrossOriginProtection().Handler(mux)` | CSRF for state-changing requests (Go 1.25+). One per server: with CORS it is the instance go-security's `withCORS` builds with the trusted origins; a second, empty one around it answers every cross-origin POST with 403 |
 | `BaseContext` | Never the `signal.NotifyContext` context when in-flight requests should drain: it cancels every request at the signal, before `Shutdown` waits for them. Handlers that must see shutdown get a separate context, cancelled once `Shutdown`'s timeout expires |
 
 For graceful shutdown, `signal.NotifyContext` owns the lifetime;

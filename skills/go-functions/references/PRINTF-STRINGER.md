@@ -180,7 +180,7 @@ func (c Color) GoString() string {
 }
 
 // fmt.Sprintf("%#v", Color{255, 128, 0})
-// → "Color(0xff, 0x80, 0x00)"   instead of  "main.Color{R:0xff, G:0x80, B:0x00}"
+// → "Color(0xff, 0x80, 0x00)"   instead of  "main.Color{R:0xff, G:0x80, B:0x0}"
 ```
 
 `GoString()` output should be valid Go syntax or close to it — it's meant for
@@ -201,22 +201,22 @@ func (p Point) Format(f fmt.State, verb rune) {
     case 'v':
         if f.Flag('#') {
             // %#v — Go-syntax representation
-            fmt.Fprintf(f, "Point{X: %d, Y: %d}", p.X, p.Y)
+            _, _ = fmt.Fprintf(f, "Point{X: %d, Y: %d}", p.X, p.Y)
             return
         }
         if f.Flag('+') {
             // %+v — verbose with field names
-            fmt.Fprintf(f, "X:%d Y:%d", p.X, p.Y)
+            _, _ = fmt.Fprintf(f, "X:%d Y:%d", p.X, p.Y)
             return
         }
         // %v — default
-        fmt.Fprintf(f, "(%d, %d)", p.X, p.Y)
+        _, _ = fmt.Fprintf(f, "(%d, %d)", p.X, p.Y)
     case 's':
-        fmt.Fprintf(f, "(%d, %d)", p.X, p.Y)
+        _, _ = fmt.Fprintf(f, "(%d, %d)", p.X, p.Y)
     case 'q':
-        fmt.Fprintf(f, "%q", p.String())
+        _, _ = fmt.Fprintf(f, `"(%d, %d)"`, p.X, p.Y)
     default:
-        fmt.Fprintf(f, "%%!%c(Point=%d,%d)", verb, p.X, p.Y)
+        _, _ = fmt.Fprintf(f, "%%!%c(Point=%d,%d)", verb, p.X, p.Y)
     }
 }
 ```

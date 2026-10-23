@@ -111,8 +111,8 @@ The `html/template` escape hatches — `template.HTML`, `template.JS`, `template
 the vulnerability; they exist for content **you** produced (a sanitizer's
 output, a constant snippet).
 
-Set `Content-Type: text/html; charset=utf-8` yourself; sniffing turns a JSON
-endpoint into an HTML one when a client saves it as `.html`. Add
+Set `Content-Type` yourself: without one, `net/http` sniffs the first 512
+bytes, and client text that starts with markup is served as `text/html`. Add
 `X-Content-Type-Options: nosniff` in middleware.
 
 A file the client uploaded and later downloads is input on the way out: its
@@ -145,9 +145,11 @@ One more sink:
   and size are attacker-controlled — `../` and absolute names, a symlink entry
   that a later entry writes through, and a 1 KB zip that expands to
   gigabytes. go-defensive's archive loop checks all three.
-- **Deletes**: an ID from the path that resolves to the directory itself
-  (`""`, `ws/..` from `ws%2F..`, `%2E%2E`) makes `RemoveAll` empty the whole
-  tree, inside an `os.Root` too ([go-defensive](../../go-defensive/SKILL.md#deletes-name-what-they-remove)).
+- **Deletes**: a `{id}` that cleans to the directory or above it — `ws/..`
+  from `ws%2F..`, `.` from `%2E`, `..` from `%2E%2E` — makes
+  `os.RemoveAll(filepath.Join(dir, id))` delete the directory or its parent;
+  an `os.Root` refuses `.` and `..`, but `root.RemoveAll("ws/..")` with `ws`
+  present still empties it ([go-defensive](../../go-defensive/SKILL.md#deletes-name-what-they-remove)).
 
 ---
 
@@ -277,7 +279,7 @@ Decoders are parsers running on attacker bytes; bound them.
 | Regex on input | RE2 is linear — Go's `regexp` is safe; a third-party PCRE engine is not |
 | `strconv.Atoi` into a size | range-check before `make([]T, n)` |
 | Compressed input (`Content-Encoding: gzip`, a `.gz` upload) | `MaxBytesReader` caps the compressed bytes only; read the `gzip.Reader` through `io.LimitReader(zr, limit+1)` and reject at `limit+1` bytes |
-| Body of an outbound fetch | `io.LimitReader(resp.Body, limit)`: the SSRF check bounds where the client connects, not how much it reads |
+| Body of an outbound fetch | `io.LimitReader(resp.Body, limit+1)` and reject at `limit+1` bytes, as go-http's Bounded Response Bodies does: the SSRF check bounds where the client connects, not how much it reads |
 | Multipart upload | Cap the body before `ParseMultipartForm`; `maxMemory` only sets the memory/disk threshold. Check file sizes and count; use `MultipartReader` with per-part limits when early rejection matters |
 | Struct target | Decode into a request type holding only the client-writable fields, never into the storage model — a `Role`, `OrgID`, or `IsAdmin` field on it is set by whoever sends the body |
 

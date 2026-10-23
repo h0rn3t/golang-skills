@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const version = "1.5.0"
+const version = "1.6.0"
 
 type finding struct {
 	File    string `json:"file"`
@@ -46,7 +46,8 @@ USAGE
     Reports text matching on err.Error() (==, !=, switch, and strings.Contains,
     HasPrefix, HasSuffix, EqualFold, Index) and an error that is both logged
     and returned. Skips _test.go and generated files and, as go ./... does,
-    vendor and testdata directories and names that begin with "." or "_".
+    vendor and testdata directories, names that begin with "." or "_",
+    nested modules, and directories the go.mod ignore directive names.
 
     Exits 0 if nothing is found, 1 on findings, 2 on a usage error or when a
     file does not parse. The other files are still checked; --json then adds
@@ -259,7 +260,8 @@ func analyzeFile(path string, checkBareReturn bool) ([]finding, error) {
 // of an `if err != nil`. A log in one block and a return in another never pair,
 // so a "log and degrade" branch followed by an unrelated return, or a log that
 // ends one function next to a return that starts the next, is not a finding.
-// An assignment to err between the two makes the returned error a new one.
+// An assignment to err between the two makes the returned error a new one,
+// unless it wraps err (`err = fmt.Errorf("op: %w", err)`).
 func logAndReturn(fset *token.FileSet, path string, stmts []ast.Stmt) []finding {
 	var findings []finding
 	logLine := 0
@@ -270,7 +272,7 @@ func logAndReturn(fset *token.FileSet, path string, stmts []ast.Stmt) []finding 
 				logLine = fset.Position(call.Pos()).Line
 			}
 		case *ast.AssignStmt:
-			if assignsIdent(s, "err") {
+			if assignsIdent(s, "err") && !slices.ContainsFunc(s.Rhs, func(e ast.Expr) bool { return containsIdent(e, "err") }) {
 				logLine = 0
 			}
 		case *ast.ReturnStmt:
@@ -306,14 +308,15 @@ func isErrorCall(expr ast.Expr) bool {
 }
 
 // isTextOperand reports the other side of a comparison with err.Error() that
-// makes it text matching: a string literal, a named string constant or
-// variable (`notFoundMsg`, `pkg.Msg`), or another error's text. nil, true, and
-// false are left out: an Error method that returns a value, not a string, is
-// compared with them.
+// makes it text matching: a non-empty string literal, a named string constant
+// or variable (`notFoundMsg`, `pkg.Msg`), or another error's text. "" asks
+// whether the text is empty, not what it says; nil, true, and false are left
+// out: an Error method that returns a value, not a string, is compared with
+// them.
 func isTextOperand(expr ast.Expr) bool {
 	switch e := expr.(type) {
 	case *ast.BasicLit:
-		return e.Kind == token.STRING
+		return e.Kind == token.STRING && e.Value != `""` && e.Value != "``"
 	case *ast.Ident:
 		return e.Name != "nil" && e.Name != "true" && e.Name != "false"
 	case *ast.SelectorExpr:
@@ -395,19 +398,23 @@ func isLogCallWithErr(call *ast.CallExpr) bool {
 	case *ast.SelectorExpr:
 		name = x.Sel.Name
 	}
-	return isLogger(strings.ToLower(name), methods)
+	return isLogger(name, methods)
 }
 
-// isLogger reports a receiver named as a logger. A short or suffixed name
-// (`l`, `lg`, `auditLog`, `reqLogger`) counts only with a logging method in
-// the chain, since `l` also names lists and listeners.
+// isLogger reports a receiver named as a logger or a logging package
+// (`logrus.WithError(err).Error`, `zap.L().Error`). A short or suffixed name
+// (`l`, `lg`, `sugar`, `auditLog`, `reqLogger`) counts only with a logging
+// method in the chain, since `l` also names lists and listeners; the suffix
+// starts a camelCase word, so `catalog` and `dialog` are not loggers.
 func isLogger(name string, methods []string) bool {
-	switch name {
-	case "log", "logger", "slog":
+	switch strings.ToLower(name) {
+	case "log", "logger", "slog", "logrus", "zap", "zerolog", "klog", "glog":
 		return true
-	}
-	if name != "l" && name != "lg" && !strings.HasSuffix(name, "log") && !strings.HasSuffix(name, "logger") {
-		return false
+	case "l", "lg", "sugar":
+	default:
+		if !strings.HasSuffix(name, "Log") && !strings.HasSuffix(name, "Logger") {
+			return false
+		}
 	}
 	return slices.ContainsFunc(methods, func(m string) bool {
 		for _, prefix := range []string{"Debug", "Info", "Warn", "Error", "Print", "Log", "Msg"} {
@@ -443,14 +450,29 @@ func returnsErr(stmt *ast.ReturnStmt) bool {
 	return ok && ident.Name == "err"
 }
 
-// returnsWrappedErr reports a last result that is a call carrying err, such as
-// fmt.Errorf("save %d: %w", id, err): the same error, returned with context.
+// returnsWrappedErr reports a last result that carries err in a call or a
+// composite literal, such as fmt.Errorf("save %d: %w", id, err) or
+// &opError{Err: err}: the same error, returned with context.
 func returnsWrappedErr(stmt *ast.ReturnStmt) bool {
 	if len(stmt.Results) == 0 {
 		return false
 	}
-	call, ok := stmt.Results[len(stmt.Results)-1].(*ast.CallExpr)
-	return ok && slices.ContainsFunc(call.Args, func(arg ast.Expr) bool { return containsIdent(arg, "err") })
+	last := stmt.Results[len(stmt.Results)-1]
+	if u, ok := last.(*ast.UnaryExpr); ok && u.Op == token.AND {
+		last = u.X
+	}
+	switch e := last.(type) {
+	case *ast.CallExpr:
+		return slices.ContainsFunc(e.Args, func(arg ast.Expr) bool { return containsIdent(arg, "err") })
+	case *ast.CompositeLit:
+		return slices.ContainsFunc(e.Elts, func(elt ast.Expr) bool {
+			if kv, ok := elt.(*ast.KeyValueExpr); ok {
+				elt = kv.Value
+			}
+			return containsIdent(elt, "err")
+		})
+	}
+	return false
 }
 
 func findGoFiles(target string) ([]string, error) {
@@ -479,9 +501,11 @@ func findGoFiles(target string) ([]string, error) {
 }
 
 // walkGoFiles returns the non-test Go files beneath root, skipping what
-// go ./... skips: vendor, testdata, and names that begin with "." or "_".
+// go ./... skips: vendor, testdata, names that begin with "." or "_", nested
+// modules, and directories the module's ignore directives name.
 func walkGoFiles(root string) ([]string, error) {
 	var files []string
+	modRoot, ignores := moduleIgnores(root)
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -493,6 +517,9 @@ func walkGoFiles(root string) ([]string, error) {
 			return nil
 		}
 		if d.IsDir() {
+			if path != root && outsideModule(modRoot, ignores, path) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
@@ -502,6 +529,75 @@ func walkGoFiles(root string) ([]string, error) {
 	})
 	sort.Strings(files)
 	return files, err
+}
+
+// moduleIgnores finds the go.mod at or above root and returns its directory
+// and its ignore directives (Go 1.25+), which go ./... also leaves out.
+func moduleIgnores(root string) (string, []string) {
+	dir, err := filepath.Abs(root)
+	if err != nil {
+		return "", nil
+	}
+	for {
+		data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+		if err == nil {
+			return dir, parseIgnores(string(data))
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", nil
+		}
+		dir = parent
+	}
+}
+
+func parseIgnores(gomod string) []string {
+	var patterns []string
+	inBlock := false
+	for line := range strings.Lines(gomod) {
+		line, _, _ = strings.Cut(line, "//")
+		fields := strings.Fields(line)
+		switch {
+		case inBlock && len(fields) == 1 && fields[0] == ")":
+			inBlock = false
+		case inBlock && len(fields) == 1:
+			patterns = append(patterns, strings.Trim(fields[0], "\"`"))
+		case len(fields) == 2 && fields[0] == "ignore" && fields[1] == "(":
+			inBlock = true
+		case len(fields) == 2 && fields[0] == "ignore":
+			patterns = append(patterns, strings.Trim(fields[1], "\"`"))
+		}
+	}
+	return patterns
+}
+
+// outsideModule reports a directory below the walk root that go ./... does
+// not enter: one holding its own go.mod, or one an ignore directive names
+// ("./x" from the module root, "x" anywhere in it).
+func outsideModule(modRoot string, ignores []string, dir string) bool {
+	if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+		return true
+	}
+	if modRoot == "" || len(ignores) == 0 {
+		return false
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(modRoot, abs)
+	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
+		return false
+	}
+	rel = "/" + filepath.ToSlash(rel) + "/"
+	for _, pattern := range ignores {
+		anchored, relative := strings.CutPrefix(pattern, "./")
+		anchored = "/" + strings.Trim(filepath.ToSlash(anchored), "/") + "/"
+		if relative && strings.HasPrefix(rel, anchored) || !relative && strings.Contains(rel, anchored) {
+			return true
+		}
+	}
+	return false
 }
 
 // ignored reports a directory or file name that go ./... leaves out

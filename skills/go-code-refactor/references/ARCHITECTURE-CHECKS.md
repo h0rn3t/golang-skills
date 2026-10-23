@@ -33,7 +33,7 @@ bash "<installed-skill-dir>/scripts/check-architecture.sh" [--json] [--limit N] 
 The wrapper builds the checker once into the skills cache and runs it from the
 module root (default `.`). Exit 0 is a clean graph, 1 is at least one
 violation or a stale, duplicate, or unexplained `known` entry, 2 is an error:
-no `go.mod`, a package that does not load, a missing or invalid
+no `go.mod`, a module-root whose `go.mod` is in a parent directory, a package that does not load, a missing or invalid
 `architecture.json`, an unknown flag, or `--limit` without a non-negative
 integer. `--json` prints one object:
 
@@ -44,16 +44,18 @@ integer. `--json` prints one object:
 `status: "no_internal_packages"` marks a module with nothing under
 `internal/`; that is a successful empty check, exit 0. Package paths in output
 are module-relative, so the same `known` list survives a module rename. The
-checker runs `go list` with `GOWORK=off` and `-mod=readonly`: one module, one
-build configuration, production imports only unless `--include-tests` adds
-`TestImports` and `XTestImports`. Record the build tags, `GOOS`, and `GOARCH`
+checker runs `go list` with `GOWORK=off` and `-mod=readonly` (`-mod=vendor`
+when `vendor/modules.txt` exists): one module, one build configuration,
+production imports only unless `--include-tests` adds `TestImports` and
+`XTestImports`; a package with only `_test.go` files is checked only then. Record the build tags, `GOOS`, and `GOARCH`
 you ran under; a second configuration is a second run.
 
 ## Measuring the graph by hand
 
 Run from the selected Go module root with the production build
 configuration; the commands describe one module and one build configuration.
-Failure to load packages must not produce a misleading partial graph.
+Failure to load packages must not produce a misleading partial graph. In a
+vendored module, write `-mod=vendor` where the commands say `-mod=readonly`.
 
 ```bash
 # Bash; failure to load packages must not produce a misleading partial graph.

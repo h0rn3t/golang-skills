@@ -116,6 +116,11 @@ receipt; a local transaction/outbox does not atomically commit an unrelated
 remote effect. If its outcome cannot be reconciled and replay is unsafe, expose
 that limit instead of promising exactly-once completion.
 
+Deduplication is not ordering: at-least-once delivery also delivers late, and
+an older event applied second reverts the row. An event that sets state
+carries a version or source timestamp, and the write keeps the newest:
+`UPDATE … SET status = \$1, version = \$2 WHERE id = \$3 AND version < \$2`.
+
 ## Overload and Recovery
 
 Bound admission **before** spawning unbounded goroutines. Choose reject, wait,

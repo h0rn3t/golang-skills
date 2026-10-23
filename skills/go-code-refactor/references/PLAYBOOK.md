@@ -64,10 +64,15 @@ if err != nil {
 func doWork(x int) int { return compute(x) }
 ```
 
-Also usually deletable: unused parameters and struct fields; unreachable
-returns after a panic or exhaustive switch; commented-out code; `err != nil`
-handling for a function that cannot fail; `len(s) > 0` around a `range` that
-nothing follows; `if b == true`; string conversions of strings.
+Also usually deletable: unused parameters of an unexported function not passed
+as a func value; unexported fields no encoder, `binary.Write`, `%v`, or `==`
+reads (never `_` padding or `noCopy`); code after a panic or after a `switch`
+whose every case, `default` included, returns (vet's `unreachable` names it);
+commented-out code; an `err != nil` branch on a call documented never to fail
+(`(*bytes.Buffer).Write`, `(*strings.Builder).WriteString`,
+`hash.Hash.Write`); `len(s) > 0` around a `range` that nothing follows;
+`if b == true`; string conversions of strings. An exported field no Go code
+reads is still on the wire: a finding, not a deletion.
 
 The line to hold: **provably** unreachable. "Nothing calls this" needs `go vet`,
 a linter with `unused`, or a repo-wide grep including tests, generated code,
@@ -211,7 +216,10 @@ holds: improving how a test **reports** is fair game; changing what it
 
 Free improvements: `t.Helper()` in a helper, the function name and inputs in a
 failure message, the `(-want +got)` direction key on a `cmp.Diff` message, one
-`cmp.Diff` replacing a field-by-field ladder of `if`s. See
+`cmp.Diff` replacing a field-by-field ladder of `if`s — only when `go.mod`
+already requires go-cmp, the ladder already compares every field, and the type
+has no unexported fields (`cmp.Diff` panics on them); otherwise the ladder
+stays. See
 [go-testing](../../go-testing/SKILL.md).
 
 Converting repetitive test functions to table-driven form is worth *proposing*

@@ -41,6 +41,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -79,6 +80,29 @@ const (
 // implementDir holds the implementation corpus. The leading underscore keeps
 // findTasks from offering it as a refactor fixture.
 const implementDir = "_implement"
+
+// fixturePromptFile is an implement fixture's own task, under
+// _golden/<task>/, for a fixture whose job is not filling stub bodies ("make
+// the lint run green"). It replaces the corpus prompt unless -prompt is given,
+// and reaches the session only as the prompt: the golden directory is copied
+// in after the session ends.
+const fixturePromptFile = "prompt.txt"
+
+// fixturePrompt returns the fixture's own prompt, or "" when it has none.
+func fixturePrompt(golden string) (string, error) {
+	data, err := os.ReadFile(filepath.Join(golden, fixturePromptFile))
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	prompt := strings.TrimSpace(string(data))
+	if strings.Count(prompt, "%s") != 1 || strings.Contains(fmt.Sprintf(prompt, "fixture"), "%!") {
+		return "", fmt.Errorf("%s: needs exactly one %%s for the fixture directory and %%%% for a literal %%", filepath.Join(golden, fixturePromptFile))
+	}
+	return prompt, nil
+}
 
 // corpusPrompt returns the prompt a corpus is run with unless -prompt overrides it.
 func corpusPrompt(corpus string) string {
@@ -277,6 +301,12 @@ type metrics struct {
 	// leaning on what the standard library already decides and re-deciding it
 	// by hand — which the declaration counts cannot see when the API is fixed.
 	Branches int `json:"branches"`
+	// Suppressions counts the checker silencers in production files:
+	// `//nolint`, `//lint:ignore`, and `#nosec` comments. A session told to
+	// make a check green can do it by silencing the check, and the lint count
+	// after the run reads zero either way; this is the column that tells the
+	// fix from the directive.
+	Suppressions int `json:"suppressions"`
 	// The readability fields (readability.go) read the shape the counts cannot
 	// see. They are pointers so a report written before they existed loads as
 	// unmeasured, and a summary prints a dash for it rather than a zero.
@@ -318,6 +348,7 @@ func (m metrics) sub(o metrics) metrics {
 		Pattern:      m.Pattern - o.Pattern,
 		Exported:     m.Exported - o.Exported,
 		Branches:     m.Branches - o.Branches,
+		Suppressions: m.Suppressions - o.Suppressions,
 
 		MaxFuncLines:   subPtr(m.MaxFuncLines, o.MaxFuncLines),
 		P90FuncLines:   subPtr(m.P90FuncLines, o.P90FuncLines),
@@ -353,6 +384,9 @@ type result struct {
 	// the measurement still owed for it, run serially after every session.
 	Perf    *perfScore `json:"perf,omitempty"`
 	perfJob *perfJob
+	// FixturePrompt is the prompt the session got when its fixture carries its
+	// own (fixturePromptFile); empty when it ran on the report's prompt.
+	FixturePrompt string `json:"fixture_prompt,omitempty"`
 	// ModelTests is pass, fail, or skipped (no test files). Older reports omit it.
 	ModelTests    string `json:"model_tests,omitempty"`
 	ModelTestFail string `json:"model_test_failure,omitempty"`
@@ -704,6 +738,9 @@ func validateFixtures(abDir string, tasks []string) error {
 		} else if !ok {
 			return exitError{2, fmt.Sprintf("fixture %s has no golden test", task)}
 		}
+		if _, err := fixturePrompt(golden); err != nil {
+			return exitError{2, fmt.Sprintf("fixture %s: %v", task, err)}
+		}
 	}
 	return nil
 }
@@ -1028,6 +1065,17 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		}
 		prompt = cmp.Or(prompt, pk.Prompt)
 		res.Perf = &perfScore{Expect: pk.Expect, Class: pk.Class, Prompt: fmt.Sprintf(prompt, taskName), MinSpeedupPct: pk.MinSpeedupPct, Changed: []string{}}
+	}
+	if o.corpus == corpusImplement && o.prompt == implementPrompt {
+		own, err := fixturePrompt(golden)
+		if err != nil {
+			res.Err = fmt.Sprintf("fixture prompt: %v", err)
+			return res
+		}
+		if own != "" {
+			prompt = own
+			res.FixturePrompt = fmt.Sprintf(own, taskName)
+		}
 	}
 	turn := runSession(o, a, work, fmt.Sprintf(prompt, taskName))
 	res.merge(turn)
@@ -1588,6 +1636,7 @@ func analyze(dir string) (metrics, error) {
 		}
 		countDecls(file, &m)
 		m.BodyComments += bodyCommentLines(fset, file)
+		m.Suppressions += suppressions(file)
 		packages[filepath.Dir(path)] = append(packages[filepath.Dir(path)], file)
 		return nil
 	})
@@ -1599,6 +1648,21 @@ func analyze(dir string) (metrics, error) {
 		m.addTestPackage(files)
 	}
 	return m, nil
+}
+
+// suppressions counts the comments that silence a checker. A directive is
+// `//nolint` or `//lint:ignore` with no space after the slashes, as the
+// linters require; gosec also reads `#nosec` anywhere in a comment.
+func suppressions(file *ast.File) int {
+	count := 0
+	for _, group := range file.Comments {
+		for _, c := range group.List {
+			if strings.HasPrefix(c.Text, "//nolint") || strings.HasPrefix(c.Text, "//lint:ignore") || strings.Contains(c.Text, "#nosec") {
+				count++
+			}
+		}
+	}
+	return count
 }
 
 // bodyCommentLines counts the comment lines that sit inside a function body,
@@ -2286,6 +2350,7 @@ type armSummary struct {
 	Pattern           int
 	Exported          int
 	Branches          int
+	Suppressions      int
 	NoEdit            int
 	Leaked            int
 	ModelTestFailures int
@@ -2455,6 +2520,7 @@ func summarizeArm(rep report, name string) armSummary {
 		summary.Pattern += r.Delta.Pattern
 		summary.Exported += r.Delta.Exported
 		summary.Branches += r.Delta.Branches
+		summary.Suppressions += r.Delta.Suppressions
 		summary.Readability.add(r.Delta)
 		summary.Tests.add(r.Delta)
 		if r.FixHunksBefore != nil && r.FixHunks != nil {
@@ -2531,7 +2597,13 @@ func printSummary(rep report) {
 		}
 		fmt.Printf("%-24s   line gate %d/%d, behavior failures %d, counts reported %d/%d\n",
 			"", summary.LineGatePasses, completed, summary.BehaviorFailures, summary.ReportedCounts, completed)
+		if summary.Suppressions != 0 {
+			fmt.Printf("%-24s   checker suppressions added %+d over %d valid run(s)\n", "", summary.Suppressions, summary.Valid)
+		}
 		printRoutingSummary(rep, a.Name)
+		if first, measured := contractFirst(rep, a.Name); measured > 0 {
+			fmt.Printf("%-24s   contract first: test file edited before production code in %d/%d runs\n", "", first, measured)
+		}
 		fmt.Printf("%-24s   %s\n", "", summary.Readability.line(summary.Valid))
 		fmt.Printf("%-24s   %s\n", "", summary.Tests.line(summary.Valid))
 		if summary.FixMeasured > 0 {

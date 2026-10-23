@@ -160,10 +160,19 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
     exit 0
 fi
 
+# xargs splits a list past ARG_MAX into several awk runs (each ends with its
+# own END); a run that fails, such as on an unreadable file, is an error
+# rather than a clean ledger.
+HARVEST="$(mktemp)"
+trap 'rm -f "$HARVEST"' EXIT
+if ! printf '%s\0' "${FILES[@]}" | xargs -0 awk "$AWK_HARVEST" >"$HARVEST"; then
+    echo "error: scanning the Go files for Kept: markers failed" >&2
+    exit 2
+fi
 MARKERS=()
 while IFS= read -r record; do
     [[ -n "$record" ]] && MARKERS+=("$record")
-done < <(awk "$AWK_HARVEST" "${FILES[@]}")
+done <"$HARVEST"
 
 TOTAL=${#MARKERS[@]}
 NO_TRIGGER=0

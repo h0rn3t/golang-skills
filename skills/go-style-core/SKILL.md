@@ -103,7 +103,11 @@ The directive is the `go` line of the module's `go.mod` — language 1.16 when t
 `toolchain` line, `GOTOOLCHAIN`, nor an installed newer Go raises it or
 authorizes a version bump; respect the CI toolchains.
 A language form newer than the directive fails to compile with `requires
-go1.NN or later (-lang was set to go1.MM; check go.mod)`; a library symbol
+go1.NN or later (-lang was set to go1.MM; check go.mod)` — except
+function-type inference in a conversion or composite-literal element (Go 1.27)
+and a constraint that names its own type parameter (Go 1.26), which compile at
+an older directive on a newer toolchain and fail only on the older one
+(the plugin repository's COMPATIBILITY.md); a library symbol
 newer than it builds, and only `go vet` (`stdversion`) reports it:
 `strings.CutLast requires go1.27 or later (module is go1.26)`. A file whose
 `//go:build` line names a Go version is checked at that version instead,
@@ -133,7 +137,8 @@ idioms — `range n`, the `slices`, `maps`, and `cmp` helpers, `min`, `max`,
 `clear`, `errors.Is`, `errors.Join`, typed atomics, `strings.Cut`,
 `iter.Seq`, ServeMux patterns, `omitzero`, `math/rand/v2`, `t.Context`,
 `b.Loop` — need no table, only their directive:
-`range n`, `cmp.Or` (Go 1.22);
+`range n`, `cmp.Or`, ServeMux patterns (Go 1.22 — below it `GET /x` is a
+literal path, a 404 no check reports);
 `maps.Keys`, `slices.Sorted`, `iter.Seq` (Go 1.23);
 `strings.SplitSeq`, `t.Context`, `b.Loop` (Go 1.24).
 The list after the table is what goes wrong in them.
@@ -154,7 +159,7 @@ which swaps change behavior when *existing* code is rewritten;
 | `strings.LastIndex` plus slicing | `strings.CutLast` (Go 1.27) — `bytes` has it too |
 | a new UUID dependency for creating and parsing | the standard `uuid` package (Go 1.27) — a package already on a UUID module keeps it until a migration is asked for |
 | `*u` copied by hand; `url.Values` copied in a loop | `u.Clone()`, `v.Clone()` (Go 1.27) — only when the old copy's depth matches; shallow-to-deep is a semantic fix, not a refactor ([MODERNIZATION.md](../go-code-refactor/references/MODERNIZATION.md#urlurlclone--urlvaluesclone--go-127)) |
-| `encoding/json` in a package with no JSON yet; `json.NewEncoder(w).Encode(v)` | `import json "encoding/json/v2"` (Go 1.27): `json.Marshal`, `json.MarshalWrite(w, v)`, `json.UnmarshalRead(r, &v)` — nil slices encode as `[]` and nil maps as `{}`, so no `make` for the wire; duplicate names are rejected; `MarshalWrite` adds no newline; `Marshal` fails where v1 did not — invalid UTF-8 in any string, a `time.Duration` field (no default representation) — and returns partial bytes with the error, so the error is checked before anything is written; a package already on `encoding/json` stays on it until a migration is asked for |
+| `encoding/json` in a package with no JSON yet; `json.NewEncoder(w).Encode(v)` | `import json "encoding/json/v2"` (Go 1.27): `json.Marshal` then one write — in a handler before the first header ([go-http](../go-http/SKILL.md#handler-shape)) — and `json.UnmarshalRead(r, &v)`; `json.MarshalWrite(w, v)` streams, so a value that fails mid-encode leaves a truncated body: use it only where a partial write is discarded, and it adds no newline; nil slices encode as `[]` and nil maps as `{}`, so no `make` for the wire; duplicate names are rejected; `Marshal` fails where v1 did not — invalid UTF-8 in any string, a `time.Duration` field (no default representation) — and returns partial bytes with the error, so the error is checked before anything is written; a package already on `encoding/json` stays on it until a migration is asked for |
 | `httptest.NewServer` with `defer srv.Close()` | `httptest.NewTestServer(t, h)` (Go 1.27) — in-memory, closed by `t.Cleanup`, and reached only through `srv.Client()`: `srv.URL` is empty until that call and `http://example.com` after it, so any other client reaches the real host; code that dials `srv.URL` with its own client calls `srv.Start()` first (loopback; the cleanup stays) |
 
 What goes wrong in the forms written without the table:
@@ -240,22 +245,12 @@ an edit that already happened. It runs `gofmt -l` on
 the file and `go vet`, `go fix -diff`, `go test -short` (no `-race`), and
 `golangci-lint` on the file's package: vet and test output covers the whole
 package, fix hunks and lint findings in other files of the package arrive as a
-count, and in a git checkout lint counts only issues new since HEAD. Immutable
-JSON receipts include command, scope, config, tool version, exit code,
-timestamps, diagnostics and input digests before/after the check. Success
-uses PostToolUse context; findings include the receipt directory on stderr.
-Missing tools, disabled checks, no tests and no module have explicit statuses.
+count, and in a git checkout lint counts only issues new since HEAD.
 A finding in code the diff touched is fixed before the next step, not reported
-around; one in code
-the diff did not touch is pre-existing: report it, do not fix it. Without a
-shell tool, its observed receipts are the available check evidence.
-[go-linting](../go-linting/SKILL.md#verification-gate) owns reuse and scope:
-with a shell, load that skill and execute the matching Bash verification
-command printed by the hook after the final edit. Its batch `--gate` result
-lists credited checks and required direct checks; the Bash workflow guard
-requires an attempt for the current edit generation. Only `hook_credit=true`
-permits `pass (hook)` for the verified scope. Unverified hook results are
-observed evidence; silence is never pass. A race check needs separate evidence.
+around; one in code the diff did not touch is pre-existing: report it, do not
+fix it. Reusing its results is
+[go-linting](../go-linting/SKILL.md#verification-gate)'s rule; silence is
+never pass.
 
 ## Related Skills
 

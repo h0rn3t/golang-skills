@@ -42,8 +42,13 @@ checks such as formatting and report which steps were blocked.
    `./...`. With no relevant packages, skip. Report pending changes and distinguish
    pre-existing findings; the preview must not authorize unrelated rewrites.
 6. `golangci-lint run ./...` — if the repository has no `.golangci.y*ml`, say
-   so and run with defaults; if the binary is missing, report the step as
-   unavailable.
+   so and add `--config <plugin>/skills/go-linting/assets/golangci.yml`, the
+   baseline (installed plugin:
+   `ls -d ~/.claude/plugins/cache/*/golang-skills/*/skills/go-linting/assets/golangci.yml | sort -V | tail -1`).
+   Without that file, golangci-lint's defaults skip noctx, bodyclose,
+   rowserrcheck, sqlclosecheck, gosec, and sloglint: report
+   `lint: INCOMPLETE (default linters only)`. If the binary is missing, report
+   the step as unavailable.
 7. `govulncheck ./...` — before release, when dependency files changed in the
    requested diff (including staged changes), or when asked.
 

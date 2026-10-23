@@ -101,7 +101,7 @@ ctx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Hour))
 defer cancel()
 
 // Add value (use sparingly — only for request-scoped data)
-ctx = context.WithValue(ctx, requestIDKey, reqID)
+ctx = WithRequestID(ctx, reqID) // accessor over its own key type; see Context Value Best Practices
 ```
 
 `defer cancel()` immediately after creating a derived context. This ensures

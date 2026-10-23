@@ -26,7 +26,7 @@ passes tests that the integration fails.
 ```go
 // Fake: Working in-memory implementation
 type FakeUserStore struct {
-    users map[string]*User
+    users map[string]User
 }
 
 func (f *FakeUserStore) GetUser(id string) (*User, error) {
@@ -34,7 +34,12 @@ func (f *FakeUserStore) GetUser(id string) (*User, error) {
     if !ok {
         return nil, ErrNotFound
     }
-    return u, nil
+    return &u, nil // a copy: an edit reaches the store only through SaveUser
+}
+
+func (f *FakeUserStore) SaveUser(u *User) error {
+    f.users[u.ID] = *u
+    return nil
 }
 
 // Spy: Records calls for later assertion
@@ -103,9 +108,9 @@ package usertest
 
 func NewFakeStore(t *testing.T, users ...*user.User) *FakeUserStore {
     t.Helper()
-    store := &FakeUserStore{users: make(map[string]*user.User)}
+    store := &FakeUserStore{users: make(map[string]user.User)}
     for _, u := range users {
-        store.users[u.ID] = u
+        store.users[u.ID] = *u
     }
     return store
 }

@@ -40,6 +40,7 @@ func TestHookReceipts(t *testing.T) {
 		Before      string            `json:"inputs_before"`
 		After       string            `json:"inputs_after"`
 		Reusable    bool              `json:"reusable"`
+		Reason      string            `json:"reason"`
 		Diagnostic  string            `json:"diagnostic"`
 	}
 	read := func(t *testing.T, state string) map[string]receipt {
@@ -99,6 +100,55 @@ func TestHookReceipts(t *testing.T) {
 		}
 		if code, out := receiptCommand(t, "verify", paths[0]); code != 0 {
 			t.Fatalf("verify hook result from shell = (%d, %q), want current pass", code, out)
+		}
+	})
+	t.Run("exit zero with no test run is not a test pass", func(t *testing.T) {
+		t.Parallel()
+		for name, tests := range map[string]string{
+			"no m.Run": "func TestMain(m *testing.M) {}\n\nfunc TestFails(t *testing.T) { t.Fatal(\"never runs\") }\n",
+			"all skip": "func TestShort(t *testing.T) {\n\tif testing.Short() {\n\t\tt.Skip(\"short\")\n\t}\n}\n",
+			"one runs": "func TestOK(t *testing.T) {}\n",
+		} {
+			path, state := module(t), t.TempDir()
+			if err := os.WriteFile(filepath.Join(filepath.Dir(path), "main_test.go"), []byte("package receipt\n\nimport \"testing\"\n\n"+tests), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			hookOutput(t, script, state, routingPayload("PostToolUse", "notest", "Write", map[string]any{"file_path": path}), "GOLANG_SKILLS_EDIT_LINT=off", "GOWORK=off")
+			v, want := read(t, state)["test"], "skipped"
+			if name == "one runs" {
+				want = "pass"
+			}
+			if v.Status != want || v.ExitCode == nil || *v.ExitCode != 0 {
+				t.Errorf("%s: test receipt = %+v, want %s with exit 0", name, v, want)
+			}
+		}
+	})
+	// The baseline lints in place of a config that loads plugin code, and the
+	// receipt keeps the repository's config, so the run earns no hook credit
+	// for rules the project does not use.
+	t.Run("a config with custom linters is replaced by the baseline", func(t *testing.T) {
+		t.Parallel()
+		path, state := module(t), t.TempDir()
+		config := filepath.Join(filepath.Dir(path), ".golangci.yml")
+		body := "version: \"2\"\nlinters:\n  settings:\n    custom:\n      mine:\n        type: goplugin\n        path: ./evil.so\n"
+		if err := os.WriteFile(config, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		hookOutput(t, script, state, routingPayload("PostToolUse", "custom", "Write", map[string]any{"file_path": path}), "GOLANG_SKILLS_EDIT_TESTS=off", "GOWORK=off")
+		v := read(t, state)["lint"]
+		bundled := filepath.Join("skills", "go-linting", "assets", "golangci.yml")
+		if len(v.Command) < 2 || !strings.HasSuffix(v.Command[len(v.Command)-1], bundled) {
+			t.Errorf("lint command = %q, want the bundled config", v.Command)
+		}
+		if !strings.HasSuffix(v.Config, ".golangci.yml") || !strings.Contains(v.Reason, "custom linters") {
+			t.Errorf("lint receipt config = %q, reason = %q; want the repository config and the reason", v.Config, v.Reason)
+		}
+		records, err := filepath.Glob(filepath.Join(state, "checks", "run.*"))
+		if err != nil || len(records) != 1 {
+			t.Fatalf("receipt directories = %q, %v; want one", records, err)
+		}
+		if code, out := receiptCommand(t, "verify-gate", records[0], filepath.Dir(path)); strings.Contains(out, `"check": "lint", "status": "pass", "valid": true, "hook_credit": true`) {
+			t.Errorf("verify-gate = (%d, %s), want no lint credit", code, out)
 		}
 	})
 	t.Run("formatting findings are failure despite exit zero", func(t *testing.T) {
@@ -283,7 +333,7 @@ func receiptCommand(t *testing.T, args ...string) (int, string) {
 
 func receiptCommandEnv(t *testing.T, env []string, args ...string) (int, string) {
 	t.Helper()
-	cmd := exec.Command("python3", append([]string{filepath.Join(repoRoot(t), "hooks", "go-check-receipt.py")}, args...)...)
+	cmd := exec.Command("bash", append([]string{filepath.Join(repoRoot(t), "hooks", "go-hook-helper.sh"), "receipt"}, args...)...)
 	cmd.Env = append(append(os.Environ(), "GOWORK=off"), env...)
 	out, err := cmd.CombinedOutput()
 	if err == nil {
@@ -398,31 +448,49 @@ func TestHookOffersRunnableVerifier(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &result); err != nil {
 		t.Fatal(err)
 	}
+	command := offeredGate(t, result.Output.Context)
+	if credits := runOfferedGate(t, command); !credits["vet"] {
+		t.Errorf("offered gate %q credits = %v, want vet credited", command, credits)
+	}
+}
+
+// offeredGate returns the single --gate verifier line a hook printed: the
+// one command the model is told to run after the final edit.
+func offeredGate(t *testing.T, text string) string {
+	t.Helper()
 	var commands []string
-	for _, line := range strings.Split(result.Output.Context, "\n") {
-		if strings.HasPrefix(line, "bash ") && !strings.Contains(line, " --gate ") {
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(line, "bash ") {
 			commands = append(commands, line)
 		}
 	}
-	if len(commands) == 0 {
-		t.Fatalf("hook context = %q, want an executable Bash verification command", result.Output.Context)
+	if len(commands) != 1 || !strings.Contains(commands[0], " --gate ") {
+		t.Fatalf("hook text = %q, want exactly one Bash --gate verifier", text)
 	}
-	// Run the command exactly as copied from model context, without plugin env.
-	cmd := exec.Command("bash", "-c", commands[0])
+	return commands[0]
+}
+
+// runOfferedGate runs the command exactly as copied from model context,
+// without plugin env, and returns hook_credit per check.
+func runOfferedGate(t *testing.T, command string) map[string]bool {
+	t.Helper()
+	cmd := exec.Command("bash", "-c", command)
 	cmd.Env = append(os.Environ(), "GOWORK=off")
-	verified, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("offered command %q = %v: %s", commands[0], err, verified)
+	out, _ := cmd.Output()
+	var result struct {
+		Checks []struct {
+			Check  string `json:"check"`
+			Credit bool   `json:"hook_credit"`
+		} `json:"checks"`
 	}
-	var credit struct {
-		Credit bool `json:"hook_credit"`
+	if err := json.Unmarshal(out, &result); err != nil {
+		t.Fatalf("offered gate %q = %s: %v", command, out, err)
 	}
-	if err := json.Unmarshal(verified, &credit); err != nil {
-		t.Fatal(err)
+	credits := map[string]bool{}
+	for _, row := range result.Checks {
+		credits[row.Check] = row.Credit
 	}
-	if !credit.Credit {
-		t.Errorf("offered command = %s, want hook_credit true", verified)
-	}
+	return credits
 }
 
 func TestFailingHookOffersVerificationForPassingChecks(t *testing.T) {
@@ -438,31 +506,9 @@ func TestFailingHookOffersVerificationForPassingChecks(t *testing.T) {
 	if code != 2 {
 		t.Fatalf("unformatted hook = (%d, %q), want failure", code, msg)
 	}
-	var command string
-	for _, line := range strings.Split(msg, "\n") {
-		if strings.HasPrefix(line, "bash ") && !strings.Contains(line, " --gate ") {
-			command = line
-			break
-		}
-	}
-	if command == "" {
-		t.Fatalf("hook error = %q, want executable verifier for a passing check", msg)
-	}
-	cmd := exec.Command("bash", "-c", command)
-	cmd.Env = append(os.Environ(), "GOWORK=off")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("error-path offered verifier = %v: %s", err, out)
-	}
-	var result struct {
-		Check  string `json:"check"`
-		Credit bool   `json:"hook_credit"`
-	}
-	if err := json.Unmarshal(out, &result); err != nil {
-		t.Fatal(err)
-	}
-	if result.Check == "gofmt" || !result.Credit {
-		t.Errorf("error-path verification = %s, want passing package check only", out)
+	command := offeredGate(t, msg)
+	if credits := runOfferedGate(t, command); credits["gofmt"] || !credits["vet"] {
+		t.Errorf("error-path gate %q credits = %v, want the passing package check only", command, credits)
 	}
 }
 
@@ -646,4 +692,27 @@ func TestReceiptInvalidation(t *testing.T) {
 			t.Fatalf("fix receipt = %s (%v), want status fail", raw, err)
 		}
 	})
+}
+
+// The hooks' helper is its own module beside the scripts; its unit tests and
+// vet run here, on every platform the hooks support.
+func TestHookHelperUnitTests(t *testing.T) {
+	t.Parallel()
+	dir := filepath.Join(repoRoot(t), "hooks", "helper")
+	for _, run := range []struct {
+		env  []string
+		args []string
+	}{
+		{nil, []string{"vet", "./..."}},
+		{[]string{"GOOS=darwin"}, []string{"vet", "./..."}},
+		{[]string{"GOOS=windows"}, []string{"vet", "./..."}},
+		{nil, []string{"test", "-count=1", "./..."}},
+	} {
+		cmd := exec.CommandContext(t.Context(), "go", run.args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(), append([]string{"GOWORK=off", "GOFLAGS="}, run.env...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%v go %s: %v\n%s", run.env, strings.Join(run.args, " "), err, out)
+		}
+	}
 }

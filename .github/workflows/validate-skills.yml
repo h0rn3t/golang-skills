@@ -30,7 +30,7 @@ on:
         default: all
 
 env:
-  GOLANGCI_LINT_VERSION: v2.14.0
+  GOLANGCI_LINT_VERSION: v2.15.0
 
 jobs:
   validate:
@@ -56,44 +56,12 @@ jobs:
       - name: Verify golangci-lint config
         run: golangci-lint config verify --config skills/go-linting/assets/golangci.yml
 
+      # hooks.json is parsed by TestHookScriptsSyntax, the relative links and
+      # anchors by TestRelativeLinks, both in the eval tests above.
       - name: Validate plugin hooks and agents
         run: |
-          python3 -c "import json; json.load(open('hooks/hooks.json'))"
-          bash -n hooks/go-vet-on-edit.sh
-          bash -n hooks/go-code-routing.sh
+          bash -n hooks/*.sh
           test -f agents/go-verify.md
-
-      # Every relative markdown link resolves, anchor included. A dead path is
-      # worse than no path: it sends the model looking for a file that is not
-      # there; a dead anchor sends it to the top of the wrong file.
-      - name: Check relative links
-        run: |
-          python3 - <<'PY'
-          import glob, os, re, sys
-          dead = []
-          files = glob.glob('skills/**/*.md', recursive=True) + glob.glob('docs/*.md') + glob.glob('agents/*.md') + glob.glob('*.md')
-          def strip(text):
-              return re.sub(r'`[^`]*`', '', re.sub(r'```.*?```', '', text, flags=re.S))
-          def slug(heading):
-              heading = re.sub(r'[^\w\- ]', '', heading.strip().lower())
-              return heading.replace(' ', '-')
-          anchors = {}
-          def anchors_of(path):
-              if path not in anchors:
-                  anchors[path] = {slug(re.sub(r'^#+\s*', '', l)) for l in open(path) if re.match(r'^#{1,6}\s', l)}
-              return anchors[path]
-          for f in files:
-              text = strip(open(f).read())
-              for target in re.findall(r'\]\((?!https?:|mailto:)([^)\s]+)\)', text):
-                  rel, _, anchor = target.partition('#')
-                  path = f if rel == '' else os.path.normpath(os.path.join(os.path.dirname(f), rel))
-                  if not os.path.exists(path):
-                      dead.append(f'{f} -> {target}')
-                  elif anchor and path.endswith('.md') and anchor not in anchors_of(path):
-                      dead.append(f'{f} -> {target} (no such heading)')
-          print('\n'.join(dead) or 'all relative links and anchors resolve')
-          sys.exit(1 if dead else 0)
-          PY
 
   # A v* tag that passed validate becomes a GitHub release whose notes are
   # that version's CHANGELOG section. The only job with write access.

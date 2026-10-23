@@ -130,7 +130,14 @@ while [[ $# -gt 0 ]]; do
             OUT_DIR="$2"; shift 2 ;;
         -*)           echo "error: unknown option: $1" >&2; usage >&2; exit 2 ;;
         *)
-            if [[ -z "$MODE" ]]; then MODE="$1"; else TARGET="$1"; fi
+            if [[ -z "$MODE" ]]; then
+                MODE="$1"
+            elif [[ -z "$TARGET" ]]; then
+                TARGET="$1"
+            else
+                echo "error: one package pattern, got extra: $1" >&2
+                exit 2
+            fi
             shift ;;
     esac
 done
@@ -377,7 +384,8 @@ func codeCount(path string, data []byte) (int, int) {
 			// next line.
 			continue
 		}
-		start := file.Line(pos)
+		// Unadjusted: a //line directive renumbers Line, merging lines.
+		start := file.PositionFor(pos, false).Line
 		for line := start; line <= start+strings.Count(lit, "\n"); line++ {
 			lines[line] = true
 		}
@@ -591,11 +599,27 @@ GO_VERSION="$(go version 2>/dev/null | awk '{print $3}')"
 GO_DIRECTIVE="$(awk '/^go [0-9]/ {print $2; exit}' go.mod 2>/dev/null)"
 
 # gofmt: report unformatted files by name so the summary diff is meaningful.
-GOFMT_DIR="${TARGET%%/...}"
-GOFMT_DIR="${GOFMT_DIR:-.}"
+# The directories come from go list, so gofmt sees what ./... sees: not
+# testdata/, vendor/, _ or . directories, or nested modules, and an import
+# path pattern works too.
 GOFMT_STATUS="skip"
 if command -v gofmt &>/dev/null; then
-    UNFORMATTED="$(gofmt -l "$GOFMT_DIR" 2>/dev/null | grep -v '^vendor/' || true)"
+    UNFORMATTED=""
+    if GOFMT_DIRS="$(go list -e -f '{{.Dir}}' "$TARGET" 2>&1)"; then
+        # One gofmt over every listed directory's files, not one per package.
+        files=()
+        while IFS= read -r d; do
+            [[ -n "$d" ]] || continue
+            for f in "$d"/*.go; do
+                [[ -e "$f" ]] && files+=("$f")
+            done
+        done <<< "$GOFMT_DIRS"
+        if [[ ${#files[@]} -gt 0 ]]; then
+            UNFORMATTED="$(gofmt -l "${files[@]}" 2>&1 | sed -e "s|^$PWD/||" -e '/^$/d')"
+        fi
+    else
+        UNFORMATTED="go list $TARGET failed: $GOFMT_DIRS"
+    fi
     if [[ -z "$UNFORMATTED" ]]; then
         GOFMT_STATUS="pass"
     else

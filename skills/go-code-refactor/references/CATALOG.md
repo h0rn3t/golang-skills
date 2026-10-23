@@ -12,7 +12,7 @@ entry names what the transform is in Go, the tool that performs it where one
 exists, and its row in the risk table ([SKILL.md](../SKILL.md#risk-tiers)).
 
 A transform in this file is a candidate, not a plan. The restraint ladder in
-[OVER-ENGINEERING.md](OVER-ENGINEERING.md) runs first: several entries here add
+[LADDER.md](LADDER.md) runs first: several entries here add
 a type or a layer, and adding one needs a reason the report can carry.
 
 ---
@@ -91,7 +91,7 @@ eg -t template.go -w ./...   # a migration the old body cannot express
 - **Risk**: medium — and this is the entry most often reached for too early. One
   switch in one place is not this smell; PLAYBOOK §8 lists the interface added
   for a single implementation as an anti-pattern, and the ladder in
-  [OVER-ENGINEERING.md](OVER-ENGINEERING.md) outranks this entry. The honest
+  [LADDER.md](LADDER.md) outranks this entry. The honest
   form of the trigger is three or more existing sites, today, that must change
   together. Anticipated future cases are not sites.
 

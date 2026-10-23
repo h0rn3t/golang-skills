@@ -151,12 +151,14 @@ compile. These changes look additive and are not:
 | A method added to an exported interface | Every implementation outside the package |
 | A slice, map, or func field added to a comparable struct | `==` on the type and every map keyed by it |
 | A field added to a struct callers build unkeyed | `T{a, b}` literals |
-| A method added to a type others embed | A type embedding it beside another type with that method: the selector becomes ambiguous |
+| A method or field added to a type others embed | A type embedding it beside another type with that name: the selector, and since Go 1.27 a keyed literal setting the promoted field (`Rec{Label: x}`), becomes ambiguous |
 
-Add instead: a new function beside the old one (`Query` → `QueryContext` in
-`database/sql`), a config struct or options on a constructor that takes
-configuration for the first time, or a new interface that callers detect with
-a type assertion. A change that must break callers is a new major version,
+Add instead: a new function beside the old one, which the old one calls
+(`Open` stays, `OpenWith(addr string, opts ...Option)` is new; `Query` →
+`QueryContext` in `database/sql`); a constructor new in this release takes a
+config struct or `...Option` from the start, so later settings are new fields
+or `With*` functions; or a new interface that callers detect with a type
+assertion. A change that must break callers is a new major version,
 `/vN` in the module path
 ([STRUCTURAL.md](../go-code-refactor/references/STRUCTURAL.md#changing-an-exported-api)).
 

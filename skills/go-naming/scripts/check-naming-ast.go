@@ -18,7 +18,7 @@ import (
 	"strings"
 )
 
-const version = "2.2.0"
+const version = "2.3.0"
 
 type violation struct {
 	File    string `json:"file"`
@@ -203,6 +203,7 @@ func printText(shown []violation, parseErrors []parseError, total int, truncated
 
 func parseArgs(args []string) (options, error) {
 	opts := options{target: "."}
+	seenTarget := false
 	for i := 0; i < len(args); i++ {
 		switch a := args[i]; a {
 		case "-h", "--help":
@@ -233,7 +234,10 @@ func parseArgs(args []string) (options, error) {
 			if strings.HasPrefix(a, "-") {
 				return opts, fmt.Errorf("unknown option: %s", a)
 			}
-			opts.target = a
+			if seenTarget {
+				return opts, fmt.Errorf("expected at most one path")
+			}
+			opts.target, seenTarget = a, true
 		}
 	}
 	return opts, nil

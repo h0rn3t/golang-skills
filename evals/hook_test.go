@@ -2,6 +2,7 @@ package evals_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -286,8 +287,16 @@ func TestRoutingGate(t *testing.T) {
 		t.Parallel()
 		root := t.TempDir()
 		src := repoRoot(t)
-		for _, rel := range []string{"hooks/go-code-routing.sh", "skills/go-code/SKILL.md", "skills/go-style-core/SKILL.md",
-			"skills/go-error-handling/SKILL.md"} {
+		helper, err := filepath.Glob(filepath.Join(src, "hooks", "helper", "*"))
+		if err != nil || len(helper) == 0 {
+			t.Fatalf("helper sources: %v %v", helper, err)
+		}
+		files := []string{"hooks/go-code-routing.sh", "hooks/go-hook-helper.sh", "skills/go-code/SKILL.md", "skills/go-style-core/SKILL.md",
+			"skills/go-error-handling/SKILL.md"}
+		for _, h := range helper {
+			files = append(files, filepath.Join("hooks", "helper", filepath.Base(h)))
+		}
+		for _, rel := range files {
 			data, err := os.ReadFile(filepath.Join(src, rel))
 			if err != nil {
 				t.Fatal(err)
@@ -451,6 +460,25 @@ func TestRoutingGate(t *testing.T) {
 			map[string]any{"file_path": "/repo/api/handler.go", "content": handler}))
 		if code != 0 || msg != "" {
 			t.Fatalf("edit with every owner loaded: exit %d, stderr %q; want silent 0", code, msg)
+		}
+	})
+
+	t.Run("partial read of SKILL.md is not a load", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		skillPath := filepath.Join(repoRoot(t), "skills", "go-code", "SKILL.md")
+		hookEvent(t, script, state, routingPayload("PostToolUse", "s3p", "Skill", map[string]any{"skill": "go-style-core"}))
+		for _, peek := range []map[string]any{{"limit": 1}, {"offset": 50}} {
+			peek["file_path"] = skillPath
+			hookEvent(t, script, state, routingPayload("PostToolUse", "s3p", "Read", peek))
+		}
+		edit := routingPayload("PreToolUse", "s3p", "Write", map[string]any{"file_path": "/repo/a/a.go", "content": "package a\n"})
+		if code, msg := hookEvent(t, script, state, edit); code != 2 || !strings.Contains(msg, "go-code") {
+			t.Fatalf("after partial reads: exit %d, stderr %q; want 2 naming go-code", code, msg)
+		}
+		hookEvent(t, script, state, routingPayload("PostToolUse", "s3p", "Read", map[string]any{"file_path": skillPath, "limit": 2000}))
+		if code, msg := hookEvent(t, script, state, edit); code != 0 || msg != "" {
+			t.Fatalf("after a whole read: exit %d, stderr %q; want silent 0", code, msg)
 		}
 	})
 
@@ -1231,6 +1259,30 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
+	t.Run("Go ahead is not the language", func(t *testing.T) {
+		t.Parallel()
+		code, out := promptEvent(t, t.TempDir(), "p7a", t.TempDir(), "Go ahead and add a changelog entry to CHANGELOG.md")
+		if code != 0 || out != "" {
+			t.Fatalf("Go ahead outside a Go directory: exit %d, stdout %q; want silent 0", code, out)
+		}
+		if _, out := promptEvent(t, t.TempDir(), "p7b", t.TempDir(), "Go ahead and add a Go function that parses the header"); !strings.Contains(out, "`golang-skills:go-code`") {
+			t.Fatalf("Go ahead with a Go function: stdout %q; want go-code", out)
+		}
+	})
+	// "Go to", "Go through", "Go over", and "Go on" are the verb only where a
+	// sentence starts; after a word they name the language.
+	t.Run("Go before to or on names the language mid-sentence", func(t *testing.T) {
+		t.Parallel()
+		for i, prompt := range []string{"Rewrite this Python service in Go to cut latency", "Write the CLI in Go on Linux first"} {
+			if _, out := promptEvent(t, t.TempDir(), fmt.Sprintf("p7c%d", i), t.TempDir(), prompt); !strings.Contains(out, "`golang-skills:go-code`") {
+				t.Errorf("%q: stdout %q; want go-code", prompt, out)
+			}
+		}
+		if code, out := promptEvent(t, t.TempDir(), "p7d", t.TempDir(), "Go through the README and fix the typos"); code != 0 || out != "" {
+			t.Errorf("Go through outside a Go directory: exit %d, stdout %q; want silent 0", code, out)
+		}
+	})
+
 	// A request for speed often carries no work verb and no code noun; the
 	// digest perf fixture prompt loaded go-performance in 27 of 57 Sonnet 5.5
 	// sessions (2026-10-22) and rewrote the function it named in half of the
@@ -1703,7 +1755,7 @@ func ladderEvent(t *testing.T, state string, payload map[string]any, env ...stri
 }
 
 // TestLadderHook drives the restraint ladder hook: a session or subagent
-// started in a Go project gets the ladder from OVER-ENGINEERING.md and the
+// started in a Go project gets the ladder from LADDER.md and the
 // level line from go-code's Intensity table; a level word in a prompt sets the
 // level for the rest of the session; GOLANG_SKILLS_LADDER sets the starting
 // level or turns the hook off.
@@ -1729,13 +1781,13 @@ func TestLadderHook(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("exit %d, want 0", code)
 		}
-		owner := filepath.Join(repoRoot(t), "skills", "go-code-refactor", "references", "OVER-ENGINEERING.md")
+		owner := filepath.Join(repoRoot(t), "skills", "go-code-refactor", "references", "LADDER.md")
 		for _, want := range []string{owner, "## The Restraint Ladder", "Does this need to exist at all?", "Can it be one line?", "**Never on the chopping block**", "Restraint level `full`", "as written. The default."} {
 			if !strings.Contains(out, want) {
 				t.Errorf("session start must print %q:\n%s", want, out)
 			}
 		}
-		if strings.Contains(out, "## Reach For What Go Ships") {
+		if strings.Contains(out, "## Ship, Then Question") {
 			t.Errorf("only the ladder section is printed, not the rest of the file:\n%s", out)
 		}
 	})

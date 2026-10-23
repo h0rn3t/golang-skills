@@ -35,6 +35,12 @@ runtime cost and with no wrapper anywhere. The feature exists for this: its
 design proposal names gradual code repair during large-scale refactoring, and
 specifically moving a type between packages, as the motivation.
 
+The alias keeps type identity, not the type's name: `%T`,
+`reflect.Type.String`/`PkgPath`, and `gob.Register`'s default name now say
+`newpkg.NewName`. Grep for `%T`, `reflect.TypeOf`, and `gob.Register` before
+the move; a type in a persisted or peer-decoded gob stream is registered with
+`gob.RegisterName("<old import path>.OldName", newpkg.NewName{})` instead.
+
 ```go
 // Step 1 — the new home carries the real definition.
 package newpkg
@@ -46,6 +52,8 @@ type NewName struct { /* real fields */ }
 // Step 2 — the old home keeps the name working, and says it is going away.
 package oldpkg
 
+// OldName is the former name of [newpkg.NewName].
+//
 // Deprecated: use newpkg.NewName instead.
 type OldName = newpkg.NewName
 ```
@@ -67,8 +75,10 @@ and expose accessors, or treat the move as a breaking API migration.
 
 ## Changing an exported API
 
-- **Deprecate before deleting.** A doc comment starting `// Deprecated: ` is
-  recognized by tooling and editors and shows up at every call site. Deleting an
+- **Deprecate before deleting.** A `Deprecated:` paragraph after the doc
+  comment's summary line
+  ([go-documentation](../../go-documentation/references/CONVENTIONS.md#deprecation-notices))
+  is recognized by tooling and editors and shows up at every call site. Deleting an
   exported identifier outright breaks every downstream module at its next build
   with no warning beforehand.
 - **Prefer additive, but audit compatibility.** A new top-level function or type

@@ -243,7 +243,8 @@ included, is [go-http](../../go-http/SKILL.md#server-construction)'s.
   replace the platform trust store. Audit it wherever the environment is not
   yours; `GODEBUG=x509sslcertoverrideplatform=0` restores the platform store.
 - mTLS: `ClientAuth: tls.RequireAndVerifyClientCert` with `ClientCAs`; identity
-  comes from `r.TLS.PeerCertificates[0]`, never from a header.
+  comes from `r.TLS.VerifiedChains[0][0]`
+  ([ACCESS-CONTROL.md](ACCESS-CONTROL.md#service-identity)), never from a header.
 - FIPS 140-3: `GODEBUG=fips140=on` enables runtime FIPS mode; it does not
   select a validated module snapshot. Select a currently validated version
   with build-time `GOFIPS140`, check its supported algorithms and deployment

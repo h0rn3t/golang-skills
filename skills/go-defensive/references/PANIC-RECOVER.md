@@ -104,14 +104,16 @@ function calls it directly: `defer handlePanic()` works, a closure that calls
 `handlePanic()` does not.
 
 ```go
-go func() {
+var wg sync.WaitGroup
+wg.Go(func() {
     defer func() {
         if p := recover(); p != nil {
             logger.Error("worker panic", "panic", p, "stack", string(debug.Stack()))
         }
     }()
     work(ctx)
-}()
+})
+wg.Wait() // the goroutine's owner waits for it
 ```
 
 A recovery middleware re-panics `http.ErrAbortHandler`.

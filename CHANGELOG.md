@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.42.0] - 2026-10-23
+
 - **Subagents get the router note and the ladder.** On SubagentStart Claude
   Code shows a subagent only JSON `additionalContext` and drops plain stdout;
   `go-subagent-routing.sh` and `go-restraint-ladder.sh` printed plain text, so

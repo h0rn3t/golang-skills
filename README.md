@@ -178,6 +178,47 @@ in a sandboxed `claude -p` session and compares runs with and without it.
 They cost tokens and are opt-in; see
 [`plugin-evals/README.md`](plugin-evals/README.md).
 
+## Benchmarks
+
+`abrun` measures what a skill does to the code a model writes, not what it says
+about it. Each fixture ships documented but unimplemented declarations plus a
+hidden golden test; the session edits real files in a scratch module and the
+harness scores the result. Two arms answer one question: `baseline` loads this
+skill tree from an isolated `HOME`, and `no-skill` loads an empty one, so the
+delta is the skills and nothing else.
+
+The 2026-10-24 runs below drove the corpus through the opencode CLI, which
+serves both models from one provider. Every run built and passed its golden
+test in both arms, so the difference is shape rather than correctness:
+
+| Corpus | Model | Δlines baseline → no-skill | Lint clean | Golden | $/run baseline → no-skill |
+|---|---|---|---|---|---|
+| implement (12) | DeepSeek V4.1 Flash | 58.2 → 77.5 (−25%) | 32/36 → 23/36 | 36/36 → 36/36 | 0.0136 → 0.0068 |
+| implement (12) | Muse Spark 1.3 | 52.7 → 76.0 (−31%) | 29/36 → 21/36 | 36/36 → 36/36 | 0.0075 → 0.0034 |
+
+Δlines is the production line count the session left minus the stub package it
+started from, so a smaller number is a tighter implementation of the same
+contract. Lint clean counts runs with zero findings under the bundled
+`golangci.yml`. Both runs used `-corpus implement -arms baseline,no-skill -n 3
+-j 4`: 12 fixtures × 2 arms × 3 repetitions = 72 sessions each, on Go 1.27 and
+opencode 2.1.1 with `--standalone`.
+
+Read the `skill` column in a local report with care on this runner: opencode
+does not emit the `skill` tool call that `abrun` counts, so trigger rate and
+routing read as unmeasured there. These numbers compare a home that has the
+skills with one that does not — they do not prove the model invoked a specific
+skill. The Claude Code runner is the one that reports firings.
+
+Reports are local scratch data; regenerate them with the same flags rather than
+trusting a stored copy:
+
+```bash
+cd evals
+go run ./cmd/abrun -corpus implement -runner opencode \
+  -model opencode-go/muse-spark-1.3-contributor \
+  -arms baseline,no-skill -n 3 -j 4 -out ab.json
+```
+
 ## Project Structure
 
 ```text

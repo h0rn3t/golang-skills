@@ -4,6 +4,14 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- README: a Benchmarks section records the 2026-10-24 `abrun` implement runs on
+  DeepSeek V4.1 Flash and Muse Spark 1.3 through the opencode runner, with the
+  flags to reproduce them. Both models built and passed the hidden golden test
+  in both arms; the skills cut production lines by 25–31% against the
+  no-skill control and left fewer lint findings. The section states that this
+  runner does not report skill firings, so the numbers compare an armed home
+  with an empty one rather than proving a specific skill loaded.
+
 ## [1.43.2] - 2026-10-24
 
 - Every Go block in a skill that shows a whole file is now gofmt-clean, and

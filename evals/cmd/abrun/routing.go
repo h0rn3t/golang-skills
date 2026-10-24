@@ -515,7 +515,7 @@ func printRoutingSummary(rep report, armName string) {
 	if runner == "" {
 		runner = runnerClaude
 	}
-	if (runner == runnerClaude || runner == runnerCodex) && completed > 0 {
+	if (runner == runnerClaude || runner == runnerCodex || runner == runnerGrok) && completed > 0 {
 		fmt.Printf("%-24s   command call attempts %.2f/completed run (runner %s; success not inferred)\n", "", float64(commands)/float64(completed), runner)
 	} else {
 		fmt.Printf("%-24s   command calls: unmeasured (runner %q)\n", "", runner)

@@ -24,7 +24,8 @@
 // It is opt-in: it needs the go toolchain plus the agent CLI named by -runner
 // on PATH — claude with either an authenticated session or ANTHROPIC_API_KEY,
 // opencode with a logged-in provider, copilot signed in to a GitHub account
-// whose plan serves -model, or codex signed in to an account that serves it.
+// whose plan serves -model, codex signed in to an account that serves it, or
+// grok signed in to grok.com (or XAI_API_KEY).
 //
 //	go run ./cmd/abrun -n 3 -j 4 -out ab.json
 package main
@@ -126,19 +127,20 @@ const (
 	runnerOpencode = "opencode"
 	runnerCopilot  = "copilot"
 	runnerCodex    = "codex"
+	runnerGrok     = "grok"
 )
 
 // effortRunners are the runners whose CLI can set a reasoning effort level. The
 // flag is rejected elsewhere rather than ignored, because a run recorded as
 // xhigh that was served at the model's default is a report that lies.
-var effortRunners = []string{runnerClaude, runnerCodex, runnerCopilot, runnerOpencode}
+var effortRunners = []string{runnerClaude, runnerCodex, runnerCopilot, runnerOpencode, runnerGrok}
 
 // traceFile is the raw session transcript, written at the root of the scratch
 // tree so it sits outside the fixture package that gets measured and digested.
 const traceFile = "trace.jsonl"
 
 // maxSteps bounds one session where the runner can express a ceiling:
-// --max-turns for claude, the build agent's step ceiling for opencode. The
+// --max-turns for claude and grok, the build agent's step ceiling for opencode. The
 // copilot CLI has no equivalent, so a copilot session is bounded by -timeout
 // alone.
 const maxSteps = 40
@@ -205,7 +207,7 @@ func main() {
 	flag.StringVar(&o.corpus, "corpus", corpusRefactor, "fixture corpus to run: refactor, implement, review or perf (perf needs -shell go with claude)")
 	flag.StringVar(&o.model, "model", "", "model for the evaluated run (default: the runner's own default; required for opencode)")
 	flag.StringVar(&o.effort, "effort", "", "reasoning effort for the evaluated run, e.g. medium (opencode: a --variant the model declares)")
-	flag.StringVar(&o.runner, "runner", runnerClaude, "agent CLI to drive: claude, opencode, copilot or codex")
+	flag.StringVar(&o.runner, "runner", runnerClaude, "agent CLI to drive: claude, opencode, copilot, codex or grok")
 	flag.StringVar(&o.out, "out", "", "write the JSON report to this file")
 	flag.StringVar(&o.referenceRoot, "reference-root", "", "alternate plugin root for a reference arm")
 	flag.StringVar(&o.gopls, "gopls", "", "give each claude session gopls: mcp (the gopls MCP server) or cli (Bash allowed for gopls only); default neither")
@@ -602,6 +604,12 @@ func run(o options) error {
 		if err != nil {
 			return err
 		}
+	case runnerGrok:
+		homes, err := grokHomes(arms)
+		defer homes()
+		if err != nil {
+			return err
+		}
 	}
 
 	fmt.Printf("%d fixtures x %d arms x %d reps = %d runs\n\n", len(tasks), len(arms), o.reps, len(tasks)*len(arms)*o.reps)
@@ -653,7 +661,7 @@ func validateOptions(o options) error {
 		return exitError{2, "-corpus " + corpusPerf + " needs -shell " + shellGo + " for the claude runner"}
 	}
 	switch o.runner {
-	case runnerClaude, runnerCopilot, runnerCodex:
+	case runnerClaude, runnerCopilot, runnerCodex, runnerGrok:
 	case runnerOpencode:
 		// An arm home carries no model preference of its own, so opencode has
 		// nothing to fall back on and the model has to be named explicitly.
@@ -661,7 +669,7 @@ func validateOptions(o options) error {
 			return exitError{2, "-model is required for the opencode runner, e.g. -model opencode-go/minimax-m3"}
 		}
 	default:
-		return exitError{2, fmt.Sprintf("-runner must be one of %s, %s, %s, %s", runnerClaude, runnerOpencode, runnerCopilot, runnerCodex)}
+		return exitError{2, fmt.Sprintf("-runner must be one of %s, %s, %s, %s, %s", runnerClaude, runnerOpencode, runnerCopilot, runnerCodex, runnerGrok)}
 	}
 	if o.effort != "" && !slices.Contains(effortRunners, o.runner) {
 		return exitError{2, fmt.Sprintf("-effort is only supported by the %s runners", strings.Join(effortRunners, " and "))}
@@ -699,6 +707,8 @@ func missingRunner(runner string) string {
 		hint = "install with: npm install -g @github/copilot"
 	case runnerCodex:
 		hint = "install with: npm install -g @openai/codex"
+	case runnerGrok:
+		hint = "install Grok Build so grok is on PATH"
 	}
 	return runner + " CLI not found on PATH; " + hint
 }
@@ -1201,6 +1211,10 @@ func runSession(o options, a arm, work, prompt string) sessionTurn {
 		t.out, t.err = codexSession(o, a.home, work, prompt)
 		t.skills, t.final, t.cost, t.codexEvidence.Reads = parseCodexStream(t.out, inventory)
 		t.commands = codexCommands(t.out)
+	case runnerGrok:
+		t.out, t.err = grokSession(o, a.home, work, prompt)
+		t.skills, t.final, t.cost, t.commands = parseGrokStream(t.out)
+		t.refused = claudeRefused(t.out)
 	default:
 		t.out, t.err = claudeSession(o, a.dir, work, prompt)
 		t.skills, t.final, t.cost = parseClaudeStream(t.out)

@@ -203,7 +203,7 @@ run against the target project. Skill text writes every command as
   `evals/ab/_review` (seeded defects scored against
   `_golden/<fixture>/key.json` by source line). `_golden/` is copied in after
   the session and never reaches the model; the model's own tests are renamed
-  `*_test.go.model` first. `-runner` supports claude, codex, copilot, and
+  `*_test.go.model` first. `-runner` supports claude, codex, copilot, grok, and
   opencode with differences documented by the runner implementations; compare
   arms within one runner. `no-skill` vs `baseline` only shows a fixture has a trap;
   `reference` vs `baseline` is what judges a skill edit.

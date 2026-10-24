@@ -316,7 +316,8 @@ scratch sources і copies receipts збережені для readback.
 
 Передумова: перевірити доступ Codex до GPT 6.1; встановити opencode та
 перевірити доступ до Grok 4.7. Раннери в `abrun` уже є (`-runner codex`,
-`-runner opencode`; opencode вимагає `-model`).
+`-runner opencode`, `-runner grok`; opencode вимагає `-model`). `grok`
+викликає CLI Grok Build і не підключає хуки цього плагіна.
 
 1. **Чи допомагає пак узагалі.** `-arms no-skill,baseline` на implement,
    refactor і review, n=2. Для Claude `no-skill` лише показував, що фікстура
@@ -516,9 +517,10 @@ n=2 — 68 сесій на модель, ще до A3/A7. Кількість п�
   хуки цього плагіна; скіл читається як файл через shell. Маршрутизацію
   мають забезпечити текст і блок `AGENTS.md`, а читання — підтвердити G5.
   Поведінку цільової моделі не виміряно.
-- **Grok 4.7 (opencode).** Поточний раннер не підключає хуки Claude Code;
-  парсер очікує skill tool. Фактичну механіку й поведінку цільової моделі
-  ще треба перевірити після встановлення CLI.
+- **Grok 4.7 (`-runner grok`).** Раннер не підключає хуки Claude Code.
+  Скіл зараховується, коли `read_file` повернув увесь `SKILL.md`. Поведінку
+  цільової моделі на корпусі ще треба виміряти. Opencode лишається окремим
+  хостом (`-runner opencode -model opencode-go/grok-4.7`).
 
 ## 4. Порядок і бюджет
 

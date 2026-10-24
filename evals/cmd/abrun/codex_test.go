@@ -23,6 +23,7 @@ func TestValidateOptionsEffortIsRunnerSpecific(t *testing.T) {
 		// condition in the report that never reached the model.
 		{name: "claude with effort", runner: runnerClaude, effort: "medium"},
 		{name: "opencode with effort", runner: runnerOpencode, effort: "xhigh"},
+		{name: "grok with effort", runner: runnerGrok, effort: "medium"},
 	}
 
 	for _, tt := range tests {

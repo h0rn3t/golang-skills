@@ -4,6 +4,14 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- `abrun -runner grok` drives the Grok CLI (`grok -p`). Each arm gets its own
+  `HOME` and `GROK_HOME`, so a control arm does not see skills installed for
+  the operator. The arm's `skills/` tree is what the session can read; this
+  plugin's hooks are not installed. A go-* skill counts when a `read_file`
+  result returns the whole `SKILL.md`. `-effort` is passed as
+  `--reasoning-effort`. `-gopls` and `-shell` stay claude-only: a grok session
+  already has a shell, and a review run has the edit and shell tools removed.
+
 ## [1.43.0] - 2026-10-23
 
 The remaining findings of the 2026-10-22 review. The wording changes under

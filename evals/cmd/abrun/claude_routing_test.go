@@ -316,7 +316,7 @@ func captureRoutingSummary(t *testing.T, rep report) string {
 
 func TestRoutingConsoleCommandScopeContract(t *testing.T) {
 	for _, corpus := range []string{corpusImplement, corpusReview} {
-		for _, runner := range []string{runnerClaude, runnerCodex, runnerOpencode, runnerCopilot, ""} {
+		for _, runner := range []string{runnerClaude, runnerCodex, runnerOpencode, runnerCopilot, runnerGrok, ""} {
 			t.Run(corpus+" "+runner, func(t *testing.T) {
 				r := result{Arm: "baseline", Build: true, Golden: true, Edited: true, Commands: 3}
 				if corpus == corpusReview {
@@ -327,7 +327,7 @@ func TestRoutingConsoleCommandScopeContract(t *testing.T) {
 				rep := report{Corpus: corpus, Runner: runner, Arms: []arm{{Name: "baseline"}}, Results: []result{r}}
 				got := captureRoutingSummary(t, rep)
 				want := "command calls: unmeasured"
-				if runner == "" || runner == runnerClaude || runner == runnerCodex {
+				if runner == "" || runner == runnerClaude || runner == runnerCodex || runner == runnerGrok {
 					want = "command call attempts 3.00/completed run"
 				}
 				if !strings.Contains(got, want) {

@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.43.1] - 2026-10-24
+
 - `abrun -runner grok` drives the Grok CLI (`grok -p`). Each arm gets its own
   `HOME` and `GROK_HOME`, so a control arm does not see skills installed for
   the operator. The arm's `skills/` tree is what the session can read; this

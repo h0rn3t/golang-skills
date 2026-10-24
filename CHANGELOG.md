@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.43.2] - 2026-10-24
+
 - Every Go block in a skill that shows a whole file is now gofmt-clean, and
   `TestFileExamplesAreGofmtClean` keeps it so: eight blocks were indented with
   spaces (one also listed its imports unsorted), the doc comment in the

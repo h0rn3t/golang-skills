@@ -19,87 +19,87 @@ server it checks nothing.
 package main
 
 import (
-    "context"
-    json "encoding/json/v2"
-    "errors"
-    "log/slog"
-    "net/http"
-    "os"
-    "os/signal"
-    "syscall"
-    "time"
+	"context"
+	json "encoding/json/v2"
+	"errors"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 var errNotFound = errors.New("not found")
 
 type user struct {
-    ID   string `json:"id"`
-    Name string `json:"name"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // store reads users from the database; the query belongs to go-database.
 type store struct{ dsn string }
 
 func (s *store) user(ctx context.Context, id string) (user, error) {
-    return user{}, errNotFound
+	return user{}, errNotFound
 }
 
 func main() {
-    if err := run(); err != nil {
-        slog.Error("serve", "err", err)
-        os.Exit(1)
-    }
+	if err := run(); err != nil {
+		slog.Error("serve", "err", err)
+		os.Exit(1)
+	}
 }
 
 func run() error {
-    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-    defer stop()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-    users := &store{dsn: os.Getenv("DATABASE_URL")}
-    mux := http.NewServeMux()
-    mux.HandleFunc("GET /users/{id}", func(w http.ResponseWriter, r *http.Request) {
-        id := r.PathValue("id")
-        u, err := users.user(r.Context(), id)
-        if errors.Is(err, errNotFound) {
-            http.Error(w, "user not found", http.StatusNotFound)
-            return
-        }
-        if err != nil {
-            // The detail stays in the server log; the client gets only a status.
-            slog.ErrorContext(r.Context(), "get user", "id", id, "err", err)
-            http.Error(w, "internal error", http.StatusInternalServerError)
-            return
-        }
-        body, err := json.Marshal(u) // stored text can fail to encode: choose the status first
-        if err != nil {
-            slog.ErrorContext(r.Context(), "encode user", "id", id, "err", err)
-            http.Error(w, "internal error", http.StatusInternalServerError)
-            return
-        }
-        w.Header().Set("Content-Type", "application/json")
-        _, _ = w.Write(body) // headers are sent; a failed write is the client's disconnect
-    })
+	users := &store{dsn: os.Getenv("DATABASE_URL")}
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /users/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		u, err := users.user(r.Context(), id)
+		if errors.Is(err, errNotFound) {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			// The detail stays in the server log; the client gets only a status.
+			slog.ErrorContext(r.Context(), "get user", "id", id, "err", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		body, err := json.Marshal(u) // stored text can fail to encode: choose the status first
+		if err != nil {
+			slog.ErrorContext(r.Context(), "encode user", "id", id, "err", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(body) // headers are sent; a failed write is the client's disconnect
+	})
 
-    srv := &http.Server{
-        Addr:              ":8080",
-        Handler:           mux,
-        ReadHeaderTimeout: 5 * time.Second,
-        ReadTimeout:       10 * time.Second,
-        WriteTimeout:      10 * time.Second,
-        IdleTimeout:       120 * time.Second,
-    }
-    errCh := make(chan error, 1) // buffered: the goroutine exits even after run returns
-    go func() { errCh <- srv.ListenAndServe() }()
-    slog.Info("serving", "addr", srv.Addr)
+	srv := &http.Server{
+		Addr:              ":8080",
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	errCh := make(chan error, 1) // buffered: the goroutine exits even after run returns
+	go func() { errCh <- srv.ListenAndServe() }()
+	slog.Info("serving", "addr", srv.Addr)
 
-    select {
-    case err := <-errCh:
-        return err
-    case <-ctx.Done():
-    }
-    shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-    defer cancel()
-    return srv.Shutdown(shutdownCtx)
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return srv.Shutdown(shutdownCtx)
 }
 ```
 

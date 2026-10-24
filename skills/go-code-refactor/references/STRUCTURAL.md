@@ -45,7 +45,9 @@ the move; a type in a persisted or peer-decoded gob stream is registered with
 // Step 1 — the new home carries the real definition.
 package newpkg
 
-type NewName struct { /* real fields */ }
+type NewName struct {
+	// real fields
+}
 ```
 
 ```go

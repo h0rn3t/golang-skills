@@ -90,28 +90,28 @@ the `Run` form below Go 1.22+:
 package myhandler_test
 
 import (
-    "bytes"
-    "encoding/json"
-    "log/slog"
-    "testing"
-    "testing/slogtest"
+	"bytes"
+	"encoding/json"
+	"log/slog"
+	"testing"
+	"testing/slogtest"
 )
 
 func TestHandler(t *testing.T) {
-    var buf bytes.Buffer
-    newHandler := func(*testing.T) slog.Handler {
-        buf.Reset()
-        return slog.NewJSONHandler(&buf, nil) // replace with your handler
-    }
-    // result parses the one record each slogtest case wrote.
-    result := func(t *testing.T) map[string]any {
-        var m map[string]any
-        if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
-            t.Fatal(err)
-        }
-        return m
-    }
-    slogtest.Run(t, newHandler, result)
+	var buf bytes.Buffer
+	newHandler := func(*testing.T) slog.Handler {
+		buf.Reset()
+		return slog.NewJSONHandler(&buf, nil) // replace with your handler
+	}
+	// result parses the one record each slogtest case wrote.
+	result := func(t *testing.T) map[string]any {
+		var m map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	slogtest.Run(t, newHandler, result)
 }
 ```
 

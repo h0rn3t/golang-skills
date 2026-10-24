@@ -110,34 +110,34 @@ database is configured:
 package store_test
 
 import (
-    "database/sql"
-    "os"
-    "testing"
+	"database/sql"
+	"os"
+	"testing"
 
-    _ "github.com/jackc/pgx/v5/stdlib" // registers "pgx" in this test binary; main's import does not reach it
+	_ "github.com/jackc/pgx/v5/stdlib" // registers "pgx" in this test binary; main's import does not reach it
 )
 
 // openTestDB opens the database named by TEST_DATABASE_URL and skips the test
 // when it is unset.
 func openTestDB(t *testing.T) *sql.DB {
-    t.Helper()
-    dsn := os.Getenv("TEST_DATABASE_URL")
-    if dsn == "" {
-        t.Skip("TEST_DATABASE_URL is not set")
-    }
-    db, err := sql.Open("pgx", dsn)
-    if err != nil {
-        t.Fatalf("sql.Open: %v", err)
-    }
-    t.Cleanup(func() {
-        if err := db.Close(); err != nil {
-            t.Errorf("close: %v", err)
-        }
-    })
-    if err := db.PingContext(t.Context()); err != nil {
-        t.Fatalf("ping the test database: %v", err)
-    }
-    return db
+	t.Helper()
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("sql.Open: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
+	if err := db.PingContext(t.Context()); err != nil {
+		t.Fatalf("ping the test database: %v", err)
+	}
+	return db
 }
 ```
 

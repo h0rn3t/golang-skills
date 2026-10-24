@@ -19,13 +19,13 @@ package storagetest
 // Verify runs a validation suite against any storage.Backend.
 // Returns an error describing the first violation, or nil on success.
 func Verify(b storage.Backend) error {
-    if err := verifyRoundTrip(b); err != nil {
-        return fmt.Errorf("round-trip: %w", err)
-    }
-    if err := verifyNotFound(b); err != nil {
-        return fmt.Errorf("not-found: %w", err)
-    }
-    return nil
+	if err := verifyRoundTrip(b); err != nil {
+		return fmt.Errorf("round-trip: %w", err)
+	}
+	if err := verifyNotFound(b); err != nil {
+		return fmt.Errorf("not-found: %w", err)
+	}
+	return nil
 }
 ```
 

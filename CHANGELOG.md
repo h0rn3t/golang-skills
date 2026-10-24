@@ -4,6 +4,15 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- Every Go block in a skill that shows a whole file is now gofmt-clean, and
+  `TestFileExamplesAreGofmtClean` keeps it so: eight blocks were indented with
+  spaces (one also listed its imports unsorted), the doc comment in the
+  go-documentation `EXAMPLES.md` indented its code with spaces where gofmt
+  writes a tab, and a one-line struct with a comment became a two-line one.
+  A model copies the layout along with the code. Idea from JetBrains
+  go-modern-guidelines PR #28; nothing else in that repository is new since
+  `155dc7c`.
+
 ## [1.43.1] - 2026-10-24
 
 - `abrun -runner grok` drives the Grok CLI (`grok -p`). Each arm gets its own

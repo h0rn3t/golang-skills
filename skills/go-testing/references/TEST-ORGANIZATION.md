@@ -107,12 +107,12 @@ provide an acceptance test suite for interface implementers.
 package usertest
 
 func NewFakeStore(t *testing.T, users ...*user.User) *FakeUserStore {
-    t.Helper()
-    store := &FakeUserStore{users: make(map[string]user.User)}
-    for _, u := range users {
-        store.users[u.ID] = *u
-    }
-    return store
+	t.Helper()
+	store := &FakeUserStore{users: make(map[string]user.User)}
+	for _, u := range users {
+		store.users[u.ID] = *u
+	}
+	return store
 }
 ```
 

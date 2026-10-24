@@ -50,8 +50,8 @@ require them.
 package main
 
 import (
-    _ "time/tzdata"
-    _ "image/jpeg"
+	_ "image/jpeg"
+	_ "time/tzdata"
 )
 ```
 
@@ -82,7 +82,7 @@ dependencies, cannot be made part of the package being tested:
 package foo_test
 
 import (
-    "bar/testutil" // also imports "foo"
-    . "foo"
+	"bar/testutil" // also imports "foo"
+	. "foo"
 )
 ```

@@ -46,17 +46,17 @@ seed_generator command`, `Seed_generator ...`
 //
 // Create a complex number and perform operations:
 //
-//   z := complex.New(3, 4)
-//   magnitude := z.Abs()    // 5.0
-//   conjugate := z.Conj()   // (3, -4)
+//	z := complex.New(3, 4)
+//	magnitude := z.Abs()    // 5.0
+//	conjugate := z.Conj()   // (3, -4)
 //
 // # Matrix operations
 //
 // The package supports complex-valued matrices:
 //
-//   m := complex.NewMatrix(2, 2)
-//   m.Set(0, 0, complex.New(1, 0))
-//   det := m.Det()
+//	m := complex.NewMatrix(2, 2)
+//	m.Set(0, 0, complex.New(1, 0))
+//	det := m.Det()
 package complex
 ```
 

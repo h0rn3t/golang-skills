@@ -45,8 +45,8 @@ than passing `./...` as a path or sweeping generated/vendor trees.
 package template
 
 import (
-    "errors"
-    "fmt"
+	"errors"
+	"fmt"
 )
 
 func before(s string) error { return fmt.Errorf("%s", s) }

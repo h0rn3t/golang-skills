@@ -128,19 +128,62 @@ func writeOpencodeHome(home, armDir string, auth []byte) error {
 			return err
 		}
 	}
+	data := filepath.Join(home, ".local", "share", "opencode")
+	if err := os.MkdirAll(data, 0o700); err != nil {
+		return err
+	}
 	if auth != nil {
-		data := filepath.Join(home, ".local", "share", "opencode")
-		if err := os.MkdirAll(data, 0o700); err != nil {
-			return err
-		}
 		if err := os.WriteFile(filepath.Join(data, "auth.json"), auth, 0o600); err != nil {
 			return err
+		}
+	}
+	// opencode >=2 stores credentials in opencode.db (sqlite), not auth.json.
+	// Without it an isolated home serves every model as unavailable
+	// (provider.no-route), so copy the operator's database when present.
+	// Only the main file is copied; -shm/-wal are recreated on open.
+	if src, err := opencodeDbPath(); err == nil && src != "" {
+		if dst, err := copyOpencodeDb(src, data); err != nil {
+			return err
+		} else {
+			_ = dst
 		}
 	}
 	if armDir == "" {
 		return nil
 	}
 	return os.CopyFS(filepath.Join(config, "skills"), os.DirFS(filepath.Join(armDir, "skills")))
+}
+
+// opencodeDbPath returns the operator's credential database, or "" when there
+// is none to copy. A missing file is not an error: the provider key can come
+// from the environment.
+func opencodeDbPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("locate opencode database: %w", err)
+	}
+	p := filepath.Join(home, ".local", "share", "opencode", "opencode.db")
+	if _, err := os.Stat(p); err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	return p, nil
+}
+
+// copyOpencodeDb copies the sqlite database file into the arm home's data
+// directory. The copy preserves mode 0600 like the original.
+func copyOpencodeDb(src, dstDir string) (string, error) {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return "", err
+	}
+	dst := filepath.Join(dstDir, "opencode.db")
+	if err := os.WriteFile(dst, data, 0o600); err != nil {
+		return "", err
+	}
+	return dst, nil
 }
 
 // checkOpencodeSkills asserts that an arm home loads exactly the skills that arm
@@ -150,22 +193,67 @@ func writeOpencodeHome(home, armDir string, auth []byte) error {
 // once here keeps concurrent runs from racing on the same install.
 func checkOpencodeSkills(home, armName, armDir string) error {
 	out, err := opencodeCmd(opencodeSetupTimeout, home, home, "debug", "skill")
-	if err != nil {
+	if err == nil {
+		var skills []struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(out, &skills); err != nil {
+			return fmt.Errorf("decode skills for %s arm: %w", armName, err)
+		}
+		var loaded []string
+		for _, s := range skills {
+			if strings.HasPrefix(s.Name, "go-") {
+				loaded = append(loaded, s.Name)
+			}
+		}
+		return checkArmSkills(armName, armDir, loaded, "")
+	}
+	// opencode >=2.1 removed `debug skill`; fall back to the filesystem the
+	// runner itself reads (~/.config/opencode/skills) and warm the home up
+	// with a cheap command so concurrent runs do not race on first install.
+	if !strings.Contains(err.Error(), "Unknown subcommand") {
 		return fmt.Errorf("list skills for %s arm: %w", armName, err)
 	}
-	var skills []struct {
-		Name string `json:"name"`
+	loaded, ferr := homeSkillNames(home)
+	if ferr != nil {
+		return fmt.Errorf("list skills for %s arm: %w (fallback: %v)", armName, err, ferr)
 	}
-	if err := json.Unmarshal(out, &skills); err != nil {
-		return fmt.Errorf("decode skills for %s arm: %w", armName, err)
-	}
-	var loaded []string
-	for _, s := range skills {
-		if strings.HasPrefix(s.Name, "go-") {
-			loaded = append(loaded, s.Name)
-		}
+	if werr := warmOpencodeHome(home); werr != nil {
+		return fmt.Errorf("warm up %s arm home: %w", armName, werr)
 	}
 	return checkArmSkills(armName, armDir, loaded, "")
+}
+
+// homeSkillNames lists the go-* skills present in one arm home, the same
+// directory layout writeOpencodeHome creates. A directory counts only if it
+// holds a SKILL.md, mirroring armSkillNames.
+func homeSkillNames(home string) ([]string, error) {
+	root := filepath.Join(home, ".config", "opencode", "skills")
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var names []string
+	for _, e := range entries {
+		if !e.IsDir() || !strings.HasPrefix(e.Name(), "go-") {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(root, e.Name(), "SKILL.md")); err != nil {
+			continue
+		}
+		names = append(names, e.Name())
+	}
+	return names, nil
+}
+
+// warmOpencodeHome triggers opencode's first-use install in a fresh home so
+// the parallel runs sharing it do not race on it.
+func warmOpencodeHome(home string) error {
+	_, err := opencodeCmd(opencodeSetupTimeout, home, home, "debug", "paths")
+	return err
 }
 
 // opencodeSetupTimeout bounds the per-home warm-up, which downloads and installs
@@ -176,7 +264,7 @@ const opencodeSetupTimeout = 5 * time.Minute
 // home. --auto approves the edits the prompt asks for, the same role
 // --permission-mode acceptEdits plays for the claude runner.
 func opencodeSession(o options, home, work, prompt string) ([]byte, error) {
-	args := []string{"run", "--format", "json", "--auto"}
+	args := []string{"run", "--standalone", "--format", "json", "--auto"}
 	if o.model != "" {
 		args = append(args, "--model", o.model)
 	}
@@ -278,14 +366,28 @@ func opencodeErrorEvent(out []byte) string {
 			Type  string `json:"type"`
 			Error struct {
 				Name string `json:"name"`
+				Type string `json:"type"`
 				Data struct {
 					Message string `json:"message"`
 				} `json:"data"`
+				Message string `json:"message"`
 			} `json:"error"`
 		}
-		if json.Unmarshal(line, &ev) == nil && ev.Type == "error" {
-			return strings.TrimSpace(ev.Error.Name + ": " + ev.Error.Data.Message)
+		if json.Unmarshal(line, &ev) != nil || ev.Type != "error" {
+			continue
 		}
+		name := ev.Error.Name
+		if name == "" {
+			name = ev.Error.Type
+		}
+		msg := ev.Error.Data.Message
+		if msg == "" {
+			msg = ev.Error.Message
+		}
+		if strings.TrimSpace(name+msg) == "" {
+			continue
+		}
+		return strings.TrimSpace(name + ": " + msg)
 	}
 	return ""
 }

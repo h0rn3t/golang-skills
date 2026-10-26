@@ -4,6 +4,17 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- evalrun: `-ids` picks quality cases by id whatever their set (an unknown id
+  is an error), `-n` repeats each case, `-no-skill` runs them without the
+  plugin as the control arm (quality only; needs `claude --restricted`, which
+  skips the user's enabled plugins), and the report carries `cost_usd` and
+  `judge_cost_usd` per run, the total in the summary, and each case's `trap`.
+- go-vet-on-edit hook: a count of `go fix` hunks or lint findings in files the
+  edit did not touch no longer exits 2, which Claude Code shows as "blocking
+  error"; it rides the PostToolUse `additionalContext` beside the receipts.
+  Findings in the edited file, and package-wide vet or test failures, still
+  exit 2 with the counts appended.
+
 - Ideas from samber/cc-skills-golang (MIT, `246b6c4`), each re-verified on
   go1.27.1 or the module source and written in this pack's words; their claims
   found wrong for 1.26/1.27 were left out.

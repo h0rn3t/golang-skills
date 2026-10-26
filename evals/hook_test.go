@@ -697,6 +697,9 @@ func TestVetHook(t *testing.T) {
 		}
 	})
 
+	// A count from files the edit did not touch is context: exit 0 with the
+	// count in additionalContext, since the host labels any exit 2 a
+	// blocking error.
 	t.Run("go fix hunks elsewhere in the package are one count", func(t *testing.T) {
 		t.Parallel()
 		path := module(t, clean)
@@ -704,9 +707,9 @@ func TestVetHook(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(filepath.Dir(path), "other.go"), []byte(loop), 0o644); err != nil {
 			t.Fatalf("write other.go: %v", err)
 		}
-		code, msg := hookEventEnv(t, script, t.TempDir(), edited(path), "GOLANG_SKILLS_EDIT_LINT=off")
-		if code != 2 || !strings.Contains(msg, "1 hunk(s) in other files") || strings.Contains(msg, "range n") {
-			t.Fatalf("modernizable other.go: exit %d, stderr %q; want 2 with a hunk count and no hunk text", code, msg)
+		code, out, msg := hookOutput(t, script, t.TempDir(), edited(path), "GOLANG_SKILLS_EDIT_LINT=off")
+		if code != 0 || !strings.Contains(out, "1 hunk(s) in other files") || !strings.Contains(out, "additionalContext") || strings.Contains(out, "range n") {
+			t.Fatalf("modernizable other.go: exit %d, stdout %q, stderr %q; want 0 with a hunk count in additionalContext and no hunk text", code, out, msg)
 		}
 	})
 
@@ -827,9 +830,9 @@ func TestVetHook(t *testing.T) {
 			t.Fatalf("symlink package directory: %v", err)
 		}
 		for _, editedPath := range []string{path, filepath.Join(alias, "main.go")} {
-			code, msg := hookEvent(t, script, t.TempDir(), edited(editedPath))
-			if code != 2 || !strings.Contains(msg, "1 finding(s) in other files") || strings.Contains(msg, "errcheck") {
-				t.Errorf("finding in other.go through %s: exit %d, stderr %q; want 2 with a count and no finding text", editedPath, code, msg)
+			code, out, msg := hookOutput(t, script, t.TempDir(), edited(editedPath))
+			if code != 0 || !strings.Contains(out, "1 finding(s) in other files") || strings.Contains(out, "errcheck") {
+				t.Errorf("finding in other.go through %s: exit %d, stdout %q, stderr %q; want 0 with a count in additionalContext and no finding text", editedPath, code, out, msg)
 			}
 		}
 	})

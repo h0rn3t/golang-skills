@@ -94,8 +94,10 @@ func receiptCommand(args []string) (int, error) {
 		return 0, nil
 	case op == "verify" && len(args) >= 1:
 		return verify(args[0], args[1:])
-	case (op == "report" || op == "context") && len(args) == 1:
-		return 0, report(args[0], op == "context")
+	case op == "report" && (len(args) == 1 || len(args) == 2):
+		return 0, report(args[0], strings.Join(args[1:], ""), false)
+	case op == "context" && len(args) == 1:
+		return 0, report(args[0], "", true)
 	case op == "module" && len(args) == 1:
 		code, module := capture([]string{"go", "env", "GOMOD"}, args[0], false)
 		if code == 0 && module != os.DevNull && isFile(module) {
@@ -836,8 +838,9 @@ func currentCredits(directory string, names []string) []string {
 }
 
 // report prints the receipts of a generation with the verifier command to
-// run next: as PostToolUse JSON, or as plain text for stderr.
-func report(directory string, contextOnly bool) error {
+// run next: as PostToolUse JSON, or as plain text for stderr. A note — the
+// counts of findings in files the edit did not touch — follows the receipts.
+func report(directory, note string, contextOnly bool) error {
 	root := os.Getenv("GOLANG_SKILLS_HOOK_ROOT")
 	skill := "go-linting"
 	if ns := pluginName(filepath.Join(root, ".claude-plugin", "plugin.json")); ns != "" {
@@ -866,6 +869,9 @@ func report(directory string, contextOnly bool) error {
 		"\nFirst verification action after the final edit (Bash tool):\n" + batch +
 		"\nUse only hook_credit=true checks from that JSON. Never write lint pass for reuse=unverified, even with a disclaimer. Run required_direct checks and the selected build/race gate." +
 		"\nFile-only gofmt and package checks cannot satisfy a wider gate. Package short tests have no race check. If verification is unavailable, run the check directly or report it unavailable."
+	if note != "" {
+		text += "\n" + strings.TrimRight(note, "\n")
+	}
 	if contextOnly {
 		fmt.Println(text)
 	} else {

@@ -5,9 +5,12 @@
 //
 // It is opt-in: it needs the claude CLI on PATH and either an authenticated
 // session or ANTHROPIC_API_KEY. Skills are loaded from the repository with
-// --plugin-dir, so the checked-out tree is what gets measured.
+// --plugin-dir, so the checked-out tree is what gets measured. -no-skill runs
+// the quality evals without the plugin, the control a new case is checked
+// against: a case the control already passes tests nothing.
 //
 //	go run ./cmd/evalrun -set validation -kind all -j 2 -out results.json
+//	go run ./cmd/evalrun -kind quality -ids 65,66 -n 3 -no-skill -out control.json
 package main
 
 import (
@@ -19,7 +22,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,6 +44,7 @@ type qualityEval struct {
 	Files      []string `json:"files"`
 	Assertions []string `json:"assertions"`
 	Set        string   `json:"set"`
+	Trap       string   `json:"trap"`
 }
 
 type evalsFile struct {
@@ -61,27 +67,33 @@ type assertionResult struct {
 }
 
 type qualityResult struct {
-	ID         int               `json:"id"`
-	Pass       bool              `json:"pass"`
-	Assertions []assertionResult `json:"assertions"`
-	Output     string            `json:"output,omitempty"`
-	Err        string            `json:"error,omitempty"`
+	ID           int               `json:"id"`
+	Rep          int               `json:"rep"`
+	Pass         bool              `json:"pass"`
+	Trap         string            `json:"trap,omitempty"`
+	Assertions   []assertionResult `json:"assertions"`
+	CostUSD      float64           `json:"cost_usd"`
+	JudgeCostUSD float64           `json:"judge_cost_usd"`
+	Output       string            `json:"output,omitempty"`
+	Err          string            `json:"error,omitempty"`
 }
 
 type report struct {
 	Set      string          `json:"set"`
+	NoSkill  bool            `json:"no_skill,omitempty"`
 	Trigger  []triggerResult `json:"trigger"`
 	Quality  []qualityResult `json:"quality"`
+	CostUSD  float64         `json:"cost_usd"`
 	Summary  string          `json:"summary"`
 	Finished time.Time       `json:"finished"`
 }
 
 type options struct {
-	set, kind, model, judgeModel, out string
-	limit, parallel                   int
-	timeout                           time.Duration
-	verbose                           bool
-	restricted                        bool // claude supports --restricted: no built-in tools beyond --tools, no user/project settings or hooks
+	set, kind, model, judgeModel, out, ids string
+	limit, parallel, reps                  int
+	timeout                                time.Duration
+	verbose, noSkill                       bool
+	restricted                             bool // claude supports --restricted: no built-in tools beyond --tools, no user/project settings or hooks
 }
 
 func main() {
@@ -89,6 +101,9 @@ func main() {
 	flag.StringVar(&o.set, "set", "validation", "eval set: train, validation, or all")
 	flag.StringVar(&o.kind, "kind", "all", "which evals: trigger, quality, or all")
 	flag.IntVar(&o.limit, "limit", 0, "run at most N evals of each kind (0 = all)")
+	flag.StringVar(&o.ids, "ids", "", "comma-separated quality eval ids to run, whatever their set (default: the -set selection)")
+	flag.IntVar(&o.reps, "n", 1, "runs of each quality eval")
+	flag.BoolVar(&o.noSkill, "no-skill", false, "run the quality evals without the plugin: the control arm (needs -kind quality and claude --restricted)")
 	flag.IntVar(&o.parallel, "j", 2, "evals to run concurrently")
 	flag.StringVar(&o.model, "model", "", "model for the evaluated run (default: claude's default)")
 	flag.StringVar(&o.judgeModel, "judge-model", "", "model for grading quality evals (default: claude's default)")
@@ -98,8 +113,7 @@ func main() {
 	flag.Parse()
 
 	if err := run(o); err != nil {
-		var ef exitError
-		if errors.As(err, &ef) {
+		if ef, ok := errors.AsType[exitError](err); ok {
 			fmt.Fprintln(os.Stderr, ef.msg)
 			os.Exit(ef.code)
 		}
@@ -122,6 +136,17 @@ func run(o options) error {
 	if help, err := exec.Command("claude", "--help").CombinedOutput(); err == nil {
 		o.restricted = strings.Contains(string(help), "--restricted")
 	}
+	if o.noSkill && o.kind != "quality" {
+		return exitError{2, "-no-skill applies to quality evals only; pass -kind quality"}
+	}
+	// Without --restricted, claude loads the plugins the user's settings
+	// enable, and the control arm would see the skills anyway.
+	if o.noSkill && !o.restricted {
+		return exitError{2, "-no-skill needs a claude CLI with --restricted, which skips user settings and their plugins"}
+	}
+	if o.reps < 1 {
+		return exitError{2, fmt.Sprintf("-n %d: want at least 1", o.reps)}
+	}
 	root, err := repoRoot()
 	if err != nil {
 		return err
@@ -135,7 +160,7 @@ func run(o options) error {
 		return fmt.Errorf("parse evals.json: %w", err)
 	}
 
-	rep := report{Set: o.set}
+	rep := report{Set: o.set, NoSkill: o.noSkill}
 	if o.kind == "trigger" || o.kind == "all" {
 		var selected []triggerEval
 		for _, ev := range evals.TriggerEvals {
@@ -151,23 +176,26 @@ func run(o options) error {
 		})
 	}
 	if o.kind == "quality" || o.kind == "all" {
-		var selected []qualityEval
-		for _, ev := range evals.QualityEvals {
-			if o.set == "all" || ev.Set == o.set {
-				selected = append(selected, ev)
-			}
+		selected, err := selectQuality(evals.QualityEvals, o.set, o.ids)
+		if err != nil {
+			return exitError{2, err.Error()}
 		}
 		selected = capN(selected, o.limit)
-		rep.Quality = make([]qualityResult, len(selected))
-		forEach(o.parallel, len(selected), func(i int) {
-			rep.Quality[i] = runQuality(o, root, selected[i])
-			printQuality(rep.Quality[i], o.verbose)
+		rep.Quality = make([]qualityResult, len(selected)*o.reps)
+		forEach(o.parallel, len(rep.Quality), func(i int) {
+			r := runQuality(o, root, selected[i%len(selected)])
+			r.Rep = i / len(selected)
+			rep.Quality[i] = r
+			printQuality(r, o.verbose)
 		})
+		for _, r := range rep.Quality {
+			rep.CostUSD += r.CostUSD + r.JudgeCostUSD
+		}
 	}
 
 	tp, tn := count(rep.Trigger, func(r triggerResult) bool { return r.Pass })
 	qp, qn := count(rep.Quality, func(r qualityResult) bool { return r.Pass })
-	rep.Summary = fmt.Sprintf("trigger %d/%d, quality %d/%d", tp, tn, qp, qn)
+	rep.Summary = fmt.Sprintf("trigger %d/%d, quality %d/%d, quality cost $%.2f", tp, tn, qp, qn, rep.CostUSD)
 	rep.Finished = time.Now()
 	fmt.Println()
 	fmt.Println(rep.Summary)
@@ -185,6 +213,38 @@ func run(o options) error {
 		return exitError{1, "evals failed"}
 	}
 	return nil
+}
+
+// selectQuality returns the quality evals named by ids, a comma-separated
+// list that ignores the set, or every eval of set when ids is empty. An id
+// with no eval is an error, so a typo does not quietly run fewer cases.
+func selectQuality(evals []qualityEval, set, ids string) ([]qualityEval, error) {
+	if ids == "" {
+		var selected []qualityEval
+		for _, ev := range evals {
+			if set == "all" || ev.Set == set {
+				selected = append(selected, ev)
+			}
+		}
+		return selected, nil
+	}
+	byID := make(map[int]qualityEval, len(evals))
+	for _, ev := range evals {
+		byID[ev.ID] = ev
+	}
+	var selected []qualityEval
+	for field := range strings.SplitSeq(ids, ",") {
+		id, err := strconv.Atoi(strings.TrimSpace(field))
+		if err != nil {
+			return nil, fmt.Errorf("-ids: %q is not an eval id", field)
+		}
+		ev, ok := byID[id]
+		if !ok {
+			return nil, fmt.Errorf("-ids: no quality eval has id %d", id)
+		}
+		selected = append(selected, ev)
+	}
+	return selected, nil
 }
 
 func capN[T any](s []T, n int) []T {
@@ -375,21 +435,25 @@ const judgeSchema = `{"type":"object","additionalProperties":false,"required":["
 // runQuality lets the model answer with read-only tools, then has a second,
 // plugin-free model grade the answer against the assertions.
 func runQuality(o options, root string, ev qualityEval) qualityResult {
-	res := qualityResult{ID: ev.ID}
+	res := qualityResult{ID: ev.ID, Trap: ev.Trap}
 	dir, err := workDir(root, ev.Files)
 	if err != nil {
 		res.Err = err.Error()
 		return res
 	}
 	defer os.RemoveAll(dir)
-	pluginDir, err := evalplugin.Copy(root, dir)
-	if err != nil {
-		res.Err = err.Error()
-		return res
+	tools := "Read,Glob,Grep"
+	args := []string{"-p", ev.Prompt, "--output-format", "json", "--max-turns", "30"}
+	if !o.noSkill {
+		pluginDir, err := evalplugin.Copy(root, dir)
+		if err != nil {
+			res.Err = err.Error()
+			return res
+		}
+		tools = "Skill," + tools
+		args = append(args, "--plugin-dir", pluginDir)
 	}
-	const tools = "Skill,Read,Glob,Grep"
-	args := []string{"-p", ev.Prompt, "--plugin-dir", pluginDir, "--output-format", "json",
-		"--max-turns", "30", "--tools", tools, "--allowed-tools", tools}
+	args = append(args, "--tools", tools, "--allowed-tools", tools)
 	if o.model != "" {
 		args = append(args, "--model", o.model)
 	}
@@ -398,7 +462,8 @@ func runQuality(o options, root string, ev qualityEval) qualityResult {
 		res.Err = err.Error()
 		return res
 	}
-	answer, err := resultText(out)
+	answer, cost, err := resultText(out)
+	res.CostUSD = cost
 	if err != nil {
 		res.Err = err.Error()
 		return res
@@ -435,11 +500,13 @@ Return one result per checklist item, in checklist order; evidence is a short qu
 		StructuredOutput struct {
 			Results []assertionResult `json:"results"`
 		} `json:"structured_output"`
+		TotalCostUSD float64 `json:"total_cost_usd"`
 	}
 	if err := json.Unmarshal(jout, &graded); err != nil {
 		res.Err = fmt.Sprintf("judge: %v", err)
 		return res
 	}
+	res.JudgeCostUSD = graded.TotalCostUSD
 	res.Assertions = graded.StructuredOutput.Results
 	res.Pass = len(res.Assertions) == len(ev.Assertions)
 	for _, a := range res.Assertions {
@@ -448,26 +515,30 @@ Return one result per checklist item, in checklist order; evidence is a short qu
 	return res
 }
 
-// resultText returns the final assistant text from `--output-format json`,
-// accepting both the single-object and the message-array shapes.
-func resultText(out []byte) (string, error) {
-	var obj struct {
-		Result string `json:"result"`
-	}
+// claudeResult is the part of a `--output-format json` result message the
+// runner reads.
+type claudeResult struct {
+	Result       string  `json:"result"`
+	TotalCostUSD float64 `json:"total_cost_usd"`
+}
+
+// resultText returns the final assistant text and the session cost from
+// `--output-format json`, accepting both the single-object and the
+// message-array shapes.
+func resultText(out []byte) (string, float64, error) {
+	var obj claudeResult
 	if err := json.Unmarshal(out, &obj); err == nil && obj.Result != "" {
-		return obj.Result, nil
+		return obj.Result, obj.TotalCostUSD, nil
 	}
-	var arr []struct {
-		Result string `json:"result"`
-	}
+	var arr []claudeResult
 	if err := json.Unmarshal(out, &arr); err == nil {
-		for i := len(arr) - 1; i >= 0; i-- {
-			if arr[i].Result != "" {
-				return arr[i].Result, nil
+		for _, a := range slices.Backward(arr) {
+			if a.Result != "" {
+				return a.Result, a.TotalCostUSD, nil
 			}
 		}
 	}
-	return "", fmt.Errorf("no result field in claude output: %.200s", out)
+	return "", 0, fmt.Errorf("no result field in claude output: %.200s", out)
 }
 
 func sortedKeys(m map[string]bool) []string {
@@ -500,11 +571,14 @@ func printQuality(r qualityResult, verbose bool) {
 	if !r.Pass {
 		status = "FAIL"
 	}
-	fmt.Printf("[%s] quality #%d", status, r.ID)
+	fmt.Printf("[%s] quality #%d rep %d", status, r.ID, r.Rep)
 	if r.Err != "" {
 		fmt.Printf("  error: %s", r.Err)
 	}
 	fmt.Println()
+	if !r.Pass && r.Trap != "" {
+		fmt.Printf("       trap: %s\n", r.Trap)
+	}
 	for _, a := range r.Assertions {
 		mark := "ok  "
 		if !a.Pass {

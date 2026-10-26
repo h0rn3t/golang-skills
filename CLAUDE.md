@@ -52,6 +52,10 @@ Model-driven runs cost tokens and are opt-in:
 # Trigger + quality evals from evals/evals.json through `claude -p`
 cd evals && go run ./cmd/evalrun -set validation -kind all -j 2 -out evals-results.json
 
+# Chosen quality cases, repeated, and the no-plugin control for a new case
+cd evals && go run ./cmd/evalrun -kind quality -ids 65,66 -n 3 -out base.json
+cd evals && go run ./cmd/evalrun -kind quality -ids 65,66 -n 3 -no-skill -out control.json
+
 # A/B a skill edit: reference arm from a second checkout, baseline = this tree
 cd evals && go run ./cmd/abrun -corpus implement -reference-root ../golang-skills-before \
   -arms reference,baseline -n 5 -j 4 -effort medium -keep -out run.json

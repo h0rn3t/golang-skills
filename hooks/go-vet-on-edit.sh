@@ -55,6 +55,7 @@ case "$file" in /*) ;; *) file="$PWD/$file" ;; esac
 dir="$(dirname "$file")"
 pkg="./$(basename "$dir")"
 findings=""
+notes=""
 export GOLANG_SKILLS_HOOK_DEADLINE="$(( $(date +%s) + 135 ))"
 receipt_dir=""
 if [[ -n "$helper" ]]; then
@@ -148,7 +149,7 @@ if has_module; then
                 findings+="$(section "go fix -diff $pkg:" "$mine_fix")"$'\n'
             fi
             if [[ "$other_hunks" -gt 0 ]]; then
-                findings+="go fix -diff $pkg: $other_hunks hunk(s) in other files of the package; run go fix -diff . to list them"$'\n'
+                notes+="go fix -diff $pkg: $other_hunks hunk(s) in other files of the package; run go fix -diff . to list them"$'\n'
             fi
         elif [[ -n "$fix_out" && -z "$fix_skipped" ]]; then
             findings+="$(section "go fix -diff $pkg:" "$fix_out")"$'\n'
@@ -242,7 +243,7 @@ if has_module; then
                     findings+="$(section "golangci-lint $pkg:" "$mine")"$'\n'
                 fi
                 if [[ "$others" -gt 0 ]]; then
-                    findings+="golangci-lint $pkg: $others finding(s) in other files of the package; run golangci-lint run . to list them"$'\n'
+                    notes+="golangci-lint $pkg: $others finding(s) in other files of the package; run golangci-lint run . to list them"$'\n'
                 fi
                 lint_diag="$(printf '%s\n' "$lint_out" | grep -vE '^/.*:[0-9]+:[0-9]+: ' || true)"
                 if [[ "$lint_status" -ne 0 ]] && { [[ "$lint_status" -ne 1 ]] || [[ -n "$lint_diag" || -z "$issues" ]]; }; then
@@ -284,8 +285,11 @@ if [[ -n "$findings" ]]; then
         receipt_context="$("$helper" receipt context "$receipt_dir" 2>&1)" || receipt_context="Edit-hook receipts unavailable; do not credit pass (hook)."
         printf '%s\n' "$receipt_context" >&2
     fi
-    printf '%s' "$findings" >&2
+    printf '%s' "$findings$notes" >&2
     exit 2
 fi
-"$helper" receipt report "$receipt_dir"
+# Counts from files the edit did not touch are context, not a finding about
+# this edit: they ride the success report instead of an exit 2 the host
+# labels a blocking error.
+"$helper" receipt report "$receipt_dir" "$notes"
 exit 0

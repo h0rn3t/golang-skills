@@ -98,4 +98,5 @@ change is a findings-list item (PLAYBOOK §3) unless the user asked for it.
 | Mistake | Fix | Why |
 |---|---|---|
 | Breaking a cycle by moving the producer's concrete type into the consumer | Declare the interface in the consumer, leave the type where it is | Moving the type usually relocates the cycle to whatever else that type depends on |
+| Splitting a god struct by moving fields without the mutex that guards them, or the mutex without its fields | Move the state, its lock, and the methods that touch it in one step; keep the fields unexported behind the new constructor | A field separated from its lock compiles cleanly and races; `-race` sees it only when a test drives both sides |
 | Renaming a struct field during the move | Leave the field name alone, or list it as a finding | The `json`/`db` tag silently desyncs from the field, and a clean build says nothing about the wire format |

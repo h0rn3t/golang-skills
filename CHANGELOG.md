@@ -4,6 +4,14 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- Ideas from spf13/go-skills, verified on go1.27.1: go-troubleshooting's
+  "Edits do not change behavior" suspects the code before the toolchain (logic,
+  wrong file, second call site, other code path); go-code-refactor's
+  STRUCTURAL.md moves a god struct's state with its mutex and methods;
+  go-http names `http.TimeoutHandler` for one slow route (buffered, no
+  `Flusher`); MODERNIZATION.md lists the Go 1.27 platform floors (macOS 13,
+  `linux/ppc64` ELFv2, no `windows/arm`). Not measured with `abrun`.
+
 - go-linting: the receipt mechanics moved from the Verification Gate to a new
   `references/RECEIPTS.md`. The gate keeps the part a session acts on: run the
   printed verifier alone in its Bash call, before any direct check and again

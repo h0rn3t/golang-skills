@@ -108,7 +108,13 @@ and serialization before choosing a runtime capture.
 
 ## Edits do not change behavior
 
-First establish which source and artifact the failing command actually uses.
+Suspect the code before the toolchain, in this order: the edit does not fix
+the logic; it landed in another file, function, or package than the one that
+runs; a second call site carries the same bug; the failure comes from a
+different code path. A log line or `t.Log` at the edited site settles the
+last three in one run.
+
+Only then, establish which source and artifact the failing command actually uses.
 Run these from the failing command's working directory, replacing `.` with its
 package target and preserving its build flags (`-tags`, `-mod`, `-modfile`,
 `-overlay`) and environment:

@@ -235,6 +235,11 @@ Attribute before rewriting. Verified against go1.27.0:
   `x509keypairleaf`). A `godebug` line or `//go:debug` comment pinning any of
   them to its old value now fails the build — delete the pin rather than
   carrying it forward.
+- **Platform floors moved.** Go 1.27 requires macOS 13 Ventura or later;
+  `linux/ppc64` now builds ELFv2 binaries (Linux 3.13+, cgo and PIE now
+  supported); `windows/arm` (32-bit) is gone from `go tool dist list`. A CI
+  or release matrix naming an old target fails or ships binaries that do not
+  run.
 - **Float results differ by architecture.** arm64 always fuses `a*b + c` into a
   single FMA, amd64 from `GOAMD64=v3`; an exact float compare can pass on amd64
   CI and fail on an arm64 laptop. `float64(a*b) + c` prevents fusing. Relevant

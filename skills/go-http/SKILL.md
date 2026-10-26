@@ -222,6 +222,11 @@ Construct an `http.Server`; bare `http.ListenAndServe` sets no timeouts.
 | `Handler: http.NewCrossOriginProtection().Handler(mux)` | CSRF for state-changing requests (Go 1.25+). One per server: with CORS it is the instance go-security's `withCORS` builds with the trusted origins; a second, empty one around it answers every cross-origin POST with 403 |
 | `BaseContext` | Never the `signal.NotifyContext` context when in-flight requests should drain: it cancels every request at the signal, before `Shutdown` waits for them. Handlers that must see shutdown get a separate context, cancelled once `Shutdown`'s timeout expires |
 
+One slow route does not raise `WriteTimeout` for all: wrap it in
+`http.TimeoutHandler(h, d, msg)`, which cancels `r.Context()` at `d` and
+answers 503. It buffers the response and has no `Flusher`, so a streaming
+route sets its own deadline with `http.NewResponseController(w)` instead.
+
 For graceful shutdown, `signal.NotifyContext` owns the lifetime;
 `ListenAndServe` runs in one goroutine feeding a buffered error channel;
 `srv.Shutdown(ctx)` gets its own timeout.

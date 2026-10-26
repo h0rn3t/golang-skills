@@ -3,7 +3,7 @@
 > Sources: `os/exec`, `html/template`, `net/netip`, `net/url` package docs; OWASP Go-SCP
 > Authority: normative for the stdlib defenses; advisory for the allowlist shapes
 > Minimum Go: 1.24 for `os.Root`; everything else long-standing
-> Last verified: 2026-10-07
+> Last verified: 2026-10-26
 
 ## Contents
 
@@ -277,7 +277,7 @@ Decoders are parsers running on attacker bytes; bound them.
 | JSON | Require one complete bounded document; use the [HTTP decoding rules](../../go-http/SKILL.md#handler-shape) or [JSON v2 example](../../go-http/references/JSON-V2.md#one-bounded-request-document) |
 | XML | a size cap before `xml.Unmarshal`; `encoding/xml` expands no entity a DTD declares (`&b;` is a syntax error), so billion-laughs does not apply |
 | Regex on input | RE2 is linear — Go's `regexp` is safe; a third-party PCRE engine is not |
-| `strconv.Atoi` into a size | range-check before `make([]T, n)` |
+| `strconv.Atoi` into a size | range-check before `make([]T, n)`; a size multiplied from client values (`w*h*4`) is bounded factor by factor before the multiply (`0 < w <= maxW`, `0 < h <= limit/(4*w)`): a check on the wrapped product passes |
 | Compressed input (`Content-Encoding: gzip`, a `.gz` upload) | `MaxBytesReader` caps the compressed bytes only; read the `gzip.Reader` through `io.LimitReader(zr, limit+1)` and reject at `limit+1` bytes |
 | Body of an outbound fetch | `io.LimitReader(resp.Body, limit+1)` and reject at `limit+1` bytes, as go-http's Bounded Response Bodies does: the SSRF check bounds where the client connects, not how much it reads |
 | Multipart upload | Cap the body before `ParseMultipartForm`; `maxMemory` only sets the memory/disk threshold. Check file sizes and count; use `MultipartReader` with per-part limits when early rejection matters |

@@ -1956,6 +1956,185 @@
         "Does not claim any change makes the service faster without such a measurement"
       ],
       "set": "validation"
+    },
+    {
+      "id": 65,
+      "prompt": "Our Go 1.27 per-IP rate limiter keeps `counts map[netip.Addr]int` and a ticker calls reset() every minute. After a traffic spike from 500K addresses, RSS stays high for hours even though reset() runs. Here is reset:\n\n```go\nfunc (l *Limiter) reset() {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\tclear(l.counts)\n}\n```\n\nWhy does memory not come back, and what is the fix? Do not run commands.",
+      "trap": "clear (or a delete loop) is assumed to free the map; the table keeps its peak size, so only a fresh make releases it.",
+      "expected_output": "clear frees the values but keeps the map's table at its peak size, so the memory from the spike stays reachable; reset assigns a fresh make(map[netip.Addr]int) under the lock and the old table is collected.",
+      "target_skills": [
+        "go-data-structures",
+        "go-performance"
+      ],
+      "assertions": [
+        "States that clear (and a delete loop) does not shrink a Go map's table, which stays at its peak size",
+        "Replaces clear with assigning a new map (make) in reset, still under the mutex",
+        "Does not blame the ticker, the mutex, or a goroutine leak as the cause",
+        "Does not propose runtime.GC or debug.FreeOSMemory as the fix"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 66,
+      "prompt": "I ran `bash bench-compare.sh --verdict /tmp/perf-snap --filter '^BenchmarkEncode$' ./orders` twice after my change and both runs said `noisy`. The reviewer wants a number. Just rerun it in a loop until it says `keep` and tell me the speedup so I can merge.",
+      "trap": "Social pressure to rerun a noisy verdict until it flips to keep, which selects the noise rather than the change.",
+      "expected_output": "Declines to loop until keep: after a rerun at a higher --count, a second noisy verdict is reported as no measurable change; no speedup is claimed and the change is not merged as faster.",
+      "target_skills": [
+        "go-performance"
+      ],
+      "assertions": [
+        "Refuses to rerun the verdict until it reads keep, explaining that this picks a noisy sample rather than measuring the change",
+        "Reports the two noisy verdicts as no measurable change, not as a speedup",
+        "Does not state a speedup percentage or call the change faster",
+        "Offers at most one further run with a higher --count or --benchtime, or a profile of the path, as the next step"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 67,
+      "prompt": "This Go cache hangs a few times a day under load: every goroutine ends up blocked and the goroutine dump shows them in sync.(*RWMutex).RLock and sync.(*RWMutex).Lock.\n\n```go\ntype Cache struct {\n\tmu sync.RWMutex\n\tm  map[string]Item\n}\n\nfunc (c *Cache) Has(k string) bool {\n\tc.mu.RLock()\n\tdefer c.mu.RUnlock()\n\t_, ok := c.m[k]\n\treturn ok\n}\n\nfunc (c *Cache) Get(k string) (Item, bool) {\n\tc.mu.RLock()\n\tdefer c.mu.RUnlock()\n\tif !c.Has(k) {\n\t\treturn Item{}, false\n\t}\n\treturn c.m[k], true\n}\n\nfunc (c *Cache) Set(k string, v Item) {\n\tc.mu.Lock()\n\tdefer c.mu.Unlock()\n\tc.m[k] = v\n}\n```\n\nFind the cause and fix it. Do not run commands.",
+      "trap": "Recursive read-locking looks harmless because reads share the lock; a waiting writer blocks the second RLock.",
+      "expected_output": "Get calls Has while holding RLock, so Has takes RLock a second time; once Set waits in Lock, the second RLock queues behind the writer, which waits for the first RLock: deadlock. The fix removes the nested lock, e.g. an unlocked helper or a single map lookup in Get.",
+      "target_skills": [
+        "go-concurrency"
+      ],
+      "assertions": [
+        "Identifies the nested RLock (Get calling Has under the read lock) as the cause",
+        "Explains that a writer waiting in Lock makes the second RLock block, so the reader and writer wait on each other",
+        "Fixes it by not re-acquiring the lock: an unlocked helper or a direct map lookup in Get",
+        "Does not replace the RWMutex with sync.Map or add a timeout as the fix"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 68,
+      "prompt": "Review this Go handler that allocates a pixel buffer for a client-supplied image size:\n\n```go\nfunc (s *Server) handleCanvas(w http.ResponseWriter, r *http.Request) {\n\twidth, err1 := strconv.Atoi(r.URL.Query().Get(\"w\"))\n\theight, err2 := strconv.Atoi(r.URL.Query().Get(\"h\"))\n\tif err1 != nil || err2 != nil {\n\t\thttp.Error(w, \"bad size\", http.StatusBadRequest)\n\t\treturn\n\t}\n\tsize := width * height * 4\n\tif size > maxCanvasBytes {\n\t\thttp.Error(w, \"too large\", http.StatusRequestEntityTooLarge)\n\t\treturn\n\t}\n\tbuf := make([]byte, size)\n\ts.render(buf, width, height)\n\tw.Write(buf)\n}\n```\n\nDo not run commands.",
+      "trap": "The total is checked after the multiply, so a product that wraps to a small or negative value passes the size check.",
+      "expected_output": "width*height*4 can overflow: huge or negative factors wrap to a value under maxCanvasBytes (or negative, panicking in make), so the check is bypassed. Each factor is bounded before the multiply (0 < width <= maxW, 0 < height <= maxCanvasBytes/(4*width)).",
+      "target_skills": [
+        "go-security"
+      ],
+      "assertions": [
+        "Flags that width*height*4 can overflow or go negative, so the size check on the product can be bypassed",
+        "Rejects zero and negative width and height",
+        "Bounds each factor before multiplying (for example height <= maxCanvasBytes/(4*width)) instead of checking only the product",
+        "Notes that a negative size makes make panic"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 69,
+      "prompt": "Write a Go function SaveKey(path string, key []byte) error that stores a freshly generated private key on disk so that only the service user can read it. Older installs already have this file at mode 0644; keep it simple, os.WriteFile(path, key, 0o600) should be enough.",
+      "trap": "os.WriteFile applies the mode only when it creates the file, so an existing 0644 file keeps 0644.",
+      "expected_output": "os.WriteFile keeps the permissions of an existing file, so an old 0644 key file stays world-readable. Write to os.CreateTemp in the same directory (0600), sync and close it, then os.Rename over the target.",
+      "target_skills": [
+        "go-security",
+        "go-defensive"
+      ],
+      "assertions": [
+        "States that os.WriteFile does not change the mode of a file that already exists",
+        "Writes to a temporary file in the target directory (os.CreateTemp, mode 0600) and renames it over the path, or explicitly chmods before writing the key",
+        "Checks the errors of write, close, and rename",
+        "Does not leave the key readable at 0644 when the file already existed"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 70,
+      "prompt": "Review our Go service's observability setup. Traces from this service no longer join the gateway's traces, and the logs we expected from otelslog never show up anywhere.\n\n```go\ntp := sdktrace.NewTracerProvider(\n\tsdktrace.WithBatcher(exp),\n\tsdktrace.WithSampler(sdktrace.TraceIDRatioBased(0.1)),\n)\notel.SetTracerProvider(tp)\notel.SetTextMapPropagator(propagation.TraceContext{})\nslog.SetDefault(slog.New(otelslog.NewHandler(\"orders\")))\n```\n\nDo not run commands.",
+      "trap": "A bare ratio sampler ignores the parent's decision; otelslog writes to the global LoggerProvider, which is a no-op until one is installed.",
+      "expected_output": "TraceIDRatioBased alone re-decides in every service, so sampled gateway traces lose this service's spans; wrap it in sdktrace.ParentBased. otelslog.NewHandler sends records to the global LoggerProvider, a no-op until global.SetLoggerProvider installs one with an exporter, and there is no stdout handler, so logs vanish; install the provider and keep a stdout handler via slog.NewMultiHandler.",
+      "target_skills": [
+        "go-logging"
+      ],
+      "assertions": [
+        "Says the bare TraceIDRatioBased sampler ignores the parent's sampling decision and wraps it in sdktrace.ParentBased",
+        "Says otelslog.NewHandler emits to the OpenTelemetry LoggerProvider, which is a no-op until a provider with an exporter is set (global.SetLoggerProvider)",
+        "Keeps a local stdout or JSON handler next to the OTel one, for example with slog.NewMultiHandler",
+        "Does not claim the propagator setup is the cause of the split traces"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 71,
+      "prompt": "Review this gRPC server code in our Go service:\n\n```go\ntype userServer struct {\n\t*pb.UnimplementedUserServiceServer\n\tstore *Store\n}\n\nfunc (s *userServer) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.User, error) {\n\tu, err := s.store.User(ctx, req.GetId())\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"get user %s: %w\", req.GetId(), err)\n\t}\n\treturn toProto(u), nil\n}\n\n// in main, after SIGTERM:\nsrv.GracefulStop()\n```\n\nStore.User returns ErrNotFound for a missing user. Clients also use the WatchUsers stream. Do not run commands.",
+      "trap": "A raw error reaches the client as codes.Unknown; a pointer embed of Unimplemented panics at registration; GracefulStop waits forever on an open stream.",
+      "expected_output": "Map errors to status codes at the handler: ErrNotFound → codes.NotFound, anything else codes.Internal with generic text (the raw error becomes Unknown and leaks its text). Embed pb.UnimplementedUserServiceServer by value. Bound GracefulStop with a timeout that falls back to srv.Stop, since an open WatchUsers stream never finishes.",
+      "target_skills": [
+        "go-http"
+      ],
+      "assertions": [
+        "Says a non-status error reaches the client as codes.Unknown and maps ErrNotFound to codes.NotFound with status.Error",
+        "Does not send the internal error text to the client for unexpected failures (codes.Internal with generic text, cause logged)",
+        "Says UnimplementedUserServiceServer must be embedded by value, not as a pointer",
+        "Bounds GracefulStop with a timeout and falls back to Stop because an open stream keeps it waiting"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 72,
+      "prompt": "Write a Go function InsertEvents(ctx context.Context, pool *pgxpool.Pool, events []Event) error that inserts about 50,000 events (6 columns each) into PostgreSQL as fast as possible. Keep it to one INSERT statement with all the rows, that's the fastest.",
+      "trap": "One multi-row INSERT with 300,000 placeholders exceeds the protocol's 65535 bind-parameter limit.",
+      "expected_output": "One INSERT with 50,000 × 6 = 300,000 placeholders exceeds PostgreSQL's 65535-parameter limit and fails; use pgx CopyFrom (one round trip, no parameter limit) or chunk the INSERT at no more than 65535/6 rows.",
+      "target_skills": [
+        "go-database"
+      ],
+      "assertions": [
+        "States that a single INSERT with 300,000 bind parameters exceeds the 65535-parameter limit",
+        "Uses pgx CopyFrom (pgx.CopyFromRows or CopyFromSlice), or chunks the INSERT to at most 65535/6 rows per statement",
+        "Passes values as parameters or through COPY, never formatted into the SQL string",
+        "Propagates ctx and returns the error"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 73,
+      "prompt": "Our Go latency middleware sometimes reports negative or multi-second request durations right after the hosts sync their clocks. Why, and what is the fix?\n\n```go\nfunc timing(next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\tstart := time.Now().UTC()\n\t\tnext.ServeHTTP(w, r)\n\t\tlatency.Observe(time.Now().UTC().Sub(start).Seconds())\n\t})\n}\n```\n\nDo not run commands.",
+      "trap": "UTC() strips the monotonic clock reading, so Sub uses wall time and jumps with an NTP step.",
+      "expected_output": "time.Now().UTC() drops the monotonic reading, so Sub falls back to wall-clock time and a clock step shows up as a negative or huge duration; take start := time.Now() and observe time.Since(start).",
+      "target_skills": [
+        "go-defensive"
+      ],
+      "assertions": [
+        "States that .UTC() removes the monotonic clock reading from the time value",
+        "Explains that without it Sub uses wall-clock time, which jumps when NTP steps the clock",
+        "Fixes it with start := time.Now() and time.Since(start) (or Sub on unconverted values)",
+        "Does not blame the histogram, the handler, or goroutine scheduling"
+      ],
+      "set": "train"
+    },
+    {
+      "id": 74,
+      "prompt": "We are on Go 1.27. Modernize this helper with the new (*big.Int).Divide and big.Round so it is one call. It converts an amount in tenths of a cent to cents, rounding half up (15 → 2, 25 → 3):\n\n```go\nfunc toCents(tenths *big.Int) *big.Int {\n\tq, r := new(big.Int).QuoRem(tenths, big.NewInt(10), new(big.Int))\n\tif r.Cmp(big.NewInt(5)) >= 0 {\n\t\tq.Add(q, big.NewInt(1))\n\t}\n\treturn q\n}\n```\n\nDo not run commands.",
+      "trap": "big.Round rounds half to even, so 25 → 2, which changes the half-up behavior the helper exists for.",
+      "expected_output": "big.Round is round-half-to-even (25 tenths → 2 cents), not half up, so Divide with big.Round changes the result; keep the helper, or use Divide only in a form that preserves half-up for the amounts it takes (the helper's input range, including negatives, decides).",
+      "target_skills": [
+        "go-code-refactor",
+        "go-style-core"
+      ],
+      "assertions": [
+        "States that big.Round rounds half to even, so values like 25 → 2 differ from the current half-up result",
+        "Does not present Divide(..., big.Round) as a behavior-preserving replacement",
+        "Keeps the existing helper or gives a replacement that preserves half-up rounding for the inputs it handles",
+        "Mentions how negative amounts behave or asks whether they occur"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 75,
+      "prompt": "We maintain a public Go library github.com/acme/feed. One of its dependencies, github.com/x/parser v1.4.0, has a bug that breaks our users. Add a replace directive in our go.mod pointing to our fork github.com/acme/parser v1.4.1-fix so every project that imports our library gets the fixed parser.",
+      "trap": "replace in a library's go.mod is ignored by every module that imports it.",
+      "expected_output": "replace only applies in the main module, so importers of acme/feed never see it; ship the fix as a dependency version bump (upstream release, or switch the import path to the fork) and tag a new feed release.",
+      "target_skills": [
+        "go-packages"
+      ],
+      "assertions": [
+        "States that replace directives in a library's go.mod are ignored by modules that import it",
+        "Proposes a fix that reaches importers: requiring an upstream release with the fix, or changing the import to the fork's module path",
+        "Does not claim the replace directive alone fixes the bug for downstream users",
+        "Mentions that downstream projects can add their own replace as a temporary workaround, or that a new library tag is needed"
+      ],
+      "set": "train"
     }
   ]
 }

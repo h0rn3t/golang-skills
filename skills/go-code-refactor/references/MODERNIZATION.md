@@ -3,7 +3,7 @@
 > Sources: `$GOROOT/api/go1.2*.txt`; `go tool fix help`; Go spec; package docs; JetBrains go-modern-guidelines `guidelines.json` at `155dc7c` (all 54 items cross-checked 2026-09-13; the write-time card is go-style-core's Current Go Idiom Card)
 > Authority: normative for tier placement; project policy for what may ride in a refactor
 > Minimum Go: gated by the `go` directive in `go.mod`, not the installed toolchain
-> Last verified: 2026-10-11
+> Last verified: 2026-10-26
 
 Check version claims against the installed toolchain using the plugin repository's COMPATIBILITY.md.
 For existing code, work Tier 1, then conditional Tier 2; report Tier 3 changes
@@ -62,7 +62,8 @@ on existing code, and the `go fix` analyzer where one exists.
   `go fix -newexpr` rewrites only `func ptr(x T) *T { return &x }` helpers and
   their calls.
 - **`errors.AsType[T]`** (Go 1.26): same matching semantics as `errors.As`.
-  `go fix -errorsastype`.
+  `T` must implement `error`, so a behavior target (`interface{ Timeout() bool }`)
+  embeds `error` or stays on `errors.As`. `go fix -errorsastype`.
 - **`wg.Go`** (Go 1.25): preserve goroutine count and `Add`-before-start. If the
   old code calls `Add` inside the goroutine, correcting that race is a Tier 3
   fix for that call site, and so is a trailing `wg.Done()` an early `return`
@@ -91,7 +92,8 @@ on existing code, and the `go fix` analyzer where one exists.
 - **`min`, `max`, `clear`** (Go 1.21): float helpers need a NaN and signed-zero
   check first. Replace a delete loop with `clear(m)` only when no key can hold
   a NaN, through an array, struct, or interface included: the loop cannot
-  delete a NaN key and `clear` can, making that a Tier 3 fix. `go fix -minmax`.
+  delete a NaN key and `clear` can, making that a Tier 3 fix. Neither shrinks
+  the table ([go-data-structures](../../go-data-structures/SKILL.md#a-map-never-shrinks)). `go fix -minmax`.
 - **`cmp.Or`** (Go 1.22): not for expensive or side-effecting fallbacks.
 - **Test-only conveniences**: `t.Context()`, `t.Chdir()`, `slog.DiscardHandler`,
   `b.Loop()` (Go 1.24); `synctest.Sleep` (Go 1.27). Preserve what the test
@@ -165,6 +167,13 @@ because for equal keys the output order is observable.
   `s.Map(f)`. Condition: the helper is unexported or the package is internal —
   moving or renaming an exported function is Tier 3. Generic methods still
   cannot satisfy interfaces ([go-interfaces](../../go-interfaces/SKILL.md)).
+- **`(*big.Int).Divide(x, y, r, mode)` (Go 1.27)** over `QuoRem` plus a sign
+  fix-up. Condition: the mode matches what the old code computed — `Trunc` is
+  `QuoRem`, `Floor` is `DivMod` for a positive divisor, and `big.Round` rounds
+  half to even (5/2 is 2, 7/2 is 4), not half up as money usually needs.
+- **`bytes.Buffer.Peek(n)` (Go 1.26)** over `buf.Bytes()[:n]`. Condition: the
+  old code never ran with fewer than `n` bytes buffered, where the slice
+  panicked and `Peek` returns the short slice with `io.EOF`.
 - **`slog.GroupAttrs`** replacing a manually built group. Same output; verify
   the attribute order your handler emits.
 

@@ -30,6 +30,7 @@ Untrusted value arrives (request, env, file, DB row written by others)
 ├─ picks a row by ID?        → the caller's tenant in the same WHERE, not a check after the fetch
 ├─ names a tenant?           → only the one the auth middleware checked; never a body field
 ├─ lists many items?         → authorize each item, not the request
+├─ is a duration or count?   → parse, then clamp to a server [min, max]; 0 and huge are both attacks
 ├─ is a cache key?           → the tenant in the key beside the ID
 ├─ came from a model?        → a request body: validate and authorize in the tool handler
 ├─ goes into a command?      → exec.Command(name, args...); never "sh -c"

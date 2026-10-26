@@ -1,7 +1,7 @@
 > Sources: https://pkg.go.dev/database/sql; https://go.dev/doc/database; https://pkg.go.dev/github.com/jackc/pgx/v5
 > Authority: advisory
 > Minimum Go: 1.22 for `sql.Null[T]`
-> Last verified: 2026-10-01 against go1.27.1
+> Last verified: 2026-10-26 against go1.27.1
 
 # SQL Patterns
 
@@ -132,6 +132,11 @@ rows, err := db.QueryContext(ctx, `SELECT id, name FROM customers WHERE id = ANY
 
 With a driver that does not expand slices, build the placeholder list
 (`$1, $2, ...`) from `len(ids)` — still parameters, never values in the string.
+
+A multi-row `INSERT ... VALUES` is capped at 65535 bind parameters by the
+PostgreSQL protocol: chunk it at `65535/columns` rows or fewer. For thousands
+of rows on pgx, `conn.CopyFrom(ctx, pgx.Identifier{"t"}, cols, pgx.CopyFromRows(rows))`
+is one round trip with no parameter limit.
 
 ## Keyset pagination
 

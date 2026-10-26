@@ -219,6 +219,9 @@ repeatable; it is not a universal replacement for real I/O or external systems.
   service behavior; do not treat these as passive reads.
 - `runtime/trace.FlightRecorder` (Go 1.25+) retains recent trace data when already
   enabled, allowing a snapshot after a spike. Capture still has a cost.
+- Before a requested restart of the failing process, take the goroutine dump,
+  heap profile, and flight-recorder snapshot it allows: the restart destroys
+  the only evidence of the state.
 
 ## Fix and Regression Proof
 

@@ -110,7 +110,7 @@ does not require `go-naming` or `go-documentation`.
 | package layout, imports, dependencies | [go-packages](../go-packages/SKILL.md) | — |
 | restructuring or deleting existing code | [go-code-refactor](../go-code-refactor/SKILL.md) | — |
 | linter config, CI checks | [go-linting](../go-linting/SKILL.md) | — |
-| HTTP handlers, routing, middleware, servers, clients | [go-http](../go-http/SKILL.md) | [go-security](../go-security/SKILL.md) if input reaches a file, shell, URL, or template |
+| HTTP handlers, routing, middleware, servers, clients; gRPC services and clients | [go-http](../go-http/SKILL.md) ([GRPC.md](../go-http/references/GRPC.md) for gRPC) | [go-security](../go-security/SKILL.md) if input reaches a file, shell, URL, or template |
 | SQL queries, transactions, repositories, migrations | [go-database](../go-database/SKILL.md) | [go-security](../go-security/SKILL.md) if a request value picks a row by ID or names a column, table, or sort order |
 | untrusted input, secrets, tokens, TLS, cookies | [go-security](../go-security/SKILL.md) | [go-defensive](../go-defensive/SKILL.md) |
 | retries, idempotency, circuit breakers, overload, backpressure, fallback | [go-resilience](../go-resilience/SKILL.md) | the HTTP, SQL, context, or concurrency owner when its mechanics change |

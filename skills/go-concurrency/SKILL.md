@@ -92,6 +92,11 @@ extra steps — it is on the hunt list in
 **Don't embed mutexes** — use a named `mu` field to keep `Lock`/`Unlock` as
 implementation details, not exported API.
 
+**No recursive `RLock`.** A method holding `mu.RLock` never calls one that
+takes `mu.RLock` again: once a writer waits in `Lock`, the second `RLock`
+blocks behind it and neither proceeds. Split the body into an unlocked
+`…Locked` variant that both public methods call.
+
 ## Channel Direction
 
 > **Normative**: Specify channel direction where possible.

@@ -156,7 +156,7 @@ which swaps change behavior when *existing* code is rewritten;
 | `wg.Add(1)` and `go func() { defer wg.Done() }()` | `wg.Go(f)` (Go 1.25) |
 | `time.Sleep` to let goroutines settle | `synctest.Test` and `synctest.Wait` (Go 1.25) |
 | `tmp := f(); p := &tmp` | `new(f())` (Go 1.26) — `new(30)` is `*int`; a `*time.Duration` field takes `new(30 * time.Second)` |
-| `var target *T` then `errors.As(err, &target)` | `errors.AsType[*T](err)` (Go 1.26) — returns the value; replaces `As`, never `Is` |
+| `var target *T` then `errors.As(err, &target)` | `errors.AsType[*T](err)` (Go 1.26) — returns the value; replaces `As`, never `Is`; an interface target embeds `error` |
 | `Outer{Inner: Inner{Field: v}}` | `Outer{Field: v}` (Go 1.27) — promoted fields in a keyed literal; not through a pointer embed, not mixed with the embedded field itself |
 | a package-level generic helper that belongs to one type | a generic method on the type (Go 1.27) — it cannot satisfy an interface |
 | `strings.LastIndex` plus slicing | `strings.CutLast` (Go 1.27) — `bytes` has it too |

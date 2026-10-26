@@ -4,7 +4,7 @@
 
 AI [Agent Skills](https://agentskills.io/) for writing idiomatic,
 production-quality Go 1.27 code. The pack contains **24 modular skills**,
-**72 reference files**, **11 bundled scripts**, and **5 asset templates**.
+**73 reference files**, **11 bundled scripts**, and **5 asset templates**.
 The Claude Code plugin also ships a `go-verify` agent and hooks for routing and
 post-edit verification.
 
@@ -157,7 +157,7 @@ replaced by the bundled baseline.
 
 `evals/` contains the structural Go test suite, fixtures, golden tests, and
 the optional `evalrun`/`abrun` harnesses. It contains **110 trigger evals** and
-**64 quality evals**. Model-driven eval output is local scratch data and is not
+**75 quality evals**. Model-driven eval output is local scratch data and is not
 stored in this repository. The suite also checks every `SKILL.md` against
 the Agent Skills specification (`TestStructure`), so the checks
 need Go and no Node.js.

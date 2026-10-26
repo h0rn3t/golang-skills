@@ -156,6 +156,22 @@ outside this repository.
   grants only `Bash(bash:*)`. `TestScriptCommandsRunThroughBash` fails on a
   written-out script path without `bash`.
 
+## Quality Eval Cases
+
+A case in `evals/evals.json` `quality_evals` targets one default a capable
+model gets wrong unaided, and names it in the optional `trap` field (one
+sentence; `TestEvalsJSONSchema` rejects an empty one). The prompt reads like a
+real request and does not name the trap; a prompt that asks for the wrong
+form outright ("keep it simple, `os.WriteFile` is enough") tests whether the
+skill holds against the user's premise. Before adding a case, run it without
+the skill:
+
+| No skill | With skill | Reading |
+|---|---|---|
+| passes | passes | the model already knows it: drop or harden the case |
+| fails | fails | a gap in the skill text, or a prompt that cannot be passed |
+| the same partial score | the same partial score | the assertions mix two things: split the case |
+
 ## Reference Headers
 
 Start every reference file with compact provenance, directly under its title

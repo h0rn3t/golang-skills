@@ -134,8 +134,12 @@ http.Error(w, "internal error", http.StatusInternalServerError)
 A feature in a service is not done until an operator can see it fail:
 
 - **Metrics** — counters for operations and errors, histograms for latency
-  (histograms aggregate across instances; summaries do not). Keep the query
-  that reads a metric next to its declaration.
+  (histograms aggregate across instances; summaries do not), buckets picked
+  from the operation's expected latency (`prometheus.ExponentialBuckets`):
+  `DefBuckets` start at 5ms and flatten a sub-millisecond p99. A counter ends
+  in `_total`, a unit in `_seconds` or `_bytes`. Exemplars reach Prometheus
+  only over OpenMetrics (`promhttp.HandlerOpts{EnableOpenMetrics: true}`).
+  Keep the query that reads a metric next to its declaration.
 - **Cardinality** — label values stay bounded (method, route pattern, status);
   never user IDs, full URLs, or request bodies. The route label is the
   pattern the mux will match, read before `next` with
@@ -149,7 +153,10 @@ A feature in a service is not done until an operator can see it fail:
   OpenTelemetry stack that handler reads `sc := trace.SpanContextFromContext(ctx)`
   and, when `sc.IsValid()`, adds `trace_id`/`span_id` from
   `sc.TraceID().String()`/`sc.SpanID().String()`, never a key of its own, so
-  logs join the traces.
+  logs join the traces. `otelslog.NewHandler` writes to the global OTel
+  `LoggerProvider`, a no-op until `global.SetLoggerProvider` installs one with
+  an exporter: records sent only there vanish, so keep the stdout handler
+  beside it with `slog.NewMultiHandler`.
 - **Traces** — in an OpenTelemetry stack, `otel.SetTextMapPropagator` with
   `propagation.TraceContext{}` beside `otel.SetTracerProvider`; with baggage,
   one call with `propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})`,
@@ -158,7 +165,9 @@ A feature in a service is not done until an operator can see it fail:
   nor send `traceparent` and each service starts its own trace. A failed span
   gets `span.RecordError(err)` and `span.SetStatus(codes.Error, …)`, since
   `RecordError` alone leaves it unset, and `tp.Shutdown(ctx)` at exit flushes
-  the last batch.
+  the last batch. A ratio sampler is wrapped,
+  `sdktrace.ParentBased(sdktrace.TraceIDRatioBased(r))`: a bare one decides
+  again in every service and splits the trace.
 - **Dashboards and alerts** — a metric nobody queries is not observability:
   land each one in the project's dashboards and alert rules, or say plainly
   that it shipped unwired.
@@ -206,6 +215,12 @@ not: `fmt` cannot call `String` or `GoString` on it, so `TextHandler`, `%v`,
 `%+v`, and `%#v` print the raw secret. A struct that keeps a secret in an
 unexported field prints itself without it, as `client` does. The one site
 that must send the secret converts with `string(tok)`.
+
+A request value goes into an `slog` attribute, which both handlers quote or
+escape; `log.Printf` or `fmt` with `%s` writes its CR/LF verbatim and lets the
+client forge log lines. An error tracker or analytics SDK (Sentry, Segment) is
+a log sink too: it gets the user ID, never the email, phone, or request
+headers, scrubbed in the SDK's before-send hook.
 
 ---
 

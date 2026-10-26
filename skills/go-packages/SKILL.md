@@ -77,6 +77,10 @@ not have (v1, v3, v5, custom sources).
   declares: the `// indirect` and `go.sum` lines are part of the diff, and
   `go mod graph | grep <module>@` names who pulled a surprise version. Tests
   run before and after; `govulncheck` covers the new versions.
+- **`replace` and `exclude` apply only in the main module.** A library's
+  directives are ignored by every module that imports it, and a `replace` to
+  a local path never reaches a tag: a library ships its fix as a version
+  bump of the dependency.
 - **A checksum mismatch is a finding.** `SECURITY ERROR` from the `go` command
   means the bytes differ from `go.sum` or the checksum database: report the
   module, version, and both hashes. Never edit `go.sum` or set `GOSUMDB`,
@@ -164,6 +168,10 @@ func main() {
     }
 }
 ```
+
+A CLI's `run` takes `args []string, stdout, stderr io.Writer` and builds its
+flag set or command tree inside: a package-level `FlagSet` or cobra root keeps
+flags and state from one test to the next.
 
 ---
 

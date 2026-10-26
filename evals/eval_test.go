@@ -2863,6 +2863,7 @@ func TestEvalsJSONSchema(t *testing.T) {
 		TargetSkills   []string `json:"target_skills"`
 		Assertions     []string `json:"assertions"`
 		Set            string   `json:"set"`
+		Trap           *string  `json:"trap"`
 	}
 	var top map[string]json.RawMessage
 	if err := json.Unmarshal(content, &top); err != nil {
@@ -2912,7 +2913,7 @@ func TestEvalsJSONSchema(t *testing.T) {
 		if err := json.Unmarshal(raw, &obj); err != nil {
 			t.Fatalf("parse quality_evals[%d] as object: %v", i, err)
 		}
-		requireJSONKeySet(t, "quality_evals", obj, []string{"id", "prompt", "expected_output", "target_skills", "assertions", "set"}, []string{"files"})
+		requireJSONKeySet(t, "quality_evals", obj, []string{"id", "prompt", "expected_output", "target_skills", "assertions", "set"}, []string{"files", "trap"})
 		var ev qualityEval
 		if err := json.Unmarshal(raw, &ev); err != nil {
 			t.Fatalf("parse quality_evals[%d]: %v", i, err)
@@ -2958,6 +2959,9 @@ func TestEvalsJSONSchema(t *testing.T) {
 		}
 		if ev.ExpectedOutput == "" {
 			t.Errorf("quality_evals[%d] expected_output is empty", i)
+		}
+		if ev.Trap != nil && *ev.Trap == "" {
+			t.Errorf("quality_evals[%d] trap is present but empty", i)
 		}
 		if !validSet(ev.Set) {
 			t.Errorf("quality_evals[%d] set = %q, want train or validation", i, ev.Set)

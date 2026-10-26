@@ -50,7 +50,8 @@ Reviewing an API boundary?
 | `time.Time` `==`, or as a map key | `==` also compares the `Location` and the monotonic reading, so it fails after a JSON or database round trip or `t.In(loc)`: compare with `t.Equal(u)`; a key stores `t.UTC().Round(0)` or `t.UnixNano()` |
 | `defer` in a loop | Calls fire at function exit, not per iteration — extract the body (behavior note in [go-code-refactor](../go-code-refactor/references/BEHAVIOR-TRAPS.md)) |
 | Nil channel | Send and receive block forever, so an unmade channel field is a hang, not an error — a deliberate `nil` in a `select` is the idiom for disabling that case (channel ownership: [go-concurrency](../go-concurrency/SKILL.md)) |
-| Integer division by zero | Panics; guard the divisor (float division yields `Inf`/`NaN` instead) |
+| Integer division by zero | Panics; guard the divisor. Float division yields `Inf`/`NaN` instead, and every comparison with `NaN` is false, so `x/0.0 >= limit` silently answers no: guard a float divisor too |
+| Elapsed time from a converted start | `time.Now().UTC()`, `.In`, `.Local`, and `.Round(0)` drop the monotonic reading, so `end.Sub(start)` jumps with a wall-clock step: take `start := time.Now()` and `time.Since(start)` |
 
 ---
 

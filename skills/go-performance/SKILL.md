@@ -75,6 +75,8 @@ Build in a loop with `strings.Builder`, calling `Grow(n)` first when the final s
 - **The key is every input the answer depends on**: the tenant, caller,
   locale, or permissions it was computed for, including those that arrive in
   `ctx`. A key of the user ID alone serves one tenant's record to another.
+  A loader that dedups within one request (a GraphQL DataLoader) is built per
+  request; shared by the process, it is a cache with no tenant in its key.
 - **One expiry rule, stated.** The TTL is the staleness the caller accepts. A
   balance, a permission, or stock at checkout is not cached. A failed load is
   returned and not kept. A write deletes the key after its transaction
@@ -93,7 +95,11 @@ Build in a loop with `strings.Builder`, calling `Grow(n)` first when the final s
 - **Bounded**: a cap on the entry count, or a sweep of expired entries; a key
   space the code does not bound (user IDs, query strings) needs one, since
   replacing an expired entry on its next read never frees a key that is not
-  read again. A map that only grows is a leak.
+  read again. A map that only grows is a leak, and a swept one keeps its
+  peak table: [go-data-structures](../go-data-structures/SKILL.md#a-map-never-shrinks).
+  Interning repeated values is `unique.Make` (Go 1.23); a map of
+  `weak.Pointer` (Go 1.24) is not a cache, since its entries die at the next
+  GC and its keys stay unless `runtime.AddCleanup` deletes them.
 
 ```go
 type rateKey struct{ tenant, pair string } // every input the rate depends on
@@ -178,8 +184,9 @@ site, `strings.Builder` in a loop) need none of them.
    about: every other benchmark of the package costs about 25 s at the
    defaults and raises the bar each row must clear. `keep` (exit 0) keeps the
    change; `revert` reverts it; `noisy` raises
-   `--count` or `--benchtime` and asks again, and a change is never kept on
-   `noisy`. A `keep` on `allocs/op` or `B/op` alone is a speedup only where the
+   `--count` or `--benchtime` and asks once more, and a change is never kept
+   on `noisy`. A second `noisy` is reported as no measurable change: rerunning
+   until a `keep` appears picks the noise, not the change. A `keep` on `allocs/op` or `B/op` alone is a speedup only where the
    profile spent its time in allocation or GC; otherwise it is reported as
    fewer allocations. After a kept change, profile again and name the next
    hotspot; chase it only within the request, and snapshot the kept code into
@@ -209,6 +216,7 @@ decides the class of fix:
 |---|---|---|
 | a package function and what it calls: `slices.Index`, `strings.Fields`, `regexp.Compile`, a parse per call | repeated or superlinear work | do it once where its input changes; a set in place of a scan |
 | `runtime.mallocgc` above about 15% cumulative, or `gcBgMarkWorker` and `gcAssistAlloc` above about 5% | allocation and GC | `-memprofile`, then `pprof -sample_index=alloc_space`; fewer values on the heap per call |
+| `runtime.scanobject` or `gcDrain` high while allocs/op is low | marking a large, pointer-dense live heap | values instead of `*T` in long-lived slices and maps, indexes instead of pointer links |
 | `sync.(*Mutex).Unlock` at the top of a `-mutexprofile`, or `sync.(*Mutex).Lock` in a `-blockprofile`, of a `RunParallel` benchmark | contention | a shorter critical section; per-key state behind a read-mostly map ([go-concurrency](../go-concurrency/SKILL.md)) |
 | total samples far below the profile's duration | waiting on I/O, a round trip per item, or a lock | an existing batch API; [go-database](../go-database/SKILL.md) for a query per row |
 | a syscall (`syscall.Write`, `Syscall6`) at the top | one system call per small read or write | count calls per op: a `bufio.Writer`/`bufio.Reader` or one batched call is class 1; decline only when each unit of work already makes one call |

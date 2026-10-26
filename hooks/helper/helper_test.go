@@ -158,6 +158,7 @@ func TestPromptHints(t *testing.T) {
 	}{
 		{"aliased import", "package p\n\nimport h \"net/http\"\n\nfunc F(w h.ResponseWriter) {}\n", []string{"go-http"}},
 		{"import alone", "package p\n\nimport _ \"database/sql\"\n", nil},
+		{"grpc server", "package p\n\nimport \"google.golang.org/grpc\"\n\nvar srv = grpc.NewServer()\n", []string{"go-http"}},
 		{"wrapped error", "package p\n\nimport \"fmt\"\n\nfunc F(err error) error { return fmt.Errorf(\"f: %w\", err) }\n", []string{"go-error-handling"}},
 		{"retry stub", "package p\n\n// Get retries with backoff and honors Retry-After.\nfunc Get() { panic(\"not implemented\") }\n", []string{"go-resilience"}},
 		{"Retry-After alone", "package p\n\n// Get reads the Retry-After header.\nfunc Get() { panic(\"not implemented\") }\n", nil},

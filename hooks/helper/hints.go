@@ -22,7 +22,7 @@ var ownerPatterns = []struct {
 	owner string
 	re    *regexp.Regexp
 }{
-	{"go-http", regexp.MustCompile(`(?m)\bnet/http\b|\bhttp\.(Handle|HandleFunc|Server\b|Client\b|NewServeMux|NewRequest|ResponseWriter|Error|ListenAndServe|Redirect)`)},
+	{"go-http", regexp.MustCompile(`(?m)\bnet/http\b|\bhttp\.(Handle|HandleFunc|Server\b|Client\b|NewServeMux|NewRequest|ResponseWriter|Error|ListenAndServe|Redirect)|\bgoogle\.golang\.org/grpc\b|\bgrpc\.(NewServer|NewClient|Dial|DialContext)\b`)},
 	{"go-error-handling", regexp.MustCompile(`(?m)fmt\.Errorf\([^)]*%w|\berrors\.(Is|As|AsType|Join|New)\(`)},
 	{"go-concurrency", regexp.MustCompile(`(?m)\bgo\s+func\b|\bgo\s+[A-Za-z_]\w*\(|\bmake\(chan\b|\bchan\s|\bsync\.(Mutex|RWMutex|WaitGroup|Once|Map)\b`)},
 	{"go-context", regexp.MustCompile(`(?m)\bcontext\.(Background|TODO|With[A-Za-z]+|AfterFunc)\b|^\s+\w+\s+context\.Context\s*(//.*)?$`)},
@@ -271,6 +271,9 @@ func parseImports(lexical string, literals map[int]string) (imports map[string]s
 				}
 				if pkg == "x/time/rate" || pkg == "golang.org/x/time/rate" {
 					owner = "go-resilience"
+				}
+				if pkg == "google.golang.org/grpc" {
+					owner = "go-http"
 				}
 				name, ok := canonical[pkg]
 				if !ok {

@@ -3,7 +3,7 @@
 > Sources: `crypto/*`, `crypto/tls`, `crypto/subtle`, `net/http` package docs; go.dev/blog/fips140; OWASP Password Storage Cheat Sheet
 > Authority: normative for stdlib API choices; project policy for the argon2 default
 > Minimum Go: 1.24 for `crypto/pbkdf2`, `crypto/hkdf`, `crypto/sha3`, `crypto/mlkem`, `rand.Text`; 1.26 for `crypto/hpke`
-> Last verified: 2026-10-07
+> Last verified: 2026-10-26
 
 Rule zero: **do not invent cryptography**. Every primitive below is a stdlib
 or Go-team-maintained call. The job is choosing the right one and handling the
@@ -34,6 +34,9 @@ the binary and the repository. A flag *default* is a literal in the binary.
 - Rotate without redeploy: hold the secret behind a small accessor that
   re-reads on `SIGHUP` or a timer only if the service actually needs it —
   otherwise the restart *is* the rotation.
+- A key written to disk goes to `os.CreateTemp` in the target directory
+  (mode 0o600), then `os.Rename`: `os.WriteFile(p, key, 0o600)` keeps the mode
+  of a file that already exists.
 
 ---
 
@@ -99,7 +102,7 @@ salt) is neither and falls to GPU brute force at billions per second.
 | Option | Where | When |
 |---|---|---|
 | `argon2.IDKey` (argon2id) | `golang.org/x/crypto/argon2` | Default. `x/crypto` is Go-team maintained; the module is already indirect in most services |
-| `bcrypt.GenerateFromPassword` | `golang.org/x/crypto/bcrypt` | Existing bcrypt stores; 72-byte input cap |
+| `bcrypt.GenerateFromPassword` | `golang.org/x/crypto/bcrypt` | Existing bcrypt stores; above 72 bytes `GenerateFromPassword` returns `ErrPasswordTooLong`, so a longer policy pre-hashes to a fixed encoding (base64 of HMAC-SHA256) |
 | `pbkdf2.Key` | `crypto/pbkdf2` (Go 1.24+) | Stdlib-only constraint or FIPS 140 mode; ≥600 000 iterations with SHA-256 |
 
 ```go
@@ -202,7 +205,8 @@ uniqueness rules. Never reuse a nonce with the same key.
 Derive per-purpose keys from one master with `hkdf.Key` (`crypto/hkdf`, Go
 1.24+) instead of reusing a key across purposes. GCM's 96-bit nonce limits a
 single key to ~2³² messages before the birthday bound matters — rotate or use
-`chacha20poly1305.NewX` (192-bit nonce) for high-volume streams.
+`chacha20poly1305.NewX` (192-bit nonce) for high-volume streams. Prefix each
+stored ciphertext with a key ID, so rows written before a rotation still open.
 
 ---
 

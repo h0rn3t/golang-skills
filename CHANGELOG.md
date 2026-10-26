@@ -4,6 +4,40 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- Ideas from samber/cc-skills-golang (MIT, `246b6c4`), each re-verified on
+  go1.27.1 or the module source and written in this pack's words; their claims
+  found wrong for 1.26/1.27 were left out.
+  - go-data-structures: new "A Map Never Shrinks" (`delete` and `clear` keep
+    the peak table, measured 30 → 26 MiB; reset with a fresh `make`);
+    go-performance's Bounded cache bullet and MODERNIZATION's `clear` entry
+    route to it. go-performance also gains `unique.Make` versus a `weak.Pointer`
+    map, a per-request loader, a `scanobject` row in Read the Profile, and one
+    rerun on `noisy` (a second `noisy` is no measurable change).
+  - go-http: new `references/GRPC.md` (status codes at the handler,
+    `Unimplemented…Server` by value, `grpc.NewClient` and its `dns` default,
+    bounded `GracefulStop`, bufconn tests), routed from go-code; the hook
+    helper names go-http for a `google.golang.org/grpc` import or a
+    `grpc.NewServer`/`NewClient`/`Dial` call, so the routing gate and the
+    prompt note load it for gRPC code.
+  - go-security: a duration or count branch in Triage, size products bounded
+    factor by factor, key files through `CreateTemp` + `Rename`, a key ID on
+    stored ciphertext, the bcrypt `ErrPasswordTooLong` contract.
+  - go-logging: `ParentBased` around a ratio sampler, `otelslog` needs a
+    `LoggerProvider`, histogram buckets and metric suffixes, exemplars over
+    OpenMetrics, log forging through `log.Printf`, PII in error-tracker SDKs.
+  - go-concurrency: no recursive `RLock`. go-database: the 65535-parameter
+    cap and `CopyFrom`. go-defensive: `NaN` comparisons after a float divide,
+    `.UTC()` dropping the monotonic reading. go-packages: `replace`/`exclude`
+    apply only in the main module; a CLI `run` takes its writers and builds
+    its flag set. go-troubleshooting: capture before a restart.
+    MODERNIZATION: `(*big.Int).Divide` (Go 1.27, `big.Round` is half to even)
+    and `bytes.Buffer.Peek` (Go 1.26) as Tier 2; the `errors.AsType` interface
+    target embeds `error`.
+  - evals: quality cases 65–75 with an optional `trap` field, accepted by
+    `TestEvalsJSONSchema`; docs/SKILL_AUTHORING_TEMPLATE.md gains "Quality
+    Eval Cases" (the trap, premise-pressure prompts, the no-skill pre-flight
+    table). No abrun or evalrun run backs these edits yet.
+
 ## [1.44.0] - 2026-10-26
 
 - go-code: new "Business Rules" subsection under Writing New Code for multi-step

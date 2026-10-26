@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.44.0] - 2026-10-26
+
 - go-code: new "Business Rules" subsection under Writing New Code for multi-step
   rules (intervals, history or snapshots, reconciliation, mode or role
   branches): the entry point is a chain of named step results, effects stay at

@@ -201,6 +201,77 @@ This applies to the entry point, anything it calls, and the contract test.
 [NEW-CODE-EXAMPLES.md](references/NEW-CODE-EXAMPLES.md) carries a whole
 documented JSON document in this form.
 
+### Business Rules
+
+Code that carries multi-step business rules — intervals, history or snapshot
+processing, reconciling against a set of properties, branching on mode or
+role — is written as a chain, new or refactored; plain CRUD and glue code are
+exempt.
+
+- **The entry point is the chain.** Each step's result is a named value the
+  next step takes: `a := step1()`, `b := step2(a)`, `c := step3(a, b)`. The
+  whole algorithm and its key branches read in that function or one level
+  below it. A struct holding the call's dependencies (`ctx`, `tx`, the input)
+  may carry the steps as methods; a fluent chain that passes intermediate
+  results through struct fields hides the data flow and is not written.
+- **Effects at the top, logic below.** Deep functions return data; writes and
+  external calls happen in the entry point or a step of its chain. Lifting an
+  effect keeps the order and count of writes
+  ([BEHAVIOR-TRAPS.md](../go-code-refactor/references/BEHAVIOR-TRAPS.md#pre-commit-checklist)).
+- **Untyped data is parsed once.** A map, a JSON document, or a database row
+  becomes a typed struct in one place, which returns the parse error; the
+  decisions and comparisons after it are pure functions with no `error`
+  result. Checking the value types and converting them is that one pass, not
+  a validation loop followed by a second `switch v.(type)` in the matcher:
+  the matcher takes the typed struct, never the `map[string]any`, and holds
+  no type switch or assertion.
+- **A step earns its function** by the [Declaration Budget](#declaration-budget):
+  a step of the entry point's chain, or a pure step below it, is rule 4's
+  other level of abstraction even with one call site. Three steps are named
+  here because a body written behind one signature folds them in: the parse
+  of untyped data into its typed struct, the pure match or decision on that
+  struct, and the interval or set arithmetic. Each is a package-level
+  function, not a closure inside the entry point, which keeps the step names,
+  the branches, and the writes and stays within about 40 lines. Any other
+  wrapper around one expression or one error check is inlined. Its name says what the
+  step means in the domain, not the library call behind it: verb-like for an
+  action or a predicate (`subtract`, `matches`), noun-like for a value it
+  returns (`processingInterval`); `leftDifferences` names the mechanism and
+  `processReminder` names nothing
+  ([go-naming](../go-naming/references/IDENTIFIERS.md#naming-conventions)
+  owns the conventions).
+- **Leave complexity headroom.** Before a function grows or two merge, read the
+  service's complexity linters in its golangci config (`gocyclo`, `gocognit`,
+  `funlen`, `nestif`) and stay clear of their limits, not at them.
+
+A fragment of an entry point in that shape; `b` holds only the dependencies,
+`bindCombination` writes by snapshot and returns what it left uncovered, and
+inside it `readSnapshot` parses each snapshot once so `matches` stays pure:
+
+```go
+	interval, ok, err := b.processingInterval()
+	if err != nil || !ok {
+		return false, err
+	}
+	snapshots, err := b.loadSnapshots(interval)
+	if err != nil {
+		return false, err
+	}
+	remainders, err := b.bindCombination(interval, snapshots)
+	if err != nil {
+		return false, err
+	}
+	if !data.Bind {
+		return true, nil // unbind leaves values outside the combination alone
+	}
+	for _, r := range remainders {
+		if err := b.clear(r); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
+```
+
 ### Delete Pass
 
 When the Contract Table passes, walk the diff once, top to bottom, and delete
@@ -267,7 +338,8 @@ written:
    function — building SQL beside the domain rule — even with one call site;
    the report names its caller and this rule. A helper whose name only
    restates two or three lines of its body is not such a step: those lines
-   stay inline.
+   stay inline. In multi-step business rules the parse, the pure match, and
+   the interval arithmetic are such steps ([Business Rules](#business-rules)).
 
 A function literal bound to a name that captures nothing from the function
 around it counts under the same four rules: the count is a record, not a

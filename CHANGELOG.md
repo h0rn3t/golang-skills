@@ -4,6 +4,20 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- go-code: new "Business Rules" subsection under Writing New Code for multi-step
+  rules (intervals, history or snapshots, reconciliation, mode or role
+  branches): the entry point is a chain of named step results, effects stay at
+  the top, untyped data is parsed once into a typed struct and decisions are
+  pure, a chain step or a pure step below it meets Declaration Budget rule 4
+  (the parse, the pure match, and the interval arithmetic named as such, never
+  closures; the entry point within about 40 lines), domain step names,
+  complexity-linter headroom. go-code-refactor's PLAYBOOK routes to it. New
+  implement fixture `zoning` (interval binding over snapshot history). Haiku
+  5.5 medium, n=5, `zoning`: reference golden 4/5, largest function 72–97
+  lines, untyped values decoded in one function 1/5; with the section golden
+  5/5, largest function 35–47 lines in 4/5 (70 in one), decoded once 5/5.
+  Not measured on Opus or Sonnet 5.5.
+
 - Ideas from spf13/go-skills, verified on go1.27.1: go-troubleshooting's
   "Edits do not change behavior" suspects the code before the toolchain (logic,
   wrong file, second call site, other code path); go-code-refactor's

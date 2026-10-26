@@ -140,6 +140,10 @@ Extraction notes:
   look for a struct that already groups them.
 - **Preserve the original order of side effects exactly.** Extraction is safe;
   reordering is not.
+- Multi-step business rules (intervals, history, reconciliation, mode or role
+  branches) take the chain shape in
+  [go-code Business Rules](../../go-code/SKILL.md#business-rules): steps as
+  named values, effects lifted to the entry point, untyped data parsed once.
 - Extracted functions inherit the caller's context — pass `ctx`, never create
   a new one ([go-context](../../go-context/SKILL.md)).
 

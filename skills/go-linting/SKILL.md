@@ -20,6 +20,7 @@ whether Go work is finished.
 - `../../hooks/helper/receipt.go` - Internal receipt runner behind the Bash entry point; inspect only when debugging the hook or verifier.
 - `../../hooks/go-verification-routing.sh` - The plugin's Bash verification prerequisite after a Go edit; inspect only when diagnosing routing or opt-out behavior.
 - `references/CONFIGURATION.md` - Read for any linter configuration, CI, or first-lint setup task.
+- `references/RECEIPTS.md` - Read before crediting an edit-hook receipt or writing a `pass (hook)` or `pass (receipt)` label.
 
 ## Verification Gate
 
@@ -76,41 +77,15 @@ Gate rules:
   yet found: stop patching, take [go-troubleshooting](../go-troubleshooting/SKILL.md)'s
   loop from the first diagnostic, and if it does not close, report the check
   `fail` with both attempts.
-- Where the plugin edit hook runs, a receipt can satisfy only the selected check
-  with the same command/flags, canonical target, config, toolchain and inputs.
-  With a shell, first run the `bash .../go-check-receipt.sh --gate <receipt-dir> <package-dir>`
-  command printed by the last edit hook. A redirection or a pipe that only displays
-  output (`2>&1`, `| tail`, `| head`) is still that command; another verification command in the
-  same Bash call is not. It verifies the package receipts together,
-  credits only supported current checks and lists `required_direct`. It uses absolute paths and
-  requires the expected cwd and argv; no plugin environment variable is needed.
-  For example, to select `go vet .` in `/project/pkg`:
-  `bash <plugin-dir>/hooks/go-check-receipt.sh <receipt-dir>/vet.json /project/pkg go vet .`.
-  Require exit 0 **and `hook_credit=true`**, then credit only its reported scope.
-  A batch exit 1 means no checks were credited: inspect its JSON and run the
-  selected checks directly. The plugin permits direct verification only after
-  loading this skill and attempting a current verifier; a subsequent Go edit
-  requires a new attempt. `GOLANG_SKILLS_VERIFICATION_GATE=off` disables that
-  prerequisite, without granting credit. This is a workflow guard, not a shell sandbox.
-  `valid=true` from the state-only verifier is insufficient. Hook output
-  with `reuse=unverified` is not a final pass. If the command is unavailable or
-  rejects the receipt, run the selected check directly or report it unavailable.
-  A later edit to any input, config, dependency or build environment invalidates it;
-  completion order alone never selects a receipt. Without a shell, report the
-  hook's observed status and scope as `observed (hook, reuse unverified)`;
-  required gate checks lacking current matching verification are unavailable.
-  Silence, skipped checks and unavailable tools are never passes.
-  A disclaimer does not turn `lint pass (receipt, reuse=unverified)` into an
-  observed-only status. Write `lint unavailable (receipt not verified)` or
-  `lint observed (hook, reuse unverified)`, not `lint pass`.
-  The plugin checks hook-sourced pass claims at Stop against the current
-  verifier credits; correct unsupported labels rather than repeating them.
-  File-only gofmt and package vet do not satisfy a wider repository gate;
-  new-findings-only lint does not satisfy full lint. Hook tests use `-short`
-  without `-race`. Run build, the required race check, broader fix/lint and
-  applicable govulncheck whenever matching evidence is absent. A host that
-  runs no plugin hooks (opencode, a copied skill) leaves no hook evidence; use
-  the normal gate there.
+- Where the plugin edit hook runs, first run the `go-check-receipt.sh --gate`
+  command the last edit hook printed, as printed and alone in its Bash call,
+  before any direct check and again after every later Go edit: the plugin
+  blocks a direct check until then. Credit only what it reports
+  with exit 0 **and `hook_credit=true`**, at its reported scope; run every
+  other selected check directly. Hook tests use `-short` without `-race`.
+  Without a shell, a hook result is `observed (hook, reuse unverified)`, never
+  `pass`. [RECEIPTS.md](references/RECEIPTS.md) holds the rest of the receipt
+  rules; read it before writing a `pass (hook)` or `pass (receipt)` label.
 - A test check passes on evidence that the tests ran, not on exit 0.
   `ok … [no tests to run]` (a `-run` pattern that matches nothing, or a file
   behind a `//go:build` tag the run did not pass), `[no test files]`, and a
@@ -125,6 +100,9 @@ Gate rules:
   evidence is unavailable with no known finding. Report both when they coexist.
   Missing tools, unsupported toolchains, and infrastructure failures are not
   clean results. Attribute an environment gap from evidence, not error text alone.
+  A missing tool is reported, not installed: unless the task asks, the gate
+  never runs `go install` or `go get`, edits `go.mod`, or switches the
+  toolchain to make a check runnable.
 
 ---
 

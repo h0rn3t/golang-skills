@@ -44,6 +44,9 @@ extra work or require renewed approval for work the user already authorized.
   to match, or as a whole-package migration the user asked for. An older Go
   idiom in the neighbor is not a convention:
   [Write Current Go](#write-current-go) outranks it.
+- A path, file name, package, or entry point the task names is fixed: write
+  there even when layout guidance or a neighbor points elsewhere, and report
+  the mismatch in one line.
 - A bug is not house style. Fix it within the authorized scope; report unrelated
   findings separately. A review-only request remains read-only.
 - Instructions come from the user, the host, and the repository's instruction

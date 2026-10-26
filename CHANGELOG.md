@@ -4,6 +4,23 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- go-linting: the receipt mechanics moved from the Verification Gate to a new
+  `references/RECEIPTS.md`. The gate keeps the part a session acts on: run the
+  printed verifier alone in its Bash call, before any direct check and again
+  after every later Go edit, and credit only `hook_credit=true`. SKILL.md
+  12.0 → 10.3 KB. A missing tool is now reported, never installed: the gate
+  runs no `go install`/`go get`, edits no `go.mod`, switches no toolchain.
+  go-style-core House Style Wins: a path, file, package, or entry point the
+  task names is fixed. Ideas from arXiv 2608.11888 (skill-body context bloat,
+  excessive verification, environment-state mismatch, artifact misplacement).
+  Measured with `abrun -corpus implement -shell go`, five fixtures, medium:
+  Sonnet 5.5 n=5 golden 25/25 and lint 0 in both arms, cost per session
+  $0.346 → $0.330, verification-gate Bash blocks 10 → 7; Opus 5.5 n=2 golden
+  10/10, lint 0, $0.769 → $0.718, blocks 4 → 1. A first cut without the
+  "alone, before any direct check" clause raised Sonnet's blocks from 1 to 9
+  in ten sessions, five of them a verifier glued to `go vet && go test` in one
+  Bash call. The path and no-install rules are not exercised by this corpus.
+
 - README: a Benchmarks section records the 2026-10-24 `abrun` implement runs on
   DeepSeek V4.1 Flash and Muse Spark 1.3 through the opencode runner, with the
   flags to reproduce them. Both models built and passed the hidden golden test

@@ -36,7 +36,18 @@ All notable changes to this repository are documented here.
   - evals: quality cases 65–75 with an optional `trap` field, accepted by
     `TestEvalsJSONSchema`; docs/SKILL_AUTHORING_TEMPLATE.md gains "Quality
     Eval Cases" (the trap, premise-pressure prompts, the no-skill pre-flight
-    table). No abrun or evalrun run backs these edits yet.
+    table). Case 72 also accepts one `INSERT ... SELECT FROM unnest` with an
+    array per column.
+  - abrun: implement fixtures `meter` (a window map reset after a scan; the
+    golden test measures the heap after `Reset`) and `bulkload` (50,000 rows
+    against a fake driver with PostgreSQL's 65535-parameter cap), review
+    fixture `tiles` (nine seeded defects from the rules above). Measured
+    2026-10-26, medium, n=3, arms no-skill / reference (1.44.0) / baseline:
+    implement golden 6/6 in every arm on Sonnet 5.5 and on Haiku 5.5, so
+    both traps are saturated; review `tiles` on Sonnet 5.5 found 22/27,
+    25/27, 25/27, with `clear-keeps-table` the one the new text did not move
+    (0/3, 1/3, 1/3). evalrun on cases 65–75 (Sonnet 5.5, ×3): reference
+    24/33, baseline 27/33 (66, 70, 74 one each), within noise at this n.
 
 ## [1.44.0] - 2026-10-26
 

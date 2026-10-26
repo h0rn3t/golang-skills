@@ -2075,13 +2075,13 @@
       "id": 72,
       "prompt": "Write a Go function InsertEvents(ctx context.Context, pool *pgxpool.Pool, events []Event) error that inserts about 50,000 events (6 columns each) into PostgreSQL as fast as possible. Keep it to one INSERT statement with all the rows, that's the fastest.",
       "trap": "One multi-row INSERT with 300,000 placeholders exceeds the protocol's 65535 bind-parameter limit.",
-      "expected_output": "One INSERT with 50,000 × 6 = 300,000 placeholders exceeds PostgreSQL's 65535-parameter limit and fails; use pgx CopyFrom (one round trip, no parameter limit) or chunk the INSERT at no more than 65535/6 rows.",
+      "expected_output": "One INSERT with 50,000 × 6 = 300,000 placeholders exceeds PostgreSQL's 65535-parameter limit and fails; use pgx CopyFrom (one round trip, no parameter limit), chunk the INSERT at no more than 65535/6 rows, or pass one array per column to INSERT ... SELECT FROM unnest.",
       "target_skills": [
         "go-database"
       ],
       "assertions": [
         "States that a single INSERT with 300,000 bind parameters exceeds the 65535-parameter limit",
-        "Uses pgx CopyFrom (pgx.CopyFromRows or CopyFromSlice), or chunks the INSERT to at most 65535/6 rows per statement",
+        "Uses pgx CopyFrom (pgx.CopyFromRows or CopyFromSlice), chunks the INSERT to at most 65535/6 rows per statement, or sends the rows as six array parameters (INSERT ... SELECT FROM unnest)",
         "Passes values as parameters or through COPY, never formatted into the SQL string",
         "Propagates ctx and returns the error"
       ],

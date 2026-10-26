@@ -1,0 +1,92 @@
+{
+  "defects": [
+    {
+      "id": "stop-no-wait",
+      "owner": "go-concurrency",
+      "severity": "must",
+      "file": "tiles.go",
+      "match": "close(s.quit)",
+      "note": "Stop promises no worker is running when it returns but only closes quit; s.wg.Wait() is never called, so a worker can still be in store"
+    },
+    {
+      "id": "nested-rlock",
+      "owner": "go-concurrency",
+      "severity": "must",
+      "file": "tiles.go",
+      "match": "b, ok := s.cached(key)",
+      "note": "Seed holds RLock and calls cached, which takes RLock again; once store waits in Lock the second RLock blocks behind it and both wait forever"
+    },
+    {
+      "id": "nan-healthy",
+      "owner": "go-defensive",
+      "severity": "must",
+      "file": "tiles.go",
+      "match": "return hits/(hits+misses) >= 0.5",
+      "note": "with no lookups the ratio is 0/0 = NaN and every comparison with NaN is false, so a fresh pod reports unhealthy, against the documented contract"
+    },
+    {
+      "id": "clear-keeps-table",
+      "owner": "go-data-structures",
+      "severity": "should",
+      "file": "tiles.go",
+      "match": "clear(s.counts)",
+      "note": "clear keeps the map at the size the crawl grew it to (hundreds of thousands of keys); a fresh make releases it"
+    },
+    {
+      "id": "utc-latency",
+      "owner": "go-defensive",
+      "severity": "should",
+      "file": "tiles.go",
+      "match": "start := time.Now().UTC()",
+      "note": "UTC() drops the monotonic reading, so the latency from Sub jumps when the wall clock steps; time.Now() and time.Since(start)"
+    },
+    {
+      "id": "size-overflow",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "tiles.go",
+      "match": "size := width * height * 4",
+      "span": 2,
+      "note": "the product of client values can wrap or go negative and pass the cap: a negative size panics in make, a wrapped one allocates past it; bound each factor (> 0, height <= max/(4*width)) before multiplying"
+    },
+    {
+      "id": "log-forging",
+      "owner": "go-logging",
+      "severity": "should",
+      "file": "tiles.go",
+      "match": "log.Printf(\"tile %s for client %s: %d bytes\", key, client, size)",
+      "tool": "gosec G706",
+      "note": "X-Client is client-written and %s writes its CR/LF verbatim, forging log lines; an slog attribute quotes it"
+    },
+    {
+      "id": "writefile-mode",
+      "owner": "go-security",
+      "severity": "must",
+      "file": "tiles.go",
+      "match": "return os.WriteFile(path, secret, 0o600)",
+      "note": "WriteFile applies 0o600 only when it creates the file; the 0644 file older installs left stays world-readable. CreateTemp in the directory and Rename, or Chmod first"
+    },
+    {
+      "id": "stop-test-proves-return",
+      "owner": "go-testing",
+      "severity": "should",
+      "file": "tiles_test.go",
+      "match": "t.Fatal(\"Stop did not return\")",
+      "note": "the test passes because Stop returns at once; it never checks that the workers have exited, which is the contract Stop breaks"
+    }
+  ],
+  "baits": [
+    {
+      "id": "hmac-equal",
+      "file": "tiles.go",
+      "match": "!hmac.Equal(sig, mac.Sum(nil))",
+      "note": "constant-time comparison of the signature; a length mismatch leaks only the public MAC length"
+    },
+    {
+      "id": "workers-joined-by-wg",
+      "file": "tiles.go",
+      "match": "s.wg.Go(s.prerender)",
+      "note": "workers are started through the WaitGroup; the defect is that Stop never waits on it, not how they start"
+    }
+  ]
+}

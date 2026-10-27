@@ -332,6 +332,36 @@ go run ./cmd/evalrun -set all -kind all -model claude-sonnet-5-5 -out evals.json
 go run ./cmd/evalrun -set all -kind quality -no-skill -model claude-sonnet-5-5 -out control.json
 ```
 
+### Grok Build: Grok 4.7
+
+Прогін 2026-10-27 провів корпус refactor через Grok Build
+(`-runner grok -model grok-4.7`) з `--reasoning-effort medium` на цьому
+дереві 1.45.0. `abrun` виконав по два повтори кожного з 5 fixtures в обох
+arms. Golden-тести пройшли в кожній сесії, тож стовпці — це видалені рядки
+зі збереженою поведінкою. Раннер Grok не ставить хуки цього плагіна; скіл
+зараховується, коли сесія прочитала його `SKILL.md` цілком, і baseline зробив
+це в кожному прогоні.
+
+```mermaid
+xychart-beta
+  title "refactor: видалено рядків зі збереженою поведінкою"
+  x-axis ["Grok 4.7, без скілів", "Grok 4.7, зі скілами"]
+  y-axis 0 --> 25
+  bar [1.4, 14.1]
+```
+
+| Модель | Корпус | Golden / pass | Lint clean | $/прогін |
+|---|---|---|---|---|
+| Grok 4.7 | refactor | 100.0% → 100.0% | 60.0% → 70.0% | 0.1548 → 0.9430 |
+
+Відтворити з тими самими прапорцями:
+
+```bash
+cd evals
+go run ./cmd/abrun -corpus refactor -runner grok -model grok-4.7 \
+  -effort medium -arms no-skill,baseline -n 2 -j 3 -out refactor.json
+```
+
 Прогони 2026-10-24 нижче виконували corpus через CLI opencode, який віддає
 обидві моделі з одного провайдера. Усі прогони зібралися й пройшли свій
 golden-тест в обох arms, тож різниця — у формі, а не в коректності:

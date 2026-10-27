@@ -335,6 +335,36 @@ go run ./cmd/evalrun -set all -kind all -model claude-sonnet-5-5 -out evals.json
 go run ./cmd/evalrun -set all -kind quality -no-skill -model claude-sonnet-5-5 -out control.json
 ```
 
+### Grok Build: Grok 4.7
+
+The 2026-10-27 run drove the refactor corpus through Grok Build
+(`-runner grok -model grok-4.7`) at `--reasoning-effort medium` on this
+1.45.0 tree. `abrun` ran two repetitions of each of the 5 fixtures in both
+arms. Golden tests passed in every session, so the bars are lines removed
+with behavior held. The Grok runner does not install this plugin's hooks; a
+skill counts when the session reads its `SKILL.md` in full, which the
+baseline arm did on every run.
+
+```mermaid
+xychart-beta
+  title "refactor: lines removed with behavior held"
+  x-axis ["Grok 4.7, no skills", "Grok 4.7, skills"]
+  y-axis 0 --> 25
+  bar [1.4, 14.1]
+```
+
+| Model | Corpus | Golden / pass | Lint clean | $/run |
+|---|---|---|---|---|
+| Grok 4.7 | refactor | 100.0% → 100.0% | 60.0% → 70.0% | 0.1548 → 0.9430 |
+
+Regenerate with the same flags:
+
+```bash
+cd evals
+go run ./cmd/abrun -corpus refactor -runner grok -model grok-4.7 \
+  -effort medium -arms no-skill,baseline -n 2 -j 3 -out refactor.json
+```
+
 The 2026-10-24 runs below drove the corpus through the opencode CLI, which
 serves both models from one provider. Every run built and passed its golden
 test in both arms, so the difference is shape rather than correctness:

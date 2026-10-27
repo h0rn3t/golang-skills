@@ -13,6 +13,9 @@ All notable changes to this repository are documented here.
   Haiku, Sonnet, and Opus 5.5 (2026-10-27, medium effort, no-skill vs
   baseline): implement, refactor, review, quality and trigger evals on all
   three; perf on Haiku so far.
+- README and README.uk: a Grok 4.7 refactor chart (2026-10-27, medium effort,
+  no-skill vs baseline, n=2): lines removed with behavior held 1.4 → 14.1,
+  golden 100% → 100%, lint clean 60% → 70%.
 
 - go-code-review: a Data Structures row for a map reset after a burst
   (`clear` or a `delete` loop keeps the peak table; a fresh `make` is the

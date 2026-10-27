@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.45.1] - 2026-10-27
+
 - go-vet-on-edit hook: the receipt context printed after every Go edit is
   one status line, the verifier command, and one line of crediting rules
   (1,448 → 656 characters for a clean edit): no exit codes, `state-stable`,
@@ -18,7 +20,7 @@ All notable changes to this repository are documented here.
 - README and README.uk: a Claude Code benchmark section with charts for
   Haiku, Sonnet, and Opus 5.5 (2026-10-27, medium effort, no-skill vs
   baseline): implement, refactor, review, quality and trigger evals on all
-  three; perf on Haiku so far.
+  three; perf on all three (Opus at low effort).
 - README and README.uk: a Grok 4.7 refactor chart (2026-10-27, medium effort,
   no-skill vs baseline, n=2): lines removed with behavior held 1.4 → 14.1,
   golden 100% → 100%, lint clean 60% → 70%.

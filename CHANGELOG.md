@@ -4,6 +4,12 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- go-vet-on-edit hook: the receipt context printed after every Go edit is
+  one status line, the verifier command, and one line of crediting rules
+  (1,448 → 656 characters for a clean edit): no exit codes, `state-stable`,
+  empty reasons, or default scope and filter per check. The verifier, the
+  gate, and the Stop check are unchanged.
+
 - evalrun and abrun: a session the Claude Code CLI ends with an error of its
   own (`is_error` on the result, other than running out of turns), such as a
   usage limit, is a run error; before, the CLI's notice was graded as the

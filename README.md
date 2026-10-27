@@ -206,8 +206,10 @@ lines where an unaided session removes 2–10. Review recall rises 2–7 points
 from a 90–93% base, and quality evals 10–13 points. Trigger evals pass at
 62% (Haiku), 76% (Sonnet), and 75% (Opus). A session with the skills costs
 2–7× one without, mostly the loaded skill text written to the prompt cache.
-Perf is so far measured on Haiku only; Sonnet (medium) and Opus (low effort)
-are still running.
+Perf tasks pass at 67% → 82% (Haiku), 89% → 100% (Sonnet), and 83% → 89%
+(Opus), and the skills raise how often a session measures before it edits
+(39–67% → 83–89%). Opus perf ran at `--effort low`; every other Opus run is
+medium.
 
 #### How the runs were made
 
@@ -299,9 +301,9 @@ xychart-beta
 ```mermaid
 xychart-beta
   title "perf: tasks passed (speedup or justified decline), %"
-  x-axis ["Haiku, no skills", "Haiku, skills"]
+  x-axis ["Haiku, no skills", "Haiku, skills", "Sonnet, no skills", "Sonnet, skills", "Opus, no skills", "Opus, skills"]
   y-axis 0 --> 100
-  bar [66.7, 82.4]
+  bar [66.7, 82.4, 88.9, 100.0, 83.3, 88.9]
 ```
 
 | Model | Corpus | Golden / pass | Lint clean | $/run |
@@ -315,11 +317,13 @@ xychart-beta
 | Sonnet 5.5 | implement | 100.0% → 100.0% | 53.3% → 93.3% | 0.0478 → 0.2355 |
 | Sonnet 5.5 | refactor | 100.0% → 100.0% | 40.0% → 80.0% | 0.0456 → 0.1977 |
 | Sonnet 5.5 | review | 90.0% → 96.8% | — | 0.0705 → 0.1836 |
+| Sonnet 5.5 | perf | 88.9% → 100.0% | — | 0.0785 → 0.4048 |
 | Sonnet 5.5 | quality evals | 62.7% → 74.7% | — | 0.0226 → 0.1294 |
 | Sonnet 5.5 | trigger evals | — → 76.4% | — | — |
 | Opus 5.5 | implement | 96.7% → 100.0% | 60.0% → 93.3% | 0.1084 → 0.6364 |
 | Opus 5.5 | refactor | 100.0% → 100.0% | 80.0% → 80.0% | 0.0976 → 0.4331 |
 | Opus 5.5 | review | 93.2% → 95.5% | — | 0.1546 → 0.3525 |
+| Opus 5.5 | perf | 83.3% → 88.9% | — | 0.1619 → 0.7344 |
 | Opus 5.5 | quality evals | 68.0% → 78.7% | — | 0.0652 → 0.2599 |
 | Opus 5.5 | trigger evals | — → 74.5% | — | — |
 

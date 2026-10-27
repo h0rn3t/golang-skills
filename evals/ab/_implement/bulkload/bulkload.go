@@ -23,10 +23,10 @@ type Event struct {
 //
 // A night's export holds about 50,000 events. The previous job wrote one
 // statement per event: the import took forty minutes and held a connection
-// for all of it, so Insert sends the export in a few dozen statements at
-// most. Either every event is written or none is: on any failure the rows
-// already sent are rolled back and the error is returned. No events is a
-// successful insert that sends nothing.
+// for all of it, so Insert sends the export in ten statements at most.
+// Either every event is written or none is: on any failure the rows already
+// sent are rolled back and the error is returned. No events is a successful
+// insert that sends nothing.
 func Insert(ctx context.Context, db *sql.DB, events []Event) error {
 	panic("not implemented")
 }

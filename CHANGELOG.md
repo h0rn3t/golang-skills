@@ -4,6 +4,20 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- go-code-review: a Data Structures row for a map reset after a burst
+  (`clear` or a `delete` loop keeps the peak table; a fresh `make` is the
+  reset), the one `tiles` defect the 1.45.0 text left mostly unfound. Sonnet
+  5.5 medium, n=4, 1.45.0 / this tree: `clear-keeps-table` 3/4 → 4/4, all
+  defects 34/36 → 36/36, baits 5 → 2, $0.70 → $0.79. The row names that
+  fixture's defect, so `tiles` cannot judge it alone; other review fixtures
+  were not rerun.
+- abrun fixtures: `meter` no longer states that a reset Meter holds no more
+  memory than a new one (the scan and the tight memory limit stay), and
+  `bulkload` allows ten statements instead of a few dozen, so 1,000-row
+  batches fail and only batches near the 65535-parameter cap pass. Haiku 5.5
+  medium, n=3, still passes both 6/6 with and without the plugin: the traps
+  are known to the model, not hidden by the wording.
+
 - evalrun: `-go-doc` gives quality sessions Bash allowed for `go doc` only,
   so an answer can check an API against the installed toolchain; the report
   records `go_doc`. Without it the sessions stay read-only, as before.

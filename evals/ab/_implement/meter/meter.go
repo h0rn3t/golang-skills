@@ -9,12 +9,8 @@ import "net/netip"
 // use.
 //
 // The service runs one Meter per process, and a ticker in main calls Reset
-// once a minute. Most minutes see a few thousand addresses. The last incident
-// was a scan: one minute brought requests from half a million addresses, the
-// process grew by tens of megabytes, and it stayed at that size for the rest
-// of the day although Reset kept running and the traffic was back to normal.
-// The pods have a tight memory limit; after Reset, a Meter holds no more
-// memory than a new one does.
+// once a minute. Most minutes see a few thousand addresses; a scan can bring
+// half a million in one minute. The pods run under a tight memory limit.
 type Meter struct {
 	// The unexported fields are the implementation's own.
 }

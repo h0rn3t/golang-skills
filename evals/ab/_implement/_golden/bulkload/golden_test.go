@@ -197,8 +197,8 @@ func TestInsertWritesTheExport(t *testing.T) {
 	if err := Insert(t.Context(), goldenOpen(t, g), goldenEvents(n)); err != nil {
 		t.Fatalf("Insert(%d events) error = %v, want nil", n, err)
 	}
-	if len(g.execs) > 50 {
-		t.Errorf("Insert(%d events) sent %d statements, want a few dozen at most", n, len(g.execs))
+	if len(g.execs) > 10 {
+		t.Errorf("Insert(%d events) sent %d statements, want ten at most", n, len(g.execs))
 	}
 	if g.outsideTx > 0 || g.commits != 1 || g.rollbacks != 0 {
 		t.Errorf("Insert(%d events): %d statements outside a transaction, %d commits, %d rollbacks; want all in one committed transaction", n, g.outsideTx, g.commits, g.rollbacks)

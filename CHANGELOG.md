@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.45.0] - 2026-10-27
+
 - evalrun: `-ids` picks quality cases by id whatever their set (an unknown id
   is an error), `-n` repeats each case, `-no-skill` runs them without the
   plugin as the control arm (quality only; needs `claude --restricted`, which

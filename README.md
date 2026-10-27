@@ -189,6 +189,105 @@ harness scores the result. Two arms answer one question: `baseline` loads this
 skill tree from an isolated `HOME`, and `no-skill` loads an empty one, so the
 delta is the skills and nothing else.
 
+### Claude Code: Haiku, Sonnet, and Opus 5.5
+
+The 2026-10-27 runs drove every corpus and both eval sets through Claude Code
+2.1.311 at `--effort medium` on plugin 1.45.0. `abrun` ran two repetitions of
+each fixture in both arms: 15 implement, 5 refactor, 11 review, and 9 perf
+fixtures, perf with `-shell go`. `evalrun` ran the 110 trigger and 75 quality
+cases once, and the quality cases again with `-no-skill`. Each chart pairs one
+model without and with the skills.
+
+Golden tests pass 97–100% in both arms, so on these fixtures the skills do
+not change whether the code works; they change its shape. With the skills
+every model writes lint-clean implementations in 93% of runs (53–67%
+without), about 30% fewer production lines, and refactors that remove 17–20
+lines where an unaided session removes 2–10. Review recall rises 2–7 points
+from a 90–93% base, and quality evals 10–13 points. Trigger evals pass at
+62% (Haiku), 76% (Sonnet), and 75% (Opus). A session with the skills costs
+2–7× one without, mostly the loaded skill text written to the prompt cache.
+Perf is so far measured on Haiku only; Sonnet (medium) and Opus (low effort)
+are still running.
+
+```mermaid
+xychart-beta
+  title "implement: runs with zero lint findings, %"
+  x-axis ["Haiku, no skills", "Haiku, skills", "Sonnet, no skills", "Sonnet, skills", "Opus, no skills", "Opus, skills"]
+  y-axis 0 --> 100
+  bar [66.7, 93.3, 53.3, 93.3, 60.0, 93.3]
+```
+
+```mermaid
+xychart-beta
+  title "implement: production lines written (fewer is tighter)"
+  x-axis ["Haiku, no skills", "Haiku, skills", "Sonnet, no skills", "Sonnet, skills", "Opus, no skills", "Opus, skills"]
+  y-axis 0 --> 80
+  bar [66.3, 42.7, 60.6, 41.5, 67.2, 46.1]
+```
+
+```mermaid
+xychart-beta
+  title "refactor: lines removed with behavior held"
+  x-axis ["Haiku, no skills", "Haiku, skills", "Sonnet, no skills", "Sonnet, skills", "Opus, no skills", "Opus, skills"]
+  y-axis 0 --> 25
+  bar [2.4, 16.9, 10.4, 18.5, 9.4, 19.7]
+```
+
+```mermaid
+xychart-beta
+  title "review: seeded defects found, %"
+  x-axis ["Haiku, no skills", "Haiku, skills", "Sonnet, no skills", "Sonnet, skills", "Opus, no skills", "Opus, skills"]
+  y-axis 0 --> 100
+  bar [92.3, 94.1, 90.0, 96.8, 93.2, 95.5]
+```
+
+```mermaid
+xychart-beta
+  title "quality evals passed, %"
+  x-axis ["Haiku, no skills", "Haiku, skills", "Sonnet, no skills", "Sonnet, skills", "Opus, no skills", "Opus, skills"]
+  y-axis 0 --> 100
+  bar [57.3, 70.7, 62.7, 74.7, 68.0, 78.7]
+```
+
+```mermaid
+xychart-beta
+  title "perf: tasks passed (speedup or justified decline), %"
+  x-axis ["Haiku, no skills", "Haiku, skills"]
+  y-axis 0 --> 100
+  bar [66.7, 82.4]
+```
+
+| Model | Corpus | Golden / pass | Lint clean | $/run |
+|---|---|---|---|---|
+| Haiku 5.5 | implement | 100.0% → 96.7% | 66.7% → 93.3% | 0.0045 → 0.0301 |
+| Haiku 5.5 | refactor | 100.0% → 100.0% | 60.0% → 80.0% | 0.0039 → 0.0171 |
+| Haiku 5.5 | review | 92.3% → 94.1% | — | 0.0058 → 0.0141 |
+| Haiku 5.5 | perf | 66.7% → 82.4% | — | 0.01 → 0.0438 |
+| Haiku 5.5 | quality evals | 57.3% → 70.7% | — | 0.002 → 0.0085 |
+| Haiku 5.5 | trigger evals | — → 61.8% | — | — |
+| Sonnet 5.5 | implement | 100.0% → 100.0% | 53.3% → 93.3% | 0.0478 → 0.2355 |
+| Sonnet 5.5 | refactor | 100.0% → 100.0% | 40.0% → 80.0% | 0.0456 → 0.1977 |
+| Sonnet 5.5 | review | 90.0% → 96.8% | — | 0.0705 → 0.1836 |
+| Sonnet 5.5 | quality evals | 62.7% → 74.7% | — | 0.0226 → 0.1294 |
+| Sonnet 5.5 | trigger evals | — → 76.4% | — | — |
+| Opus 5.5 | implement | 96.7% → 100.0% | 60.0% → 93.3% | 0.1084 → 0.6364 |
+| Opus 5.5 | refactor | 100.0% → 100.0% | 80.0% → 80.0% | 0.0976 → 0.4331 |
+| Opus 5.5 | review | 93.2% → 95.5% | — | 0.1546 → 0.3525 |
+| Opus 5.5 | quality evals | 68.0% → 78.7% | — | 0.0652 → 0.2599 |
+| Opus 5.5 | trigger evals | — → 74.5% | — | — |
+
+Golden and pass columns are golden tests passed for implement and refactor,
+seeded defects found for review, and tasks passed for perf; $/run is the
+session cost reported by the CLI. Regenerate with the same flags:
+
+```bash
+cd evals
+go run ./cmd/abrun -corpus implement -arms no-skill,baseline -n 2 -j 3 \
+  -effort medium -model claude-sonnet-5-5 -out implement.json
+go run ./cmd/evalrun -set all -kind all -model claude-sonnet-5-5 -out evals.json
+go run ./cmd/evalrun -set all -kind quality -no-skill -model claude-sonnet-5-5 -out control.json
+```
+
 The 2026-10-24 runs below drove the corpus through the opencode CLI, which
 serves both models from one provider. Every run built and passed its golden
 test in both arms, so the difference is shape rather than correctness:

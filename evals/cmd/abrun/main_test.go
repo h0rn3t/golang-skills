@@ -416,3 +416,21 @@ func writeTestFile(t *testing.T, path, content string) {
 		t.Fatalf("os.WriteFile(%q) error = %v", path, err)
 	}
 }
+
+func TestClaudeCLIError(t *testing.T) {
+	tests := []struct {
+		name, out string
+		wantErr   bool
+	}{
+		{name: "usage limit", out: "{\"type\":\"system\"}\n{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":true,\"result\":\"You've hit your session limit\"}\n", wantErr: true},
+		{name: "success", out: "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"result\":\"done\"}\n"},
+		{name: "out of turns", out: "{\"type\":\"result\",\"subtype\":\"error_max_turns\",\"is_error\":true}\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := claudeCLIError([]byte(tt.out)); (err != nil) != tt.wantErr {
+				t.Errorf("claudeCLIError(%q) = %v, want error %t", tt.out, err, tt.wantErr)
+			}
+		})
+	}
+}

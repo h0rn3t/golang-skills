@@ -1230,6 +1230,9 @@ func runSession(o options, a arm, work, prompt string) sessionTurn {
 	default:
 		t.out, t.err = claudeSession(o, a.dir, work, prompt)
 		t.skills, t.final, t.cost = parseClaudeStream(t.out)
+		if t.err == nil {
+			t.err = claudeCLIError(t.out)
+		}
 		t.gopls = goplsCalls(t.out)
 		t.commands = claudeCommands(t.out)
 		t.refused = claudeRefused(t.out)
@@ -2004,6 +2007,25 @@ func parseClaudeStream(out []byte) (skills []string, final string, cost float64)
 		}
 	}
 	return sortedKeys(fired), final, cost
+}
+
+// claudeCLIError returns the error a stream-json result message reports when
+// the CLI, not the model, ended the session — a usage limit, whose result text
+// is the CLI's notice and would otherwise be scored as the model's work.
+// Running out of turns is the model's outcome and is not one.
+func claudeCLIError(out []byte) error {
+	for line := range strings.SplitSeq(string(out), "\n") {
+		var r struct {
+			Type    string `json:"type"`
+			Subtype string `json:"subtype"`
+			IsError bool   `json:"is_error"`
+			Result  string `json:"result"`
+		}
+		if json.Unmarshal([]byte(line), &r) == nil && r.Type == "result" && r.IsError && r.Subtype != "error_max_turns" {
+			return fmt.Errorf("claude ended the session with an error: %.200s", r.Result)
+		}
+	}
+	return nil
 }
 
 // skillCalls walks a decoded stream-json message and returns the go-* skill

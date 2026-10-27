@@ -4,6 +4,16 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- evalrun and abrun: a session the Claude Code CLI ends with an error of its
+  own (`is_error` on the result, other than running out of turns), such as a
+  usage limit, is a run error; before, the CLI's notice was graded as the
+  model's answer, and a run that crossed a limit reported its later cases as
+  failures.
+- README and README.uk: a Claude Code benchmark section with charts for
+  Haiku, Sonnet, and Opus 5.5 (2026-10-27, medium effort, no-skill vs
+  baseline): implement, refactor, review, quality and trigger evals on all
+  three; perf on Haiku so far.
+
 - go-code-review: a Data Structures row for a map reset after a burst
   (`clear` or a `delete` loop keeps the peak table; a fresh `make` is the
   reset), the one `tiles` defect the 1.45.0 text left mostly unfound. Sonnet

@@ -58,6 +58,35 @@ func TestResultTextCost(t *testing.T) {
 	}
 }
 
+func TestResultTextCLIError(t *testing.T) {
+	tests := []struct {
+		name, out string
+		wantErr   bool
+	}{
+		{name: "usage limit", out: `{"type":"result","subtype":"success","is_error":true,"result":"You've hit your session limit"}`, wantErr: true},
+		{name: "usage limit in array", out: `[{"type":"system"},{"type":"result","is_error":true,"result":"You've hit your session limit"}]`, wantErr: true},
+		{name: "out of turns", out: `{"type":"result","subtype":"error_max_turns","is_error":true,"result":"partial answer"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, _, err := resultText([]byte(tt.out)); (err != nil) != tt.wantErr {
+				t.Errorf("resultText(%s) error = %v, want error %t", tt.out, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestStreamError(t *testing.T) {
+	limit := "{\"type\":\"system\"}\n{\"type\":\"result\",\"is_error\":true,\"result\":\"You've hit your session limit\"}\n"
+	if streamError([]byte(limit)) == "" {
+		t.Errorf("streamError(%q) = \"\", want the CLI's error", limit)
+	}
+	ok := "{\"type\":\"result\",\"is_error\":false,\"result\":\"done\"}\n"
+	if got := streamError([]byte(ok)); got != "" {
+		t.Errorf("streamError(%q) = %q, want \"\"", ok, got)
+	}
+}
+
 func TestQualityToolArgs(t *testing.T) {
 	tests := []struct {
 		name string

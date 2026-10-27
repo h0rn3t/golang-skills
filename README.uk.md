@@ -188,6 +188,105 @@ golangci-lint config verify --config skills/go-linting/assets/golangci.yml
 питання: `baseline` завантажує це дерево скілів з ізольованого `HOME`, а
 `no-skill` — порожній, тож різниця — це скіли і більше нічого.
 
+### Claude Code: Haiku, Sonnet і Opus 5.5
+
+Прогони 2026-10-27 провели всі corpus і обидва набори eval'ів через Claude
+Code 2.1.311 з `--effort medium` на плагіні 1.45.0. `abrun` виконав по два
+повтори кожного fixture в обох arms: 15 implement, 5 refactor, 11 review і 9
+perf, perf з `-shell go`. `evalrun` прогнав 110 trigger- і 75 quality-кейсів
+один раз, а quality-кейси ще раз із `-no-skill`. Кожен графік ставить поруч
+одну модель без скілів і зі скілами.
+
+Golden-тести проходять у 97–100% в обох arms, тож на цих fixtures скіли не
+змінюють того, чи працює код, — вони змінюють його форму. Зі скілами кожна
+модель пише реалізацію без lint-знахідок у 93% прогонів (без скілів 53–67%),
+приблизно на 30% менше рядків production-коду, а refactor видаляє 17–20
+рядків там, де сесія без скілів видаляє 2–10. Recall у review зростає на 2–7
+пунктів від бази 90–93%, quality-eval'и — на 10–13 пунктів. Trigger-eval'и
+проходять на 62% (Haiku), 76% (Sonnet) і 75% (Opus). Сесія зі скілами коштує
+у 2–7 разів більше, переважно через текст скілів, записаний у prompt cache.
+Perf поки виміряно лише на Haiku; Sonnet (medium) і Opus (low effort) ще
+виконуються.
+
+```mermaid
+xychart-beta
+  title "implement: прогони без жодної lint-знахідки, %"
+  x-axis ["Haiku, без скілів", "Haiku, зі скілами", "Sonnet, без скілів", "Sonnet, зі скілами", "Opus, без скілів", "Opus, зі скілами"]
+  y-axis 0 --> 100
+  bar [66.7, 93.3, 53.3, 93.3, 60.0, 93.3]
+```
+
+```mermaid
+xychart-beta
+  title "implement: написано рядків коду (менше = щільніше)"
+  x-axis ["Haiku, без скілів", "Haiku, зі скілами", "Sonnet, без скілів", "Sonnet, зі скілами", "Opus, без скілів", "Opus, зі скілами"]
+  y-axis 0 --> 80
+  bar [66.3, 42.7, 60.6, 41.5, 67.2, 46.1]
+```
+
+```mermaid
+xychart-beta
+  title "refactor: видалено рядків зі збереженою поведінкою"
+  x-axis ["Haiku, без скілів", "Haiku, зі скілами", "Sonnet, без скілів", "Sonnet, зі скілами", "Opus, без скілів", "Opus, зі скілами"]
+  y-axis 0 --> 25
+  bar [2.4, 16.9, 10.4, 18.5, 9.4, 19.7]
+```
+
+```mermaid
+xychart-beta
+  title "review: знайдено закладених дефектів, %"
+  x-axis ["Haiku, без скілів", "Haiku, зі скілами", "Sonnet, без скілів", "Sonnet, зі скілами", "Opus, без скілів", "Opus, зі скілами"]
+  y-axis 0 --> 100
+  bar [92.3, 94.1, 90.0, 96.8, 93.2, 95.5]
+```
+
+```mermaid
+xychart-beta
+  title "quality-eval'и пройдено, %"
+  x-axis ["Haiku, без скілів", "Haiku, зі скілами", "Sonnet, без скілів", "Sonnet, зі скілами", "Opus, без скілів", "Opus, зі скілами"]
+  y-axis 0 --> 100
+  bar [57.3, 70.7, 62.7, 74.7, 68.0, 78.7]
+```
+
+```mermaid
+xychart-beta
+  title "perf: задач пройдено (прискорення або обґрунтована відмова), %"
+  x-axis ["Haiku, без скілів", "Haiku, зі скілами"]
+  y-axis 0 --> 100
+  bar [66.7, 82.4]
+```
+
+| Модель | Корпус | Golden / pass | Lint clean | $/прогін |
+|---|---|---|---|---|
+| Haiku 5.5 | implement | 100.0% → 96.7% | 66.7% → 93.3% | 0.0045 → 0.0301 |
+| Haiku 5.5 | refactor | 100.0% → 100.0% | 60.0% → 80.0% | 0.0039 → 0.0171 |
+| Haiku 5.5 | review | 92.3% → 94.1% | — | 0.0058 → 0.0141 |
+| Haiku 5.5 | perf | 66.7% → 82.4% | — | 0.01 → 0.0438 |
+| Haiku 5.5 | quality evals | 57.3% → 70.7% | — | 0.002 → 0.0085 |
+| Haiku 5.5 | trigger evals | — → 61.8% | — | — |
+| Sonnet 5.5 | implement | 100.0% → 100.0% | 53.3% → 93.3% | 0.0478 → 0.2355 |
+| Sonnet 5.5 | refactor | 100.0% → 100.0% | 40.0% → 80.0% | 0.0456 → 0.1977 |
+| Sonnet 5.5 | review | 90.0% → 96.8% | — | 0.0705 → 0.1836 |
+| Sonnet 5.5 | quality evals | 62.7% → 74.7% | — | 0.0226 → 0.1294 |
+| Sonnet 5.5 | trigger evals | — → 76.4% | — | — |
+| Opus 5.5 | implement | 96.7% → 100.0% | 60.0% → 93.3% | 0.1084 → 0.6364 |
+| Opus 5.5 | refactor | 100.0% → 100.0% | 80.0% → 80.0% | 0.0976 → 0.4331 |
+| Opus 5.5 | review | 93.2% → 95.5% | — | 0.1546 → 0.3525 |
+| Opus 5.5 | quality evals | 68.0% → 78.7% | — | 0.0652 → 0.2599 |
+| Opus 5.5 | trigger evals | — → 74.5% | — | — |
+
+Колонка golden / pass — це пройдені golden-тести для implement і refactor,
+знайдені закладені дефекти для review і пройдені задачі для perf; $/прогін —
+вартість сесії, яку повідомляє CLI. Відтворити з тими самими прапорцями:
+
+```bash
+cd evals
+go run ./cmd/abrun -corpus implement -arms no-skill,baseline -n 2 -j 3 \
+  -effort medium -model claude-sonnet-5-5 -out implement.json
+go run ./cmd/evalrun -set all -kind all -model claude-sonnet-5-5 -out evals.json
+go run ./cmd/evalrun -set all -kind quality -no-skill -model claude-sonnet-5-5 -out control.json
+```
+
 Прогони 2026-10-24 нижче виконували corpus через CLI opencode, який віддає
 обидві моделі з одного провайдера. Усі прогони зібралися й пройшли свій
 golden-тест в обох arms, тож різниця — у формі, а не в коректності:

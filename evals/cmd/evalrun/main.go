@@ -358,6 +358,8 @@ func runTrigger(o options, root string, ev triggerEval) triggerResult {
 	out, err := claude(o, dir, args...)
 	if err != nil {
 		res.Err = err.Error()
+	} else {
+		res.Err = streamError(out)
 	}
 	got := map[string]bool{}
 	for line := range strings.SplitSeq(string(out), "\n") {
@@ -534,8 +536,18 @@ Return one result per checklist item, in checklist order; evidence is a short qu
 // claudeResult is the part of a `--output-format json` result message the
 // runner reads.
 type claudeResult struct {
+	Type         string  `json:"type"`
+	Subtype      string  `json:"subtype"`
+	IsError      bool    `json:"is_error"`
 	Result       string  `json:"result"`
 	TotalCostUSD float64 `json:"total_cost_usd"`
+}
+
+// failed reports a session the CLI ended with an error of its own, such as a
+// usage limit, whose result text is the CLI's notice, not the model's answer.
+// Running out of turns is the model's outcome and is not one.
+func (c claudeResult) failed() bool {
+	return c.IsError && c.Subtype != "error_max_turns"
 }
 
 // resultText returns the final assistant text and the session cost from
@@ -543,18 +555,39 @@ type claudeResult struct {
 // message-array shapes.
 func resultText(out []byte) (string, float64, error) {
 	var obj claudeResult
-	if err := json.Unmarshal(out, &obj); err == nil && obj.Result != "" {
-		return obj.Result, obj.TotalCostUSD, nil
-	}
-	var arr []claudeResult
-	if err := json.Unmarshal(out, &arr); err == nil {
-		for _, a := range slices.Backward(arr) {
+	if err := json.Unmarshal(out, &obj); err != nil || obj.Result == "" {
+		var arr []claudeResult
+		if json.Unmarshal(out, &arr) != nil {
+			return "", 0, fmt.Errorf("no result field in claude output: %.200s", out)
+		}
+		i := -1
+		for j, a := range slices.Backward(arr) {
 			if a.Result != "" {
-				return a.Result, a.TotalCostUSD, nil
+				i = j
+				break
 			}
 		}
+		if i < 0 {
+			return "", 0, fmt.Errorf("no result field in claude output: %.200s", out)
+		}
+		obj = arr[i]
 	}
-	return "", 0, fmt.Errorf("no result field in claude output: %.200s", out)
+	if obj.failed() {
+		return "", obj.TotalCostUSD, fmt.Errorf("claude ended the session with an error: %.200s", obj.Result)
+	}
+	return obj.Result, obj.TotalCostUSD, nil
+}
+
+// streamError returns the error a stream-json session's result message
+// reports, or "" when it has none.
+func streamError(out []byte) string {
+	for line := range strings.SplitSeq(string(out), "\n") {
+		var r claudeResult
+		if json.Unmarshal([]byte(line), &r) == nil && r.Type == "result" && r.failed() {
+			return fmt.Sprintf("claude ended the session with an error: %.200s", r.Result)
+		}
+	}
+	return ""
 }
 
 func sortedKeys(m map[string]bool) []string {

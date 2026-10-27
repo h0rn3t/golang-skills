@@ -81,6 +81,7 @@ type qualityResult struct {
 type report struct {
 	Set      string          `json:"set"`
 	NoSkill  bool            `json:"no_skill,omitempty"`
+	GoDoc    bool            `json:"go_doc,omitempty"`
 	Trigger  []triggerResult `json:"trigger"`
 	Quality  []qualityResult `json:"quality"`
 	CostUSD  float64         `json:"cost_usd"`
@@ -92,7 +93,7 @@ type options struct {
 	set, kind, model, judgeModel, out, ids string
 	limit, parallel, reps                  int
 	timeout                                time.Duration
-	verbose, noSkill                       bool
+	verbose, noSkill, goDoc                bool
 	restricted                             bool // claude supports --restricted: no built-in tools beyond --tools, no user/project settings or hooks
 }
 
@@ -104,6 +105,7 @@ func main() {
 	flag.StringVar(&o.ids, "ids", "", "comma-separated quality eval ids to run, whatever their set (default: the -set selection)")
 	flag.IntVar(&o.reps, "n", 1, "runs of each quality eval")
 	flag.BoolVar(&o.noSkill, "no-skill", false, "run the quality evals without the plugin: the control arm (needs -kind quality and claude --restricted)")
+	flag.BoolVar(&o.goDoc, "go-doc", false, "let quality sessions run go doc through Bash, so an answer can check an API against the installed toolchain (needs -kind quality)")
 	flag.IntVar(&o.parallel, "j", 2, "evals to run concurrently")
 	flag.StringVar(&o.model, "model", "", "model for the evaluated run (default: claude's default)")
 	flag.StringVar(&o.judgeModel, "judge-model", "", "model for grading quality evals (default: claude's default)")
@@ -139,6 +141,9 @@ func run(o options) error {
 	if o.noSkill && o.kind != "quality" {
 		return exitError{2, "-no-skill applies to quality evals only; pass -kind quality"}
 	}
+	if o.goDoc && o.kind != "quality" {
+		return exitError{2, "-go-doc applies to quality evals only; pass -kind quality"}
+	}
 	// Without --restricted, claude loads the plugins the user's settings
 	// enable, and the control arm would see the skills anyway.
 	if o.noSkill && !o.restricted {
@@ -160,7 +165,7 @@ func run(o options) error {
 		return fmt.Errorf("parse evals.json: %w", err)
 	}
 
-	rep := report{Set: o.set, NoSkill: o.noSkill}
+	rep := report{Set: o.set, NoSkill: o.noSkill, GoDoc: o.goDoc}
 	if o.kind == "trigger" || o.kind == "all" {
 		var selected []triggerEval
 		for _, ev := range evals.TriggerEvals {
@@ -432,6 +437,17 @@ const judgeSchema = `{"type":"object","additionalProperties":false,"required":["
 	`"required":["assertion","pass","evidence"],"properties":{"assertion":{"type":"string"},` +
 	`"pass":{"type":"boolean"},"evidence":{"type":"string"}}}}}}`
 
+// qualityToolArgs returns --tools and --allowed-tools for a quality session.
+// -go-doc adds Bash to the tools but allows only go doc on it.
+func qualityToolArgs(o options, tools string) []string {
+	allowed := tools
+	if o.goDoc {
+		tools += ",Bash"
+		allowed += ",Bash(go doc:*)"
+	}
+	return []string{"--tools", tools, "--allowed-tools", allowed}
+}
+
 // runQuality lets the model answer with read-only tools, then has a second,
 // plugin-free model grade the answer against the assertions.
 func runQuality(o options, root string, ev qualityEval) qualityResult {
@@ -453,7 +469,7 @@ func runQuality(o options, root string, ev qualityEval) qualityResult {
 		tools = "Skill," + tools
 		args = append(args, "--plugin-dir", pluginDir)
 	}
-	args = append(args, "--tools", tools, "--allowed-tools", tools)
+	args = append(args, qualityToolArgs(o, tools)...)
 	if o.model != "" {
 		args = append(args, "--model", o.model)
 	}

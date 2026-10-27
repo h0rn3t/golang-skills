@@ -181,7 +181,10 @@ type options struct {
 	timeout    time.Duration
 	verbose    bool
 	keep       bool
-	repair     bool
+	// keepRoot holds every scratch tree of a -keep run, so one directory
+	// removes them all; run creates it, it is not a flag.
+	keepRoot string
+	repair   bool
 	// judge runs the blind pairwise readability judge on judgePair after the
 	// runs; judgeModel is the model it asks.
 	judge      bool
@@ -615,6 +618,12 @@ func run(o options) error {
 	fmt.Printf("%d fixtures x %d arms x %d reps = %d runs\n\n", len(tasks), len(arms), o.reps, len(tasks)*len(arms)*o.reps)
 
 	jobs := buildJobs(arms, tasks, o.reps, o.seed)
+	if o.keep {
+		if o.keepRoot, err = os.MkdirTemp("", "abrun-keep-"); err != nil {
+			return err
+		}
+		fmt.Printf("scratch trees kept under %s\n\n", o.keepRoot)
+	}
 
 	rep := report{Prompt: o.prompt, Corpus: o.corpus, Runner: o.runner, Model: o.model, Effort: o.effort, Gopls: o.gopls, Shell: o.shell, Reps: o.reps, Seed: o.seed, Arms: arms, Results: make([]result, len(jobs))}
 	var mu sync.Mutex
@@ -647,6 +656,9 @@ func run(o options) error {
 			return fmt.Errorf("write report: %w", err)
 		}
 		fmt.Printf("\nreport written to %s\n", o.out)
+	}
+	if o.keep {
+		fmt.Printf("scratch trees: %s (rm -rf it when done)\n", o.keepRoot)
 	}
 	return nil
 }
@@ -962,7 +974,7 @@ func splice(path, text string) error {
 // then measures the result and replays the golden characterization test.
 func runOne(o options, abDir string, a arm, taskName string, rep int) (res result) {
 	res = result{Arm: a.Name, Task: taskName, Rep: rep, GoplsRoute: o.gopls}
-	work, err := os.MkdirTemp("", "abrun-work-")
+	work, err := os.MkdirTemp(o.keepRoot, "abrun-work-")
 	if err != nil {
 		res.Err = err.Error()
 		return res

@@ -55,6 +55,8 @@ cd evals && go run ./cmd/evalrun -set validation -kind all -j 2 -out evals-resul
 # Chosen quality cases, repeated, and the no-plugin control for a new case
 cd evals && go run ./cmd/evalrun -kind quality -ids 65,66 -n 3 -out base.json
 cd evals && go run ./cmd/evalrun -kind quality -ids 65,66 -n 3 -no-skill -out control.json
+# Same cases with Bash allowed for `go doc` only (read-only otherwise)
+cd evals && go run ./cmd/evalrun -kind quality -ids 74 -n 3 -go-doc -out godoc.json
 
 # A/B a skill edit: reference arm from a second checkout, baseline = this tree
 cd evals && go run ./cmd/abrun -corpus implement -reference-root ../golang-skills-before \
@@ -63,7 +65,8 @@ cd evals && go run ./cmd/abrun -corpus implement -reference-root ../golang-skill
 
 abrun sessions have no shell and no MCP server; `-gopls mcp` (own
 `--mcp-config`) or `-gopls cli` (`Bash(gopls:*)`) gives them a gopls route and
-records `gopls_calls` per result. gopls lives in `~/go/bin`. `-shell go` gives
+records `gopls_calls` per result. `-keep` leaves the run's trees under one
+`$TMPDIR/abrun-keep-*` directory, which the run prints. gopls lives in `~/go/bin`. `-shell go` gives
 them Bash for the Go toolchain and the bundled scripts (`commands` counts the
 calls).
 

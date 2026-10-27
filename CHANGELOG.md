@@ -4,6 +4,14 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- evalrun: `-go-doc` gives quality sessions Bash allowed for `go doc` only,
+  so an answer can check an API against the installed toolchain; the report
+  records `go_doc`. Without it the sessions stay read-only, as before.
+- abrun: `-keep` puts every scratch tree of a run under one
+  `$TMPDIR/abrun-keep-*` directory, printed at the start and the end, so one
+  `rm -rf` removes them; before, each tree was its own `abrun-work-*` in
+  `$TMPDIR`.
+
 ## [1.45.0] - 2026-10-27
 
 - evalrun: `-ids` picks quality cases by id whatever their set (an unknown id

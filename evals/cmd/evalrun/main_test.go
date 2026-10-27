@@ -57,3 +57,21 @@ func TestResultTextCost(t *testing.T) {
 		})
 	}
 }
+
+func TestQualityToolArgs(t *testing.T) {
+	tests := []struct {
+		name string
+		o    options
+		want []string
+	}{
+		{name: "read only", want: []string{"--tools", "Read", "--allowed-tools", "Read"}},
+		{name: "go doc", o: options{goDoc: true}, want: []string{"--tools", "Read,Bash", "--allowed-tools", "Read,Bash(go doc:*)"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := qualityToolArgs(tt.o, "Read"); !slices.Equal(got, tt.want) {
+				t.Errorf("qualityToolArgs(goDoc=%t, \"Read\") = %q, want %q", tt.o.goDoc, got, tt.want)
+			}
+		})
+	}
+}

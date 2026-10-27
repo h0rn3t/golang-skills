@@ -159,7 +159,7 @@ replaced by the bundled baseline.
 the optional `evalrun`/`abrun` harnesses. It contains **110 trigger evals** and
 **75 quality evals**; `evalrun -kind quality -ids 65,66 -n 3 -no-skill` runs
 chosen cases repeatedly without the plugin, the control a new case is checked
-against. Model-driven eval output is local scratch data and is not
+against, and `-go-doc` lets the sessions check an API with `go doc`. Model-driven eval output is local scratch data and is not
 stored in this repository. The suite also checks every `SKILL.md` against
 the Agent Skills specification (`TestStructure`), so the checks
 need Go and no Node.js.

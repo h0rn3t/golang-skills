@@ -872,7 +872,7 @@ func report(directory, note string, contextOnly bool) error {
 	}
 	batch := shellJoin([]string{"bash", filepath.Join(root, "hooks", "go-check-receipt.sh"), "--gate", resolve(directory), vet.Cwd})
 	text := "Edit hook (reuse unverified, not pass (hook) yet): " + strings.Join(rows, "; ") + ".\n" +
-		fmt.Sprintf("With Bash: load the `%s` skill (Skill tool, name `%s`), then run once, alone in the call: %s\n", skill, skill, batch) +
+		fmt.Sprintf("With Bash: load the `%s` skill (Skill tool, name `%s`), then run once, alone in the call:\n%s\n", skill, skill, batch) +
 		"Credit only its hook_credit=true checks at their scope (short tests, no -race); run required_direct and the build/race gate directly. Without a shell, report observed (hook, reuse unverified)."
 	if note != "" {
 		text += "\n" + strings.TrimRight(note, "\n")

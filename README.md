@@ -209,6 +209,53 @@ from a 90–93% base, and quality evals 10–13 points. Trigger evals pass at
 Perf is so far measured on Haiku only; Sonnet (medium) and Opus (low effort)
 are still running.
 
+#### How the runs were made
+
+Every session is a headless `claude -p` run with `--restricted`, so the
+operator's settings, hooks, and installed plugins stay out. The `baseline`
+arm gets a fresh copy of this plugin through `--plugin-dir` (skills and hooks,
+so the routing gate and the post-edit checks run as they do for a user); the
+`no-skill` arm gets no plugin and no `Skill` tool. Both arms see the same
+fixture, prompt, model, and effort, and run in a scratch module that holds
+only the fixture package. Sessions have `Read`, `Glob`, `Grep`, `Edit`, and
+`Write` (review sessions are read-only) and no shell, except perf, where
+`-shell go` allows the Go toolchain, `golangci-lint`, and the bundled scripts.
+
+- **implement** (15 fixtures): each package ships documented declarations
+  with `panic("not implemented")` bodies; the prompt asks for the bodies
+  without changing the signatures. After the session the harness renames the
+  model's own tests to `*_test.go.model`, copies in a hidden golden test the
+  model never saw, and runs it. *Lint clean* is a run with zero findings from
+  the bundled `golangci.yml`; *lines written* is production lines added to
+  the stub package.
+- **refactor** (5 fixtures): working but bloated packages; the prompt asks
+  for a behavior-preserving refactor. A hidden characterization test pins the
+  exported API, error texts, and output; *lines removed* counts production
+  lines the session deleted with that test still green.
+- **review** (11 fixtures): packages with seeded defects listed in a hidden
+  key, plus baits (correct code that looks wrong). The session writes a
+  review with `file.go:NN` citations and edits nothing; a defect counts as
+  found when a finding cites its line, so *found* is recall over the key.
+- **perf** (9 fixtures): speedup tasks and decline tasks (the code is already
+  fine or the request would break the contract). The harness benchmarks the
+  package before and after; a speedup task passes when the golden test holds,
+  the benchmark verdict is *keep* with at least the fixture's minimum gain,
+  and no bait changed; a decline task passes when behavior holds and the
+  target is untouched.
+- **trigger evals** (110 prompts): only the `Skill` tool, three turns; a case
+  passes when every expected skill fires, and a negative case only when no
+  Go skill does.
+- **quality evals** (75 prompts): read-only tools and fixture files; a second,
+  plugin-free Claude session grades the answer against the case's assertions,
+  and a case passes only when every assertion does. The `no-skill` bars rerun
+  the same cases without the plugin.
+
+Limits: two repetitions per fixture is enough to see the large gaps above and
+too few for the small ones (review recall, a single golden failure); the
+fixtures are written by this project, so a skill can be tuned to them; costs
+are the CLI's own `total_cost_usd`. A session that the CLI ended with its own
+error (a usage limit) is a run error and is left out, not scored.
+
 ```mermaid
 xychart-beta
   title "implement: runs with zero lint findings, %"

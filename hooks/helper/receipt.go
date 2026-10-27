@@ -846,29 +846,34 @@ func report(directory, note string, contextOnly bool) error {
 	if ns := pluginName(filepath.Join(root, ".claude-plugin", "plugin.json")); ns != "" {
 		skill = ns + ":" + skill
 	}
+	// One line per concern: every edit adds this text to the session, so
+	// each field it carries is paid for on every later turn.
 	var rows []string
 	for _, check := range checkNames {
 		r, err := readReceipt(filepath.Join(directory, check+".json"))
 		if err != nil {
 			return err
 		}
-		exit := "none"
-		if r.ExitCode != nil {
-			exit = strconv.Itoa(*r.ExitCode)
+		row := check + " " + r.Status
+		if r.Scope.Kind != "package" {
+			row += " (" + r.Scope.Kind + ")"
 		}
-		rows = append(rows, fmt.Sprintf("%s: %s; exit=%s; scope=%s; filter=%s; state-stable=%t; reuse=unverified; reason=%s",
-			check, r.Status, exit, r.Scope.Kind, r.Filter, r.Reusable, r.Reason))
+		if r.Filter != "all" {
+			row += " (" + r.Filter + ")"
+		}
+		if r.Reason != "" {
+			row += ": " + r.Reason
+		}
+		rows = append(rows, row)
 	}
 	vet, err := readReceipt(filepath.Join(directory, "vet.json"))
 	if err != nil {
 		return err
 	}
 	batch := shellJoin([]string{"bash", filepath.Join(root, "hooks", "go-check-receipt.sh"), "--gate", resolve(directory), vet.Cwd})
-	text := fmt.Sprintf("With a Bash tool, before the final report load the `%s` skill (Skill tool, name `%s`), then verify matching receipts below or run the selected checks directly.\n", skill, skill) +
-		"Edit-hook receipts: " + directory + "\nReuse is UNVERIFIED; recorded pass is not pass (hook).\n" + strings.Join(rows, "\n") +
-		"\nFirst verification action after the final edit (Bash tool):\n" + batch +
-		"\nUse only hook_credit=true checks from that JSON. Never write lint pass for reuse=unverified, even with a disclaimer. Run required_direct checks and the selected build/race gate." +
-		"\nFile-only gofmt and package checks cannot satisfy a wider gate. Package short tests have no race check. If verification is unavailable, run the check directly or report it unavailable."
+	text := "Edit hook (reuse unverified, not pass (hook) yet): " + strings.Join(rows, "; ") + ".\n" +
+		fmt.Sprintf("With Bash: load the `%s` skill (Skill tool, name `%s`), then run once, alone in the call: %s\n", skill, skill, batch) +
+		"Credit only its hook_credit=true checks at their scope (short tests, no -race); run required_direct and the build/race gate directly. Without a shell, report observed (hook, reuse unverified)."
 	if note != "" {
 		text += "\n" + strings.TrimRight(note, "\n")
 	}

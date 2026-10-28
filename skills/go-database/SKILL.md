@@ -125,37 +125,22 @@ if err != nil {
 }
 defer tx.Rollback() // no-op after Commit; the ErrTxDone it returns is expected
 
-// Both rows locked in id order, whichever way the money moves: opposite
-// transfers that lock from-then-to deadlock each other.
-const lock = `SELECT id FROM accounts WHERE id IN (\$1, \$2) ORDER BY id FOR UPDATE`
-if _, err := tx.ExecContext(ctx, lock, from, to); err != nil {
-    return fmt.Errorf("lock accounts: %w", err)
-}
+// every statement of the unit runs on tx
 
-// RETURNING turns a missing account into sql.ErrNoRows; a bare ExecContext
-// succeeds on zero rows and would commit the debit alone.
-const move = `UPDATE accounts SET balance_cents = balance_cents + \$1 WHERE id = \$2 RETURNING id`
-var id int64
-err = tx.QueryRowContext(ctx, move, -amount, from).Scan(&id)
-if errors.Is(err, sql.ErrNoRows) {
-    return fmt.Errorf("debit %d: %w", from, ErrNotFound)
-}
-if err != nil {
-    return fmt.Errorf("debit %d: %w", from, err)
-}
-err = tx.QueryRowContext(ctx, move, amount, to).Scan(&id)
-if errors.Is(err, sql.ErrNoRows) {
-    return fmt.Errorf("credit %d: %w", to, ErrNotFound)
-}
-if err != nil {
-    return fmt.Errorf("credit %d: %w", to, err)
-}
 if err := tx.Commit(); err != nil {
     return fmt.Errorf("commit transfer: %w", err)
 }
 return nil
 ```
 
+- Lock the rows the transaction writes in one fixed order —
+  `SELECT … WHERE id IN (…) ORDER BY id FOR UPDATE` — whichever way the money
+  moves: opposite transfers that lock from-then-to deadlock each other.
+- A write that must hit a row is `UPDATE … RETURNING id` read with `Scan`: a
+  missing row comes back as `sql.ErrNoRows`, mapped to `ErrNotFound`, and the
+  deferred rollback undoes the other side. A bare `ExecContext` succeeds on
+  zero rows and would commit the debit alone. The whole transfer is in
+  [SQL-PATTERNS.md](references/SQL-PATTERNS.md#transaction-helper).
 - Check the `Commit` error; under Repeatable Read or Serializable any statement
   can also fail with 40001, so the retry reruns the whole transaction on
   either ([SQL-PATTERNS.md](references/SQL-PATTERNS.md)).

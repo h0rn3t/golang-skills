@@ -667,19 +667,6 @@ func TestNewStore(t *testing.T) {
 `)
 }
 
-// The table-test asset is copied as a starting point; it must compile and
-// pass against the white-box package it declares.
-func TestTestingAssetTableTemplate(t *testing.T) {
-	asset := readFile(t, filepath.Join(repoRoot(t), "skills", "go-testing", "assets", "table-test-template.go"))
-	if strings.Contains(asset, "TODO") || strings.Contains(asset, "//") {
-		t.Errorf("table-test template carries TODO or commented-out code:\n%s", asset)
-	}
-	buildExampleModule(t, map[string]string{
-		"example.go":      "package example\n\nfunc Example(s string) string { return s }\n",
-		"example_test.go": asset,
-	})
-}
-
 // The documentation asset is a complete file; its doc comments must survive
 // vet and its deprecation notice must follow the skill's own rule.
 func TestDocumentationAssetTemplate(t *testing.T) {
@@ -694,28 +681,36 @@ func TestDocumentationAssetTemplate(t *testing.T) {
 func TestPackagesExampleSubcommands(t *testing.T) {
 	code := exampleBlock(t, "skills/go-packages/references/PACKAGE-SIZE.md", "### Subcommands")
 	runExampleTest(t, `package example
-import ("errors"; "flag"; "fmt"; "os"; "testing")
+import ("bytes"; "errors"; "flag"; "fmt"; "io"; "os"; "strings"; "testing")
 var served, dry = 0, false
 var errBind = errors.New("bind: permission denied")
 func serve(port int) error { if port == 1 { return errBind }; served = port; return nil }
-func migrate(d bool) error { dry = d; return nil }
+func migrate(w io.Writer, d bool) error { dry = d; _, err := fmt.Fprintln(w, "dry run"); return err }
 `+code+`
 func TestRun(t *testing.T) {
- for _, tt := range []struct { args []string; want error }{
-  {nil, errUsage},
-  {[]string{"deploy"}, errUsage},
-  {[]string{"serve", "-port", "x"}, errUsage},
-  {[]string{"serve", "-h"}, flag.ErrHelp},
-  {[]string{"serve", "-port", "1"}, errBind},
-  {[]string{"serve", "-port", "9090"}, nil},
-  {[]string{"migrate", "-dry_run"}, nil},
+ for _, tt := range []struct { args []string; want error; stderr string }{
+  {nil, errUsage, "usage: tool"},
+  {[]string{"deploy"}, errUsage, "unknown command"},
+  {[]string{"serve", "-port", "x"}, errUsage, "invalid value"},
+  {[]string{"serve", "-h"}, flag.ErrHelp, "-port"},
+  {[]string{"serve", "-port", "1"}, errBind, ""},
+  {[]string{"serve", "-port", "9090"}, nil, ""},
+  {[]string{"migrate", "-dry_run"}, nil, ""},
  } {
-  if err := run(tt.args); !errors.Is(err, tt.want) {
+  var stdout, stderr bytes.Buffer
+  if err := run(tt.args, &stdout, &stderr); !errors.Is(err, tt.want) {
    t.Errorf("run(%q) = %v, want %v", tt.args, err, tt.want)
   }
+  if got := stderr.String(); tt.stderr == "" && got != "" || !strings.Contains(got, tt.stderr) {
+   t.Errorf("run(%q) stderr = %q, want it to contain %q", tt.args, got, tt.stderr)
+  }
  }
- if err := run([]string{"serve", "-port", "1"}); errors.Is(err, errUsage) {
+ var stdout bytes.Buffer
+ if err := run([]string{"serve", "-port", "1"}, &stdout, io.Discard); errors.Is(err, errUsage) {
   t.Errorf("a runtime error from serve is reported as a usage error: %v", err)
+ }
+ if err := run([]string{"migrate", "-dry_run"}, &stdout, io.Discard); err != nil || stdout.String() != "dry run\n" {
+  t.Errorf("migrate wrote %q to stdout (err %v), want \"dry run\\n\"", stdout.String(), err)
  }
  if served != 9090 || !dry {
   t.Errorf("serve got %d, migrate got %t; want 9090 and true", served, dry)
@@ -728,10 +723,11 @@ func TestPackagesExampleRunPattern(t *testing.T) {
 	code := exampleBlock(t, "skills/go-packages/SKILL.md", "## Exit in Main")
 	buildExampleModule(t, map[string]string{"main.go": `package main
 import (
- "log/slog"
+ "fmt"
+ "io"
  "os"
 )
-func run() error { return nil }
+func run(args []string, stdout, stderr io.Writer) error { return nil }
 ` + code + `
 `})
 }

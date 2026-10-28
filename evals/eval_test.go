@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"go/format"
 	"maps"
 	"os"
 	"os/exec"
@@ -1258,51 +1257,6 @@ func TestScriptFunctional(t *testing.T) {
 		}
 	})
 
-	t.Run("GenTableTest", func(t *testing.T) {
-		t.Parallel()
-		script := scriptPath("go-testing", "gen-table-test.sh")
-		out := runCommand(t, 0, "bash", script, "--parallel", "ParseDuration", "parser")
-
-		if _, fmtErr := format.Source(out); fmtErr != nil {
-			t.Errorf("generated Go code is not valid:\n%v\n%s", fmtErr, out)
-		}
-
-		if !strings.Contains(string(out), "t.Parallel()") {
-			t.Error("--parallel flag did not produce t.Parallel() in output")
-		}
-		if strings.Contains(string(out), "TODO") || strings.Contains(string(out), "//") {
-			t.Errorf("generated test carries TODO or commented-out code:\n%s", out)
-		}
-		out = runCommandStdout(t, 0, "bash", script, "--json", "--parallel", "ParseDuration", "parser")
-		if !json.Valid(out) {
-			t.Fatalf("gen-table --json stdout is not valid JSON:\n%s", out)
-		}
-		var jsonResult struct {
-			Func       string `json:"func"`
-			Package    string `json:"package"`
-			OutputFile string `json:"output_file"`
-			Parallel   bool   `json:"parallel"`
-			Written    bool   `json:"written"`
-		}
-		if err := json.Unmarshal(out, &jsonResult); err != nil {
-			t.Fatalf("parse gen-table JSON: %v\n%s", err, out)
-		}
-		if jsonResult.Func != "ParseDuration" || jsonResult.Package != "parser" || jsonResult.OutputFile != "" || !jsonResult.Parallel || jsonResult.Written {
-			t.Fatalf("unexpected gen-table JSON metadata: %#v\n%s", jsonResult, out)
-		}
-		// stdout is only the JSON (checked above); the help says the scaffold goes to stderr.
-		if combined := runCommand(t, 0, "bash", script, "--json", "ParseDuration", "parser"); !bytes.Contains(combined, []byte("func TestParseDuration(t *testing.T)")) {
-			t.Errorf("gen-table --json without --output did not write the scaffold to stderr:\n%s", combined)
-		}
-		runCommand(t, 2, "bash", script, "parseDuration", "parser")
-		runCommand(t, 2, "bash", script, "ParseDuration", "123bad")
-		runCommand(t, 2, "bash", script, "ParseDuration", "func")
-		// A black-box package cannot call the function unqualified, and an
-		// --output that is a directory is a usage error, not a shell failure.
-		runCommand(t, 2, "bash", script, "ParseDuration", "parser_test")
-		runCommand(t, 2, "bash", script, "--json", "--output", t.TempDir(), "ParseDuration", "parser")
-	})
-
 	t.Run("SetupLintDryRun", func(t *testing.T) {
 		t.Parallel()
 		script := scriptPath("go-linting", "setup-lint.sh")
@@ -1465,6 +1419,43 @@ func TestScriptFunctional(t *testing.T) {
 			t.Fatalf("pre-review with golangci-lint unavailable: want passed true and result incomplete\n%s", out)
 		}
 		runCommandInDir(t, lintDir, 2, "bash", script, "--strict", "./...")
+
+		// golangci-lint missing from PATH: unavailable, with the install
+		// command as a hint. An installed linter that cannot run (above)
+		// carries none.
+		if bytes.Contains(out, []byte(`"hint"`)) {
+			t.Errorf("pre-review with golangci-lint installed: unexpected hint\n%s", out)
+		}
+		bin := t.TempDir()
+		for _, tool := range []string{"go", "gofmt"} {
+			path, err := exec.LookPath(tool)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(path, filepath.Join(bin, tool)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		noLintPath := bin + string(os.PathListSeparator) + "/usr/bin" + string(os.PathListSeparator) + "/bin"
+		cmd := exec.Command("bash", script, "--json", ".")
+		cmd.Dir = cleanDir
+		cmd.Env = append(os.Environ(), "PATH="+noLintPath)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("pre-review without golangci-lint: %v\n%s", err, out)
+		}
+		var noLint struct {
+			GolangciLint struct {
+				Status string `json:"status"`
+				Hint   string `json:"hint"`
+			} `json:"golangci_lint"`
+		}
+		if err := json.Unmarshal(out, &noLint); err != nil {
+			t.Fatalf("parse pre-review JSON without golangci-lint: %v\n%s", err, out)
+		}
+		if noLint.GolangciLint.Status != "unavailable" || !strings.Contains(noLint.GolangciLint.Hint, "go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@") {
+			t.Errorf("pre-review without golangci-lint: golangci_lint = %+v, want unavailable with the install command as hint", noLint.GolangciLint)
+		}
 	})
 
 	// The bar section reads the diff since --new-from-rev: a diff that only
@@ -1784,20 +1775,26 @@ func TestAdd(t *testing.T) {
 		}
 
 		// `go fix -diff` exits 1 when the diff is non-empty: a pending
-		// modernization must yield a line count, not "n/a". The baseline exit
-		// code is not checked here: -race depends on the environment.
+		// modernization must yield a line count, not "n/a". Without cgo,
+		// -race cannot run outside macOS: that is a skip, not a red baseline.
 		cmd := exec.Command("bash", script, "--json", "baseline", ".")
 		cmd.Dir = dir
-		out, _ := cmd.Output()
+		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+		out, runErr := cmd.Output()
 		var baseline struct {
 			FixPending string `json:"fix_pending_lines"`
 			Gofmt      string `json:"gofmt"`
+			Race       string `json:"race"`
+			Passed     bool   `json:"passed"`
 		}
 		if err := json.Unmarshal(out, &baseline); err != nil {
 			t.Fatalf("baseline JSON: %v\n%s", err, out)
 		}
 		if baseline.Gofmt != "pass" {
 			t.Errorf("gofmt = %q, want pass: testdata/ and a nested module are not in the pattern", baseline.Gofmt)
+		}
+		if runtime.GOOS != "darwin" && (runErr != nil || !baseline.Passed || !strings.HasPrefix(baseline.Race, "skip (")) {
+			t.Errorf("baseline with CGO_ENABLED=0: race = %q, passed = %t, err = %v; want a race skip and a green baseline\n%s", baseline.Race, baseline.Passed, runErr, out)
 		}
 		runCommandInDir(t, dir, 2, "bash", script, "baseline", ".", "./gateway")
 		// Code LOC counts physical lines: two //line directives naming one
@@ -1881,7 +1878,6 @@ func TestAdd(t *testing.T) {
 			{"go-linting", "setup-lint.sh", []string{"--dry-run"}},
 			{"go-naming", "check-naming.sh", nil},
 			{"go-performance", "bench-compare.sh", nil},
-			{"go-testing", "gen-table-test.sh", []string{"ParseDuration", "parser"}},
 		}
 		for _, tc := range cases {
 			tc := tc
@@ -1898,6 +1894,32 @@ func TestAdd(t *testing.T) {
 // ---------------------------------------------------------------------------
 // TestStructure - validate SKILL.md frontmatter across all skills
 // ---------------------------------------------------------------------------
+
+// maxSkillBytes caps a SKILL.md at about 10,000 tokens.
+const maxSkillBytes = 26 * 1024
+
+// allowedToolRules are the only grants a skill may give itself: running its
+// own bundled scripts through bash, and go-linting's run of the receipt
+// verifier the edit hook prints. Claude Code substitutes both variables in
+// allowed-tools; a broader Bash(bash:*) would also pass any `bash -c`.
+var allowedToolRules = map[string]bool{
+	"Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)":                     true,
+	"Bash(bash ${CLAUDE_PLUGIN_ROOT}/hooks/go-check-receipt.sh *)": true,
+}
+
+var toolRule = regexp.MustCompile(`\w+\([^)]*\)`)
+
+func checkAllowedTools(t *testing.T, value string) {
+	t.Helper()
+	for _, rule := range toolRule.FindAllString(value, -1) {
+		if !allowedToolRules[rule] {
+			t.Errorf("allowed-tools grants %s; allow only %v", rule, slices.Sorted(maps.Keys(allowedToolRules)))
+		}
+	}
+	if rest := strings.TrimSpace(toolRule.ReplaceAllString(value, "")); rest != "" {
+		t.Errorf("allowed-tools has %q outside a Tool(rule) grant", rest)
+	}
+}
 
 func TestStructure(t *testing.T) {
 	t.Parallel()
@@ -1935,10 +1957,14 @@ func TestStructure(t *testing.T) {
 					if line == "" || strings.HasPrefix(line, "#") {
 						continue
 					}
-					key := strings.TrimSpace(strings.SplitN(line, ":", 2)[0])
+					key, value, _ := strings.Cut(line, ":")
+					key = strings.TrimSpace(key)
 					frontmatterKeys[key] = true
 					if key != "name" && key != "description" && key != "allowed-tools" {
 						t.Errorf("non-portable frontmatter key %q; keep only name, description, and runtime-required allowed-tools", key)
+					}
+					if key == "allowed-tools" {
+						checkAllowedTools(t, strings.TrimSpace(value))
 					}
 				}
 			}
@@ -1946,6 +1972,13 @@ func TestStructure(t *testing.T) {
 			bodyLines := strings.Count(body, "\n")
 			if bodyLines >= 400 {
 				t.Errorf("body is %d lines (this repository caps bodies at 400)", bodyLines)
+			}
+			// Lines do not bound tokens, and every byte of a SKILL.md is paid
+			// in each session that loads it. Like the line cap, this is a
+			// ceiling on growth, not a target: go-code sat at 25.3 KB when it
+			// was set on 2026-10-28.
+			if len(content) > maxSkillBytes {
+				t.Errorf("SKILL.md is %d bytes, over the %d-byte ceiling; move conditional material to a reference", len(content), maxSkillBytes)
 			}
 
 			// Check shebang on all .sh files
@@ -2117,27 +2150,39 @@ func TestSkillArchitecture(t *testing.T) {
 // Claude Code fills with skill arguments. When a skill is invoked with any
 // (`/go-x a b`, or the Skill tool with args), $N becomes the N-th word and
 // $ARGUMENTS the whole string, inside code fences too: an SQL `$1` in an
-// example turns into a word of the user's request. One backslash escapes it
-// and reaches the model as `$1`; references are read with Read and never
-// substituted.
+// example turns into a word of the user's request. The escaped `\$1` is no
+// way out: Codex and opencode do not substitute, so the model copies the
+// backslash into a query PostgreSQL rejects. A statement with placeholders
+// lives in a reference, which is read with Read and never substituted.
 func TestSkillBodyArgumentPlaceholders(t *testing.T) {
 	t.Parallel()
 	placeholder := regexp.MustCompile(`(\\*)\$(ARGUMENTS|\d+)([A-Za-z_]?)`)
 	// Claude Code also expands ${CLAUDE_SKILL_DIR}, ${CLAUDE_PLUGIN_ROOT} and
-	// the like in a skill body; Codex and Cursor print them as written.
+	// the like in a skill body; Codex and Cursor print them as written. The
+	// frontmatter's allowed-tools is read by Claude Code alone and needs them.
 	hostVar := regexp.MustCompile(`\$\{CLAUDE_\w*\}`)
 	for _, dir := range findSkillDirs(t) {
+		frontmatter := false
 		for i, line := range readLines(t, filepath.Join(dir, "SKILL.md")) {
+			if line == "---" && (i == 0 || frontmatter) {
+				frontmatter = i == 0
+				continue
+			}
+			if frontmatter {
+				continue
+			}
 			if m := hostVar.FindString(line); m != "" {
 				t.Errorf("%s/SKILL.md:%d: %s is expanded only by Claude Code; write <installed-skill-dir> instead", filepath.Base(dir), i+1, m)
 			}
 			for _, m := range placeholder.FindAllStringSubmatch(line, -1) {
-				escaped := len(m[1]) == 1
-				wordFollows := m[2] != "ARGUMENTS" && m[3] != ""
-				if escaped || wordFollows {
+				if m[2] != "ARGUMENTS" && m[3] != "" {
+					continue // $1abc is not a placeholder
+				}
+				if m[1] != "" {
+					t.Errorf("%s/SKILL.md:%d: %s$%s reaches hosts without substitution with its backslash; move the example to a reference", filepath.Base(dir), i+1, m[1], m[2])
 					continue
 				}
-				t.Errorf("%s/SKILL.md:%d: $%s is replaced by a skill argument; rephrase it or escape it as \\$%s", filepath.Base(dir), i+1, m[2], m[2])
+				t.Errorf("%s/SKILL.md:%d: $%s is replaced by a skill argument; rephrase it or move the example to a reference", filepath.Base(dir), i+1, m[2])
 			}
 		}
 	}
@@ -2145,7 +2190,7 @@ func TestSkillBodyArgumentPlaceholders(t *testing.T) {
 
 // TestScriptCommandsRunThroughBash keeps every written-out script command on
 // `bash <path>`: a packager can drop the executable bit, and the skills'
-// allowed-tools grant only Bash(bash:*).
+// allowed-tools grant only `bash ${CLAUDE_SKILL_DIR}/scripts/*`.
 func TestScriptCommandsRunThroughBash(t *testing.T) {
 	t.Parallel()
 	root := repoRoot(t)
@@ -2194,6 +2239,21 @@ func maxFencedBlockLines(content string) int {
 	return maxCount
 }
 
+// markdownSections counts the H2 headings outside code fences, a table of
+// contents left aside.
+func markdownSections(lines []string) int {
+	n, fence := 0, false
+	for _, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "```") {
+			fence = !fence
+		}
+		if !fence && strings.HasPrefix(line, "## ") && line != "## Contents" {
+			n++
+		}
+	}
+	return n
+}
+
 func TestLongReferenceTOCs(t *testing.T) {
 	t.Parallel()
 	root := repoRoot(t)
@@ -2219,21 +2279,13 @@ func TestLongReferenceTOCs(t *testing.T) {
 				t.Errorf("%s has no %q line in its first 12 lines; add the provenance header", path, field)
 			}
 		}
-		if len(lines) <= 200 {
+		// A partial read of a long file still shows its scope (Anthropic's
+		// skill best practices put the bar at 100 lines). A file of one
+		// section has nothing to list.
+		if len(lines) <= 100 || markdownSections(lines) < 2 {
 			return nil
 		}
-		limit := 40
-		if len(lines) < limit {
-			limit = len(lines)
-		}
-		found := false
-		for _, line := range lines[:limit] {
-			if strings.TrimSpace(line) == "## Contents" {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !slices.Contains(lines[:min(len(lines), 40)], "## Contents") {
 			t.Errorf("%s has %d lines and no ## Contents section near the top", path, len(lines))
 		}
 		return nil
@@ -2850,10 +2902,11 @@ func TestEvalsJSONSchema(t *testing.T) {
 		t.Fatalf("read evals.json: %v", err)
 	}
 	type triggerEval struct {
-		Query         string   `json:"query"`
-		ShouldTrigger []string `json:"should_trigger"`
-		Notes         string   `json:"notes"`
-		Set           string   `json:"set"`
+		Query            string    `json:"query"`
+		ShouldTrigger    []string  `json:"should_trigger"`
+		ShouldNotTrigger *[]string `json:"should_not_trigger"`
+		Notes            string    `json:"notes"`
+		Set              string    `json:"set"`
 	}
 	type qualityEval struct {
 		ID             int      `json:"id"`
@@ -2892,7 +2945,7 @@ func TestEvalsJSONSchema(t *testing.T) {
 		if err := json.Unmarshal(raw, &obj); err != nil {
 			t.Fatalf("parse trigger_evals[%d] as object: %v", i, err)
 		}
-		requireJSONKeySet(t, "trigger_evals", obj, []string{"query", "should_trigger", "notes", "set"}, nil)
+		requireJSONKeySet(t, "trigger_evals", obj, []string{"query", "should_trigger", "notes", "set"}, []string{"should_not_trigger"})
 		var ev triggerEval
 		if err := json.Unmarshal(raw, &ev); err != nil {
 			t.Fatalf("parse trigger_evals[%d]: %v", i, err)
@@ -2941,6 +2994,22 @@ func TestEvalsJSONSchema(t *testing.T) {
 		for _, skill := range ev.ShouldTrigger {
 			if !skills[skill] {
 				t.Errorf("trigger_evals[%d] references missing skill %q", i, skill)
+			}
+		}
+		if ev.ShouldNotTrigger == nil {
+			continue
+		}
+		// A negative control already fails on any skill; the list is for the
+		// neighbors a positive case must not pull in.
+		if len(*ev.ShouldNotTrigger) == 0 || len(ev.ShouldTrigger) == 0 {
+			t.Errorf("trigger_evals[%d] should_not_trigger needs entries and a non-empty should_trigger", i)
+		}
+		for _, skill := range *ev.ShouldNotTrigger {
+			if !skills[skill] {
+				t.Errorf("trigger_evals[%d] should_not_trigger references missing skill %q", i, skill)
+			}
+			if slices.Contains(ev.ShouldTrigger, skill) {
+				t.Errorf("trigger_evals[%d] lists %q in both should_trigger and should_not_trigger", i, skill)
 			}
 		}
 	}
@@ -3133,7 +3202,7 @@ func TestManifestCounts(t *testing.T) {
 		{"README.uk.md", `(\d+) довідков\S+ файл\S*`, references},
 		{"README.uk.md", `(\d+) вбудованих скриптів`, scripts},
 		{"README.uk.md", `(\d+) скриптів автоматизують`, scripts},
-		{"README.uk.md", `(\d+) шаблонів-ассетів`, assets},
+		{"README.uk.md", `(\d+) шаблон\S*-ассет\S*`, assets},
 		{".claude-plugin/plugin.json", `(\d+) modular skills`, skills},
 		{".claude-plugin/plugin.json", `(\d+) reference files`, references},
 		{".claude-plugin/plugin.json", `(\d+) automation scripts`, scripts},

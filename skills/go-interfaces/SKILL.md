@@ -1,7 +1,7 @@
 ---
 name: go-interfaces
 description: Use when designing or implementing Go interfaces, abstractions, mockable boundaries, embedding, assertions, type switches, pointer versus value receiver types, or interface versus concrete API types. Generics belong to go-generics.
-allowed-tools: Bash(bash:*)
+allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 ---
 
 # Go Interfaces and Composition
@@ -12,7 +12,7 @@ allowed-tools: Bash(bash:*)
 ## Resource Routing
 
 - `scripts/check-interface-compliance.sh` - Run as a heuristic; [Interface Satisfaction Checks](#interface-satisfaction-checks) says what it lists.
-- `scripts/check-interface-compliance.go` - Implementation helper invoked by `check-interface-compliance.sh`; patch this when changing method-set analysis.
+- `scripts/check-interface-compliance.go` - Implementation helper built and run by `check-interface-compliance.sh`; not run or read directly.
 - `references/EMBEDDING.md` - Read when embedding a type in a public struct.
 - `references/RECEIVER-TYPE.md` - Read when choosing pointer or value receivers.
 

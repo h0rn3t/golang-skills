@@ -1,7 +1,7 @@
 ---
 name: go-linting
 description: Use when configuring Go linting, golangci-lint, static analysis, or CI checks, or choosing linters for a new project. Reviewing code belongs to go-code-review.
-allowed-tools: Bash(bash:*)
+allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*) Bash(bash ${CLAUDE_PLUGIN_ROOT}/hooks/go-check-receipt.sh *)
 ---
 
 # Go Linting

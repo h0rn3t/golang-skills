@@ -30,12 +30,17 @@ import (
 	"time"
 
 	"golang-skills/evals/internal/evalplugin"
+	"golang-skills/evals/internal/skillreads"
 )
 
+// triggerEval is one trigger case. ShouldNotTrigger names the neighbors that
+// must stay quiet on a positive case: firing one fails the case even when
+// every expected skill fired too.
 type triggerEval struct {
-	Query         string   `json:"query"`
-	ShouldTrigger []string `json:"should_trigger"`
-	Set           string   `json:"set"`
+	Query            string   `json:"query"`
+	ShouldTrigger    []string `json:"should_trigger"`
+	ShouldNotTrigger []string `json:"should_not_trigger"`
+	Set              string   `json:"set"`
 }
 
 type qualityEval struct {
@@ -56,8 +61,15 @@ type triggerResult struct {
 	Query string   `json:"query"`
 	Want  []string `json:"want"`
 	Got   []string `json:"got"`
-	Pass  bool     `json:"pass"`
-	Err   string   `json:"error,omitempty"`
+	// NotWant is the case's should_not_trigger list and Unwanted the part of
+	// it that fired.
+	NotWant  []string `json:"not_want,omitempty"`
+	Unwanted []string `json:"unwanted,omitempty"`
+	// Precision is the share of the go-* skills that fired which the case
+	// expected; nil when none fired.
+	Precision *float64 `json:"precision,omitempty"`
+	Pass      bool     `json:"pass"`
+	Err       string   `json:"error,omitempty"`
 }
 
 type assertionResult struct {
@@ -74,19 +86,28 @@ type qualityResult struct {
 	Assertions   []assertionResult `json:"assertions"`
 	CostUSD      float64           `json:"cost_usd"`
 	JudgeCostUSD float64           `json:"judge_cost_usd"`
-	Output       string            `json:"output,omitempty"`
-	Err          string            `json:"error,omitempty"`
+	// SkillReads counts the session's Read calls per skill file, keyed
+	// "go-http/SKILL.md" or "go-http/references/JSON-V2.md".
+	SkillReads map[string]int `json:"skill_reads,omitempty"`
+	Output     string         `json:"output,omitempty"`
+	Err        string         `json:"error,omitempty"`
 }
 
 type report struct {
-	Set      string          `json:"set"`
-	NoSkill  bool            `json:"no_skill,omitempty"`
-	GoDoc    bool            `json:"go_doc,omitempty"`
-	Trigger  []triggerResult `json:"trigger"`
-	Quality  []qualityResult `json:"quality"`
-	CostUSD  float64         `json:"cost_usd"`
-	Summary  string          `json:"summary"`
-	Finished time.Time       `json:"finished"`
+	Set     string          `json:"set"`
+	NoSkill bool            `json:"no_skill,omitempty"`
+	GoDoc   bool            `json:"go_doc,omitempty"`
+	Trigger []triggerResult `json:"trigger"`
+	Quality []qualityResult `json:"quality"`
+	CostUSD float64         `json:"cost_usd"`
+	// TriggerPrecision pools precision over the trigger cases that ran
+	// without an error: expected skills fired over all go-* skills fired.
+	TriggerPrecision *float64 `json:"trigger_precision,omitempty"`
+	// SkillReads totals the quality sessions' Read calls per skill file; every
+	// file in the plugin is listed, so one no session read shows as 0.
+	SkillReads map[string]int `json:"skill_reads,omitempty"`
+	Summary    string         `json:"summary"`
+	Finished   time.Time      `json:"finished"`
 }
 
 type options struct {
@@ -196,13 +217,33 @@ func run(o options) error {
 		for _, r := range rep.Quality {
 			rep.CostUSD += r.CostUSD + r.JudgeCostUSD
 		}
+		if !o.noSkill {
+			rep.SkillReads = map[string]int{}
+			for _, f := range skillreads.Files(root) {
+				rep.SkillReads[f] = 0
+			}
+			for _, r := range rep.Quality {
+				for f, n := range r.SkillReads {
+					rep.SkillReads[f] += n
+				}
+			}
+		}
 	}
 
 	tp, tn := count(rep.Trigger, func(r triggerResult) bool { return r.Pass })
 	qp, qn := count(rep.Quality, func(r qualityResult) bool { return r.Pass })
+	rep.TriggerPrecision = triggerPrecision(rep.Trigger)
 	rep.Summary = fmt.Sprintf("trigger %d/%d, quality %d/%d, quality cost $%.2f", tp, tn, qp, qn, rep.CostUSD)
+	// Appended rather than inserted, so a reader of the older summary still
+	// finds its fields where they were.
+	if rep.TriggerPrecision != nil {
+		rep.Summary += fmt.Sprintf(", trigger precision %.2f", *rep.TriggerPrecision)
+	}
 	rep.Finished = time.Now()
 	fmt.Println()
+	if rep.SkillReads != nil {
+		fmt.Println(skillreads.Summary(rep.SkillReads))
+	}
 	fmt.Println(rep.Summary)
 
 	if o.out != "" {
@@ -343,7 +384,7 @@ func claude(o options, dir string, args ...string) ([]byte, error) {
 // runTrigger asks the model with only the Skill tool available and records
 // which go-* skills it invoked in its first turns.
 func runTrigger(o options, root string, ev triggerEval) triggerResult {
-	res := triggerResult{Query: ev.Query, Want: ev.ShouldTrigger}
+	res := triggerResult{Query: ev.Query, Want: ev.ShouldTrigger, NotWant: ev.ShouldNotTrigger}
 	dir, err := workDir(root, nil)
 	if err != nil {
 		res.Err = err.Error()
@@ -375,7 +416,15 @@ func runTrigger(o options, root string, ev triggerEval) triggerResult {
 		}
 	}
 	res.Got = sortedKeys(got)
-	res.Pass = res.Err == "" && triggered(ev.ShouldTrigger, got)
+	for _, name := range ev.ShouldNotTrigger {
+		if got[name] {
+			res.Unwanted = append(res.Unwanted, name)
+		}
+	}
+	if len(res.Got) > 0 {
+		res.Precision = new(float64(expectedFired(res.Want, res.Got)) / float64(len(res.Got)))
+	}
+	res.Pass = res.Err == "" && triggered(ev.ShouldTrigger, ev.ShouldNotTrigger, got)
 	return res
 }
 
@@ -418,9 +467,10 @@ func normalizeSkill(s string) string {
 	return s
 }
 
-// triggered passes when every expected skill fired; for a negative control
-// (no expected skills) it passes only when no go-* skill fired at all.
-func triggered(want []string, got map[string]bool) bool {
+// triggered passes when every expected skill fired and none of notWant did;
+// for a negative control (no expected skills) it passes only when no go-*
+// skill fired at all.
+func triggered(want, notWant []string, got map[string]bool) bool {
 	if len(want) == 0 {
 		return len(got) == 0
 	}
@@ -429,7 +479,41 @@ func triggered(want []string, got map[string]bool) bool {
 			return false
 		}
 	}
+	for _, n := range notWant {
+		if got[n] {
+			return false
+		}
+	}
 	return true
+}
+
+// expectedFired counts the skills in got that the case expected.
+func expectedFired(want, got []string) int {
+	n := 0
+	for _, name := range got {
+		if slices.Contains(want, name) {
+			n++
+		}
+	}
+	return n
+}
+
+// triggerPrecision pools precision over the trigger cases that ran without an
+// error, so a case that fired five skills weighs five times one that fired
+// one; nil when none fired a go-* skill.
+func triggerPrecision(results []triggerResult) *float64 {
+	var hit, fired int
+	for _, r := range results {
+		if r.Err != "" {
+			continue
+		}
+		hit += expectedFired(r.Want, r.Got)
+		fired += len(r.Got)
+	}
+	if fired == 0 {
+		return nil
+	}
+	return new(float64(hit) / float64(fired))
 }
 
 // judgeSchema is the verdict shape `claude -p --json-schema` enforces; the
@@ -461,7 +545,9 @@ func runQuality(o options, root string, ev qualityEval) qualityResult {
 	}
 	defer os.RemoveAll(dir)
 	tools := "Read,Glob,Grep"
-	args := []string{"-p", ev.Prompt, "--output-format", "json", "--max-turns", "30"}
+	// --verbose turns the json output into the whole message array, which
+	// resultText reads like the single result and skillreads counts Reads in.
+	args := []string{"-p", ev.Prompt, "--output-format", "json", "--verbose", "--max-turns", "30"}
 	if !o.noSkill {
 		pluginDir, err := evalplugin.Copy(root, dir)
 		if err != nil {
@@ -480,6 +566,7 @@ func runQuality(o options, root string, ev qualityEval) qualityResult {
 		res.Err = err.Error()
 		return res
 	}
+	res.SkillReads = skillreads.Count(out)
 	answer, cost, err := resultText(out)
 	res.CostUSD = cost
 	if err != nil {
@@ -609,6 +696,12 @@ func printTrigger(r triggerResult) {
 		q = q[:67] + "..."
 	}
 	fmt.Printf("[%s] trigger  want=%v got=%v  %q", status, r.Want, r.Got, q)
+	if len(r.Unwanted) > 0 {
+		fmt.Printf("  should not trigger: %v", r.Unwanted)
+	}
+	if r.Precision != nil {
+		fmt.Printf("  precision %.2f", *r.Precision)
+	}
 	if r.Err != "" {
 		fmt.Printf("  error: %s", r.Err)
 	}

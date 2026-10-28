@@ -1,6 +1,6 @@
-# Web Server: Skills Applied Together
+# Web Server
 
-> Sources: https://pkg.go.dev/net/http; the owner skills the table names
+> Sources: https://pkg.go.dev/net/http
 > Authority: project policy (a composition example, not a rule source)
 > Minimum Go: `ServeMux` patterns 1.22; `encoding/json/v2` 1.27
 > Last verified: 2026-09-24
@@ -106,8 +106,5 @@ func run() error {
 `ListenAndServe` returns `http.ErrServerClosed` only after `Shutdown`, so an
 error that arrives first is a real one and is returned as it is.
 
-## Skills Applied
-
-| Area | Skill | What's demonstrated |
-|------|-------|---------------------|
-| Logging | [go-logging](../../go-logging/SKILL.md) | Structured slog, a static message, the error logged once |
+Its log lines follow [go-logging](../../go-logging/SKILL.md): structured
+`slog`, a static message, and the error logged once.

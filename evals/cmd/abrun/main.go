@@ -56,6 +56,7 @@ import (
 	"time"
 
 	"golang-skills/evals/internal/evalplugin"
+	"golang-skills/evals/internal/skillreads"
 )
 
 // The corpus prompts are shared by every arm; only the skill text differs
@@ -473,6 +474,10 @@ type result struct {
 	// Commands counts the shell calls across every turn: the codex runner's
 	// shell, and Bash in a claude session run with -shell or -gopls cli.
 	Commands int `json:"commands,omitempty"`
+	// SkillReads counts a claude session's Read calls per skill file across
+	// every turn, keyed "go-http/SKILL.md" or "go-http/references/JSON-V2.md".
+	// Other runners leave it empty.
+	SkillReads map[string]int `json:"skill_reads,omitempty"`
 	// Refused reports that a safety classifier declined a turn of a claude
 	// session (stop_reason "refusal"). The run is scored as it ended, and the
 	// summary counts it: a missing edit or review there is the classifier's,
@@ -511,6 +516,11 @@ type report struct {
 	Rescored time.Time `json:"rescored,omitzero"`
 	// Judgements are the -judge comparisons; empty when the judge did not run.
 	Judgements []judgement `json:"judgements,omitempty"`
+	// SkillReads totals each arm's Read calls per skill file over all of its
+	// runs, errored ones included. Every SKILL.md and reference in the arm's
+	// tree is listed, so one no session read shows as 0. Claude runner only;
+	// the control arm has no tree and no entry.
+	SkillReads map[string]map[string]int `json:"skill_reads,omitempty"`
 }
 
 type job struct {
@@ -639,6 +649,9 @@ func run(o options) error {
 		measurePerfResults(o, root, rep.Results)
 	}
 	rep.Finished = time.Now()
+	if o.runner == runnerClaude {
+		rep.SkillReads = armSkillReads(arms, rep.Results)
+	}
 
 	fmt.Println()
 	printSummary(rep)
@@ -1193,6 +1206,7 @@ type sessionTurn struct {
 	cost          float64
 	commands      int
 	gopls         int
+	skillReads    map[string]int
 	refused       bool
 	err           error
 	codexEvidence *codexSkillEvidence
@@ -1235,6 +1249,7 @@ func runSession(o options, a arm, work, prompt string) sessionTurn {
 		}
 		t.gopls = goplsCalls(t.out)
 		t.commands = claudeCommands(t.out)
+		t.skillReads = skillreads.Count(t.out)
 		t.refused = claudeRefused(t.out)
 		routing := claudeRouting(t.out)
 		t.routing = &routing
@@ -1276,6 +1291,12 @@ func (r *result) merge(t sessionTurn) {
 		r.Routing.add(*t.routing)
 	}
 	r.GoplsCalls += t.gopls
+	for file, n := range t.skillReads {
+		if r.SkillReads == nil {
+			r.SkillReads = map[string]int{}
+		}
+		r.SkillReads[file] += n
+	}
 	if t.final != "" {
 		r.Output = t.final
 	}
@@ -2495,6 +2516,33 @@ func skillFired(corpus string, skills []string) bool {
 		return slices.Contains(skills, "go-performance")
 	}
 	return slices.Contains(skills, "go-code-refactor")
+}
+
+// armSkillReads totals the runs' skill-file reads per arm, starting every
+// SKILL.md and reference in the arm's tree at zero so that a file no session
+// opened is in the report. The control arm has no tree and gets no entry.
+func armSkillReads(arms []arm, results []result) map[string]map[string]int {
+	totals := map[string]map[string]int{}
+	for _, a := range arms {
+		if a.dir == "" {
+			continue
+		}
+		total := map[string]int{}
+		for _, file := range skillreads.Files(a.dir) {
+			total[file] = 0
+		}
+		totals[a.Name] = total
+	}
+	for _, r := range results {
+		total, ok := totals[r.Arm]
+		if !ok {
+			continue
+		}
+		for file, n := range r.SkillReads {
+			total[file] += n
+		}
+	}
+	return totals
 }
 
 func summarizeArm(rep report, name string) armSummary {

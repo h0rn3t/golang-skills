@@ -18,6 +18,15 @@ file covers the rest.
 > tools have grammar awareness, so a pattern that happens to match inside a
 > string literal or a comment is rewritten right alongside real code.
 
+## Contents
+
+- [`gofmt -r` — syntactic, one expression](#gofmt--r--syntactic-one-expression)
+- [`eg` — type-aware, by example](#eg--type-aware-by-example)
+- [`gopatch` — statements, import-aware](#gopatch--statements-import-aware)
+- [A `go/analysis` fixer — bespoke and testable](#a-goanalysis-fixer--bespoke-and-testable)
+- [`dave/dst` — when comments must survive](#davedst--when-comments-must-survive)
+- [After every bulk rewrite](#after-every-bulk-rewrite)
+
 ## `gofmt -r` — syntactic, one expression
 
 Purely syntactic and type-unaware: it matches expression shape, not the types

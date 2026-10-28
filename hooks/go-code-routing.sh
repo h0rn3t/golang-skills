@@ -75,6 +75,13 @@
 # A fork starts from its parent's context, skills included, and keeps the
 # parent's record. prompted is the main thread's (UserPromptSubmit fires
 # there only) and names the entry router for every agent of the session.
+#
+# A compaction keeps at most the first 5,000 tokens of each invoked skill, yet
+# loaded still listed the router and go-style-core, so the first .go edit after
+# it passed (review 2026-10-28, X2). On SessionStart with source compact,
+# go-subagent-routing.sh writes compacted, the line count loaded had then; the
+# gate counts only the loads after that line, names the skills to invoke again,
+# and with no router since takes the one loaded before as the entry skill.
 set -u
 
 # Root of this plugin copy: skills/ sits next to hooks/.
@@ -169,6 +176,15 @@ has() { # has <file> <skill>
     [[ -f "$1" ]] && grep -qx -- "$2" "$1"
 }
 
+# Loads recorded before the last compaction (compacted holds the line count of
+# loaded then) lift no requirement; a subagent's state has no marker.
+since=0
+[[ -f "$state/compacted" ]] && read -r since < "$state/compacted"
+[[ "$since" =~ ^[0-9]+$ ]] || since=0
+current() { # current <skill> — loaded since the last compaction
+    [[ -f "$loaded" ]] && tail -n "+$((since + 1))" "$loaded" | grep -qx -- "$1"
+}
+
 case "$event" in
 PostToolUse)
     case "$tool" in
@@ -199,20 +215,28 @@ PreToolUse)
     [[ -n "${CLAUDE_PROJECT_DIR:-}" && -z "${PLUGIN_ROOT:-}" ]] || exit 0
     routers=""
     for r in go-code go-code-refactor go-code-review; do
-        has "$loaded" "$r" && routers+="$r "
+        current "$r" && routers+="$r "
     done
-    # Without a router the gate requires the entry skill: the one
+    # Without a router the gate requires the entry skill: after a compaction
+    # the router this session loaded last before it, else the one
     # go-prompt-routing.sh named last (the prompted file), else go-code.
     entry=""
     if [[ -z "$routers" ]]; then
-        entry="$(grep -x -E 'go-code|go-code-refactor|go-code-review' "$session_state/prompted" 2>/dev/null | tail -n 1)"
+        entry="$(grep -x -E 'go-code|go-code-refactor|go-code-review' "$loaded" 2>/dev/null | tail -n 1)"
+        [[ -n "$entry" ]] || entry="$(grep -x -E 'go-code|go-code-refactor|go-code-review' "$session_state/prompted" 2>/dev/null | tail -n 1)"
         entry="${entry:-go-code}"
     fi
     # Only loaded lifts a requirement: reminded logs reminders, not loads.
-    missing="" absent=""
+    # reload holds the missing skills loaded before the last compaction.
+    missing="" absent="" reload=""
     for want in $entry go-style-core $hints; do
-        has "$loaded" "$want" && continue
-        if available "$want"; then missing+="$want "; else absent+="$want "; fi
+        current "$want" && continue
+        if available "$want"; then
+            missing+="$want "
+            has "$loaded" "$want" && reload+="$want "
+        else
+            absent+="$want "
+        fi
     done
     fresh_absent=""
     for a in $absent; do has "$state/absent" "$a" || fresh_absent+="$a "; done
@@ -256,6 +280,10 @@ PreToolUse)
             printf 'recorded since. Still missing: %s.\n' "$list"
             printf 'A reminder is not a load: a retry without the loads is blocked again, and a\n'
             printf 'third stalled retry of this edit stops the session.\n'
+        elif [[ -n "$reload" ]]; then
+            printf 'golang-skills routing gate: this session was compacted, and compaction keeps at\n'
+            printf 'most the start of each skill loaded before it, so these must be invoked again\n'
+            printf 'before a .go edit. Missing: %s.\n' "$list"
         elif [[ -n "$entry" && " $missing " == *" $entry "* ]]; then
             printf 'golang-skills routing gate: this session loaded no router skill, and a .go edit\n'
             printf 'needs one first. Missing: %s.\n' "$list"

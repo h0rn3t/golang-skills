@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="1.0.0"
+VERSION="1.0.1"
 SCRIPT_NAME="$(basename "$0")"
 
 usage() {
@@ -19,7 +19,9 @@ DESCRIPTION
     group local imports separately.
 
     Run it from the target module; it writes the config there and lints
-    with exactly that file (--config).
+    with exactly that file (--config). Without golangci-lint on PATH it
+    writes nothing and prints the pinned go install command, which it never
+    runs.
 
     Exits 0 if lint passes, 1 if lint issues found, 2 on error (including
     an existing .golangci.{yml,yaml,toml,json} without --force, a generated
@@ -167,8 +169,11 @@ if [[ -n "$EXISTING" ]]; then
     fi
 fi
 
+# The version CI pins (GOLANGCI_LINT_VERSION in validate-skills.yml); the
+# script prints the command and never runs it.
 if ! command -v golangci-lint &>/dev/null; then
     echo "error: golangci-lint is not installed" >&2
+    echo "install: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 (this script does not run it)" >&2
     exit 2
 fi
 

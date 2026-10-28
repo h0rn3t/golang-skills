@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-const version = "1.5.0"
+const version = "1.5.1"
 
 type ifaceInfo struct {
 	Name string `json:"name"`
@@ -69,12 +69,49 @@ func usage() {
 USAGE
     bash check-interface-compliance.sh [options] [path]
 
+DESCRIPTION
+    Lists exported interfaces declared on the producer side: in the package
+    that also implements them. One is reported when nothing in that package
+    converts a value to it (an assignment, return, argument,
+    composite-literal element, send, conversion, or a type argument its
+    constraint checks), or when an exported function returns it while no
+    function or method there takes it as a parameter ("returned_by" in
+    --json). A generic interface is matched through the instantiations the
+    package names; an alias and a constraint-only interface are not listed.
+
+    Each finding asks whether a consumer needs the interface or the concrete
+    type is enough. It is not a request to add a compile-time assertion
+    (var _ I = (*T)(nil)).
+
+    Skips _test.go files unless --include-test, generated files (a "Code
+    generated ... DO NOT EDIT." line), and, as go ./... does, vendor and
+    testdata directories and names that begin with "." or "_". Nested
+    modules and go.work modules under the path resolve from their own roots.
+
+    Exits 0 if nothing is reported, 1 if an interface is reported, 2 on a
+    usage error, when the helper does not build, or when a scanned file does
+    not parse.
+
+    --json adds "status" to a scan that still exits 0 or 1:
+      no_go_files             the path holds no Go file to scan
+      no_exported_interfaces  Go files, but no exported interface
+      incomplete_types        an import without export data (no module, a
+                              dependency not in the module cache) left a
+                              candidate undecided, never counted as
+                              implemented; "incomplete" lists the package
+                              directories
+
 OPTIONS
     -h, --help       Show this help message
     -v, --version    Show version
     --json           Output results as JSON
     --include-test   Also scan _test.go files for interface definitions and implementations
-    --limit N        Show at most N results (default: all)
+    --limit N        Show at most N reported interfaces (default: all); --limit=N
+                     too. "interfaces" lists every one scanned and
+                     "count_missing" stays the total
+
+ARGUMENTS
+    path             Directory, ./... pattern, or Go file (default: current directory)
 `, version)
 }
 

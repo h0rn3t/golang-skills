@@ -21,7 +21,6 @@ Here, **business module** means an owned feature/domain package tree, not a Go m
 - [The preferred layer names](#the-preferred-layer-names)
 - [Cross-module contracts](#cross-module-contracts)
 - [Transactions, errors, and authorization](#transactions-errors-and-authorization)
-- [Real-world examples](#real-world-examples)
 - [Target shapes](#target-shapes)
 - [Choosing a target](#choosing-a-target)
 - [Staging the move](#staging-the-move)
@@ -153,10 +152,6 @@ can match, or who decides that an actor may perform an operation.
 [ARCHITECTURE-BEHAVIOR.md](ARCHITECTURE-BEHAVIOR.md) carries those three
 contracts and the behavior checks each needs; read it before moving any code
 that a use case's atomicity, error identity, or authorization passes through.
-
-## Real-world examples
-
-Community examples and their limitations are in [ARCHITECTURE-EXAMPLES.md](ARCHITECTURE-EXAMPLES.md). Read it when examples are needed to explain a choice, not before every refactor. They demonstrate naming and dependency techniques; they are not production-quality certifications or templates to copy wholesale. Inspect a specific revision before relying on a repository's current structure.
 
 ## Target shapes
 

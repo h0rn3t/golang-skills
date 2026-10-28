@@ -17,6 +17,19 @@ a type or a layer, and adding one needs a reason the report can carry.
 
 ---
 
+## Contents
+
+- [Inline function](#inline-function)
+- [Change function declaration](#change-function-declaration)
+- [Introduce parameter object](#introduce-parameter-object)
+- [Move function, field, or type](#move-function-field-or-type)
+- [Split or merge a package](#split-or-merge-a-package)
+- [Replace repeated switch with polymorphism](#replace-repeated-switch-with-polymorphism)
+- [Hide delegate and remove middle man](#hide-delegate-and-remove-middle-man)
+- [Sprout and wrap](#sprout-and-wrap)
+- [Replace temp with query](#replace-temp-with-query)
+- [Smell to transform](#smell-to-transform)
+
 ## Inline function
 
 - **Smell**: a one-line forwarding function, or an indirection that has accreted

@@ -11,7 +11,7 @@ description: Use when writing or reviewing Go HTTP code — handlers, routing wi
 
 ## Resource Routing
 
-- `references/WEB-SERVER.md` - Read when assembling a complete server: routing, handler, graceful shutdown, and where the other go-* skills meet in one `main`.
+- `references/WEB-SERVER.md` - Read when assembling a complete server: routing, handler, and graceful shutdown in one `main`.
 - `references/JSON-V2.md` - Read when choosing JSON v2 I/O APIs, decoding a bounded document, migrating wire formats, or testing exact JSON bytes (Go 1.27+).
 - `references/GRPC.md` - Read when writing a gRPC server or client: status codes, generated-server embedding, `grpc.NewClient`, bounded `GracefulStop`, and bufconn tests.
 
@@ -148,39 +148,6 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
   or `json.NewEncoder(w).Encode(v)` as a finding, and `//nolint:errcheck` is
   not a way out: `gosec` G104 reports the same line.
 
-### Partial Updates
-
-A PATCH body names only the members it changes, and a Go struct cannot tell a
-missing member from a zero one: decoding into a fresh struct and saving it
-zeroes every field the client left out. Load the record, copy its
-client-writable fields into the request value, and unmarshal the body onto
-that value. v2 leaves an absent member as loaded and sets one sent as `null`
-to its zero value (v1 leaves it unchanged). `RejectUnknownMembers(true)`
-refuses `password_hash` and any member the request type does not hold, and a
-top-level `null` leaves the pointer nil. v2 decodes into what the request
-value already holds — it writes a non-nil slice's array, merges into a
-non-nil map, decodes through a non-nil pointer — so a slice, map, or pointer
-field is copied with `slices.Clone`, `maps.Clone`, or a new value; copied as
-is, the record changes before the body is rejected:
-
-```go
-r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-req := &struct {
-    Email string   `json:"email"`
-    Phone string   `json:"phone"` // "phone": null clears it
-    Tags  []string `json:"tags"`
-}{acct.Email, acct.Phone, slices.Clone(acct.Tags)} // never acct.Tags: v2 writes into its array
-if err := json.UnmarshalRead(r.Body, &req, json.RejectUnknownMembers(true)); err != nil || req == nil {
-    http.Error(w, "invalid JSON body", http.StatusBadRequest)
-    return
-}
-if req.Email == "" { // "email": null arrives as ""
-    http.Error(w, "email is required", http.StatusBadRequest)
-    return
-}
-acct.Email, acct.Phone, acct.Tags = req.Email, req.Phone, req.Tags // a rejected body never touched acct
-```
-
 ### Mapping errors to status codes
 
 Centralize shared error-to-status rules in `writeError`, using
@@ -286,6 +253,39 @@ if len(body) > maxBody {
     return fmt.Errorf("response exceeds %d bytes", maxBody)
 }
 return json.Unmarshal(body, dst)
+```
+
+## Partial Updates
+
+A PATCH body names only the members it changes, and a Go struct cannot tell a
+missing member from a zero one: decoding into a fresh struct and saving it
+zeroes every field the client left out. Load the record, copy its
+client-writable fields into the request value, and unmarshal the body onto
+that value. v2 leaves an absent member as loaded and sets one sent as `null`
+to its zero value (v1 leaves it unchanged). `RejectUnknownMembers(true)`
+refuses `password_hash` and any member the request type does not hold, and a
+top-level `null` leaves the pointer nil. v2 decodes into what the request
+value already holds — it writes a non-nil slice's array, merges into a
+non-nil map, decodes through a non-nil pointer — so a slice, map, or pointer
+field is copied with `slices.Clone`, `maps.Clone`, or a new value; copied as
+is, the record changes before the body is rejected:
+
+```go
+r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+req := &struct {
+    Email string   `json:"email"`
+    Phone string   `json:"phone"` // "phone": null clears it
+    Tags  []string `json:"tags"`
+}{acct.Email, acct.Phone, slices.Clone(acct.Tags)} // never acct.Tags: v2 writes into its array
+if err := json.UnmarshalRead(r.Body, &req, json.RejectUnknownMembers(true)); err != nil || req == nil {
+    http.Error(w, "invalid JSON body", http.StatusBadRequest)
+    return
+}
+if req.Email == "" { // "email": null arrives as ""
+    http.Error(w, "email is required", http.StatusBadRequest)
+    return
+}
+acct.Email, acct.Phone, acct.Tags = req.Email, req.Phone, req.Tags // a rejected body never touched acct
 ```
 
 ## Related Skills

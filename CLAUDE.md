@@ -93,7 +93,9 @@ the verification gate, and the check receipts live in `hooks/helper`, which
 - `go-code-routing.sh`: PostToolUse on `Skill|Read` records loaded skills;
   PreToolUse on `Edit|Write` blocks (exit 2) every `.go` edit until a router
   (without one, the entry router `prompted` names, else `go-code`),
-  `go-style-core` (which carries the idiom card), and the owners are in `loaded`.
+  `go-style-core` (which carries the idiom card), and the owners are in `loaded`;
+  after SessionStart `compact` writes `<state>/compacted` (the line count of
+  `loaded`), only loads recorded after it count.
   `reminded` is only a log: a retry without loads is blocked again, and the
   third stalled retry of the same edit returns JSON `continue: false`. A skill
   with no SKILL.md in the plugin copy is reported, not required;
@@ -143,8 +145,10 @@ updating the record.
 
 Spread across `evals/eval_test.go`; an ordinary edit trips them:
 
-- `SKILL.md` at most 400 lines, largest fenced block at most 40 lines;
-  references at most 300 lines, with a `## Contents` TOC when over 200.
+- `SKILL.md` at most 400 lines and 26 KB, largest fenced block at most 40
+  lines; references at most 300 lines, with a `## Contents` TOC when over 100
+  and holding more than one section. `TestCompactionKeepsPerEditRules` pins
+  the sections that must sit in the first 5,000 tokens.
 - Frontmatter is `name`, `description`, and (script-backed skills only)
   `allowed-tools`. Descriptions are goldens in
   `TestFrontmatterDescriptionsInvariant`: changing one means changing the test
@@ -161,10 +165,10 @@ Spread across `evals/eval_test.go`; an ordinary edit trips them:
   `TestGoVersionBaseline` pins the 1.27 baseline and specific rows.
 - Reference files open with `> Sources:`, `> Authority:`, `> Last verified:`
   within the first 12 lines.
-- No unescaped `$N` or `$ARGUMENTS` in a `SKILL.md`
+- No `$N` or `$ARGUMENTS`, escaped or not, in a `SKILL.md`
   (`TestSkillBodyArgumentPlaceholders`): Claude Code substitutes skill
-  arguments into the body, code fences included. Prose writes `$N`; code
-  writes `\$1`.
+  arguments into the body, code fences included, and other hosts show the
+  backslash. Prose writes `$N`; SQL with placeholders lives in references.
 - Self-contained Go example blocks are extracted and compiled (some run) by
   the `*_examples_test.go` files. A deliberate fragment starts mid-function or
   is introduced as one in the sentence before it.
@@ -182,9 +186,9 @@ scope in the rule, name the check that fails when the rule is broken.
 
 ### Bundled scripts
 
-The 11 `skills/*/scripts/*.sh` share one CLI contract: `--help`, `--json`,
+The 10 `skills/*/scripts/*.sh` share one CLI contract: `--help`, `--json`,
 exit 0 clean / 1 findings / 2 usage or environment error, `--limit` where
-output is unbounded, `--force` on the three that write files. JSON shapes are
+output is unbounded, `--force` on the two that write files. JSON shapes are
 specified in `docs/SCRIPT_JSON_CONTRACTS.md` and asserted by
 `TestScriptFunctional` against `evals/fixtures/<area>/` (each area has a clean
 tree and a violations tree; `no_go_files` checks the empty-scan status

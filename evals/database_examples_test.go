@@ -71,34 +71,6 @@ func TestMissingAccountRollsBack(t *testing.T) {
 `+accountDriver)
 }
 
-// The go-database SKILL.md transfer is the form a reader copies: a missing
-// account on either side rolls back and surfaces ErrNotFound, never
-// sql.ErrNoRows, and nothing is committed.
-func TestDatabaseExampleTransactionRollsBackMissingAccount(t *testing.T) {
-	code := exampleBlock(t, "skills/go-database/SKILL.md", "## Transactions")
-	runExampleTest(t, `package example
-import ("context"; "database/sql"; "database/sql/driver"; "errors"; "fmt"; "io"; "testing")
-var ErrNotFound = errors.New("not found")
-func transfer(ctx context.Context, db *sql.DB, from, to, amount int64) error {
-`+code+`
-}
-func TestMissingAccount(t *testing.T) {
- for _, missing := range []int64{0, 1, 2} {
-  conn := &testConn{missingID: missing}
-  db := sql.OpenDB(conn)
-  err := transfer(t.Context(), db, 1, 2, 100)
-  wantErr := missing != 0
-  if errors.Is(err, ErrNotFound) != wantErr {t.Errorf("transfer(missing=%d): error=%v, want ErrNotFound=%t", missing, err, wantErr)}
-  if errors.Is(err, sql.ErrNoRows) {t.Errorf("transfer(missing=%d): sql.ErrNoRows leaked: %v", missing, err)}
-  if wantErr && (conn.commits != 0 || conn.rollbacks != 1) {t.Errorf("missing=%d: commits=%d rollbacks=%d, want 0/1", missing, conn.commits, conn.rollbacks)}
-  if !wantErr && (conn.commits != 1 || conn.rollbacks != 0) {t.Errorf("success: commits=%d rollbacks=%d, want 1/0", conn.commits, conn.rollbacks)}
-  if got:=db.Stats().InUse;got!=0 {t.Errorf("transfer: connections in use=%d, want 0",got)}
-  if err:=db.Close();err!=nil {t.Fatal(err)}
- }
-}
-`+accountDriver)
-}
-
 // The real-database helper in go-testing's INTEGRATION.md skips without a DSN
 // and closes the pool it opened. Its own blank import registers the driver in
 // the test binary: a local stub of github.com/jackc/pgx/v5/stdlib registers a

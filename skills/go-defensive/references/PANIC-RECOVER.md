@@ -4,6 +4,14 @@
 > Authority: advisory
 > Last verified: 2026-10-01
 
+## Contents
+
+- [Panic Guidelines](#panic-guidelines)
+  - [When to Panic](#when-to-panic)
+  - [Panic in Initialization](#panic-in-initialization)
+  - [When Panic IS Acceptable](#when-panic-is-acceptable)
+- [Recover in Goroutines and Middleware](#recover-in-goroutines-and-middleware)
+
 ## Panic Guidelines
 
 `panic` creates a run-time error that stops the program. An error caused by

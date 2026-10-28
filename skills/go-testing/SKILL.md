@@ -1,7 +1,6 @@
 ---
 name: go-testing
 description: Use when writing, reviewing, or improving Go test code — including table-driven tests, subtests, parallel tests, test helpers, test doubles, and assertions with cmp.Diff. Also use when a user asks to write a test for a Go function, even if they don't mention specific patterns like table-driven tests or subtests. Does not cover benchmark performance testing (see go-performance).
-allowed-tools: Bash(bash:*)
 ---
 
 # Go Testing
@@ -13,8 +12,6 @@ allowed-tools: Bash(bash:*)
 
 ## Resource Routing
 
-- `scripts/gen-table-test.sh` - Run from the project as `bash <installed-skill-dir>/scripts/gen-table-test.sh <FuncName> <package>` when generating a table-driven test scaffold.
-- `assets/table-test-template.go` - Use as a copyable table-test starting point.
 - `references/TEST-ORGANIZATION.md` - Read when choosing or naming test doubles, structuring packages, black-box tests, or larger test suites.
 - `references/VALIDATION-APIS.md` - Read when designing an exported validation function or a `*test` package that other packages' tests call.
 - `references/INTEGRATION.md` - Read when testing external services, HTTP handlers, databases, or long-running setup.
@@ -177,11 +174,10 @@ or multiple branches — write separate test functions instead.
 - Include inputs in failure messages — never identify rows by index
 - Subtest names are short and carry no `/`, which splits a `-run` pattern; no
   subtest depends on another's state or order
-- `t.Parallel()` on each subtest is the default for a pure function
-  (`gen-table-test.sh --parallel` emits it); leave it off when the table
-  touches globals, `t.Setenv`, `t.Chdir`, or a shared fixture. Under a `go`
-  directive of 1.22 or later no `tt := tt` capture line (`go fix -forvar`
-  removes one in touched lines); below 1.22 it stays.
+- `t.Parallel()` on each subtest is the default for a pure function; leave
+  it off when the table touches globals, `t.Setenv`, `t.Chdir`, or a shared
+  fixture. Under a `go` directive of 1.22 or later no `tt := tt` capture line
+  (`go fix -forvar` removes one in touched lines); below 1.22 it stays.
 
 A table holds the cases someone thought of. A parser, decoder, or encoder
 also gets a `FuzzX` seeded with the table's inputs and a property that needs

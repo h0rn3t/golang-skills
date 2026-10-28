@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"golang-skills/evals/internal/skillreads"
 )
 
 // Перші чотири поля зберігають legacy-визначення запитів, включно з
@@ -522,5 +524,8 @@ func printRoutingSummary(rep report, armName string) {
 	}
 	if refused > 0 {
 		fmt.Printf("%-24s   %d run(s) ended in a safety refusal (stop_reason refusal); read their traces before scoring them against the skills\n", "", refused)
+	}
+	if total, ok := rep.SkillReads[armName]; ok {
+		fmt.Printf("%-24s   %s (per file: skill_reads in the JSON report)\n", "", skillreads.Summary(total))
 	}
 }

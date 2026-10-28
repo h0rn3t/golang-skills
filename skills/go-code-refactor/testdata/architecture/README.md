@@ -32,6 +32,3 @@ Run from this directory:
 go vet ./... && go test ./...
 bash ../../scripts/check-architecture.sh .        # 0 violations
 ```
-
-`evals/architecture_test.go` in the repository compiles this fixture, runs the
-checker against it, and against copies with one forbidden edge added.

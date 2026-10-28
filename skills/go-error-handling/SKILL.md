@@ -1,7 +1,7 @@
 ---
 name: go-error-handling
 description: Use when returning, wrapping, or handling Go errors; choosing sentinels or custom errors; using errors.Is/As or %w; or deciding whether to log or return. Panic/recover belongs to go-defensive.
-allowed-tools: Bash(bash:*)
+allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 ---
 
 # Go Error Handling
@@ -13,7 +13,7 @@ allowed-tools: Bash(bash:*)
 ## Resource Routing
 
 - `scripts/check-errors.sh` - Run when checking string-based error matching and log-and-return patterns; `--bare-return` adds the opt-in bare `return err` review.
-- `scripts/check-errors-ast.go` - Implementation helper invoked by `check-errors.sh`; patch this when changing error-flow analysis behavior.
+- `scripts/check-errors-ast.go` - Implementation helper built and run by `check-errors.sh`; not run or read directly.
 
 ---
 

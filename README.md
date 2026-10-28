@@ -4,7 +4,7 @@
 
 AI [Agent Skills](https://agentskills.io/) for writing idiomatic,
 production-quality Go 1.27 code. The pack contains **24 modular skills**,
-**73 reference files**, **11 bundled scripts**, and **5 asset templates**.
+**72 reference files**, **10 bundled scripts**, and **4 asset templates**.
 The Claude Code plugin also ships a `go-verify` agent and hooks for routing and
 post-edit verification.
 
@@ -21,7 +21,7 @@ The current skill names are the directories under `skills/go-*/`.
 
 ## Bundled Scripts
 
-**11 scripts automate** common checks. They support `--help`, structured
+**10 scripts automate** common checks. They support `--help`, structured
 `--json` output, and documented exit codes; analysis scripts also support
 `--limit`, and file-writing scripts require `--force`.
 
@@ -136,7 +136,8 @@ from [`docs/PROJECT_INSTRUCTIONS.md`](docs/PROJECT_INSTRUCTIONS.md) into its
 `CLAUDE.md` or `AGENTS.md`: router first, then `go-style-core` with its
 idiom card, then only the owner skills the task needs. Under the Claude
 Code plugin the routing gate also holds each `.go` edit made through Edit,
-Write, or MultiEdit until those loads are recorded; a shell edit (`sed -i`,
+Write, or MultiEdit until those loads are recorded, and after an
+auto-compaction until they are made again; a shell edit (`sed -i`,
 `gofmt -w`) is not held, and without `go` on PATH the gate is off and says
 so once per session (`GOLANG_SKILLS_ROUTING_GATE=off` turns it off). The
 hooks need nothing beyond bash and Go: their parser is a small

@@ -13,6 +13,13 @@ has to exist *before* the first edit.
 
 ---
 
+## Contents
+
+- [The three tiers](#the-three-tiers)
+- [Measuring the blast radius](#measuring-the-blast-radius)
+- [Two things the coverage number will not tell you](#two-things-the-coverage-number-will-not-tell-you)
+- [Seams](#seams)
+
 ## The three tiers
 
 | Tier | Coverage of the touched lines | Strategy | Transforms allowed |

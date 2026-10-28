@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,7 +20,7 @@ import (
 	"strings"
 )
 
-const version = "1.0.0"
+const version = "1.1.0"
 
 // The layer vocabulary is project policy (ARCHITECTURE.md, "The preferred
 // layer names"); the checker recognizes exactly these directory names.
@@ -419,8 +420,18 @@ func parseArgs(args []string) (options, error) {
 	return o, nil
 }
 
+// starterConfig is printed when the config file is missing: the smallest file
+// each layout accepts, to be edited to the module's directories.
+const starterConfig = `  one service, layers directly under internal/:
+    {"layout": "layers", "known": []}
+  one directory per business module under internal/, each "layered" or "flat":
+    {"layout": "modules", "modules": {"<dir>": "layered"}, "platform": [], "known": []}`
+
 func loadConfig(path string) (*config, error) {
 	raw, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("%s not found; create it, or pass --config FILE. A minimal start (ARCHITECTURE-CHECKS.md documents every field):\n%s", path, starterConfig)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w (ARCHITECTURE-CHECKS.md documents the file)", path, err)
 	}
@@ -435,6 +446,22 @@ func loadConfig(path string) (*config, error) {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	return &cfg, nil
+}
+
+// requireModuleRoot runs before the config is read: without a go.mod in root,
+// go list fails with an error that names neither the directory nor the fix.
+func requireModuleRoot(root string) error {
+	if _, err := os.Stat(filepath.Join(root, "go.mod")); err == nil {
+		return nil
+	}
+	if abs, err := filepath.Abs(root); err == nil {
+		for dir := filepath.Dir(abs); dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
+			if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+				return fmt.Errorf("no go.mod in %s; its module's go.mod is in %s, so pass that directory", root, dir)
+			}
+		}
+	}
+	return fmt.Errorf("no go.mod in %s; pass the module root", root)
 }
 
 func goList(root string, args ...string) ([]byte, error) {
@@ -509,6 +536,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "error:", err)
 		return 2
 	}
+	if err := requireModuleRoot(o.root); err != nil {
+		fmt.Fprintln(stderr, "error:", err)
+		return 2
+	}
 	cfg, err := loadConfig(o.configPath)
 	if err != nil {
 		fmt.Fprintln(stderr, "error:", err)
@@ -575,7 +606,7 @@ func main() {
 	for _, a := range os.Args[1:] {
 		switch a {
 		case "-h", "--help":
-			fmt.Printf("check-architecture v%s - check internal/ imports against the layered-module policy\n\nUSAGE\n    check-architecture [--json] [--limit N] [--include-tests] [--config FILE] [module-root]\n\nExit 0 clean, 1 violations or a stale/duplicate/unexplained known entry, 2 error.\n", version)
+			fmt.Printf("check-architecture v%s - check internal/ imports against the layered-module policy\n\nUSAGE\n    check-architecture [--json] [--limit N] [--include-tests] [--config FILE] [module-root]\n\nExit 0 clean, 1 violations or a stale/duplicate/unexplained known entry, 2 error\n(no go.mod in module-root, checked first; a missing architecture.json prints a starter file).\n", version)
 			return
 		case "-v", "--version":
 			fmt.Printf("check-architecture v%s\n", version)

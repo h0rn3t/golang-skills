@@ -154,6 +154,59 @@ func TestRouterSectionsLead(t *testing.T) {
 	}
 }
 
+// TestCompactionKeepsPerEditRules pins the sections that must survive
+// auto-compaction, after which Claude Code re-attaches only the first 5,000
+// tokens of each invoked skill. Each heading starts within 13 KB, about 5,000
+// tokens at the 2.6 bytes per token these files average (measured with the
+// Opus 5.5 tokenizer on 2026-10-28), and before the reference material listed
+// after it, which is what moves past the cut instead.
+func TestCompactionKeepsPerEditRules(t *testing.T) {
+	t.Parallel()
+	const maxBytes = 13 * 1024
+	cases := []struct {
+		file, heading string
+		before        []string
+	}{
+		{"skills/go-code/SKILL.md", "## Close With The Gate", []string{"## Writing New Code"}},
+		{"skills/go-code-review/SKILL.md", "## Security", []string{"## HTTP"}},
+		{"skills/go-code-review/SKILL.md", "## HTTP", []string{"## Database"}},
+		{"skills/go-code-review/SKILL.md", "## Database", []string{"## Concurrency"}},
+		{"skills/go-code-review/SKILL.md", "## Testing", []string{"## Design", "## Style", "## Naming", "## Documentation"}},
+		{"skills/go-code-refactor/SKILL.md", "## Delete Before You Restructure", []string{"## Risk Tiers", "## When Not to Refactor"}},
+		{"skills/go-troubleshooting/SKILL.md", "## Fix and Regression Proof", []string{"## Symptom → First Capture", "## Reading Runtime Evidence"}},
+		{"skills/go-troubleshooting/SKILL.md", "## Investigation Result", []string{"## Symptom → First Capture", "## Reading Runtime Evidence"}},
+		{"skills/go-http/SKILL.md", "## Clients", []string{"## Partial Updates"}},
+	}
+	root := repoRoot(t)
+	for _, tc := range cases {
+		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(tc.file)))
+		if err != nil {
+			t.Fatalf("read %s: %v", tc.file, err)
+		}
+		offsets := map[string]int{}
+		off := 0
+		for ln := range strings.Lines(string(raw)) {
+			if strings.HasPrefix(ln, "## ") {
+				offsets[strings.TrimSuffix(ln, "\n")] = off
+			}
+			off += len(ln)
+		}
+		at, ok := offsets[tc.heading]
+		if !ok {
+			t.Errorf("%s: no heading %s", tc.file, tc.heading)
+			continue
+		}
+		if at > maxBytes {
+			t.Errorf("%s: %s starts %d bytes in, past the %d bytes compaction keeps", tc.file, tc.heading, at, maxBytes)
+		}
+		for _, later := range tc.before {
+			if other, ok := offsets[later]; !ok || other < at {
+				t.Errorf("%s: %s must come before %s", tc.file, tc.heading, later)
+			}
+		}
+	}
+}
+
 func TestHookPrintedLineIsConditional(t *testing.T) {
 	t.Parallel()
 	root := repoRoot(t)

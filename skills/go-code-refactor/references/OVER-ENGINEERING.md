@@ -5,8 +5,9 @@
 > Minimum Go: 1.27 baseline (the plugin repository's COMPATIBILITY.md); each table row names its own minimum
 > Last verified: 2026-10-01 against go1.27.1
 
-**Reach For What Go Ships** is normative whenever Go code is written, on any
-task, beside the [restraint ladder and Ship, Then Question](LADDER.md).
+**Reach For What Go Ships** is the replacement catalog for rungs 3 and 4 of
+the [restraint ladder](LADDER.md): read it when one of those rungs needs a
+concrete standard-library or toolchain replacement.
 
 **The audit lane** (from Tags on) applies when the wanted output is a ranked
 cut list, not a diff. Its scope is complexity only — correctness bugs, races,

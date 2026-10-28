@@ -118,8 +118,10 @@ that limit instead of promising exactly-once completion.
 
 Deduplication is not ordering: at-least-once delivery also delivers late, and
 an older event applied second reverts the row. An event that sets state
-carries a version or source timestamp, and the write keeps the newest:
-`UPDATE … SET status = \$1, version = \$2 WHERE id = \$3 AND version < \$2`.
+carries a version or source timestamp, and the write keeps the newest: the
+`UPDATE` sets the new version and matches only `WHERE id = … AND version <`
+the event's version, so an older event changes no row (the statement is in
+[RETRIES-AND-IDEMPOTENCY.md](references/RETRIES-AND-IDEMPOTENCY.md#durable-duplicate-handling)).
 
 ## Overload and Recovery
 

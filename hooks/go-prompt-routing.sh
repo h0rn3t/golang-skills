@@ -103,7 +103,13 @@ state="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/golang-skills-hooks}/routing/${sess
 has() { # has <file> <skill>
     [[ -f "$1" ]] && grep -qx -- "$2" "$1"
 }
-has "$state/loaded" "$skill" && exit 0
+# A load before the last compaction no longer counts (compacted holds the line
+# count of loaded then; go-code-routing.sh reads it the same way): a slash
+# command after it inserts the router again, and that insert is recorded.
+since=0
+[[ -f "$state/compacted" ]] && read -r since < "$state/compacted"
+[[ "$since" =~ ^[0-9]+$ ]] || since=0
+[[ -f "$state/loaded" ]] && tail -n "+$((since + 1))" "$state/loaded" | grep -qx -- "$skill" && exit 0
 if [[ "$mode" == "slash" ]]; then
     # The host inserted the skill file and called no tool, so record the load
     # here: go-code-routing.sh gates an edit only for a session whose `loaded`

@@ -51,9 +51,3 @@ func (c Config) timeout() (time.Duration, error) {
 An existing wire format that carries nanoseconds keeps working under v2 with
 the `jsonv1.FormatDurationAsNano(true)` option
 ([JSON-V2.md](../../go-http/references/JSON-V2.md) owns the v2 defaults).
-
-## Embedding in Public Structs
-
-Owned by [go-interfaces](../../go-interfaces/references/EMBEDDING.md#dont-embed-in-public-structs):
-an embedded type's method set becomes public API, so adding, removing, or
-replacing it is a breaking change. Use an unexported field and forward methods.

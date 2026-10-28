@@ -327,6 +327,95 @@ func TestRoutingGate(t *testing.T) {
 		}
 	})
 
+	// A compaction keeps at most the first 5,000 tokens of each skill, so the
+	// loads recorded before it no longer lift the requirement: the router and
+	// go-style-core are invoked again before the next .go edit. loaded stays
+	// whole for the verification gate; startup, resume, and a subagent's own
+	// loads are left alone.
+	t.Run("a compaction requires the router and go-style-core again", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		as := func(p map[string]any, agent string) map[string]any {
+			if agent != "" {
+				p["agent_id"], p["agent_type"] = agent, "general-purpose"
+			}
+			return p
+		}
+		load := func(agent, skill string) {
+			t.Helper()
+			hookEvent(t, script, state, as(routingPayload("PostToolUse", "c1", "Skill", map[string]any{"skill": skill}), agent))
+		}
+		edit := as(routingPayload("PreToolUse", "c1", "Write",
+			map[string]any{"file_path": "/repo/api/plain.go", "content": "package api\n"}), "")
+		subEdit := as(routingPayload("PreToolUse", "c1", "Write",
+			map[string]any{"file_path": "/repo/api/plain.go", "content": "package api\n"}), "a1")
+		for _, agent := range []string{"", "a1"} {
+			load(agent, "golang-skills:go-code")
+			load(agent, "golang-skills:go-style-core")
+		}
+		for _, source := range []string{"startup", "resume"} {
+			sessionStart(t, state, "c1", t.TempDir(), source)
+			if code, msg := hookEvent(t, script, state, edit); code != 0 {
+				t.Fatalf("edit after SessionStart %s: exit %d, stderr %q; want 0", source, code, msg)
+			}
+		}
+
+		// Outside a Go directory the note stays silent; the marker is written.
+		if out := sessionStart(t, state, "c1", t.TempDir(), "compact"); out != "" {
+			t.Errorf("compaction outside Go: stdout %q; want silent", out)
+		}
+		code, msg := hookEvent(t, script, state, edit)
+		if code != 2 {
+			t.Fatalf("first edit after a compaction: exit %d, stderr %q; want 2", code, msg)
+		}
+		for _, want := range []string{"compacted", "invoked again", "`golang-skills:go-code`", "`golang-skills:go-style-core`"} {
+			if !strings.Contains(msg, want) {
+				t.Errorf("block after a compaction must mention %s:\n%s", want, msg)
+			}
+		}
+		if raw, err := os.ReadFile(filepath.Join(state, "routing", "c1", "loaded")); err != nil || string(raw) != "go-code\ngo-style-core\n" {
+			t.Errorf("loaded after a compaction = %q, %v; want it unchanged for the verification gate", raw, err)
+		}
+		if code, msg := hookEvent(t, script, state, subEdit); code != 0 {
+			t.Errorf("subagent edit after the main thread's compaction: exit %d, stderr %q; want 0 on its own loads", code, msg)
+		}
+		if code, msg := hookEventEnv(t, script, state, edit, "GOLANG_SKILLS_ROUTING_GATE=off"); code != 0 || msg != "" {
+			t.Errorf("gate off after a compaction: exit %d, stderr %q; want silent 0", code, msg)
+		}
+
+		load("", "golang-skills:go-code")
+		code, msg = hookEvent(t, script, state, edit)
+		if code != 2 || !strings.Contains(msg, "`golang-skills:go-style-core`") || strings.Contains(msg, "`golang-skills:go-code`") {
+			t.Fatalf("edit after reloading go-code only: exit %d, stderr %q; want 2 naming go-style-core alone", code, msg)
+		}
+		load("", "golang-skills:go-style-core")
+		if code, msg := hookEvent(t, script, state, edit); code != 0 {
+			t.Fatalf("edit after reloading both: exit %d, stderr %q; want 0", code, msg)
+		}
+
+		// A second compaction moves the marker past the reloads.
+		sessionStart(t, state, "c1", t.TempDir(), "compact")
+		if code, msg := hookEvent(t, script, state, edit); code != 2 {
+			t.Fatalf("edit after a second compaction: exit %d, stderr %q; want 2", code, msg)
+		}
+	})
+
+	// With no router since the compaction, the entry skill is the router the
+	// session loaded before it, not the go-code default.
+	t.Run("after a compaction the entry is the router loaded before it", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		for _, skill := range []string{"golang-skills:go-code-refactor", "golang-skills:go-style-core"} {
+			hookEvent(t, script, state, routingPayload("PostToolUse", "c2", "Skill", map[string]any{"skill": skill}))
+		}
+		sessionStart(t, state, "c2", t.TempDir(), "compact")
+		code, msg := hookEvent(t, script, state, routingPayload("PreToolUse", "c2", "Write",
+			map[string]any{"file_path": "/repo/api/plain.go", "content": "package api\n"}))
+		if code != 2 || !strings.Contains(msg, "`golang-skills:go-code-refactor`") || strings.Contains(msg, "`golang-skills:go-code`") {
+			t.Fatalf("edit after compacting a refactor session: exit %d, stderr %q; want 2 naming go-code-refactor, not go-code", code, msg)
+		}
+	})
+
 	t.Run("GOLANG_SKILLS_ROUTING_GATE=off turns the gate off", func(t *testing.T) {
 		t.Parallel()
 		code, msg := hookEventEnv(t, script, t.TempDir(), routingPayload("PreToolUse", "s17", "Write",
@@ -1447,6 +1536,28 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
+	// A load from before a compaction does not silence the slash command: the
+	// host inserts the router again, the hook records it past the marker, and
+	// the gate then asks only for go-style-core.
+	t.Run("slash command after a compaction records the router again", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		gate := filepath.Join(repoRoot(t), "hooks", "go-code-routing.sh")
+		if _, out := promptEvent(t, state, "p31", t.TempDir(), "/go-code implement ./dispatch"); out == "" {
+			t.Fatal("first slash invocation: want the note")
+		}
+		hookEvent(t, gate, state, routingPayload("PostToolUse", "p31", "Skill", map[string]any{"skill": "golang-skills:go-style-core"}))
+		sessionStart(t, state, "p31", t.TempDir(), "compact")
+		if _, out := promptEvent(t, state, "p31", t.TempDir(), "/go-code implement ./dispatch"); !strings.Contains(out, "`/go-code`") {
+			t.Fatalf("slash invocation after a compaction: stdout %q; want the slash note again", out)
+		}
+		code, msg := hookEvent(t, gate, state, routingPayload("PreToolUse", "p31", "Write",
+			map[string]any{"file_path": "/repo/dispatch/run.go", "content": "package dispatch\n"}))
+		if code != 2 || !strings.Contains(msg, "`golang-skills:go-style-core`") || strings.Contains(msg, "`golang-skills:go-code`") {
+			t.Fatalf("edit after the slash reload: exit %d, stderr %q; want 2 naming go-style-core alone", code, msg)
+		}
+	})
+
 	t.Run("slash command for the other routers", func(t *testing.T) {
 		t.Parallel()
 		for _, router := range []string{"go-code-refactor", "go-code-review"} {
@@ -1646,6 +1757,24 @@ func subagentEvent(t *testing.T, event, cwd, agentType string, env ...string) (i
 	return exitErr.ExitCode(), subagentStdout(t, event, stdout.String())
 }
 
+// sessionStart runs go-subagent-routing.sh on SessionStart with source and
+// CLAUDE_PLUGIN_DATA=state, and returns its stdout, which the host adds to the
+// context as it is.
+func sessionStart(t *testing.T, state, session, cwd, source string) string {
+	t.Helper()
+	script := filepath.Join(repoRoot(t), "hooks", "go-subagent-routing.sh")
+	code, out, stderr := hookOutput(t, script, state, map[string]any{
+		"hook_event_name": "SessionStart",
+		"session_id":      session,
+		"cwd":             cwd,
+		"source":          source,
+	})
+	if code != 0 || stderr != "" {
+		t.Fatalf("SessionStart %s: exit %d, stderr %q; want 0 and no stderr", source, code, stderr)
+	}
+	return out
+}
+
 // TestSubagentRouting drives the SubagentStart hook: a subagent started in a
 // Go project is told which router to load, and so is the next one, since
 // each subagent starts with an empty context; a subagent started outside Go,
@@ -1724,6 +1853,39 @@ func TestSubagentRouting(t *testing.T) {
 		t.Parallel()
 		if code, out := subagentEvent(t, "SessionStart", t.TempDir(), ""); code != 0 || out != "" {
 			t.Fatalf("session start outside Go: exit %d, stdout %q; want silent 0", code, out)
+		}
+	})
+
+	// After a compaction the first edit is behind the session: the note asks
+	// for the skills before the next one and says why, in the same sentence
+	// shape. Only the compact source leaves a marker for the gate.
+	t.Run("compaction names the next edit; startup is unchanged", func(t *testing.T) {
+		t.Parallel()
+		state := t.TempDir()
+		hookEvent(t, filepath.Join(repoRoot(t), "hooks", "go-code-routing.sh"), state,
+			routingPayload("PostToolUse", "c3", "Skill", map[string]any{"skill": "golang-skills:go-code"}))
+		marker := filepath.Join(state, "routing", "c3", "compacted")
+
+		out := sessionStart(t, state, "c3", goDir, "startup")
+		if !strings.Contains(out, "Before the first edit, load the `golang-skills:go-code` skill") || strings.Contains(out, "compaction") {
+			t.Errorf("startup note changed:\n%s", out)
+		}
+		if _, err := os.Stat(marker); err == nil {
+			t.Errorf("startup wrote %s; only a compaction does", marker)
+		}
+
+		out = sessionStart(t, state, "c3", goDir, "compact")
+		for _, want := range []string{"compaction keeps at most the start of each loaded skill",
+			"Before the next edit, load the `golang-skills:go-code` skill", "name `golang-skills:go-style-core`", "one message"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("compaction note must mention %q:\n%s", want, out)
+			}
+		}
+		if strings.Contains(out, "Before the first edit") {
+			t.Errorf("compaction note still says the first edit:\n%s", out)
+		}
+		if raw, err := os.ReadFile(marker); err != nil || string(raw) != "1\n" {
+			t.Errorf("marker after compacting one load = %q, %v; want the line count of loaded, 1", raw, err)
 		}
 	})
 }

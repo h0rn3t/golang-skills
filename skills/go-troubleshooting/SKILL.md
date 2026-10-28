@@ -105,6 +105,65 @@ unknown. Return to step 3 before writing it:
 Any of these can be the right mitigation once the cause is recorded as
 unknown. It is not a fix, and the report says which of the two it is.
 
+## Live Capture Boundaries
+
+- `SIGQUIT` normally prints stacks **and exits a Go process**. Use an existing
+  admin dump first; termination is only an option within authorized scope.
+- Use access-controlled debug listeners. Dumps/profiles can expose internal
+  details; retain only relevant sanitized evidence, including in ticket drafts.
+- Profiling overhead varies by workload and capture type. Bound captures,
+  check available headroom, and avoid concurrent profiles that distort results.
+  Enabling endpoints, verbose logging, or attaching a stopping debugger changes
+  service behavior; do not treat these as passive reads.
+- `runtime/trace.FlightRecorder` (Go 1.25+) retains recent trace data when already
+  enabled, allowing a snapshot after a spike. Capture still has a cost.
+- Before a requested restart of the failing process, take the goroutine dump,
+  heap profile, and flight-recorder snapshot it allows: the restart destroys
+  the only evidence of the state.
+
+## Fix and Regression Proof
+
+Correct the earliest responsible boundary with the smallest attributable change.
+Use a shared function when its contract is wrong for all affected callers;
+otherwise fix the caller that violates its own contract. Do not change correct
+callers merely to centralize a ticket's special case. Preserve neighboring
+behavior outside the defect: a default for a missing input must not silently
+redefine explicit empty, zero, negative, or invalid inputs without evidence.
+
+The regression should fail for the original mechanism and pass after the fix.
+Write that failing test before the fix when it can reach the original
+mechanism: at the call site that failed, or at the shared function whose
+contract the fix corrects. A test that cannot — one caller when the bug needs
+several, or a unit that cannot rebuild the chain — does not lock the mechanism
+down: report that gap instead of adding the test. Cover the trigger and a
+nearby working case (for example, colliding IDs across tenants). After the fix,
+re-run the reproduction from before it was shrunk, when one exists. For
+nondeterminism, report runs/failures and seed or workload details; a lower
+failure rate is not proof of elimination. Preserve user changes: use an
+isolated copy/worktree or a reversible local comparison, never stash/discard
+the user's work by default. Run required checks through
+[go-linting](../go-linting/SKILL.md), reusing applicable unchanged evidence.
+
+## Investigation Result
+
+Lead with **confirmed**, **probable**, or **unresolved**, and the mechanism or
+remaining question. Include only what makes it assessable:
+
+- Expected/actual behavior and the affected version/environment.
+- Evidence chain with request IDs, source locations, query/profile observations;
+  distinguish supplied artifacts, static deductions, and executed checks.
+- Disproved hypotheses, relevant alternatives, and the next discriminating check
+  if unresolved. Missing access or a non-reproduction is not proof of absence.
+- In fix mode: change, regression before/after (including the reproduction from
+  before it was shrunk, when one exists), and required-check results. When no
+  test can reach the original mechanism, say so. Report unrun/unavailable checks honestly; a
+  proposed patch is not a verified fix.
+
+An investigation can be complete with an unresolved cause if the evidence limit
+and next useful check are explicit. Report length follows
+[go-style-core](../go-style-core/SKILL.md#how-much-to-say); no mandatory dossier
+for a one-line bug. Ticket publication requires the user's requested scope.
+
 ## Symptom → First Capture
 
 | Symptom | Capture first | Read for |
@@ -206,65 +265,6 @@ prints each time, until the polluting pair remains. Inspect ports, time, temp
 files, and cleanup.
 `testing/synctest` (Go 1.25+) can make supported concurrent time-based tests
 repeatable; it is not a universal replacement for real I/O or external systems.
-
-## Live Capture Boundaries
-
-- `SIGQUIT` normally prints stacks **and exits a Go process**. Use an existing
-  admin dump first; termination is only an option within authorized scope.
-- Use access-controlled debug listeners. Dumps/profiles can expose internal
-  details; retain only relevant sanitized evidence, including in ticket drafts.
-- Profiling overhead varies by workload and capture type. Bound captures,
-  check available headroom, and avoid concurrent profiles that distort results.
-  Enabling endpoints, verbose logging, or attaching a stopping debugger changes
-  service behavior; do not treat these as passive reads.
-- `runtime/trace.FlightRecorder` (Go 1.25+) retains recent trace data when already
-  enabled, allowing a snapshot after a spike. Capture still has a cost.
-- Before a requested restart of the failing process, take the goroutine dump,
-  heap profile, and flight-recorder snapshot it allows: the restart destroys
-  the only evidence of the state.
-
-## Fix and Regression Proof
-
-Correct the earliest responsible boundary with the smallest attributable change.
-Use a shared function when its contract is wrong for all affected callers;
-otherwise fix the caller that violates its own contract. Do not change correct
-callers merely to centralize a ticket's special case. Preserve neighboring
-behavior outside the defect: a default for a missing input must not silently
-redefine explicit empty, zero, negative, or invalid inputs without evidence.
-
-The regression should fail for the original mechanism and pass after the fix.
-Write that failing test before the fix when it can reach the original
-mechanism: at the call site that failed, or at the shared function whose
-contract the fix corrects. A test that cannot — one caller when the bug needs
-several, or a unit that cannot rebuild the chain — does not lock the mechanism
-down: report that gap instead of adding the test. Cover the trigger and a
-nearby working case (for example, colliding IDs across tenants). After the fix,
-re-run the reproduction from before it was shrunk, when one exists. For
-nondeterminism, report runs/failures and seed or workload details; a lower
-failure rate is not proof of elimination. Preserve user changes: use an
-isolated copy/worktree or a reversible local comparison, never stash/discard
-the user's work by default. Run required checks through
-[go-linting](../go-linting/SKILL.md), reusing applicable unchanged evidence.
-
-## Investigation Result
-
-Lead with **confirmed**, **probable**, or **unresolved**, and the mechanism or
-remaining question. Include only what makes it assessable:
-
-- Expected/actual behavior and the affected version/environment.
-- Evidence chain with request IDs, source locations, query/profile observations;
-  distinguish supplied artifacts, static deductions, and executed checks.
-- Disproved hypotheses, relevant alternatives, and the next discriminating check
-  if unresolved. Missing access or a non-reproduction is not proof of absence.
-- In fix mode: change, regression before/after (including the reproduction from
-  before it was shrunk, when one exists), and required-check results. When no
-  test can reach the original mechanism, say so. Report unrun/unavailable checks honestly; a
-  proposed patch is not a verified fix.
-
-An investigation can be complete with an unresolved cause if the evidence limit
-and next useful check are explicit. Report length follows
-[go-style-core](../go-style-core/SKILL.md#how-much-to-say); no mandatory dossier
-for a one-line bug. Ticket publication requires the user's requested scope.
 
 ## Related Skills
 

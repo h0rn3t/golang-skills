@@ -75,7 +75,7 @@ Pass `*slog.Logger` as a function parameter alongside context.
 
 ## What NOT to Log
 
-Secrets and credentials belong to [go-security](../../go-security/SKILL.md#secrets).
+A secret's redacting type is in [What NOT to Log](../SKILL.md#what-not-to-log); [go-security](../../go-security/SKILL.md#secrets) decides what counts as a secret.
 
 ### Personally Identifiable Information (PII)
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 SCRIPT_NAME="$(basename "$0")"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -40,8 +40,10 @@ DESCRIPTION
 
     A missing golangci-lint, or one that exits with an error rather than
     findings (exit code other than 0 or 1), is reported as unavailable (the
-    run is then INCOMPLETE, not clean); gofmt and go vet still run. Use
-    --strict where the linter is guaranteed (CI) to make that an error.
+    run is then INCOMPLETE, not clean); gofmt and go vet still run. A
+    missing one comes with the pinned go install command, which this script
+    never runs. Use --strict where the linter is guaranteed (CI) to make
+    that an error.
 
     A go vet that fails for the environment (no go.mod, a module or
     toolchain that cannot load, the network) is reported as unavailable too,
@@ -219,10 +221,14 @@ fi
 
 LINT_STATUS="unavailable"
 LINT_REASON="not installed"
+# Reported for a missing linter, never run: the version CI pins
+# (GOLANGCI_LINT_VERSION in validate-skills.yml).
+LINT_HINT="install: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 (this script does not run it)"
 LINT_OUTPUT=""
 LINT_BASELINE=false
 LINT_CONFIG=""
 if command -v golangci-lint &>/dev/null; then
+    LINT_HINT=""
     LINT_ARGS=(run)
     # golangci-lint looks for a config in the working directory and from the
     # path argument upward; without one, the go-linting baseline enables the
@@ -262,6 +268,7 @@ if command -v golangci-lint &>/dev/null; then
 fi
 if [[ "$LINT_STATUS" == "unavailable" ]] && $STRICT; then
     echo "error: golangci-lint unavailable: $LINT_REASON (--strict)" >&2
+    [[ -z "$LINT_HINT" ]] || echo "$LINT_HINT" >&2
     [[ -z "$LINT_OUTPUT" ]] || echo "$LINT_OUTPUT" >&2
     exit 2
 fi
@@ -412,6 +419,8 @@ if $JSON_OUTPUT; then
     $GOVET_TRUNCATED && GOVET_TRUNC=',"truncated":true'
     LINT_TRUNC=""
     $LINT_TRUNCATED && LINT_TRUNC=',"truncated":true'
+    LINT_HINT_FIELD=""
+    [[ -z "$LINT_HINT" ]] || LINT_HINT_FIELD=",\"hint\":\"$(json_escape "$LINT_HINT")\""
 
     BAR_DISPLAY=("${BAR_FINDINGS[@]+"${BAR_FINDINGS[@]}"}")
     BAR_TRUNC=""
@@ -430,7 +439,7 @@ if $JSON_OUTPUT; then
     BAR_JSON+="]"
 
     cat <<EOF
-{"gofmt":{"status":"$GOFMT_STATUS","files":$GOFMT_JSON$GOFMT_TRUNC},"govet":{"status":"$GOVET_STATUS","output":"$GOVET_ESC"$GOVET_TRUNC},"golangci_lint":{"status":"$LINT_STATUS","config":"$LINT_CONFIG","output":"$LINT_ESC"$LINT_TRUNC},"bar":{"status":"$BAR_STATUS","findings":$BAR_JSON$BAR_TRUNC},"passed":$( [[ $FAILED -eq 0 ]] && echo true || echo false ),"result":"$RESULT"}
+{"gofmt":{"status":"$GOFMT_STATUS","files":$GOFMT_JSON$GOFMT_TRUNC},"govet":{"status":"$GOVET_STATUS","output":"$GOVET_ESC"$GOVET_TRUNC},"golangci_lint":{"status":"$LINT_STATUS","config":"$LINT_CONFIG","output":"$LINT_ESC"$LINT_TRUNC$LINT_HINT_FIELD},"bar":{"status":"$BAR_STATUS","findings":$BAR_JSON$BAR_TRUNC},"passed":$( [[ $FAILED -eq 0 ]] && echo true || echo false ),"result":"$RESULT"}
 EOF
 else
     echo "=== gofmt ==="
@@ -482,6 +491,7 @@ else
     [[ "$LINT_CONFIG" == "defaults" ]] && echo "No project config and no go-linting baseline: linted with golangci-lint defaults; revive, godot, gosec, and modernize did not run"
     [[ -n "$NEW_FROM_REV" ]] && echo "Only issues new since $NEW_FROM_REV"
     [[ "$LINT_STATUS" == "unavailable" ]] && echo "Unavailable ($LINT_REASON)"
+    [[ -n "$LINT_HINT" ]] && echo "$LINT_HINT"
     if [[ "$LINT_STATUS" == "pass" ]]; then
         echo "OK"
     elif [[ -n "$LINT_OUTPUT" ]]; then

@@ -1,7 +1,7 @@
 ---
 name: go-naming
 description: Use when naming Go packages, types, functions, methods, variables, constants, or receiver names, including new types and exported APIs. Package organization belongs to go-packages.
-allowed-tools: Bash(bash:*)
+allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 ---
 
 # Go Naming Conventions
@@ -9,7 +9,7 @@ allowed-tools: Bash(bash:*)
 ## Resource Routing
 
 - `scripts/check-naming.sh` - Run when checking SCREAMING_SNAKE_CASE constants, `Get`-prefixed methods with no parameters, generic package names, or receivers named `this`/`self`.
-- `scripts/check-naming-ast.go` - Implementation helper invoked by `check-naming.sh`; patch this when changing what counts as a naming violation.
+- `scripts/check-naming-ast.go` - Implementation helper built and run by `check-naming.sh`; not run or read directly.
 - `references/IDENTIFIERS.md` - Read for the conventions themselves — package, interface, receiver, constant, initialism, getter and type-suffix names — when a choice for an exported identifier or package-level symbol is in doubt.
 - `references/REPETITION.md` - Read when names repeat package, receiver, type, or local context.
 - `references/VARIABLES.md` - Read when choosing local variable names, receiver names, or loop identifiers.
@@ -67,4 +67,4 @@ word; layer directories take the plural layer names `handlers`, `services`,
 
 - [go-interfaces](../go-interfaces/SKILL.md): pointer versus value receivers; their names are [IDENTIFIERS.md](references/IDENTIFIERS.md#receiver-names)'s Receiver Names.
 - [go-packages](../go-packages/SKILL.md): splitting packages, import collisions; package names are [IDENTIFIERS.md](references/IDENTIFIERS.md#package-names)'s Package Names.
-- [go-style-core](../go-style-core/SKILL.md): name length by scope, shadowing of built-ins, clarity against concision.
+- [go-style-core](../go-style-core/SKILL.md): shadowing of built-ins, clarity against concision; name length by scope is [VARIABLES.md](references/VARIABLES.md#length-proportional-to-scope).

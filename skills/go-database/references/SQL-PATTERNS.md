@@ -5,6 +5,16 @@
 
 # SQL Patterns
 
+## Contents
+
+- [Opening the pool once](#opening-the-pool-once)
+- [The repository boundary](#the-repository-boundary)
+- [Transaction helper](#transaction-helper)
+- [Batch lookup instead of a loop](#batch-lookup-instead-of-a-loop)
+- [Keyset pagination](#keyset-pagination)
+- [Nullable columns](#nullable-columns)
+- [ORM rules when the repository already has one](#orm-rules-when-the-repository-already-has-one)
+
 ## Opening the pool once
 
 ```go

@@ -16,7 +16,7 @@ description: Use when hardening Go API boundaries or checking slice/map copies, 
 - `references/GLOBAL-STATE.md` - Read when introducing or removing package globals.
 - `references/MUST-FUNCTIONS.md` - Read when deciding whether a panic-on-error helper is acceptable.
 - `references/PANIC-RECOVER.md` - Read when evaluating panic, recover, or crash containment.
-- `references/TIME-ENUMS-TAGS.md` - Read when a `time.Duration` or `time.Time` field crosses JSON or another wire format.
+- `references/TIME-ON-THE-WIRE.md` - Read when a `time.Duration` or `time.Time` field crosses JSON or another wire format.
 - `../go-http/references/JSON-V2.md` - Read when JSON v2 changes nil collections, tags, accepted input, or compatibility at an API boundary (Go 1.27+).
 
 ## Defensive Checklist Priority
@@ -118,7 +118,7 @@ Use `time.Time` and `time.Duration` for instants and spans in process, never
 raw integers. On the wire, `encoding/json/v2` (Go 1.27+) has no default
 representation for `time.Duration` and fails to marshal it, so a wire field is
 an integer with the unit in its name or a string parsed with
-`time.ParseDuration` ([TIME-ENUMS-TAGS.md](references/TIME-ENUMS-TAGS.md#json-fields)).
+`time.ParseDuration` ([TIME-ON-THE-WIRE.md](references/TIME-ON-THE-WIRE.md#json-fields)).
 
 ## Avoid Mutable Globals
 

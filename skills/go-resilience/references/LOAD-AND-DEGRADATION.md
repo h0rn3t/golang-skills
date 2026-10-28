@@ -4,6 +4,14 @@
 > Authority: normative for Go API behavior; advisory for pattern selection; project policy for capacity and fallback contracts
 > Last verified: 2026-09-05
 
+## Contents
+
+- [Bound What Actually Accumulates](#bound-what-actually-accumulates)
+- [Rate, Concurrency, and Scope](#rate-concurrency-and-scope)
+- [Breaker State and Composition](#breaker-state-and-composition)
+- [Fallback Preserves Meaning](#fallback-preserves-meaning)
+- [Observe and Exercise the Policy](#observe-and-exercise-the-policy)
+
 ## Bound What Actually Accumulates
 
 A semaphore limits work holding a permit, not goroutines waiting to acquire it.

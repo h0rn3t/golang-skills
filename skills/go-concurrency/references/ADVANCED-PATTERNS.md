@@ -7,6 +7,12 @@
 Situational patterns for bounded work, request/response multiplexing, and
 CPU-bound parallelization.
 
+## Contents
+
+- [Bounded Work with errgroup](#bounded-work-with-errgroup)
+- [Channels of Channels](#channels-of-channels)
+- [CPU-Bound Parallelization](#cpu-bound-parallelization)
+
 ## Bounded Work with errgroup
 
 When `go.mod` already requires `golang.org/x/sync`, use its `errgroup` for

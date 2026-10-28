@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -194,6 +197,57 @@ func TestParseArgsRejectsBadLimit(t *testing.T) {
 	o, err := parseArgs([]string{"--json", "--limit", "3", "--include-tests", "some/dir"})
 	if err != nil || !o.jsonOut || o.limit != 3 || !o.includeTests || o.root != "some/dir" || !strings.HasSuffix(o.configPath, "architecture.json") {
 		t.Fatalf("parseArgs = %+v, %v", o, err)
+	}
+}
+
+// The errors a first run meets name their fix: go.mod is checked before the
+// config, and a missing config prints a starter file.
+func TestRunExplainsMissingGoModAndConfig(t *testing.T) {
+	noModule := t.TempDir()
+	parent := t.TempDir()
+	if err := os.WriteFile(filepath.Join(parent, "go.mod"), []byte("module example.com/parent\n\ngo 1.27\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sub := filepath.Join(parent, "sub")
+	if err := os.Mkdir(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name, root, want string
+	}{
+		{"no go.mod", noModule, "no go.mod in " + noModule},
+		{"go.mod in a parent", sub, "its module's go.mod is in " + parent},
+		{"no architecture.json", parent, `{"layout": "layers", "known": []}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			if code := run([]string{tt.root}, &stdout, &stderr); code != 2 || !strings.Contains(stderr.String(), tt.want) {
+				t.Errorf("run(%q) = %d, stderr %q; want 2 and %q", tt.root, code, stderr.String(), tt.want)
+			}
+		})
+	}
+}
+
+// Each starter the missing-config error prints is a file the checker accepts.
+func TestStarterConfigsLoad(t *testing.T) {
+	loaded := 0
+	for line := range strings.Lines(starterConfig) {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "{") {
+			continue
+		}
+		path := filepath.Join(t.TempDir(), "architecture.json")
+		if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := loadConfig(path); err != nil {
+			t.Errorf("loadConfig(%s) = %v, want the printed starter accepted", line, err)
+		}
+		loaded++
+	}
+	if loaded != 2 {
+		t.Errorf("starterConfig holds %d JSON lines, want one per layout (2)", loaded)
 	}
 }
 

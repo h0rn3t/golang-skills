@@ -1,7 +1,7 @@
 ---
 name: go-performance
 description: Use when optimizing slow or performance-critical Go code, allocations, string concatenation in loops, or benchmarks. Also use when writing or reviewing a cache, including implementing one from a stub — its key, its expiry, and how a miss loads. Concurrent code patterns belong to go-concurrency.
-allowed-tools: Bash(bash:*)
+allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 ---
 
 # Go Performance Patterns
@@ -13,7 +13,7 @@ allowed-tools: Bash(bash:*)
 ## Resource Routing
 
 - `scripts/bench-compare.sh` - Run when comparing benchmark results, saving baselines, or producing JSON benchmark metadata.
-- `scripts/bench-verdict.go` - The statistics helper `bench-compare.sh --verdict` builds; `scripts/bench-verdict_test.go` holds its unit tests.
+- `scripts/bench-verdict.go` - The statistics helper `bench-compare.sh --verdict` builds and calls; `scripts/bench-verdict_test.go` holds its unit tests. Neither is run or read directly.
 - `references/BENCHMARKS.md` - Read when writing benchmarks, using benchstat, or profiling with pprof.
 - `references/STRING-OPTIMIZATION.md` - Read when optimizing concatenation or memory retained by substrings.
 

@@ -59,7 +59,7 @@ the complete-buffer approach in [go-http](../SKILL.md#bounded-response-bodies).
 | Duplicate names and invalid UTF-8 | Rejected | `jsontext.AllowDuplicateNames(true)`, `jsontext.AllowInvalidUTF8(true)`, only when the existing contract accepts them |
 | Map order | Unspecified | `Deterministic(true)` for sorted keys |
 | `omitempty` | Omits empty JSON values, not Go zero numbers/bools | Review tags; use `omitzero` when Go zero values are intended |
-| `time.Duration` | No default representation: marshal and unmarshal fail with a `SemanticError` | `jsonv1.FormatDurationAsNano(true)` restores v1 nanoseconds; a new field takes a wire form from [go-defensive](../../go-defensive/references/TIME-ENUMS-TAGS.md#json-fields) |
+| `time.Duration` | No default representation: marshal and unmarshal fail with a `SemanticError` | `jsonv1.FormatDurationAsNano(true)` restores v1 nanoseconds; a new field takes a wire form from [go-defensive](../../go-defensive/references/TIME-ON-THE-WIRE.md#json-fields) |
 | `string` option on a string or bool field | Runtime `SemanticError` (invalid use of `string` tag option) | `jsonv1.StringifyWithLegacySemantics(true)`, or drop the option |
 | `<`, `>`, `&` in strings | Written as is; v1 writes `\u003c`, `\u003e`, `\u0026` | `jsontext.EscapeForHTML(true)` |
 | `MarshalJSON` on a pointer receiver | Called on non-addressable values too, where v1 skipped it | `jsonv1.CallMethodsWithLegacySemantics(true)` |

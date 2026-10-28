@@ -4,6 +4,15 @@
 > Authority: normative for example naming and package-comment rules
 > Last verified: 2026-09-10
 
+## Contents
+
+- [Package Comments](#package-comments)
+  - [Main Packages](#main-packages)
+  - [doc.go](#docgo)
+- [Runnable Examples](#runnable-examples)
+  - [Naming Conventions](#naming-conventions)
+  - [Tips](#tips)
+
 ## Package Comments
 
 > **Normative**: Every package must have exactly one package comment.

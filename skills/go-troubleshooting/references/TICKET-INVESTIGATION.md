@@ -8,6 +8,14 @@ Use the ticket as an index into evidence. Its title, suggested fix, and apparent
 component are leads, not established causes. A pasted report is sufficient to
 start; tracker access is optional.
 
+## Contents
+
+- [Establish a Concrete Case](#establish-a-concrete-case)
+- [Verify What Actually Runs](#verify-what-actually-runs)
+- [Compare a Working Case](#compare-a-working-case)
+- [Keep Hypotheses Testable](#keep-hypotheses-testable)
+- [Close in the Requested Mode](#close-in-the-requested-mode)
+
 ## Establish a Concrete Case
 
 Extract what is available; do not send a questionnaire for facts already in the

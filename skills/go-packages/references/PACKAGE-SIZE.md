@@ -52,7 +52,9 @@ Prefer explicit functions over `init()`.
 
 For complex CLIs with subcommands, use `flag.NewFlagSet` per subcommand with
 `flag.ContinueOnError`, so `run` returns the parse error and `main` stays the
-only exit. `Parse` has already printed that error and the usage when it
+only exit. `run` writes to the `stdout` and `stderr` it is given, and
+`fs.SetOutput(stderr)` sends the flag set's messages there too, so a test
+reads them. `Parse` has already printed that error and the usage when it
 returns, so `main` prints only the other errors, and exits 2 only for a usage
 error:
 
@@ -61,7 +63,7 @@ error:
 var errUsage = errors.New("usage error")
 
 func main() {
-    err := run(os.Args[1:])
+    err := run(os.Args[1:], os.Stdout, os.Stderr)
     switch {
     case err == nil, errors.Is(err, flag.ErrHelp):
     case errors.Is(err, errUsage):
@@ -72,14 +74,15 @@ func main() {
     }
 }
 
-func run(args []string) error {
+func run(args []string, stdout, stderr io.Writer) error {
     if len(args) == 0 {
-        fmt.Fprintln(os.Stderr, "usage: tool serve|migrate [flags]")
+        fmt.Fprintln(stderr, "usage: tool serve|migrate [flags]")
         return errUsage
     }
     switch args[0] {
     case "serve":
         fs := flag.NewFlagSet("serve", flag.ContinueOnError)
+        fs.SetOutput(stderr)
         port := fs.Int("port", 8080, "listen port")
         if err := fs.Parse(args[1:]); err != nil {
             return fmt.Errorf("%w: %w", errUsage, err)
@@ -87,13 +90,14 @@ func run(args []string) error {
         return serve(*port)
     case "migrate":
         fs := flag.NewFlagSet("migrate", flag.ContinueOnError)
+        fs.SetOutput(stderr)
         dryRun := fs.Bool("dry_run", false, "print changes without applying them")
         if err := fs.Parse(args[1:]); err != nil {
             return fmt.Errorf("%w: %w", errUsage, err)
         }
-        return migrate(*dryRun)
+        return migrate(stdout, *dryRun)
     default:
-        fmt.Fprintf(os.Stderr, "unknown command %q\nusage: tool serve|migrate [flags]\n", args[0])
+        fmt.Fprintf(stderr, "unknown command %q\nusage: tool serve|migrate [flags]\n", args[0])
         return errUsage
     }
 }

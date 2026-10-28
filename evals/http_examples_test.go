@@ -121,7 +121,7 @@ func TestBody(t *testing.T) {
 // a null required member without touching the record — a slice field
 // included, which v2 would decode into the record's own array.
 func TestHTTPExamplePartialUpdate(t *testing.T) {
-	code := exampleBlock(t, "skills/go-http/SKILL.md", "### Partial Updates")
+	code := exampleBlock(t, "skills/go-http/SKILL.md", "## Partial Updates")
 	runExampleTest(t, `package example
 import (json "encoding/json/v2"; "net/http"; "net/http/httptest"; "reflect"; "slices"; "strings"; "testing")
 type Account struct { Email, Phone, PasswordHash string; Tags []string }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-VERSION="1.3.0"
+VERSION="1.4.0"
 SCRIPT_NAME="$(basename "$0")"
 
 usage() {
@@ -14,6 +14,10 @@ USAGE
 DESCRIPTION
     Captures build, vet, test, and race results, with informational lint findings.
     Matching records alone do not prove that observable behavior is unchanged.
+    A race check the toolchain refuses to run here (no cgo outside macOS, or a
+    GOOS/GOARCH without the race detector) is recorded as "race: skip (cgo
+    unavailable)" or "race: skip (unsupported platform)": a skip to report,
+    not a failure.
 
     Modes:
       baseline      Record the state before any edit
@@ -51,6 +55,10 @@ ARGUMENTS
     mode             baseline | after | diff | leaks | loc-baseline | loc-diff
     path             Package pattern (default: ./...); the loc modes count the
                      directory it names, recursively
+
+ENVIRONMENT
+    GO_TEST_TIMEOUT  -timeout for each go test run: the test, race, and leaks
+                     runs (default: 5m)
 
 EXAMPLES
     bash $SCRIPT_NAME baseline ./...
@@ -661,7 +669,23 @@ cat "$TEST_RAW" >>"$LOG"
 grep -E '^[[:space:]]*--- (PASS|FAIL|SKIP):' "$TEST_RAW" 2>/dev/null \
     | sed -E 's/ \([0-9.]+s\)//' | sort >>"$SUMMARY" || true
 
-run_step race go test -count=1 -race -timeout "$GO_TEST_TIMEOUT" "$TARGET"
+# -race needs cgo everywhere but macOS, and a GOOS/GOARCH the race detector
+# supports. Without either the go command refuses before building anything:
+# the check could not run, which is a skip, not a red baseline.
+echo "=== race ===" >>"$LOG"
+RACE_STATUS="pass"
+if ! RACE_OUT="$(go test -count=1 -race -timeout "$GO_TEST_TIMEOUT" "$TARGET" 2>&1)"; then
+    if grep -q '^go: -race requires cgo' <<< "$RACE_OUT"; then
+        RACE_STATUS="skip (cgo unavailable)"
+    elif grep -q '^-race is not supported on ' <<< "$RACE_OUT"; then
+        RACE_STATUS="skip (unsupported platform)"
+    else
+        RACE_STATUS="fail"
+        FAILED=1
+    fi
+fi
+printf '%s\n' "$RACE_OUT" >>"$LOG"
+record race "$RACE_STATUS"
 
 # Pending modernizations, informational: excluded from the strict summary
 # because a refactor is expected to reduce them, not hold them equal.
@@ -678,6 +702,9 @@ elif [[ -n "$FIX_ERR" ]]; then
     printf '=== go fix -diff ===\n%s\n' "$FIX_ERR" >>"$LOG"
 fi
 
+# Printed when golangci-lint is missing, never run: the version is the one CI
+# pins (GOLANGCI_LINT_VERSION in validate-skills.yml).
+LINT_INSTALL="go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0"
 LINT_FINDINGS="n/a"
 LINT_STATUS="unavailable"
 LINT_EXIT_CODE=null
@@ -698,9 +725,9 @@ if command -v golangci-lint &>/dev/null; then
 fi
 
 if $JSON_OUTPUT; then
-    printf '{"mode":"%s","target":"%s","toolchain":"%s","go_directive":"%s","gofmt":"%s","summary_path":"%s","fix_pending_lines":"%s","lint_findings":"%s","lint_status":"%s","lint_exit_code":%s,"lint_log_path":"%s","passed":%s}\n' \
+    printf '{"mode":"%s","target":"%s","toolchain":"%s","go_directive":"%s","gofmt":"%s","race":"%s","summary_path":"%s","fix_pending_lines":"%s","lint_findings":"%s","lint_status":"%s","lint_exit_code":%s,"lint_log_path":"%s","passed":%s}\n' \
         "$MODE" "$(json_escape "$TARGET")" "$(json_escape "${GO_VERSION:-unknown}")" \
-        "$(json_escape "${GO_DIRECTIVE:-none}")" "$GOFMT_STATUS" \
+        "$(json_escape "${GO_DIRECTIVE:-none}")" "$GOFMT_STATUS" "$RACE_STATUS" \
         "$(json_escape "$SUMMARY")" "$FIX_PENDING" "$LINT_FINDINGS" \
         "$LINT_STATUS" "$LINT_EXIT_CODE" "$(json_escape "$LINT_LOG")" \
         "$( [[ $FAILED -eq 0 ]] && echo true || echo false )"
@@ -710,12 +737,14 @@ else
     apply_limit "$(cat "$SUMMARY")"
     printf '%s\n' "$LIMITED_TEXT"
     $TRUNCATED && echo "... (truncated at $LIMIT lines)"
+    [[ "$RACE_STATUS" == skip* ]] && echo "race not run: report it as skipped, not as pass"
     echo "go fix pending: $FIX_PENDING diff lines (informational)"
     echo "lint: $LINT_STATUS; findings: $LINT_FINDINGS (informational)"
     if [[ -n "$LINT_LOG" ]]; then
         echo "lint exit: $LINT_EXIT_CODE; log: $LINT_LOG"
     else
         echo "lint unavailable: golangci-lint not found in PATH"
+        echo "install: $LINT_INSTALL (this script does not run it)"
     fi
     echo "--- full log: $LOG ---"
     if [[ "$MODE" == "baseline" && "$FAILED" -eq 1 ]]; then

@@ -7,6 +7,13 @@
 This reference provides detailed guidance on naming variables in Go, covering scope-based
 naming, single-letter conventions, and avoiding type redundancy.
 
+## Contents
+
+- [Length Proportional to Scope](#length-proportional-to-scope)
+- [Single-Letter Variables](#single-letter-variables)
+- [Avoid Type in Variable Name](#avoid-type-in-variable-name)
+- [Unexported Globals](#unexported-globals)
+
 ## Length Proportional to Scope
 
 > **Advisory**: Short names for small scopes, longer names for large scopes.

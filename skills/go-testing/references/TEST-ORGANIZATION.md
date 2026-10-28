@@ -6,6 +6,14 @@
 
 ---
 
+## Contents
+
+- [Test Double Types](#test-double-types)
+- [Test Double Naming Conventions](#test-double-naming-conventions)
+- [Standalone Test Helper Packages](#standalone-test-helper-packages)
+- [Test Packages](#test-packages)
+- [Setup Scoping](#setup-scoping)
+
 ## Test Double Types
 
 | Double | Purpose | State? | Verifies calls? |

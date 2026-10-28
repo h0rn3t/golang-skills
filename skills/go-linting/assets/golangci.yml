@@ -112,6 +112,9 @@ linters:
       - examples$
 
 issues:
+  # 0 = no cap. The defaults (50 per linter, 3 per identical text) hide the
+  # repeats of a finding, so a fix looks complete while copies remain; bound
+  # what reaches a reader with a script's --limit instead.
   max-issues-per-linter: 0
   max-same-issues: 0
 

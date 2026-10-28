@@ -117,8 +117,12 @@ func ladderParse() {
 	fmt.Println(word)
 }
 
-// subagentParse prints the event when go-subagent-routing.sh should print its
-// note: a session or a Go-writing subagent starting in a directory with Go.
+// subagentParse prints three lines for go-subagent-routing.sh: the event when
+// the hook should print its note (a session or a Go-writing subagent starting
+// in a directory with Go), else an empty line; the session id; and the
+// SessionStart source (startup, resume, clear, compact). The session and the
+// source are printed without the note too: a compaction is recorded whatever
+// the directory holds.
 func subagentParse() {
 	d, ok := readEvent()
 	if !ok {
@@ -128,13 +132,18 @@ func subagentParse() {
 	if eventName != "SubagentStart" && eventName != "SessionStart" {
 		return
 	}
+	note := eventName
 	// SessionStart has no agent; the filter is only for a subagent.
-	if eventName == "SubagentStart" && skippedAgent(d.str("agent_type")) {
-		return
+	if (eventName == "SubagentStart" && skippedAgent(d.str("agent_type"))) || !hasGoFiles(d.str("cwd")) {
+		note = ""
 	}
-	if hasGoFiles(d.str("cwd")) {
-		fmt.Println(eventName)
+	source := ""
+	if eventName == "SessionStart" {
+		source = d.str("source")
 	}
+	fmt.Println(note)
+	fmt.Println(oneLine(d.sessionID()))
+	fmt.Println(oneLine(source))
 }
 
 var (

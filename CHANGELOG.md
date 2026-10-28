@@ -4,6 +4,111 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+Stage 1 of the 2026-10-28 review against Anthropic's skill guidance: no
+wording change that needs a model run; moved sections keep their text.
+Haiku 5.5 abrun (medium, n=3, 1.45.2 / this tree): refactor golden 100% both,
+−17.3 / −16.7 lines; review recall 0.89 / 0.90; implement golden 97% / 100%.
+zoning, pooled to n=8, writes 5 more lines (p=0.02) as its longest function
+drops from 47 to 40 lines.
+
+- Section order for compaction, which keeps the first 5,000 tokens of each
+  skill (boundaries measured with the Opus 5.5 tokenizer, not bytes/2.6):
+  go-code-review's checklist follows its own risk order (Less Code,
+  Correctness, Security, HTTP, Database, Concurrency, Resilience, Testing, then
+  the rest), so Testing's probe rows start at about 4.1K tokens instead of
+  past the cut; go-code-refactor puts What "Identical Behavior" Means and
+  Delete Before You Restructure right after the Workflow (both end by about
+  4.9K tokens of the injected body; Risk Tiers and When Not to Refactor
+  follow); go-troubleshooting moves
+  Live Capture Boundaries, Fix and Regression Proof, and Investigation Result
+  ahead of the symptom tables; go-http moves Partial Updates to the end, so
+  Clients starts at about 4.2K; go-code moves Close With The Gate after the
+  routing table and Business Rules to the end of Writing New Code.
+  `TestCompactionKeepsPerEditRules` pins the order. go-style-core's How Much To
+  Say stays where it is: its idiom card already ends near 5.8K, and moving the
+  section ahead of it would push the Go 1.27 table rows past the cut.
+- hooks: after auto-compaction the routing gate requires the router,
+  `go-style-core`, and the edit's owners to be invoked again before the next
+  `.go` edit. SessionStart with `source: compact` writes a `compacted` marker
+  holding the line count of `loaded`, and the PreToolUse gate counts only
+  loads recorded after it (`loaded` stays whole for the verification gate).
+  The session note says "before the next edit", a `/go-code` typed after a
+  compaction is recorded again, and with no router reloaded the gate asks for
+  the one the session used before compaction.
+- `allowed-tools` is `Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)` instead of
+  `Bash(bash:*)`, which also passed any `bash -c`; go-linting adds the hook's
+  receipt verifier. A `claude -p` smoke run on go-naming ran the script
+  without a prompt and refused a `; echo` appended to it. `TestStructure`
+  accepts no other grant.
+- No `\$N` in a SKILL.md: Codex and opencode show the backslash and the copied
+  query fails in PostgreSQL. go-database's transaction keeps the Go shape
+  and states the lock-order and `RETURNING` rules in prose (the whole transfer
+  stays in SQL-PATTERNS.md); go-resilience's versioned `UPDATE` moved to
+  RETRIES-AND-IDEMPOTENCY.md. `TestSkillBodyArgumentPlaceholders` now rejects
+  the escaped form too.
+- Removed go-testing's `gen-table-test.sh` and `assets/table-test-template.go`
+  (the scaffold compiled only for `func(string) string`), with go-testing's
+  `allowed-tools`, and go-code-refactor's ARCHITECTURE-EXAMPLES.md (dated
+  summaries of community READMEs). Counts: 72 reference files, 10 scripts,
+  4 asset templates.
+- verify-refactor.sh records a race check it cannot run as a skip: without
+  cgo (outside macOS) or on a GOOS/GOARCH without the race detector,
+  baseline and after record `race: skip (cgo unavailable)` or
+  `skip (unsupported platform)` instead of `race: fail` and a red baseline;
+  `--json` gains a `race` field, and `--help` documents `GO_TEST_TIMEOUT`
+  (default 5m).
+- check-architecture.sh checks for `go.mod` before reading the config and
+  reports "no go.mod in <dir>" (naming the parent module's directory when
+  there is one) instead of the raw `go list` error; a missing
+  `architecture.json` prints a minimal starter file for each layout.
+- setup-lint.sh, pre-review.sh, and verify-refactor.sh print the pinned
+  `go install …golangci-lint@v2.15.0` for a missing golangci-lint and never
+  run it; `pre-review.sh --json` adds `golangci_lint.hint` in that case.
+  `TestLintInstallPinMatchesCI` keeps every install command in `skills/` and
+  `docs/` on CI's `GOLANGCI_LINT_VERSION`, and go-release-watch lists the new
+  places to bump.
+- The baseline golangci.yml says why `max-issues-per-linter: 0` and
+  `max-same-issues: 0` lift the caps: the defaults (50 per linter, 3 per
+  identical text) hide repeats of a finding.
+- check-interface-compliance.sh `--help` documents what it lists
+  (producer-side interfaces; a finding asks whether a consumer needs the
+  interface, not for a compile-time assertion), exit codes 0/1/2, and the
+  `status` values.
+- evalrun: trigger evals accept an optional `should_not_trigger` list, and a
+  case fails when one of those skills fires. The JSON report adds per-case
+  `not_want`, `unwanted`, and `precision` (expected skills fired / all go-*
+  skills fired) and a pooled `trigger_precision`, also appended to `summary`;
+  existing fields are unchanged. A case expecting only an owner counts go-code
+  and go-style-core against precision, so compare it between runs, not with 1.
+- evalrun and abrun count Read calls per skill file (`go-*/SKILL.md`,
+  `go-*/references/*.md`) from the transcript: `skill_reads` per session and a
+  report total (per arm in abrun) that lists every file with 0 for one never
+  read. evalrun quality sessions now pass `--verbose` so the JSON output
+  carries the transcript. Claude runner only.
+- `TestLeakValidationEvals` flags a validation quality eval whose prompt
+  reappears in skill text (3+ shared word 5-grams or 2+ non-standard-library
+  identifiers, each in at most two skill files). The known leaks carry their
+  evidence passage, and the test fails once one stops leaking: 19, 34–39, 57,
+  59 from the review, and 31, 63, 70, which the guard found.
+- References over 100 lines with more than one section carry `## Contents`
+  (17 added; the bar was 200). A SKILL.md is capped at 26 KB beside the
+  400-line cap, as a ceiling on growth.
+- go-packages: the subcommand example's `run` takes `stdout` and `stderr` and
+  sets `fs.SetOutput(stderr)`, as the rule in the body says, and both files
+  show the same `main`; the example test now checks what reaches `stderr`.
+- Links and names: the four AST helpers say "built and run by the script; not
+  run or read directly" instead of "patch this"; go-performance and
+  go-code-refactor say the same of their Go helpers and tests;
+  go-defensive's TIME-ENUMS-TAGS.md is TIME-ON-THE-WIRE.md, without the
+  embedding stub; go-naming routes name length to VARIABLES.md;
+  LEVELS-AND-CONTEXT.md routes the redaction form to go-logging's What NOT to
+  Log; WEB-SERVER.md drops the one-row Skills Applied table;
+  OVER-ENGINEERING.md reads Reach For What Go Ships for ladder rungs 3 and 4,
+  as the routers do; go-code-refactor routes its architecture fixture and the
+  fixture README drops the note about this repository's tests; MODERNIZATION.md
+  drops the `verify-refactor.sh leaks` row, which collects no profile;
+  go-code-review's step 3 passes `--limit 50` when there is no diff.
+
 ## [1.45.2] - 2026-10-28
 
 - go-performance: the snapshot directory is `.perf-snap/1` in the project

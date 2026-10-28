@@ -1,7 +1,7 @@
 ---
 name: go-code-review
 description: Use when reviewing Go code, checking community style, or preparing to submit a Go PR, including a final review of Go changes without an explicit style-review request.
-allowed-tools: Bash(bash:*)
+allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 ---
 
 # Go Code Review Checklist
@@ -37,7 +37,8 @@ allowed-tools: Bash(bash:*)
 3. From the project, run `bash <installed-skill-dir>/scripts/pre-review.sh ./...` plus
    `go fix -diff <packages in the diff>`; for a diff against a revision add
    `--new-from-rev <base>`, which narrows gofmt and lint to the diff and lists
-   its `bar` moves. Write the path itself into the command:
+   its `bar` moves. With no diff, add `--limit 50`: unbounded, a whole
+   module's findings fill the context. Write the path itself into the command:
    `<installed-skill-dir>` is the base directory the host printed when
    it loaded this skill, or the directory this SKILL.md was read from (under
    Codex, `~/.codex/skills/go-code-review` or `~/.agents/skills/go-code-review`);
@@ -85,45 +86,6 @@ allowed-tools: Bash(bash:*)
 - [ ] **Failure paths**: every error branch, timeout, and partial write leaves state a caller can recover from — read each with the failing call moved one line earlier
 - [ ] **Unknown members fail loudly**: a `default:`, a map read, or a `, _` type assertion over a closed set that answers an unknown member with `0`, `""`, or a plausible value is a Must Fix when a member can be added without a compile error → [IOTA.md](../go-style-core/references/IOTA.md#unknown-members-fail-loudly)
 
-## Design
-
-- [ ] **Reduced, not relocated**: a restructuring makes declarations, branches, or packages stop existing; the same count moved to another file or layer is a finding, not a cleanup → [go-code-refactor](../go-code-refactor/SKILL.md#delete-before-you-restructure)
-- [ ] **Feature logic in its owner**: a branch, type, or query for one feature added to a shared package (`util`, `common`, `internal/platform`, a global `models`), or a special case for one caller inside a function others share, moves to the package that owns the concept → [ARCHITECTURE.md](../go-code-refactor/references/ARCHITECTURE.md#when-the-smell-is-architectural)
-- [ ] **The same switch again**: a case added in lock-step to the same switch over a type tag or state, at its third site, is a missing table or interface; one switch is not → [CATALOG.md](../go-code-refactor/references/CATALOG.md#replace-repeated-switch-with-polymorphism)
-- [ ] **One change**: a diff that restructures and changes behavior is two changes; ask for the split, or name the hunks that claim to preserve behavior and hold them to that → [go-code-refactor](../go-code-refactor/SKILL.md#what-identical-behavior-means)
-
-## Documentation
-
-- [ ] **Package comments**: Package comment appears adjacent to package clause with no blank line → [go-documentation](../go-documentation/SKILL.md)
-
-## Error Handling
-
-- [ ] **Every error is handled**: returned, wrapped once, or logged once; a `_` on an error value is a finding unless the line says why → [go-error-handling](../go-error-handling/SKILL.md)
-- [ ] **In-band errors**: No magic values (-1, "", nil); use multiple returns with error or ok bool → [go-error-handling](../go-error-handling/SKILL.md)
-- [ ] **Indent error flow**: Handle errors first and return; keep normal path at minimal indentation → [go-style-core](../go-style-core/SKILL.md#reduce-nesting)
-
-## Naming
-
-- [ ] **Package names**: No stuttering (use `chubby.File` not `chubby.ChubbyFile`); avoid `util`, `common`, `misc` → [go-naming](../go-naming/SKILL.md)
-- [ ] **Built-in names stay free**: `error`, `string`, `len`, `cap`, `append`, `copy`, `new`, `make` name only the builtins; a local of that name is a finding → [go-style-core](../go-style-core/SKILL.md)
-
-## Concurrency
-
-- [ ] **Goroutine lifetimes**: Clear when/whether goroutines exit; document if not obvious → [go-concurrency](../go-concurrency/SKILL.md)
-- [ ] **Contexts**: the first parameter, passed through every call that can block or be cancelled; a `ctx` field in a struct or a custom Context type is a finding → [go-context](../go-context/SKILL.md)
-
-## Interfaces
-
-- [ ] **Interfaces where they are consumed**: an interface appears when a consumer substitutes implementations, declared in the consumer's package; one declared beside its only implementation "for mocking" is a finding → [go-interfaces](../go-interfaces/SKILL.md)
-- [ ] **Receiver type**: Use pointer if mutating, has sync fields, or is large; value for small immutable types; don't mix → [go-interfaces](../go-interfaces/SKILL.md)
-
-## Data Structures
-
-- [ ] **Empty list on a v1 wire**: in a package on `encoding/json` v1, a list the contract writes as `[]` keeps `out := make([]T, 0, n)`, since v1 writes nil as `null`; a change to `var out []T` there is a finding → [go-data-structures](../go-data-structures/SKILL.md#declaring-empty-slices)
-- [ ] **A map reset after a burst**: `clear(m)` or a `delete` loop on a map one window, scan, or sweep grows to a peak keeps that peak table for the life of the process; a fresh `make` is the reset, Should Fix → [go-data-structures](../go-data-structures/SKILL.md#a-map-never-shrinks)
-- [ ] **Copy depth**: check the ownership contract: `slices.Clone`/`maps.Clone` are shallow, and a type's `Clone` follows its documented contract. Flag a copy that violates the contract or an unrequested depth change presented as cleanup; a deeper copy that fixes an existing contract violation is a bug fix → [go-defensive](../go-defensive/references/BOUNDARY-COPYING.md#copy-depth-is-part-of-the-contract)
-- [ ] **Copying values**: do not copy structs containing locks or other synchronization values after use (`go vet` copylocks reports the copy) → [go-functions](../go-functions/SKILL.md#pointers-to-interfaces); a value receiver on a type with `*T` methods is a finding, except encoders and `String` beside pointer decoders → [go-interfaces](../go-interfaces/SKILL.md#receiver-type)
-
 ## Security
 
 - [ ] **Trace untrusted input to its sink**: SQL, shell, template, file path, outbound URL, log line — each has a stdlib defense at the boundary → [go-security](../go-security/SKILL.md)
@@ -133,29 +95,6 @@ allowed-tools: Bash(bash:*)
 - [ ] **Secrets**: constant-time compare, memory-hard password hash, no credential in a log or error, `InsecureSkipVerify` only in tests → [go-security](../go-security/SKILL.md)
 - [ ] **Errors over panics**: a failure the caller can act on returns an error; `panic` marks a programmer error the process cannot continue past → [go-defensive](../go-defensive/SKILL.md)
 
-## Declarations and Initialization
-
-- [ ] **Group similar**: Related `var`/`const`/`type` in parenthesized blocks; separate unrelated → [go-style-core](../go-style-core/SKILL.md)
-- [ ] **var vs :=**: Use `var` for intentional zero values; `:=` for explicit assignments → [go-style-core](../go-style-core/SKILL.md)
-- [ ] **Reduce scope**: Move declarations close to usage; use if-init to limit variable scope → [go-style-core](../go-style-core/SKILL.md)
-- [ ] **Struct init**: Prefer keyed fields; preserve meaningful zero values and local exceptions → [go-style-core](../go-style-core/SKILL.md)
-
-## Functions
-
-- [ ] **File ordering**: Types → constructors → exported methods → unexported → utilities → [go-functions](../go-functions/SKILL.md)
-- [ ] **Naked parameters**: Add `/* name */` comments for ambiguous bool/int args, or use custom types → [go-functions](../go-functions/SKILL.md)
-- [ ] **Looks additive**: an appended parameter, variadic included, an interface method, a non-comparable field, a field in an unkeyed literal, or a promoted method breaks importers that already compiled → [go-functions](../go-functions/SKILL.md#changing-an-exported-api)
-
-## Style
-
-- [ ] **Current Go**: Changed lines use the form available at the `go` directive; an older idiom kept because the neighbor uses it is Should Fix, and `go fix -diff` on the diff's packages reports nothing in changed lines; the forms are one line each on the [idiom card](../go-style-core/SKILL.md#current-go-idiom-card) → [go-style-core](../go-style-core/SKILL.md#write-current-go)
-- [ ] **Pass values**: small fixed-size types (`string`, `time.Time`, a few ints) travel by value; a pointer parameter means mutation or identity → [go-functions](../go-functions/SKILL.md)
-
-## Logging
-
-- [ ] **Use slog**: a package with no logger uses `log/slog`, not `log` or `fmt.Println`, for operational logging; one already on `log`, zap, or logrus keeps it, and a migration is its own change → [go-logging](../go-logging/SKILL.md)
-- [ ] **Structured fields**: Log messages use static strings with key-value attributes, not fmt.Sprintf → [go-logging](../go-logging/SKILL.md)
-
 ## HTTP
 
 - [ ] **Server timeouts**: `http.Server` with `ReadHeaderTimeout` set; no bare `http.ListenAndServe` → [go-http](../go-http/SKILL.md)
@@ -163,11 +102,6 @@ allowed-tools: Bash(bash:*)
 - [ ] **Error mapping**: Sentinels map to status codes; 500 responses never carry `err.Error()` → [go-http](../go-http/SKILL.md)
 - [ ] **Clients**: Per-dependency `*http.Client` with `Timeout`; `NewRequestWithContext`; body closed on every path → [go-http](../go-http/SKILL.md)
 - [ ] **Partial updates**: a PATCH unmarshals onto the loaded writable fields; an absent member stays, `null` clears it, and an unknown member or `password_hash` is a 400 → [go-http](../go-http/SKILL.md#partial-updates)
-
-## Resilience
-
-- [ ] **Retries**: replay only when the contract allows it; the attempt count includes the first and shares the caller's deadline; backoff is capped, jittered, and cancelled with the caller; `Retry-After` is a lower bound under that deadline → [go-resilience](../go-resilience/SKILL.md#retry-invariants)
-- [ ] **Idempotency**: one key per logical operation, enforced by the receiver; a new attempt reuses the key already sent → [go-resilience](../go-resilience/SKILL.md#idempotency-and-delivery)
 
 ## Database
 
@@ -177,19 +111,15 @@ allowed-tools: Bash(bash:*)
 - [ ] **No query per row**: Batch with `ANY`/`IN` or a join; placeholders, never string-built SQL → [go-database](../go-database/SKILL.md)
 - [ ] **Exhausted pool**: `WaitCount` climbing is fixed where connections are held — rows left open, a transaction kept across a network call — not by raising `SetMaxOpenConns` past the process budget → [go-database](../go-database/SKILL.md#sqldb-is-a-pool)
 
-## Performance
+## Concurrency
 
-- [ ] **Cache key and load**: only a measured expensive read-mostly value is cached; the key holds every input, the tenant or caller from `ctx` included; one stated expiry; a failed load is not kept; concurrent misses share one load and the lock is not held across it; growth is bounded → [go-performance](../go-performance/SKILL.md#caching)
+- [ ] **Goroutine lifetimes**: Clear when/whether goroutines exit; document if not obvious → [go-concurrency](../go-concurrency/SKILL.md)
+- [ ] **Contexts**: the first parameter, passed through every call that can block or be cancelled; a `ctx` field in a struct or a custom Context type is a finding → [go-context](../go-context/SKILL.md)
 
-## Generics
+## Resilience
 
-- [ ] **When to use**: Only when multiple types share identical logic and interfaces don't suffice → [go-generics](../go-generics/SKILL.md)
-- [ ] **Type aliases**: Use definitions for new types; aliases only for package migration → [go-generics](../go-generics/SKILL.md)
-
-## Dependencies
-
-- [ ] **One module per bump**: each changed `require` line has a reason; a minor or major bump had its release notes read, the indirect versions it raised in `go.mod` and `go.sum` are reviewed with it, and a bulk `go get -u` is split → [go-packages](../go-packages/SKILL.md#adding-and-auditing-dependencies)
-- [ ] **The `go` line**: raising the `go` directive changes language semantics and `GODEBUG` defaults at once; it is its own change, never a rider on a feature → [MODERNIZATION.md](../go-code-refactor/references/MODERNIZATION.md#tier-3--report-dont-apply)
+- [ ] **Retries**: replay only when the contract allows it; the attempt count includes the first and shares the caller's deadline; backoff is capped, jittered, and cancelled with the caller; `Retry-After` is a lower bound under that deadline → [go-resilience](../go-resilience/SKILL.md#retry-invariants)
+- [ ] **Idempotency**: one key per logical operation, enforced by the receiver; a new attempt reuses the key already sent → [go-resilience](../go-resilience/SKILL.md#idempotency-and-delivery)
 
 ## Testing
 
@@ -211,6 +141,77 @@ sed '14s/!=/==/' "$f" > "$m/check.go"              # invert one condition
 printf '{"Replace":{"%s":"%s"}}' "$f" "$m/check.go" > "$m/overlay.json"
 go test -count=1 -overlay="$m/overlay.json" ./internal/pay/
 ```
+
+## Data Structures
+
+- [ ] **Empty list on a v1 wire**: in a package on `encoding/json` v1, a list the contract writes as `[]` keeps `out := make([]T, 0, n)`, since v1 writes nil as `null`; a change to `var out []T` there is a finding → [go-data-structures](../go-data-structures/SKILL.md#declaring-empty-slices)
+- [ ] **A map reset after a burst**: `clear(m)` or a `delete` loop on a map one window, scan, or sweep grows to a peak keeps that peak table for the life of the process; a fresh `make` is the reset, Should Fix → [go-data-structures](../go-data-structures/SKILL.md#a-map-never-shrinks)
+- [ ] **Copy depth**: check the ownership contract: `slices.Clone`/`maps.Clone` are shallow, and a type's `Clone` follows its documented contract. Flag a copy that violates the contract or an unrequested depth change presented as cleanup; a deeper copy that fixes an existing contract violation is a bug fix → [go-defensive](../go-defensive/references/BOUNDARY-COPYING.md#copy-depth-is-part-of-the-contract)
+- [ ] **Copying values**: do not copy structs containing locks or other synchronization values after use (`go vet` copylocks reports the copy) → [go-functions](../go-functions/SKILL.md#pointers-to-interfaces); a value receiver on a type with `*T` methods is a finding, except encoders and `String` beside pointer decoders → [go-interfaces](../go-interfaces/SKILL.md#receiver-type)
+
+## Error Handling
+
+- [ ] **Every error is handled**: returned, wrapped once, or logged once; a `_` on an error value is a finding unless the line says why → [go-error-handling](../go-error-handling/SKILL.md)
+- [ ] **In-band errors**: No magic values (-1, "", nil); use multiple returns with error or ok bool → [go-error-handling](../go-error-handling/SKILL.md)
+- [ ] **Indent error flow**: Handle errors first and return; keep normal path at minimal indentation → [go-style-core](../go-style-core/SKILL.md#reduce-nesting)
+
+## Performance
+
+- [ ] **Cache key and load**: only a measured expensive read-mostly value is cached; the key holds every input, the tenant or caller from `ctx` included; one stated expiry; a failed load is not kept; concurrent misses share one load and the lock is not held across it; growth is bounded → [go-performance](../go-performance/SKILL.md#caching)
+
+## Design
+
+- [ ] **Reduced, not relocated**: a restructuring makes declarations, branches, or packages stop existing; the same count moved to another file or layer is a finding, not a cleanup → [go-code-refactor](../go-code-refactor/SKILL.md#delete-before-you-restructure)
+- [ ] **Feature logic in its owner**: a branch, type, or query for one feature added to a shared package (`util`, `common`, `internal/platform`, a global `models`), or a special case for one caller inside a function others share, moves to the package that owns the concept → [ARCHITECTURE.md](../go-code-refactor/references/ARCHITECTURE.md#when-the-smell-is-architectural)
+- [ ] **The same switch again**: a case added in lock-step to the same switch over a type tag or state, at its third site, is a missing table or interface; one switch is not → [CATALOG.md](../go-code-refactor/references/CATALOG.md#replace-repeated-switch-with-polymorphism)
+- [ ] **One change**: a diff that restructures and changes behavior is two changes; ask for the split, or name the hunks that claim to preserve behavior and hold them to that → [go-code-refactor](../go-code-refactor/SKILL.md#what-identical-behavior-means)
+
+## Functions
+
+- [ ] **File ordering**: Types → constructors → exported methods → unexported → utilities → [go-functions](../go-functions/SKILL.md)
+- [ ] **Naked parameters**: Add `/* name */` comments for ambiguous bool/int args, or use custom types → [go-functions](../go-functions/SKILL.md)
+- [ ] **Looks additive**: an appended parameter, variadic included, an interface method, a non-comparable field, a field in an unkeyed literal, or a promoted method breaks importers that already compiled → [go-functions](../go-functions/SKILL.md#changing-an-exported-api)
+
+## Interfaces
+
+- [ ] **Interfaces where they are consumed**: an interface appears when a consumer substitutes implementations, declared in the consumer's package; one declared beside its only implementation "for mocking" is a finding → [go-interfaces](../go-interfaces/SKILL.md)
+- [ ] **Receiver type**: Use pointer if mutating, has sync fields, or is large; value for small immutable types; don't mix → [go-interfaces](../go-interfaces/SKILL.md)
+
+## Dependencies
+
+- [ ] **One module per bump**: each changed `require` line has a reason; a minor or major bump had its release notes read, the indirect versions it raised in `go.mod` and `go.sum` are reviewed with it, and a bulk `go get -u` is split → [go-packages](../go-packages/SKILL.md#adding-and-auditing-dependencies)
+- [ ] **The `go` line**: raising the `go` directive changes language semantics and `GODEBUG` defaults at once; it is its own change, never a rider on a feature → [MODERNIZATION.md](../go-code-refactor/references/MODERNIZATION.md#tier-3--report-dont-apply)
+
+## Style
+
+- [ ] **Current Go**: Changed lines use the form available at the `go` directive; an older idiom kept because the neighbor uses it is Should Fix, and `go fix -diff` on the diff's packages reports nothing in changed lines; the forms are one line each on the [idiom card](../go-style-core/SKILL.md#current-go-idiom-card) → [go-style-core](../go-style-core/SKILL.md#write-current-go)
+- [ ] **Pass values**: small fixed-size types (`string`, `time.Time`, a few ints) travel by value; a pointer parameter means mutation or identity → [go-functions](../go-functions/SKILL.md)
+
+## Logging
+
+- [ ] **Use slog**: a package with no logger uses `log/slog`, not `log` or `fmt.Println`, for operational logging; one already on `log`, zap, or logrus keeps it, and a migration is its own change → [go-logging](../go-logging/SKILL.md)
+- [ ] **Structured fields**: Log messages use static strings with key-value attributes, not fmt.Sprintf → [go-logging](../go-logging/SKILL.md)
+
+## Generics
+
+- [ ] **When to use**: Only when multiple types share identical logic and interfaces don't suffice → [go-generics](../go-generics/SKILL.md)
+- [ ] **Type aliases**: Use definitions for new types; aliases only for package migration → [go-generics](../go-generics/SKILL.md)
+
+## Declarations and Initialization
+
+- [ ] **Group similar**: Related `var`/`const`/`type` in parenthesized blocks; separate unrelated → [go-style-core](../go-style-core/SKILL.md)
+- [ ] **var vs :=**: Use `var` for intentional zero values; `:=` for explicit assignments → [go-style-core](../go-style-core/SKILL.md)
+- [ ] **Reduce scope**: Move declarations close to usage; use if-init to limit variable scope → [go-style-core](../go-style-core/SKILL.md)
+- [ ] **Struct init**: Prefer keyed fields; preserve meaningful zero values and local exceptions → [go-style-core](../go-style-core/SKILL.md)
+
+## Naming
+
+- [ ] **Package names**: No stuttering (use `chubby.File` not `chubby.ChubbyFile`); avoid `util`, `common`, `misc` → [go-naming](../go-naming/SKILL.md)
+- [ ] **Built-in names stay free**: `error`, `string`, `len`, `cap`, `append`, `copy`, `new`, `make` name only the builtins; a local of that name is a finding → [go-style-core](../go-style-core/SKILL.md)
+
+## Documentation
+
+- [ ] **Package comments**: Package comment appears adjacent to package clause with no blank line → [go-documentation](../go-documentation/SKILL.md)
 
 ## Related Skills
 

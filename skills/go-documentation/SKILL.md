@@ -1,7 +1,7 @@
 ---
 name: go-documentation
 description: Use when writing or reviewing Go doc comments, or creating exported types, functions, or packages even without a documentation request. Internal code comments belong to go-style-core.
-allowed-tools: Bash(bash:*)
+allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 ---
 
 # Go Documentation
@@ -12,7 +12,7 @@ allowed-tools: Bash(bash:*)
 ## Resource Routing
 
 - `scripts/check-docs.sh` - Run when checking exported functions, types, methods, constants, and packages for missing doc comments.
-- `scripts/check-docs-ast.go` - Implementation helper invoked by `check-docs.sh`; patch this when changing documentation analysis behavior.
+- `scripts/check-docs-ast.go` - Implementation helper built and run by `check-docs.sh`; not run or read directly.
 - `assets/doc-template.go` - Use when starting a documented package or exported API.
 - `references/CONVENTIONS.md` - Read when documenting parameters, context behavior, concurrency safety, cleanup, errors, named results, or a deprecation.
 - `references/EXAMPLES.md` - Read when adding runnable examples or package examples.

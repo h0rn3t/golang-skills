@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="1.0.0"
+VERSION="1.1.0"
 
 for arg in "$@"; do
     case "$arg" in
@@ -27,8 +27,10 @@ RULES
     references/ARCHITECTURE-CHECKS.md documents each one and the config file.
 
 EXIT CODES
-    0 clean; 1 violations or a bad known entry; 2 error (no go.mod, package
-    load failure, missing or invalid config, bad flag)
+    0 clean; 1 violations or a bad known entry; 2 error (no go.mod in
+    module-root, checked before the config; package load failure; missing
+    or invalid config, where a missing one prints a minimal starter file;
+    bad flag)
 HELPTEXT
             exit 0
             ;;

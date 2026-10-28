@@ -11,6 +11,13 @@ is [go-packages](../../go-packages/SKILL.md)'s call.
 
 ---
 
+## Contents
+
+- [Breaking an import cycle](#breaking-an-import-cycle)
+- [Moving a type: alias for gradual repair](#moving-a-type-alias-for-gradual-repair)
+- [Changing an exported API](#changing-an-exported-api)
+- [Common mistakes](#common-mistakes)
+
 ## Breaking an import cycle
 
 Four fixes, in preference order:

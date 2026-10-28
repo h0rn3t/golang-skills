@@ -8,6 +8,13 @@ Read when the shape of a Contract Table case or a Plain Code body is in
 doubt. The rules live in the parent skill; this file only shows them applied
 once.
 
+## Contents
+
+- [A Contract Table](#a-contract-table)
+- [A Plain Code Body](#a-plain-code-body)
+- [A Name Used Once](#a-name-used-once)
+- [A Helper That Earns Its Line](#a-helper-that-earns-its-line)
+
 ## A Contract Table
 
 One case per observable clause, the class clause taken from the member a

@@ -157,13 +157,13 @@ return errors.
 
 **Why**: Non-obvious control flow, untestable, `defer` statements skipped.
 
-**Best practice**: Use the `run()` pattern — extract logic into
-`func run() error`, call from `main()` with a single exit point:
+**Best practice**: Use the `run()` pattern — extract logic into a `run` that
+returns an error, called from `main()` with a single exit point:
 
 ```go
 func main() {
-    if err := run(); err != nil {
-        slog.Error("run", "err", err)
+    if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
+        fmt.Fprintln(os.Stderr, err)
         os.Exit(1)
     }
 }

@@ -9,6 +9,14 @@ Use for PostgreSQL tasks only. Establish the server version, existing schema,
 query patterns, and migration runner's transaction behavior before choosing DDL.
 Preserve the repository's driver and migration tooling.
 
+## Contents
+
+- [Constraints express domain rules](#constraints-express-domain-rules)
+- [Indexes and conflict handling](#indexes-and-conflict-handling)
+- [Read the plan before adding an index](#read-the-plan-before-adding-an-index)
+- [Evolve live tables in stages](#evolve-live-tables-in-stages)
+- [Defaults are not historical data](#defaults-are-not-historical-data)
+
 ## Constraints express domain rules
 
 - `CHECK (amount > 0)` accepts `NULL`; add `NOT NULL` only if absence is invalid.

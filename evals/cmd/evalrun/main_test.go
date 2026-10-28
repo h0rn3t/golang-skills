@@ -87,6 +87,51 @@ func TestStreamError(t *testing.T) {
 	}
 }
 
+func TestTriggered(t *testing.T) {
+	tests := []struct {
+		name          string
+		want, notWant []string
+		got           []string
+		pass          bool
+	}{
+		{name: "expected fired", want: []string{"go-context"}, got: []string{"go-context", "go-style-core"}, pass: true},
+		{name: "expected missing", want: []string{"go-context"}, got: []string{"go-concurrency"}},
+		{name: "neighbor fired too", want: []string{"go-context"}, notWant: []string{"go-concurrency"}, got: []string{"go-concurrency", "go-context"}},
+		{name: "neighbor quiet", want: []string{"go-context"}, notWant: []string{"go-concurrency"}, got: []string{"go-context", "go-style-core"}, pass: true},
+		{name: "negative quiet", pass: true},
+		{name: "negative fired", got: []string{"go-code"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := map[string]bool{}
+			for _, name := range tt.got {
+				got[name] = true
+			}
+			if pass := triggered(tt.want, tt.notWant, got); pass != tt.pass {
+				t.Errorf("triggered(%q, %q, %q) = %t, want %t", tt.want, tt.notWant, tt.got, pass, tt.pass)
+			}
+		})
+	}
+}
+
+func TestTriggerPrecision(t *testing.T) {
+	results := []triggerResult{
+		{Want: []string{"go-context"}, Got: []string{"go-concurrency", "go-context"}},
+		{Want: []string{"go-http", "go-security"}, Got: []string{"go-http", "go-security"}},
+		{Want: nil, Got: []string{"go-code"}},
+		{Want: []string{"go-testing"}},
+		// An errored session's partial transcript is left out of the pool.
+		{Want: []string{"go-naming"}, Got: []string{"go-code", "go-packages"}, Err: "timed out"},
+	}
+	// 1 of 2, 2 of 2, 0 of 1, nothing fired: 3 of 5.
+	if got := triggerPrecision(results); got == nil || *got != 0.6 {
+		t.Errorf("triggerPrecision(results) = %v, want 0.6", got)
+	}
+	if got := triggerPrecision([]triggerResult{{Want: []string{"go-testing"}}}); got != nil {
+		t.Errorf("triggerPrecision(nothing fired) = %v, want nil", *got)
+	}
+}
+
 func TestQualityToolArgs(t *testing.T) {
 	tests := []struct {
 		name string

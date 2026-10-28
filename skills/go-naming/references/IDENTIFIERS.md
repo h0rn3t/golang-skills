@@ -7,6 +7,15 @@
 Detailed rules and examples for naming Go packages, interfaces, receivers,
 constants, initialisms, and functions.
 
+## Contents
+
+- [Package Names](#package-names)
+- [Interface Names](#interface-names)
+- [Receiver Names](#receiver-names)
+- [Constant Names](#constant-names)
+- [Initialisms and Acronyms](#initialisms-and-acronyms)
+- [Function and Method Names](#function-and-method-names)
+
 ## Package Names
 
 > **Normative**: Packages must be lowercase with no underscores.

@@ -1,7 +1,7 @@
 ---
 name: go-code-refactor
 description: Use when refactoring, cleaning up, simplifying, restructuring, or modernizing existing Go code while keeping observable behavior identical — reducing nesting, splitting long functions, deleting dead code, renaming for clarity, or adopting newer Go APIs. Also use when a user hands over a Go file or package and calls it messy, hard to follow, too long, bloated, over-engineered, or outdated, even if they never say "refactor", and when an existing Go monolith needs an architecture proposal — layers, modules, package boundaries, a god package to split — before or instead of a rewrite. Does not cover writing new Go code or the style rules themselves (see go-style-core and the rule owners).
-allowed-tools: Bash(bash:*)
+allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 ---
 
 # Go Refactoring
@@ -28,9 +28,9 @@ target project using the resolved absolute script path.
 - `references/ARCHITECTURE.md` - Only when the smell is package-scale (a god package, shared global layers, drivers in services, a cycle) or the ask names architecture, layers, modules, or a monolith.
 - `references/ARCHITECTURE-BEHAVIOR.md` - Before moving code a use case's atomicity, error identity, or authorization passes through.
 - `references/ARCHITECTURE-CHECKS.md` - When installing or reading the architecture checker.
-- `references/ARCHITECTURE-EXAMPLES.md` - Only when an example is needed to explain an architecture choice.
+- `testdata/architecture/README.md` - When a staged plan needs a compilable layered example.
 - `scripts/check-architecture.sh` - Run from the module root to check `internal/` imports against `architecture.json`; exit 1 on a violation or a stale `known` entry, 2 when a package fails to load or the policy is missing.
-- `scripts/check-architecture.go` - The checker the wrapper builds; `scripts/check-architecture_test.go` holds its unit tests.
+- `scripts/check-architecture.go` - The checker the wrapper builds and runs; `scripts/check-architecture_test.go` holds its unit tests. Neither is run or read directly.
 - `references/STRUCTURAL.md` - Before moving a type between packages, breaking an import cycle, or changing an exported API.
 - `references/MODERNIZATION.md` - When a hunk adopts a newer API or `go fix -diff` proposes one: safe, conditional, report-only.
 - `references/LADDER.md` - When a step adds a helper, type, layer, option, or import.
@@ -194,54 +194,6 @@ invisible breakages compilation misses.
 
 Use `assets/refactor-report.md`; report skipped checks as skipped.
 
-## When Not to Refactor
-
-> **Normative**: A refactor is an investment repaid by a future change. With no
-> change coming to spend it on, it is churn carrying a nonzero chance of
-> breaking something that works.
-
-Two cases can make the honest deliverable a sentence rather than a diff. Say
-which one applies and stop only when the requested refactor has no concrete
-readability cost or future change to repay it.
-
-| Case | What to do instead |
-|---|---|
-| The code works and nothing planned will touch it again | Name it and stop; a stable, rarely-read package earns nothing from being restructured for its own sake |
-| No purpose behind "refactor this" — no upcoming feature, no bug class, no smell a review flagged | Name the purpose you inferred and refactor to *that*; if there is none, say so in the report |
-
-Two other cases change the sequence, not cancel the work:
-
-- **Critical path with no tests** — add characterization coverage first
-  ([SAFETY-NET.md](references/SAFETY-NET.md)); continue once the net can support
-  the behavior promise, otherwise report exactly what remains unproved.
-- **Minimal change under time pressure** — make the minimal safe change the
-  user requested and propose the larger refactor separately.
-
-None of these is a licence to skip authorized work that has a concrete purpose.
-Deliver the refactor asked for at the scope intended: "while I'm here" fixes and
-a modernization that quietly becomes a migration dilute the guarantee — every
-line the refactor touches takes the current form
-([Write Current Go](../go-style-core/SKILL.md#write-current-go)); the untouched
-rest is proposed, not rewritten. A structural problem a readability pass
-cannot solve gets one sentence in the report.
-
-## Risk Tiers
-
-The tier sets what has to be true *before* the step, and pairs with the coverage
-tiers in [SAFETY-NET.md](references/SAFETY-NET.md): low coverage on the blast
-radius pushes every transform up a tier except those its Low / zero row allows.
-
-| Tier | Transforms | Required before the step |
-|---|---|---|
-| **Low** | `go fix` inline of a `//go:fix inline` function; rename of an unexported symbol with no reflection or string-based contract; extract variable or constant (not an operand of `&&`/`||` or a call with side effects: that is Medium); `gofmt -s`; organize imports; guard clauses | Baseline plus the focused check after it |
-| **Medium** | Extract function or method, inline across packages, adding or removing one parameter, introducing generics, a bulk rewrite ([MECHANICAL.md](references/MECHANICAL.md)) | Tests that provably reach the touched lines |
-| **High** | Signature change across many callers, cross-package moves, package split or merge, breaking an import cycle, a module or layer boundary move (`references/ARCHITECTURE.md`), any exported API change | Full net, and it is a findings-list item unless the user asked for it |
-
-`go fix` inline keeps behavior or leaves the call alone. A rename that
-compiles is not proven safe: rename may introduce dynamic errors through
-reflection, templates, serialization conventions, or indirect interface
-assertions.
-
 ## What "Identical Behavior" Means
 
 > **Normative**: Anything an outside observer could notice must not move.
@@ -290,6 +242,54 @@ Apply the shorter form only where it reads as well; never golf.
 **Never simplify away** input validation at trust boundaries, error handling
 that prevents data loss, or security checks. A "simplification" that drops a
 bounds check is a bug, not laziness. These stay even when the diff gets uglier.
+
+## Risk Tiers
+
+The tier sets what has to be true *before* the step, and pairs with the coverage
+tiers in [SAFETY-NET.md](references/SAFETY-NET.md): low coverage on the blast
+radius pushes every transform up a tier except those its Low / zero row allows.
+
+| Tier | Transforms | Required before the step |
+|---|---|---|
+| **Low** | `go fix` inline of a `//go:fix inline` function; rename of an unexported symbol with no reflection or string-based contract; extract variable or constant (not an operand of `&&`/`||` or a call with side effects: that is Medium); `gofmt -s`; organize imports; guard clauses | Baseline plus the focused check after it |
+| **Medium** | Extract function or method, inline across packages, adding or removing one parameter, introducing generics, a bulk rewrite ([MECHANICAL.md](references/MECHANICAL.md)) | Tests that provably reach the touched lines |
+| **High** | Signature change across many callers, cross-package moves, package split or merge, breaking an import cycle, a module or layer boundary move (`references/ARCHITECTURE.md`), any exported API change | Full net, and it is a findings-list item unless the user asked for it |
+
+`go fix` inline keeps behavior or leaves the call alone. A rename that
+compiles is not proven safe: rename may introduce dynamic errors through
+reflection, templates, serialization conventions, or indirect interface
+assertions.
+
+## When Not to Refactor
+
+> **Normative**: A refactor is an investment repaid by a future change. With no
+> change coming to spend it on, it is churn carrying a nonzero chance of
+> breaking something that works.
+
+Two cases can make the honest deliverable a sentence rather than a diff. Say
+which one applies and stop only when the requested refactor has no concrete
+readability cost or future change to repay it.
+
+| Case | What to do instead |
+|---|---|
+| The code works and nothing planned will touch it again | Name it and stop; a stable, rarely-read package earns nothing from being restructured for its own sake |
+| No purpose behind "refactor this" — no upcoming feature, no bug class, no smell a review flagged | Name the purpose you inferred and refactor to *that*; if there is none, say so in the report |
+
+Two other cases change the sequence, not cancel the work:
+
+- **Critical path with no tests** — add characterization coverage first
+  ([SAFETY-NET.md](references/SAFETY-NET.md)); continue once the net can support
+  the behavior promise, otherwise report exactly what remains unproved.
+- **Minimal change under time pressure** — make the minimal safe change the
+  user requested and propose the larger refactor separately.
+
+None of these is a licence to skip authorized work that has a concrete purpose.
+Deliver the refactor asked for at the scope intended: "while I'm here" fixes and
+a modernization that quietly becomes a migration dilute the guarantee — every
+line the refactor touches takes the current form
+([Write Current Go](../go-style-core/SKILL.md#write-current-go)); the untouched
+rest is proposed, not rewritten. A structural problem a readability pass
+cannot solve gets one sentence in the report.
 
 ## Remove Duplication to the End
 

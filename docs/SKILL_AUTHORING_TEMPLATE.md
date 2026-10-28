@@ -17,14 +17,18 @@ Use trigger-critical fields plus runtime-required tool grants:
 ---
 name: go-example
 description: Use when ...
-allowed-tools: Bash(bash:*) # only when the skill bundles scripts that need it
+allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*) # only when the skill bundles scripts
 ---
 ```
 
 Keep license, compatibility, provenance, source authority, and validation
 policy in the body or references. Keep `allowed-tools` in frontmatter for
 script-backed skills when the target runtime uses it to pre-authorize bundled
-commands.
+commands. The grant names the skill's own `scripts/` through
+`${CLAUDE_SKILL_DIR}`, which Claude Code substitutes in `allowed-tools`: a
+`Bash(bash:*)` grant would also pass any `bash -c`. The body keeps
+`<installed-skill-dir>`, since Codex and opencode do not substitute the
+variable. `TestStructure` accepts only the rules in `allowedToolRules`.
 
 ## Body Structure
 
@@ -139,21 +143,26 @@ outside this repository.
 - Include exactly one `## Resource Routing` section, and list every bundled
   file under `references/`, `scripts/`, and `assets`.
 - Include a `## Related Skills` section for handoffs to owner skills.
-- Keep core files at or below 400 lines; use references for long examples,
-  edge cases, and source-sensitive details. The cap is a ceiling on growth, not
-  a target: cut a skill only on measured evidence, never to hit a number.
+- Keep core files at or below 400 lines and 26 KB; use references for long
+  examples, edge cases, and source-sensitive details. Both caps are ceilings on
+  growth, not targets: cut a skill only on measured evidence, never to hit a
+  number. Lines alone do not bound tokens, and Claude Code re-attaches only
+  the first 5,000 tokens of each skill after compaction, so a rule every edit
+  needs sits above the conditional material (`TestCompactionKeepsPerEditRules`
+  pins the sections that must).
 - Include validation guidance near the relevant command or rule when a
   deterministic check exists.
 - Keep `$` plus a digit, and `$ARGUMENTS`, out of `SKILL.md`: Claude Code
   replaces them with the skill's arguments whenever it is invoked with any
-  (`/go-x a b`, or the Skill tool with `args`), inside code fences too. Prose
-  writes `$N`; code that needs a PostgreSQL placeholder writes `\$1`, which
-  reaches the model as `$1`. References are never substituted.
-  `TestSkillBodyArgumentPlaceholders` fails on an unescaped one.
+  (`/go-x a b`, or the Skill tool with `args`), inside code fences too. The
+  escaped `\$1` is no fix: Codex and opencode show the backslash, and a copied
+  query fails in PostgreSQL. Prose writes `$N`; a statement with placeholders
+  goes in a reference, which is never substituted.
+  `TestSkillBodyArgumentPlaceholders` fails on either form.
 - Write a bundled script's command as
   `bash <installed-skill-dir>/scripts/<name>.sh`, run from the target
   project: a packager can drop the executable bit, and `allowed-tools`
-  grants only `Bash(bash:*)`. `TestScriptCommandsRunThroughBash` fails on a
+  grants only `bash ${CLAUDE_SKILL_DIR}/scripts/*`. `TestScriptCommandsRunThroughBash` fails on a
   written-out script path without `bash`.
 
 ## Quality Eval Cases
@@ -194,5 +203,7 @@ Use the authority labels this way:
 
 ## Long References
 
-Any reference over 200 lines must include a `## Contents` section near the top.
+Any reference over 100 lines with more than one section must include a
+`## Contents` section in its first 40 lines, so a partial read still shows the
+file's scope.
 Prefer splitting only when a TOC still leaves unrelated subtopics hard to route.

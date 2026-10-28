@@ -4,6 +4,14 @@
 > Authority: normative for protocol/Go API behavior; project policy for retry admission and delivery safeguards
 > Last verified: 2026-10-11
 
+## Contents
+
+- [Classify Before Replaying](#classify-before-replaying)
+- [One Time and Work Budget](#one-time-and-work-budget)
+- [Retry-After Without Deadline Violations](#retry-after-without-deadline-violations)
+- [HTTP Attempt Ownership](#http-attempt-ownership)
+- [Durable Duplicate Handling](#durable-duplicate-handling)
+
 ## Classify Before Replaying
 
 | Observation | Decision |
@@ -126,6 +134,13 @@ required tenant/account and operation identity. A `SELECT` then side effect then
 response replay, changed-payload rejection, and in-progress duplicate handling.
 Use a consistent canonical payload representation or an explicitly byte-exact
 contract; do not silently change the equality rule between requests.
+
+Deduplication does not order deliveries. An event that sets state carries its
+version, and the write keeps the newest, so a late older event matches no row:
+
+```sql
+UPDATE orders SET status = $1, version = $2 WHERE id = $3 AND version < $2
+```
 
 For local database effects, commit the receipt and mutation atomically using
 [go-database](../../go-database/SKILL.md). For remote effects, record durable

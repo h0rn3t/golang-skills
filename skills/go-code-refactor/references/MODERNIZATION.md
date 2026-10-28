@@ -271,6 +271,5 @@ profile still misses leaks that are blocked on a reachable channel or mutex.
 |---|---|
 | `go vet ./...` | `waitgroup` (misplaced `wg.Add`), `hostport` (the IPv6 address bug), `stdversion` (stdlib symbols newer than the `go` directive), `buildtag` (misplaced or mismatched `//go:build` and `// +build` lines) |
 | `go fix -diff -plusbuild <pkgs>` | `plusbuild`: deletes obsolete `// +build` lines the `//go:build` form made redundant (Go 1.17+) — hygiene, not modernization; `go fix` prints fixes only, so `buildtag` findings come from `go vet` |
-| `bash "<installed-skill-dir>/scripts/verify-refactor.sh" leaks ./...` | Runs tests but reports leak verification as incomplete (exit 3 if tests pass); it does not collect a profile |
 | `GODEBUG=checkfinalizers=1` | Finalizer and cleanup misuse (Go 1.25+) |
 | `golangci-lint run` | Expect the finding count to drop after the refactor; report before and after. A finding whose fix changes behavior, such as an `errorlint` report on `err == X`, stays a finding, not a hunk |

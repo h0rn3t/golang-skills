@@ -98,6 +98,10 @@ A module with nothing under `internal/` is a successful empty check:
 ```
 
 `--limit 0` lists every violation; a checker that does not build exits 2.
+It also exits 2, with no JSON, when the module root has no `go.mod` (checked
+before the config is read; the message names the parent module's directory
+when there is one) and when `architecture.json` is missing, in which case
+stderr carries a minimal starter file for each layout.
 
 No-Go-file targets are successful empty scans and include a status marker:
 
@@ -141,6 +145,13 @@ was unavailable), matching the text mode's last line. Exit codes follow
 `unavailable` (not installed, or any other non-zero exit; `output` carries its
 message). Without a project golangci-lint config the script lints with
 `go-linting/assets/golangci.yml`. `--strict` turns `unavailable` into exit 2.
+When golangci-lint is not installed, and only then, `golangci_lint.hint` is
+the pinned install command, which the script never runs:
+
+```json
+{"status":"unavailable","config":"","output":"","hint":"install: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 (this script does not run it)"}
+```
+
 `golangci_lint.config` is `project`, `baseline` (`go-linting/assets/golangci.yml`
 beside the skill), or `defaults` (neither: golangci-lint's own linter set,
 without revive, godot, gosec, or modernize); it is empty when golangci-lint is
@@ -176,7 +187,8 @@ is golangci-lint's text, `0 issues.` on a clean run. The second shape is
 `.golangci.{yml,yaml,toml,json}` exists without `--force`, when a `.toml` or
 `.json` config exists even with `--force` (golangci-lint reads it before
 YAML), on a second positional argument, when golangci-lint is missing
-(checked before the config is written), or when `golangci-lint run` exits
+(checked before the config is written; stderr names the pinned `go install`
+command, which the script never runs), or when `golangci-lint run` exits
 with anything but 0 or 1, for example 5 for no Go files; a config written by
 then stays.
 
@@ -261,24 +273,19 @@ not one package, a malformed `--threshold` or `--new-env`, `--new-env`
 outside `--verdict`, mixing modes, or a helper that does not build; a
 `comparison` the helper cannot compute has `status` `error` and exits 2.
 
-`go-testing/scripts/gen-table-test.sh`:
-
-```json
-{"func":"ParseConfig","package":"config","output_file":"","parallel":false,"written":false}
-```
-
-With `--json` and no `--output`, stdout carries only this object and the
-scaffold goes to stderr; `written` is `false` and `output_file` is empty.
-A missing `--output` value (or one starting with `-`), an extra positional
-argument, or an invalid name exits 2. `output_file` escapes backslash, quote,
-and every control character below 0x20.
-
 `go-code-refactor/scripts/verify-refactor.sh` — one shape per mode.
 `baseline` and `after`:
 
 ```json
-{"mode":"after","target":"./...","toolchain":"go1.27.1","go_directive":"1.27","gofmt":"pass","summary_path":".refactor-verify/after.summary","fix_pending_lines":"0","lint_findings":"0","lint_status":"pass","lint_exit_code":0,"lint_log_path":".refactor-verify/after.lint.raw","passed":true}
+{"mode":"after","target":"./...","toolchain":"go1.27.1","go_directive":"1.27","gofmt":"pass","race":"pass","summary_path":".refactor-verify/after.summary","fix_pending_lines":"0","lint_findings":"0","lint_status":"pass","lint_exit_code":0,"lint_log_path":".refactor-verify/after.lint.raw","passed":true}
 ```
+
+`race` is the summary's `race:` line: `pass`, `fail`, `skip (cgo unavailable)`
+(the go command printed `go: -race requires cgo`; outside macOS the race
+detector needs cgo), or `skip (unsupported platform)` (`-race is not supported
+on GOOS/GOARCH`). A skip leaves `passed` true and is reported as skipped, not
+as a pass.
+`GO_TEST_TIMEOUT` (default `5m`) is the `-timeout` of every `go test` run.
 
 `diff` (exit 1 when `identical` is false) and `leaks`:
 
@@ -317,6 +324,8 @@ skipped-alternative-fix notices). Lint metadata:
 - `lint_exit_code`: actual exit code, or `null` if the executable is absent.
 - `lint_findings`: count of parsed text diagnostics, or `"n/a"` when unavailable.
 - `lint_log_path`: captured output for inspection, or empty if lint did not run.
+  When golangci-lint is not installed, the text mode prints the pinned
+  `go install` command; the script never runs it.
 
 Lint and modernization remain informational and excluded from the summaries
 that `diff` compares. In `baseline`/`after`, `passed` covers the core checks,
@@ -439,10 +448,14 @@ Keep shell wrappers as the public interface. The findings scripts —
 documentation, interface compliance, naming, and error flow — are Go AST
 helpers behind a wrapper that builds them once into the user cache, keyed by
 the helper's source checksum and `go env GOVERSION`, so a toolchain upgrade
-rebuilds the parser that reads the target. The
+rebuilds the parser that reads the target. A change to what a finding means
+(a naming violation, an error-flow defect, a missing doc comment, a
+producer-side interface) is made in the helper, with its fixture in
+`evals/fixtures/<area>/`; the skills tell the model the helper is built and
+run by its script and is not run or read directly. The
 remaining regex-based scripts (`check-debt.sh`, `pre-review.sh`,
-`verify-refactor.sh`, `bench-compare.sh`, `setup-lint.sh`, `gen-table-test.sh`)
-orchestrate tools or match fixed markers, where regex is the right tool;
+`verify-refactor.sh`, `bench-compare.sh`, `setup-lint.sh`) orchestrate tools
+or match fixed markers, where regex is the right tool;
 `bench-compare.sh --verdict` builds `bench-verdict.go` the same way, for the
 statistics a shell should not compute.
 

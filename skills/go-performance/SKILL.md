@@ -164,8 +164,13 @@ site, `strings.Builder` in a loop) need none of them.
    files as they are now. `--filter` names the step 1 benchmark:
 
    ```bash
-   bash "<installed-skill-dir>/scripts/bench-compare.sh" --snapshot "${TMPDIR:-/tmp}/perf-snap" --filter '^BenchmarkX$' ./path/to/pkg
+   bash "<installed-skill-dir>/scripts/bench-compare.sh" --snapshot .perf-snap/1 --filter '^BenchmarkX$' ./path/to/pkg
    ```
+
+   Run this and the verdict from the project root, each alone in its own Bash
+   call: no `cd`, `&&`, shell variable, or `echo $?` — the host asks approval
+   for those, and the script prints its own `verdict:` line. `.perf-snap/` is
+   ignored by `go` patterns; delete it after the report.
 
 3. **Profile the benchmark and name where the time is**, as
    [Read the Profile](#read-the-profile) says. The function a request names
@@ -177,7 +182,7 @@ site, `strings.Builder` in a loop) need none of them.
 5. **The verdict decides**, run serially, never beside another benchmark:
 
    ```bash
-   bash "<installed-skill-dir>/scripts/bench-compare.sh" --verdict "${TMPDIR:-/tmp}/perf-snap" --filter '^BenchmarkX$' ./path/to/pkg
+   bash "<installed-skill-dir>/scripts/bench-compare.sh" --verdict .perf-snap/1 --filter '^BenchmarkX$' ./path/to/pkg
    ```
 
    With the same `--filter`, the verdict judges the path the request is
@@ -190,7 +195,7 @@ site, `strings.Builder` in a loop) need none of them.
    profile spent its time in allocation or GC; otherwise it is reported as
    fewer allocations. After a kept change, profile again and name the next
    hotspot; chase it only within the request, and snapshot the kept code into
-   a new directory before that next change: against the first snapshot, a
+   a new directory (`.perf-snap/2`) before that next change: against the first snapshot, a
    second change that is slower still reads `keep` on the first one's gain.
    A last verdict against the first snapshot gives the total.
 6. **Guard an allocation win** with an [allocation test](#allocation-guard)

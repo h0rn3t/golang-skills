@@ -4,6 +4,14 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- go-performance: the snapshot directory is `.perf-snap/1` in the project
+  instead of a shared `${TMPDIR:-/tmp}/perf-snap`, and the snapshot and
+  verdict each run alone in their own Bash call (no `cd`, `&&`, variable, or
+  `echo $?`), since the host asks approval for those. Haiku 5.5 perf corpus
+  (medium, n=3): failed `bench-compare.sh` calls 47/109 → 6/47; over two
+  batches (n=6) pass 46 vs 43 of 54 and runs with a verdict 39 vs 35, within
+  noise.
+
 ## [1.45.1] - 2026-10-27
 
 - go-vet-on-edit hook: the receipt context printed after every Go edit is

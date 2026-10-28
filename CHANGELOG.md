@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.46.0] - 2026-10-28
+
 Stage 1 of the 2026-10-28 review against Anthropic's skill guidance: no
 wording change that needs a model run; moved sections keep their text.
 Haiku 5.5 abrun (medium, n=3, 1.45.2 / this tree): refactor golden 100% both,

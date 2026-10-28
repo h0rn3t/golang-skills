@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.45.2] - 2026-10-28
+
 - go-performance: the snapshot directory is `.perf-snap/1` in the project
   instead of a shared `${TMPDIR:-/tmp}/perf-snap`, and the snapshot and
   verdict each run alone in their own Bash call (no `cd`, `&&`, variable, or

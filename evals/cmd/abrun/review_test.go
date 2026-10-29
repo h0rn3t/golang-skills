@@ -167,6 +167,98 @@ func TestScoreReview(t *testing.T) {
 	}
 }
 
+func TestScorePreExisting(t *testing.T) {
+	key := reviewKey{Defects: []reviewDefect{
+		{ID: "old", Severity: "must", File: "store.go", line: 20, Span: 1, PreExisting: true},
+		{ID: "older", Severity: "should", File: "store.go", line: 60, Span: 1, PreExisting: true},
+		{ID: "new", Severity: "must", File: "service.go", line: 40, Span: 1},
+	}}
+	tests := []struct {
+		name                        string
+		review                      string
+		preFound, preTag, newTagged int
+	}{
+		{
+			name:     "inline tag",
+			review:   "### Must Fix\n- store.go:20 pre-existing: Get reads the map without the lock\n- service.go:40 check then act\n### Should Fix\n- store.go:60 ignored error\n",
+			preFound: 2, preTag: 1,
+		},
+		{
+			name:     "heading tags what follows until the next heading",
+			review:   "### Pre-existing (not introduced by this change)\n- store.go:20 race\n- store.go:60 ignored error\n### Must Fix\n- service.go:40 check then act\n",
+			preFound: 2, preTag: 2,
+		},
+		{
+			name:      "a change defect tagged pre-existing",
+			review:    "### Must Fix\n- service.go:40 (preexisting) check then act\n",
+			newTagged: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := scoreReview(key, tt.review)
+			if got.PreTotal != 2 || got.PreFound != tt.preFound || got.PreTagged != tt.preTag || got.NewTagged != tt.newTagged {
+				t.Errorf("scoreReview(%q) pre total %d found %d tagged %d, new tagged %d; want 2 %d %d %d",
+					tt.review, got.PreTotal, got.PreFound, got.PreTagged, got.NewTagged, tt.preFound, tt.preTag, tt.newTagged)
+			}
+		})
+	}
+}
+
+func TestChangedLines(t *testing.T) {
+	tests := []struct {
+		name       string
+		base, head string
+		want       []int
+	}{
+		{name: "same", base: "a\nb\nc", head: "a\nb\nc", want: nil},
+		{name: "insert", base: "a\nc", head: "a\nb\nc", want: []int{2}},
+		{name: "rewrite", base: "a\nb\nc", head: "a\nB\nc", want: []int{2}},
+		{name: "delete only", base: "a\nb\nc", head: "a\nc", want: nil},
+		{name: "append", base: "a", head: "a\nb\nc", want: []int{2, 3}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := changedLines(strings.Split(tt.base, "\n"), strings.Split(tt.head, "\n"))
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("changedLines(%q, %q) = %v, want %v", tt.base, tt.head, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestStageReviewBase checks the tree a pull-request fixture's session sees:
+// two commits whose diff is the change, and files as the fixture has them.
+func TestStageReviewBase(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not on PATH")
+	}
+	work, base := t.TempDir(), t.TempDir()
+	pkg := filepath.Join(work, "pay")
+	if err := os.MkdirAll(pkg, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	for path, data := range map[string]string{
+		filepath.Join(pkg, "pay.go"):   "package pay\n\nconst limit = 20\n",
+		filepath.Join(pkg, "other.go"): "package pay\n",
+		filepath.Join(base, "pay.go"):  "package pay\n\nconst limit = 10\n",
+	} {
+		if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	diff, err := stageReviewBase(time.Minute, work, "pay", base)
+	if err != nil {
+		t.Fatalf("stageReviewBase() error = %v", err)
+	}
+	if !strings.Contains(diff, "-const limit = 10\n+const limit = 20\n") || strings.Contains(diff, "other.go") {
+		t.Errorf("stageReviewBase() diff = %q, want only the limit change", diff)
+	}
+	if got, err := os.ReadFile(filepath.Join(pkg, "pay.go")); err != nil || string(got) != "package pay\n\nconst limit = 20\n" {
+		t.Errorf("pay.go after staging = %q, %v; want the fixture's version", got, err)
+	}
+}
+
 func TestMatchLine(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "f.go"), []byte("a\nneedle\nb\nneedle\n"), 0o644); err != nil {

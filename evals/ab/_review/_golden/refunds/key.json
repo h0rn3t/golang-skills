@@ -1,0 +1,46 @@
+{
+  "defects": [
+    {
+      "id": "check-then-act-refund",
+      "owner": "go-concurrency",
+      "severity": "must",
+      "file": "service.go",
+      "match": "if err := checkRemaining(p, amount); err != nil {",
+      "note": "the change misses its own goal: two Refund requests pressed in a row both Get the payment before either Put, both pass checkRemaining, both reach the gateway, and the second Put overwrites the first, so the customer is still refunded twice and Refunded understates it. The check and the increment belong in one Store operation under the lock, reserving the amount before the gateway call"
+    },
+    {
+      "id": "sentinel-formatted-with-v",
+      "owner": "go-error-handling",
+      "severity": "must",
+      "file": "service.go",
+      "match": "left, ErrOverRefund)",
+      "note": "%v flattens ErrOverRefund into text, so errors.Is(err, ErrOverRefund) in writeResult is false and an over-refund answers 500 with the message instead of the 409 the change promises; wrap with %w. The test only checks err != nil, so it passes either way"
+    },
+    {
+      "id": "get-without-lock",
+      "owner": "go-concurrency",
+      "severity": "must",
+      "file": "store.go",
+      "match": "p, ok := s.payments[id]",
+      "pre_existing": true,
+      "note": "Get reads the map without s.mu while Put writes it under the lock: a concurrent map read and write, which the runtime can abort with a fatal error. Lock in Get as Put does. Not touched by the change"
+    },
+    {
+      "id": "error-text-to-client",
+      "owner": "go-security",
+      "severity": "should",
+      "file": "handler.go",
+      "match": "http.Error(w, err.Error(), http.StatusInternalServerError)",
+      "pre_existing": true,
+      "note": "the 500 body is err.Error(), which carries the card processor's error text and the payment ID to the client; answer a generic message and log the detail. Not touched by the change"
+    }
+  ],
+  "baits": [
+    {
+      "id": "refunded-after-gateway",
+      "file": "service.go",
+      "match": "p.Refunded += amount",
+      "note": "p is a copy, but Put stores it on the next line; recording after the gateway call is the documented order"
+    }
+  ]
+}

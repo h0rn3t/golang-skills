@@ -1112,7 +1112,23 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 			res.FixturePrompt = fmt.Sprintf(own, taskName)
 		}
 	}
-	turn := runSession(o, a, work, fmt.Sprintf(prompt, taskName))
+	prompt = fmt.Sprintf(prompt, taskName)
+	base := filepath.Join(golden, reviewBaseDir)
+	if _, err := os.Stat(base); err == nil && o.corpus == corpusReview && o.prompt == reviewPrompt {
+		own, err := fixturePrompt(golden)
+		if err != nil {
+			res.Err = fmt.Sprintf("fixture prompt: %v", err)
+			return res
+		}
+		diff, err := stageReviewBase(o.timeout, work, taskName, base)
+		if err != nil {
+			res.Err = fmt.Sprintf("stage review base: %v", err)
+			return res
+		}
+		prompt = reviewDiffPrompt(fmt.Sprintf(own, taskName), diff)
+		res.FixturePrompt = prompt
+	}
+	turn := runSession(o, a, work, prompt)
 	res.merge(turn)
 	// The transcript is written before anything is measured, so it survives even
 	// a run that fails from here on. A final message that claims a measurement

@@ -1,0 +1,5 @@
+A teammate opened a pull request against the Go package in ./%s. Its description:
+
+> Fix #412: customers were refunded twice for the same payment. Support traced it to customers pressing Refund twice in a row. Refund now rejects any amount above what is left of the payment with ErrOverRefund, which the handler answers with 409.
+
+Review the pull request as a reviewer would. Report every defect you find as a finding with the file and line it is at (file.go:NN), its severity (Must Fix, Should Fix, or Nit), what is wrong, and the fix. Do not modify any file; your final message is the review.

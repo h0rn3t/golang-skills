@@ -8,13 +8,16 @@ out is one line counting its findings.
 ## Summary
 [Brief description of the changes]
 Net lines: +A / -B. Growth the change did not need is a finding below, not a footnote.
-Verdict: approve | request changes. Request changes while any Must Fix stands;
-the bar is a change that leaves the code healthier, not the one you would write.
+Verdict: approve | request changes. Request changes while any Must Fix the
+change introduced stands; the bar is a change that leaves the code healthier,
+not the one you would write.
 
 ## Findings
 
 Every finding carries how it was established: `verified` names the run that
-proved it, `plausible` admits it was only read.
+proved it, `plausible` admits it was only read. With a diff in scope, a
+finding on lines the change did not touch says `pre-existing` after its
+location: it keeps its severity, and the verdict does not wait on it.
 
 ### Must Fix
 - [ ] [file:line] Description of critical issue

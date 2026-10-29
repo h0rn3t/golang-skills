@@ -4,6 +4,28 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+Ideas from "How the Claude Code team does code review" (Addy Osmani,
+2026-10-26). Haiku 5.5 abrun on `refunds` (medium, n=5, 1.46.0 / this tree):
+recall 0.95 / 1.00; pre-existing defects tagged 3 of 9 found / 8 of 10, change
+defects wrongly tagged 0 / 0; must defects reported as Must Fix 0.73 / 0.93;
+$0.0113 / $0.0116 per run. The stated-goal row is unproven: both arms find the
+double refund 5/5.
+
+- go-code-review: a defect on lines the diff did not change is reported
+  tagged `pre-existing`, and the review template's verdict waits only on Must
+  Fix findings the change introduced. A Correctness row replays the scenario
+  the request or PR description says the change fixes, including twice or
+  from two callers at once.
+- abrun review corpus: a fixture with `_golden/<task>/base/` is a pull
+  request. The session's tree gets two commits (base, change), and the prompt
+  is the fixture's `prompt.txt` (the PR description) plus the diff. A key
+  defect marked `pre_existing` must sit outside the changed lines and any
+  other on one, which `validateReviewFixtures` checks. The score adds
+  pre-existing found and tagged, and change defects wrongly tagged.
+  New fixture `refunds`: a fix for a double refund that still lets two
+  requests through (check-then-act), a sentinel formatted with `%v`, and two
+  pre-existing defects outside the diff.
+
 ## [1.46.0] - 2026-10-28
 
 Stage 1 of the 2026-10-28 review against Anthropic's skill guidance: no

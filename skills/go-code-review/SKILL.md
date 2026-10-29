@@ -21,7 +21,8 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
    No diff → non-test code, riskiest packages first. Risk order picks files —
    Security → HTTP → Database → Concurrency → the rest; the section order below
    applies within a file. Ask only when the module has more than one binary.
-   The flat checklist below is for a diff, not for a whole package.
+   The flat checklist below is for a diff, not for a whole package. A defect
+   on lines the diff did not change is still reported, tagged `pre-existing`.
 2. **Load the owners before the first finding** (a read of
    `../<name>/SKILL.md` where there is no `Skill` tool):
    [go-style-core](../go-style-core/SKILL.md) on every review, then, for each
@@ -81,6 +82,7 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 ## Correctness
 
 - [ ] **Does it do what it claims?** Trace each changed function from inputs to outputs on the happy path and at the edges — empty, nil, zero, max, concurrent. A wrong result or silent data loss is a Must Fix even when every style row passes
+- [ ] **Does it reach the stated goal?** When the request, ticket, or PR description says what the change fixes, replay that scenario against the changed code, including when it arrives twice or from two callers at once; a fix the scenario still gets through is a Must Fix at the line that claims it
 - [ ] **Invariants**: what the surrounding code assumes — ordering, non-nil, lock held, ctx alive — still holds after the change; name the assumption in the finding
 - [ ] **Callers outside the diff**: for a changed exported signature, behavior, or interface method set, look up references and implementations and read the callers the diff did not touch; one it leaves broken is a Must Fix
 - [ ] **Failure paths**: every error branch, timeout, and partial write leaves state a caller can recover from — read each with the failing call moved one line earlier

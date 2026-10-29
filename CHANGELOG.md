@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.46.1] - 2026-10-29
+
 Ideas from "How the Claude Code team does code review" (Addy Osmani,
 2026-10-26). Haiku 5.5 abrun on `refunds` (medium, n=5, 1.46.0 / this tree):
 recall 0.95 / 1.00; pre-existing defects tagged 3 of 9 found / 8 of 10, change

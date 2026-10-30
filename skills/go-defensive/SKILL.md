@@ -16,27 +16,9 @@ description: Use when hardening Go API boundaries or checking slice/map copies, 
 - `references/GLOBAL-STATE.md` - Read when introducing or removing package globals.
 - `references/MUST-FUNCTIONS.md` - Read when deciding whether a panic-on-error helper is acceptable.
 - `references/PANIC-RECOVER.md` - Read when evaluating panic, recover, or crash containment.
+- `references/ARCHIVES.md` - Read when extracting a tar or zip archive.
 - `references/TIME-ON-THE-WIRE.md` - Read when a `time.Duration` or `time.Time` field crosses JSON or another wire format.
 - `../go-http/references/JSON-V2.md` - Read when JSON v2 changes nil collections, tags, accepted input, or compatibility at an API boundary (Go 1.27+).
-
-## Defensive Checklist Priority
-
-When hardening code at API boundaries, check in this order:
-
-```
-Reviewing an API boundary?
-├─ 1. Error handling     → Return errors; panic only on a programming error (below)
-├─ 2. Input validation   → Copy slices/maps received from callers
-├─ 3. Output safety      → Copy slices/maps before returning to callers
-├─ 4. Resource cleanup   → Use defer for Close/Unlock/Cancel
-├─ 5. Interface checks   → Route compile-time assertions to go-interfaces
-├─ 6. Time correctness   → time.Time/time.Duration in process; wire spans name a unit
-├─ 7. Enum safety        → Zero value must mean unset (see go-style-core)
-├─ 8. Crypto safety      → crypto/rand for keys, never math/rand
-└─ 9. Path safety        → os.Root for caller-supplied paths
-```
-
----
 
 ## Common Pitfalls
 
@@ -100,7 +82,7 @@ streamed.
 
 ## Struct Field Tags
 
-> **Advisory**: Always add explicit field tags to structs that are marshaled or unmarshaled.
+> **Advisory**: Add explicit field tags to structs that are marshaled or unmarshaled.
 
 ```go
 type User struct {
@@ -201,49 +183,10 @@ err = s.workspaces.RemoveAll(id.String()) // a canonical UUID is one entry
 
 ### Archive Entries
 
-An entry's name, type, and size are all input. Create parents with
-`root.MkdirAll`, never `os.MkdirAll(filepath.Join(dest, dir))`, which runs
-outside the root; create no link an entry names; and cap the total size:
-
-```go
-func extract(root *os.Root, tr *tar.Reader, limit int64) error {
-    for {
-        hdr, err := tr.Next()
-        if errors.Is(err, io.EOF) {
-            return nil
-        }
-        if err != nil {
-            return err
-        }
-        switch hdr.Typeflag {
-        case tar.TypeReg: // extracted below
-        case tar.TypeSymlink, tar.TypeLink:
-            return fmt.Errorf("tar entry %q: links are not extracted", hdr.Name)
-        default:
-            continue // directories come from MkdirAll; devices and pax headers are skipped
-        }
-        if limit -= hdr.Size; limit < 0 {
-            return errors.New("archive exceeds the size limit")
-        }
-        if err := root.MkdirAll(path.Dir(hdr.Name), 0o750); err != nil {
-            return err // "../x" and "/x" escape the root and fail here
-        }
-        f, err := root.Create(hdr.Name)
-        if err != nil {
-            return err
-        }
-        _, err = io.Copy(f, tr)
-        if err = errors.Join(err, f.Close()); err != nil {
-            return err
-        }
-    }
-}
-```
-
-An `archive/zip` entry takes the same three checks: `f.Mode().IsRegular()`,
-`f.UncompressedSize64` against the cap, and the name through the root.
-
----
+An archive entry's name, type, and size are all input: parents through
+`root.MkdirAll`, no link an entry names, and a cap on the total size
+([ARCHIVES.md](references/ARCHIVES.md) has the `archive/tar` loop and the
+`archive/zip` checks).
 
 ## Panic and Recover
 

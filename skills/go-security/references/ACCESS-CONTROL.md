@@ -3,7 +3,7 @@
 > Sources: `net/http`, `crypto/tls` package docs; `google.golang.org/grpc` v1.84 and `golang.org/x/oauth2` package docs; OWASP API Security Top 10 (2023); Cloudflare security-audit skill (MIT) for the every-door and finding-gate method
 > Authority: normative for the stdlib forms; advisory for the gRPC and OAuth module forms
 > Minimum Go: 1.22 for method patterns in `ServeMux`; everything else long-standing
-> Last verified: 2026-10-19
+> Last verified: 2026-10-30
 
 Authentication says who is calling; everything here is the second question:
 may **this** principal do **this** action to **this** resource, on every path
@@ -18,6 +18,7 @@ that reaches the effect.
 - [Model output and tool calls](#model-output-and-tool-calls)
 - [Service identity](#service-identity)
 - [OAuth and OIDC clients](#oauth-and-oidc-clients)
+- [CORS with credentials](#cors-with-credentials)
 
 ---
 
@@ -218,3 +219,45 @@ tok, err := conf.Exchange(ctx, r.FormValue("code"), oauth2.VerifierOption(verifi
   provider's verified subject; merging accounts on an unverified email hands
   one to whoever registers that address first.
 - The post-login redirect is a [local redirect](INJECTION.md#local-redirects).
+
+## CORS with credentials
+
+CORS relaxes the same-origin policy, so the allowlist is the whole defense.
+Reflecting `Origin` with `Allow-Credentials` lets every site read every
+response with the user's cookies, and `"null"` is the origin of a sandboxed
+iframe any site can create. A credentialed cross-origin `POST` that CORS
+allows is still rejected by `CrossOriginProtection` unless the same origin is
+trusted there:
+
+```go
+func withCORS(next http.Handler, origins ...string) (http.Handler, error) {
+    cop := http.NewCrossOriginProtection()
+    allowed := make(map[string]struct{}, len(origins)) // exact "https://app.example.com"; no suffix match
+    for _, o := range origins {
+        if err := cop.AddTrustedOrigin(o); err != nil {
+            return nil, err
+        }
+        allowed[o] = struct{}{}
+    }
+    return cop.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Add("Vary", "Origin") // a cache must not serve one origin's answer to another
+        origin := r.Header.Get("Origin")
+        if _, ok := allowed[origin]; !ok {
+            next.ServeHTTP(w, r) // no CORS headers: the browser withholds the response
+            return
+        }
+        w.Header().Set("Access-Control-Allow-Origin", origin)
+        w.Header().Set("Access-Control-Allow-Credentials", "true")
+        if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+            w.Header().Set("Access-Control-Allow-Methods", "GET, POST") // every method and request header the mux serves
+            w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+            w.WriteHeader(http.StatusNoContent)
+            return
+        }
+        next.ServeHTTP(w, r)
+    })), nil
+}
+```
+
+`withCORS` replaces the server-level `CrossOriginProtection`; do not wrap it in
+another.

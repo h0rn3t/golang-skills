@@ -15,6 +15,7 @@ Here, **business module** means an owned feature/domain package tree, not a Go m
 
 ## Contents
 
+- [Package-scale rule](#package-scale-rule)
 - [When the smell is architectural](#when-the-smell-is-architectural)
 - [Measure the import graph](#measure-the-import-graph)
 - [Modules own the tree; layers live inside the module](#modules-own-the-tree-layers-live-inside-the-module)
@@ -26,6 +27,24 @@ Here, **business module** means an owned feature/domain package tree, not a Go m
 - [Staging the move](#staging-the-move)
 - [Enforcing the boundary](#enforcing-the-boundary)
 - [Report contract](#report-contract)
+
+## Package-scale rule
+
+> **Normative**: Modules own the tree; layers live inside a module when they
+> earn a package. `handlers/`, `services/`, `repositories/`, `models/` may be
+> the tree of one cohesive service; several independently changing domains
+> move the same names under `internal/<module>/`. Services and models import
+> no transport or database driver; cross-module code stops at a module's root
+> contract; keeping the tree and repairing one boundary is a valid result.
+
+When the smell is the import graph, this file owns the
+call: start at the named target or at recurring paths in `git log`, measure
+the graph, and propose the smallest repair as graded candidate cards; the
+chosen candidate gets a target and a staged plan, applied only as far as
+authorized. A move is High
+tier and a proposal unless the user asked for it; its first commit
+encodes the rule in `architecture.json` and runs
+`bash "<installed-skill-dir>/scripts/check-architecture.sh"`, whose `known` list a refactor never extends to make its own run pass.
 
 ## When the smell is architectural
 

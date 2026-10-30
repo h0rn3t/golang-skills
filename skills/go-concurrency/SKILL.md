@@ -110,6 +110,9 @@ requires justification for:
 - What prevents the channel from filling under load
 - What happens when writers block
 
+A semaphore channel (`make(chan struct{}, n)` for the bounded fan-out above)
+is not a buffer: `n` is the concurrency limit, and that is its justification.
+
 ## Atomic Operations
 
 Use `atomic.Bool`, `atomic.Int64`, etc. from the standard `sync/atomic` package

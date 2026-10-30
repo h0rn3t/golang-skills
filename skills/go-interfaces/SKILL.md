@@ -150,8 +150,9 @@ time, and nothing fails to compile.
 
 ## Receiver Type
 
-If in doubt, use a pointer receiver. Don't mix receiver types on a single
-type — if any method needs a pointer, use pointers for all methods. Value
+Default to a pointer receiver. Don't mix receiver types on a single type
+(`recvcheck` in the gate reports it) — if any method needs a pointer, use
+pointers for all methods. Value
 receivers fit maps, funcs, channels, slices that are not resliced or
 reallocated, and small immutable structs or basic types;
 [RECEIVER-TYPE.md](references/RECEIVER-TYPE.md) has the full decision list.

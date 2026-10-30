@@ -227,11 +227,13 @@ keep the branches when evaluation has side effects or is expensive.
 
 ## How Much To Say
 
-Follow the host's communication requirements. Give a short initial update,
-then progress updates on what changed the work: a finding, a decision, a
-blocker, the next check; a read that changed nothing is not an update. Close
-with the outcome, observed verification results, and material limitations;
-never imply a skipped check ran. Size reports, reviews, and design notes to
+Follow the host's communication requirements. A note on what changed the
+work — a finding, a decision, a blocker, the next check — goes in the same
+message as the next tool call, never in a message of its own: a message with
+no tool call ends the turn, and the work stops there. A read that changed
+nothing earns no note. End the turn with the outcome, observed verification
+results, and material limitations, or with a question only the user can
+answer; never imply a skipped check ran. Size reports, reviews, and design notes to
 the task; use applicable `assets/` templates without filler sections or
 repeated summaries.
 

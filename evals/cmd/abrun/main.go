@@ -456,6 +456,12 @@ type result struct {
 	// claimed, never what it did — Commands and the retained trace are what
 	// show whether it measured anything.
 	ReportedCounts bool `json:"reported_counts"`
+	// HandedBack reports that the final message's last paragraph announces a
+	// next step or offers to continue. In a headless session a message with no
+	// tool call ends the run, so the announced step never happens; Opus 5.5
+	// ends turns that way (Anthropic's Opus 5.5 prompting guide, "Unattended
+	// agentic runs"). Like ReportedCounts it reads prose: the trace settles it.
+	HandedBack bool `json:"handed_back,omitempty"`
 	// RepairFired reports that -repair granted a second turn, which happens only
 	// when the first turn missed the line gate or failed the independent check.
 	// PreRepair and PreRepairGolden are the readings that triggered it, so the
@@ -1317,6 +1323,7 @@ func (r *result) merge(t sessionTurn) {
 		r.Output = t.final
 	}
 	r.ReportedCounts = reportedCounts(r.Output)
+	r.HandedBack = handedBack(r.Output)
 }
 
 // appendTrace adds one turn's transcript to the run's trace file, so a repair
@@ -1615,6 +1622,18 @@ func reportedCounts(final string) bool {
 		return false
 	}
 	return lineCountClaim.MatchString(filePosition.ReplaceAllString(final, ""))
+}
+
+// handBack matches the closing sentences the Opus 5.5 guide lists as stops
+// with work still owed: an announced next step, and an offer to carry on.
+var handBack = regexp.MustCompile(`(?i)\b(?:next,? i(?:'ll| will)|now i(?:'ll| will)|let me now|i(?:'ll| will) (?:now|next|then) |shall i|should i (?:go ahead|continue|proceed)|would you like me to|do you want me to|want me to)\b`)
+
+// handedBack reports whether the last paragraph of final hands the work back
+// instead of finishing it. Only the last paragraph counts: a report that
+// narrates "next I added X" in its middle describes work already done.
+func handedBack(final string) bool {
+	paragraphs := strings.Split(strings.TrimSpace(final), "\n\n")
+	return handBack.MatchString(paragraphs[len(paragraphs)-1])
 }
 
 // filePosition matches a compiler-style path:line reference, which names a

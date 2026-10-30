@@ -12,6 +12,7 @@ description: Use when creating or splitting Go packages, organizing imports or d
 
 - `references/IMPORTS.md` - Read when grouping imports, using blank imports, dot imports, or import aliases.
 - `references/PACKAGE-SIZE.md` - Read when splitting packages, avoiding `init`, structuring `main`, or designing CLI flags/subcommands.
+- `references/DEPENDENCIES.md` - Read when running `go mod init` or setting the `go` directive, adding a module, using `replace` or `exclude`, pinning a tool, tidying, or scanning before a release.
 
 ## Dependency Ladder
 
@@ -56,19 +57,6 @@ not have (v1, v3, v5, custom sources).
 
 ## Adding and Auditing Dependencies
 
-- **After `go mod init`**, inspect the generated `go` directive against the
-  local and CI toolchains: a toolchain writes its own patch level — 1.27.1
-  writes `go 1.27.1`, which makes a 1.27.0 CI toolchain download 1.27.1, and
-  1.26.4 writes `go 1.26.4` (only 1.26.0 wrote `go 1.25.0`). For a new module
-  targeting Go 1.27, set `go mod edit -go=1.27.0`; do not infer the directive
-  from the installed version or bump an existing module as an incidental
-  cleanup.
-  `go test ./...` includes `stdversion` in Go 1.27 and rejects standard-library
-  APIs newer than the effective file version. `go fix` also gates replacements
-  by supported version, so an empty preview alone does not prove a 1.27 target.
-- **Before adding a module**, check the ladder above, license compatibility,
-  and maintenance status. Approval policy:
-  [go-style-core](../go-style-core/SKILL.md#house-style-wins).
 - **Upgrade one module per change** — `go get <module>@<version>`, not
   `go get -u ./...` — so a failure names its cause and the revert is one line;
   modules that release together count as one. A minor bump needs its release
@@ -77,31 +65,15 @@ not have (v1, v3, v5, custom sources).
   declares: the `// indirect` and `go.sum` lines are part of the diff, and
   `go mod graph | grep <module>@` names who pulled a surprise version. Tests
   run before and after; `govulncheck` covers the new versions.
-- **`replace` and `exclude` apply only in the main module.** A library's
-  directives are ignored by every module that imports it, and a `replace` to
-  a local path never reaches a tag: a library ships its fix as a version
-  bump of the dependency.
 - **A checksum mismatch is a finding.** `SECURITY ERROR` from the `go` command
   means the bytes differ from `go.sum` or the checksum database: report the
   module, version, and both hashes. Never edit `go.sum` or set `GOSUMDB`,
   `GONOSUMDB`, or `GOPRIVATE` to get past it; `go clean -modcache` fixes only
   what `go mod verify` reports as `dir has been modified`.
-- **Pin executable tools with `go get -tool <package>@<version>`** (Go 1.24+),
-  then run them via `go tool <name>`. Tool dependencies share the module graph.
-  For golangci-lint, prefer a version-pinned release binary; if using `go tool`,
-  isolate it in a dedicated module or modfile to avoid dependency conflicts
-  ([upstream guidance](https://golangci-lint.run/docs/welcome/install/local/)).
-  The legacy `tools.go` blank-import file is only for modules below Go 1.24.
-- **Tidy before committing** dependency changes: check with `go mod tidy -diff`
-  (Go 1.23+), which prints what tidy would change and exits non-zero without
-  touching the module files or inspecting unrelated Git changes; then apply
-  `go mod tidy`. On `go 1.27+` modules tidy also merges duplicate `require`
-  blocks down to two — direct and indirect — so the first run after the bump
-  can produce a large diff that changes no dependency.
-  `go mod tidy && git diff --exit-code` is the clean-checkout form for CI.
-- **Scan before releasing**: `govulncheck ./...`, pinned through the `tool`
-  directive above. The gate lives in [go-linting](../go-linting/SKILL.md);
-  finding triage routes to [go-security](../go-security/SKILL.md).
+
+`go mod init` and the `go` directive, the pre-add check, `replace` and
+`exclude`, tool pinning, tidy, and the release scan:
+[DEPENDENCIES.md](references/DEPENDENCIES.md).
 
 ---
 
@@ -126,7 +98,7 @@ not have (v1, v3, v5, custom sources).
 
 ### Package Size
 
-**Do NOT split** just because a file is long, to create single-type packages, or
+**Don't split** just because a file is long, to create single-type packages, or
 if it would create circular dependencies.
 
 ---

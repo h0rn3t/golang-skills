@@ -17,8 +17,8 @@ description: Use when handling Go context.Context, cancellation, deadlines, time
 ## Context as First Parameter
 
 Functions that use a Context accept it as their **first parameter**. Do not
-add a Context member to a struct type; pass `ctx` to each method that needs
-it. **Exception**: methods whose signature must match an interface in the
+add a Context member to a struct type (`containedctx` in the gate reports it);
+pass `ctx` to each method that needs it. **Exception**: methods whose signature must match an interface in the
 standard library or a third-party library. Do not create custom Context types
 or use interfaces other than `context.Context` in function signatures.
 

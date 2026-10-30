@@ -117,7 +117,7 @@ func TestMinVersion(t *testing.T) {
 // varies on Origin, and trusts the same list in CrossOriginProtection, so a
 // credentialed POST from the allowed origin is not rejected as CSRF.
 func TestSecurityExampleCORS(t *testing.T) {
-	code := exampleBlock(t, "skills/go-security/SKILL.md", "CORS relaxes the same-origin policy")
+	code := exampleBlock(t, "skills/go-security/references/ACCESS-CONTROL.md", "CORS relaxes the same-origin policy")
 	runExampleTest(t, `package example
 import ("net/http"; "net/http/httptest"; "testing")
 `+code+`
@@ -566,7 +566,7 @@ func TestOpenOutsideRoot(t *testing.T) {
 // entries that escape it: parent and absolute names, links, and an archive
 // over the size cap.
 func TestDefensiveExampleExtractTar(t *testing.T) {
-	code := exampleBlock(t, "skills/go-defensive/SKILL.md", "### Archive Entries")
+	code := exampleBlock(t, "skills/go-defensive/references/ARCHIVES.md", "# Archive Entries")
 	runExampleTest(t, `package example
 import ("archive/tar"; "bytes"; "errors"; "fmt"; "io"; "os"; "path"; "path/filepath"; "strings"; "testing")
 `+code+`

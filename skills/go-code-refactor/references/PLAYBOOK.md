@@ -22,6 +22,7 @@ that already exists.
 - [7. Comments that earn their place](#7-comments-that-earn-their-place)
 - [8. Anti-patterns of "cleanup"](#8-anti-patterns-of-cleanup)
 - [9. Test readability](#9-test-readability)
+- [10. Mark what you deliberately left alone](#10-mark-what-you-deliberately-left-alone)
 
 ## The readability hierarchy
 
@@ -228,3 +229,19 @@ stays. See
 
 Converting repetitive test functions to table-driven form is worth *proposing*
 — but it is its own diff, not a rider on a production refactor.
+
+## 10. Mark what you deliberately left alone
+
+When you keep something ugly because changing it would change behavior, say so
+in the code, not only in the report. `Kept:` / `Ceiling:` / `Fix:` are fixed
+prefixes, so the markers stay greppable:
+
+```go
+// Kept: defer stays inside the loop; hoisting the body closes each file as its iteration ends.
+// Ceiling: descriptors accumulate for the worker's lifetime.
+// Fix: close explicitly per iteration, in its own commit.
+```
+
+A marker naming no ceiling and no upgrade path rots into "later means never".
+`bash "<installed-skill-dir>/scripts/check-debt.sh" ./...` lists every marker and
+exits 1 on those.

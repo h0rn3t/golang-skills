@@ -34,7 +34,8 @@ code version, and a check that could disprove them.
   resource is unavailable, name the missing evidence and continue independent work.
 - Preserve the distinction between observed behavior, the intended contract,
   and the reporter's interpretation. If the contract is ambiguous in a way that
-  changes the fix, ask a focused question while continuing evidence collection.
+  changes the fix, ask a focused question in the same message as the next
+capture and keep collecting; end the turn on it only when no capture is left.
 
 ## Investigation Loop
 

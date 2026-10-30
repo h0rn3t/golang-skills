@@ -4,6 +4,50 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+From a review against 2026 skill research (arXiv 2606.17819, 2608.23067,
+2605.10039, 2607.27250) and Anthropic's Opus 5.5 prompting guide. Haiku 5.5
+abrun, medium, n=3, 1.46.2 / this tree: implement (14 fixtures) golden 100% /
+100%, test file first 29/42 / 30/42, lint findings 0.36 / 0.36 per run,
+$0.0249 / $0.0258; refactor (5 fixtures) golden 100% / 100%, Δlines −17.6 /
+−15.8, $0.0169 / $0.0168. A no-regression check, not a gain: Haiku read a
+moved reference once in 42 sessions in either tree, and the Opus 5.5
+early-stop wording is unmeasured on Opus.
+
+- **Three rules move from text to the lint baseline.** `recvcheck` (mixed
+  receivers; its built-in exclusions keep the encoder and `String` exception),
+  `containedctx` (a Context in a struct field), and `predeclared` (a local
+  named `max` or `len`) join `golangci.yml`, with probes in `fixtures/lint`.
+  Each finding on `x/sync`, `x/oauth2`, `x/vuln`, `x/perf`, and this
+  repository's tools was a rule a skill states. Rejected after the same check:
+  `thelper` (cannot tell a setup helper from a shared test body) and revive
+  `deep-exit` (reports `log.Panicf` and `usage()` in package `main`). The
+  skills name the linter beside each rule.
+- **Text that ends a turn early.** go-style-core's "How Much To Say" asked for
+  an initial update and progress updates; a note now goes in the same message
+  as the next tool call, since a message without one ends the turn (the Opus
+  5.5 guide's early-stop pattern). go-code-review no longer asks which binary
+  to review, and go-troubleshooting asks its question beside the next capture.
+- **abrun `handed_back`**: a result whose final paragraph announces a next
+  step or offers to continue, counted in the routing summary. A headless
+  session ends on such a message with the step undone. 0 of 10 kept Haiku 5.5
+  review reports match.
+- **Rare branches move to references** (verbatim; each SKILL.md keeps a
+  routing line and every linked heading): go-packages dependency auditing
+  (`DEPENDENCIES.md`), go-logging's observability checklist
+  (`OBSERVABILITY.md`), go-security's review mode (`REVIEW.md`) and CORS
+  middleware (`ACCESS-CONTROL.md`), go-performance runtime settings
+  (`RUNTIME.md`) and the `perf(scope):` rule (`BENCHMARKS.md`), go-defensive
+  archive extraction (`ARCHIVES.md`), go-code-refactor package-scale
+  architecture, the duplication fold, and `Kept:` markers (`ARCHITECTURE.md`,
+  `POLICY-TABLES.md`, `PLAYBOOK.md`), go-testing's `assert.New` in subtests
+  (`TEST-ORGANIZATION.md`). go-security's triage tree, a copy of its Quick
+  Reference table, is gone after its two extra rows joined the table, and so
+  is go-defensive's checklist tree. go-code's Business Rules and go-generics'
+  hashing section stay until measured or pinned otherwise.
+- Named cases: go-functions says how an option tells unset from an explicit
+  zero (`*time.Duration`), go-resilience which errors a breaker counts, and
+  go-concurrency that a semaphore's capacity is its limit, not a buffer.
+
 ## [1.46.2] - 2026-10-30
 
 abrun implement (account, catalog, feed, gateway, ledger, roster; medium,

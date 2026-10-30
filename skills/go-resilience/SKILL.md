@@ -135,8 +135,11 @@ separate bound on pending logical work. Rate tokens govern attempts over time,
 not in-flight calls. Multiple local limiters do not enforce one global quota.
 
 A breaker samples relevant dependency outcomes, limits half-open probes, and
-ignores stale completions from earlier state generations. Classify caller
-cancellation, local rejection, validation, and dependency timeouts deliberately.
+ignores stale completions from earlier state generations. Only the
+dependency's own failures count: a caller's `context.Canceled`, a local
+rejection, and a validation error leave the breaker unchanged. A
+`DeadlineExceeded` counts when the per-attempt timeout fired and not when the
+caller's context had already ended (`ctx.Err() != nil` on the caller's `ctx`).
 Coordinate recovery admission so retries cannot bypass an open breaker or flood
 the recovering dependency. Choose windows/thresholds from traffic and failure
 behavior, not universal magic numbers.

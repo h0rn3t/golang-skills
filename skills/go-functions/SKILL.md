@@ -127,7 +127,10 @@ justify functional options.
 
 Keep required inputs separate from optional settings. Apply defaults first,
 then caller settings, then validate the final configuration, including
-interdependent fields. Distinguish unset from explicit zero when they differ.
+interdependent fields. Where the documented zero differs from the default —
+`Timeout: 0` meaning "no timeout" while unset means 30s — the field is a
+pointer (`*time.Duration`, set with `new(0 * time.Second)`) or the option
+records that it ran; a plain field cannot tell the two apart.
 Do not change an existing config API merely to introduce `With*` helpers.
 Check omitted, explicit zero/nil, and repeated settings against the documented
 constructor contract. Resolve known mismatches in the code before presenting

@@ -112,7 +112,7 @@ A table of data usually beats both shapes. When the cases differ only in
 values — a rate, a prefix, a format string — the switch collapses into a map or
 slice of structs with no interface and no new types at all, which is shorter
 than either the repeated switch or the polymorphic hierarchy.
-[Remove Duplication to the End](../SKILL.md#remove-duplication-to-the-end)
+[POLICY-TABLES.md](POLICY-TABLES.md#finishing-the-fold)
 owns that fold and says when it is finished.
 
 ## Hide delegate and remove middle man

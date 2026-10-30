@@ -17,6 +17,7 @@ linters:
     - ineffassign
     - misspell
     # Enforce what the go-* skills teach
+    - containedctx  # go-context: a Context is a parameter, not a struct field
     - depguard      # go-packages: stdlib-first dependency ladder
     - errname       # go-naming: ErrFoo sentinels, FooError types
     - errorlint     # go-error-handling: errors.Is/AsType, never == or a type assertion
@@ -28,6 +29,8 @@ linters:
     - noctx         # go-context / go-http: outbound calls carry a context
     - nolintlint    # go-linting: a suppression names its linter and its reason
     - perfsprint    # go-performance: strconv over fmt.Sprint for a lone value; Sprintf formatting stays
+    - predeclared   # go-naming: no local named len, max, new, or error
+    - recvcheck     # go-interfaces: one receiver kind per type; encoders and String on a value type are exempt
     - rowserrcheck  # go-database: rows.Err checked after the loop
     - sloglint      # go-logging: static message, key-value attrs, snake_case keys
     - sqlclosecheck # go-database: rows and statements closed

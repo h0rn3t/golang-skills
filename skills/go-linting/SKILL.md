@@ -142,7 +142,8 @@ return rand.N(d) //nolint:gosec // G404: retry jitter, not a secret
 `nolintlint` in the baseline rejects a bare `//nolint`, one without a reason,
 and one on a line with no finding for that linter; place the comment on the
 finding's line. `_ = f()` needs no directive: `errcheck` does not report an
-explicit discard.
+explicit discard. The line still says why: a bare `_` on an error is a
+[go-code-review](../go-code-review/SKILL.md) finding.
 
 ---
 

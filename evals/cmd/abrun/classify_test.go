@@ -84,6 +84,33 @@ func TestReportedCounts(t *testing.T) {
 	}
 }
 
+// TestHandedBack covers the closing-paragraph heuristic: an announced step or
+// an offer to continue in the last paragraph is a hit, the same words earlier
+// in the report narrate work already done.
+func TestHandedBack(t *testing.T) {
+	tests := []struct {
+		name  string
+		final string
+		want  bool
+	}{
+		{name: "empty message", final: ""},
+		{name: "finished report", final: "Implemented Fetch.\n\nchecks: gofmt pass · vet pass · test -race pass"},
+		{name: "announced next step", final: "Wrote the contract table.\n\nNext, I'll implement the handler and run the tests.", want: true},
+		{name: "now I will", final: "The table is in place. Now I will fill in the body.", want: true},
+		{name: "offer to continue", final: "Done with the parser.\n\nWould you like me to add the fuzz target too?", want: true},
+		{name: "shall I", final: "Two endpoints remain.\n\nShall I migrate them?", want: true},
+		{name: "narration mid-report", final: "Next, I'll describe the change: I added a guard.\n\nAll checks pass."},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := handedBack(tt.final); got != tt.want {
+				t.Errorf("handedBack(%q) = %v, want %v", tt.final, got, tt.want)
+			}
+		})
+	}
+}
+
 // TestCodexCommands counts attempts, not transcript events: codex emits a
 // started and a completed item for one shell call.
 func TestCodexCommands(t *testing.T) {

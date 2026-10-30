@@ -109,6 +109,8 @@ Tips:
 - Always use `-count=10` or higher for reliable results
 - A small p-value is evidence under the sampling assumptions; it does not
   exclude drift, biased inputs, or interference from other workloads
+- Perf-only changes use a `perf(scope):` subject and paste the verdict or
+  benchstat table plus hardware context (`goos`/`goarch`/`cpu`) in the body.
 
 ---
 

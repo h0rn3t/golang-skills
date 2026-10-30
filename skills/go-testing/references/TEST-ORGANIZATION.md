@@ -1,8 +1,8 @@
 # Test Organization Reference
 
-> Sources: source/google-go-styleguide/best-practices.md (Test Doubles, Test Structure); source/google-go-styleguide/decisions.md (Test packages)
+> Sources: source/google-go-styleguide/best-practices.md (Test Doubles, Test Structure); source/google-go-styleguide/decisions.md (Test packages); `testing` and `github.com/stretchr/testify` docs (Assertion Objects in Subtests)
 > Authority: advisory
-> Last verified: 2026-09-10
+> Last verified: 2026-10-30
 
 ---
 
@@ -13,6 +13,7 @@
 - [Standalone Test Helper Packages](#standalone-test-helper-packages)
 - [Test Packages](#test-packages)
 - [Setup Scoping](#setup-scoping)
+- [Assertion Objects in Subtests](#assertion-objects-in-subtests)
 
 ## Test Double Types
 
@@ -140,3 +141,14 @@ sparingly.
 ## Setup Scoping
 
 Use `TestMain` only as a last resort (see [INTEGRATION.md](INTEGRATION.md)).
+
+## Assertion Objects in Subtests
+
+An `assert.New(t)` or `require.New(t)` bound to the parent `t` and used inside `t.Run` fails the
+wrong test. Through `assert` the failure lands on the parent and the subtest
+stays green; the tell in `-v` output is a parent FAIL over subtests that all
+PASS. A `require` through it calls `FailNow` on the parent from the
+subtest's goroutine; the tell is `subtest may have called FailNow on a
+parent test`; under `t.Parallel` subtests the binary dies instead with
+`panic: test executed panic(nil) or runtime.Goexit`. Build it from the
+subtest's own `t`.

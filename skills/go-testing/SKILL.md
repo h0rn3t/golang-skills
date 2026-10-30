@@ -12,7 +12,7 @@ description: Use when writing, reviewing, or improving Go test code — includin
 
 ## Resource Routing
 
-- `references/TEST-ORGANIZATION.md` - Read when choosing or naming test doubles, structuring packages, black-box tests, or larger test suites.
+- `references/TEST-ORGANIZATION.md` - Read when choosing or naming test doubles, structuring packages, black-box tests, or larger test suites, or when a parent test fails over subtests that all pass.
 - `references/VALIDATION-APIS.md` - Read when designing an exported validation function or a `*test` package that other packages' tests call.
 - `references/INTEGRATION.md` - Read when testing external services, HTTP handlers, databases, or long-running setup.
 - `../go-http/references/JSON-V2.md` - Read when testing JSON v2 defaults, migration compatibility, or golden bytes (Go 1.27+).
@@ -135,18 +135,12 @@ t.Errorf("Add(2, 3) = %d, want %d", got, 5)
 
 Use `assert` for independent checks that can continue after failure and
 `require` for prerequisites, only from the test goroutine; a wrapped error is
-`require.ErrorIs`, not a match on its text. An `assert.New(t)` or
-`require.New(t)` bound to the parent `t` and used inside `t.Run` fails the
-wrong test. Through `assert` the failure lands on the parent and the subtest
-stays green; the tell in `-v` output is a parent FAIL over subtests that all
-PASS. A `require` through it calls `FailNow` on the parent from the
-subtest's goroutine; the tell is `subtest may have called FailNow on a
-parent test`; under `t.Parallel` subtests the binary dies instead with
-`panic: test executed panic(nil) or runtime.Goexit`. Build it from the
-subtest's own `t`.
+`require.ErrorIs`, not a match on its text. `assert.New`/`require.New` are
+built from the subtest's own `t`
+([why](references/TEST-ORGANIZATION.md#assertion-objects-in-subtests)).
 
-For protocol buffers, add `protocmp.Transform()` as a cmp option. Always
-include the direction key `(-want +got)` in diff messages. Compare serialized
+For protocol buffers, add `protocmp.Transform()` as a cmp option. Include
+the direction key `(-want +got)` in diff messages. Compare serialized
 output semantically when formatting is irrelevant; compare bytes when exact
 serialization is the contract. For JSON v2 options and golden-test limits, see
 [JSON v2 at API boundaries](../go-http/references/JSON-V2.md#json-in-golden-tests).

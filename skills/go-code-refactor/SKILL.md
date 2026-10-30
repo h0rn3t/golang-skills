@@ -20,8 +20,8 @@ target project using the resolved absolute script path.
 - `../go-testing/SKILL.md` - Load with go-style-core before the first edit; a refactor often edits tests.
 - `../go-linting/SKILL.md` - With a shell, load with go-style-core before edits; select the final gate and attempt receipt verification at step 5.
 - `references/BEHAVIOR-TRAPS.md` - Its Pre-commit checklist before every refactor; a section when a transform moves a `defer`, nil versus empty, goroutine or channel shape, or struct layout.
-- `references/PLAYBOOK.md` - The concrete transformations, ordered by payoff.
-- `references/POLICY-TABLES.md` - When repeated selection reads fields of one shared policy record.
+- `references/PLAYBOOK.md` - The concrete transformations, ordered by payoff, and the `Kept:` marker for what a refactor leaves alone.
+- `references/POLICY-TABLES.md` - When repeated selection reads fields of one shared policy record, or deciding when that fold is finished.
 - `references/CATALOG.md` - When a move crosses a function, type, or package boundary: the tool and the risk tier.
 - `references/SAFETY-NET.md` - When the blast radius has thin or no tests.
 - `references/MECHANICAL.md` - When the same edit recurs across many sites.
@@ -296,42 +296,15 @@ cannot solve gets one sentence in the report.
 When branches repeat one policy or computation and differ only in its values,
 separate **selection** (which case applies) from **computation** (what is done
 with the selected values). Within that shared operation, aim to represent each
-policy fact, selection, and condition ladder once. Replacing literals with
-constants or changing `if` to `switch` alone does not remove repeated logic.
-
-Equal literals and matching switch keys do not establish a shared policy: a
-retry limit of 3 and a grace period of 3 days stay independent facts. Combine
-values only when they belong to one record and the final code reads better;
-stop when another fold adds more coupling than it removes, and name a material
-remaining duplication in the report.
-
-Pick the shape by the final code, call sites included: an exported accessor
-that already performs the selection, before a new unexported helper; a
-`switch` when the cases carry logic; a `map` or slice literal indexed by the
-key when they carry only values. A table exists to delete the branches, not
-to be serviced — no search helper, no method, no loop to rebuild a list that
-was already a literal. If the lookup needs those, the `switch` was shorter.
-Map iteration order is not source order, so an ordered literal stays a
-literal. Error texts and the point where an unknown key fails do not move.
-`references/POLICY-TABLES.md` shows the fold.
+policy fact, selection, and condition ladder once. When the fold is finished
+and which shape it takes:
+[POLICY-TABLES.md](references/POLICY-TABLES.md#finishing-the-fold).
 
 ## Architecture at Package Scale
 
-> **Normative**: Modules own the tree; layers live inside a module when they
-> earn a package. `handlers/`, `services/`, `repositories/`, `models/` may be
-> the tree of one cohesive service; several independently changing domains
-> move the same names under `internal/<module>/`. Services and models import
-> no transport or database driver; cross-module code stops at a module's root
-> contract; keeping the tree and repairing one boundary is a valid result.
-
-When the smell is the import graph, `references/ARCHITECTURE.md` owns the
-call: start at the named target or at recurring paths in `git log`, measure
-the graph, and propose the smallest repair as graded candidate cards; the
-chosen candidate gets a target and a staged plan, applied only as far as
-authorized. A move is High
-tier and a proposal unless the user asked for it; its first commit
-encodes the rule in `architecture.json` and runs
-`bash "<installed-skill-dir>/scripts/check-architecture.sh"`, whose `known` list a refactor never extends to make its own run pass.
+When the smell is the import graph (a god package, shared global layers,
+drivers in services, a cycle), [ARCHITECTURE.md](references/ARCHITECTURE.md#package-scale-rule)
+owns the call: the layering rule, candidate cards, and the High-tier move.
 
 ## Concision Gate
 
@@ -356,21 +329,9 @@ or blank lines cannot compensate for added code; do not compress statements
 onto one line to meet the limit. An empty diff is successful when no
 qualifying improvement exists.
 
-## Mark What You Deliberately Left Alone
-
-When you keep something ugly because changing it would change behavior, say so
-in the code, not only in the report. `Kept:` / `Ceiling:` / `Fix:` are fixed
-prefixes, so the markers stay greppable:
-
-```go
-// Kept: defer stays inside the loop; hoisting the body closes each file as its iteration ends.
-// Ceiling: descriptors accumulate for the worker's lifetime.
-// Fix: close explicitly per iteration, in its own commit.
-```
-
-A marker naming no ceiling and no upgrade path rots into "later means never".
-`bash "<installed-skill-dir>/scripts/check-debt.sh" ./...` lists every marker and
-exits 1 on those.
+Something ugly kept because changing it would change behavior gets a
+`Kept:` / `Ceiling:` / `Fix:` marker in the code
+([PLAYBOOK.md](references/PLAYBOOK.md#10-mark-what-you-deliberately-left-alone)).
 
 ## Related Skills
 

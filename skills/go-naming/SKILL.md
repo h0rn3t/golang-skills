@@ -54,8 +54,8 @@ word; layer directories take the plural layer names `handlers`, `services`,
   `ParseInt64`).
 - **A predeclared identifier as a name.** `error`, `string`, `len`, `cap`,
   `append`, `copy`, `new`, `make` as a variable, parameter, or type name
-  compiles and hides the built-in for the rest of the scope;
-  [SHADOWING.md](../go-style-core/references/SHADOWING.md) owns detection.
+  compiles and hides the built-in for the rest of the scope (`predeclared` in
+  the gate reports it); [SHADOWING.md](../go-style-core/references/SHADOWING.md) owns detection.
 
 ---
 

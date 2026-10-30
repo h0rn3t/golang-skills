@@ -2,7 +2,7 @@
 
 > Sources: golangci-lint v2 configuration schema and linter catalogue; source/uber-go-style/style.md (Linting); GitHub Actions docs; `go help testflag`
 > Authority: project policy for the baseline config and the CI pipeline shape; tool behavior follows golangci-lint 2.15.0 and go1.27.2
-> Last verified: 2026-10-10
+> Last verified: 2026-10-30
 
 ## Setup Procedure
 
@@ -39,6 +39,14 @@ not run in the baseline (staticcheck covers dot imports, error-return order,
 a noise check on five codebases: `revive`'s `unused-parameter`, which fires on
 the `w, r` a handler type fixes, and `iface`'s `unused` and `identical`, which
 fire on exported interfaces a library offers its callers.
+`recvcheck`, `containedctx`, and `predeclared` joined after the same check on
+`x/sync`, `x/oauth2`, `x/vuln`, `x/perf`, and this repository's tools: each
+finding was a rule a skill states, and `recvcheck`'s built-in exclusions keep
+the value encoders and `String` that
+[go-interfaces](../../go-interfaces/SKILL.md#receiver-type) exempts. Left out
+after it: `thelper`, which cannot tell a setup helper from a shared test body
+(where `t.Helper()` would hide the failing line), and `revive`'s `deep-exit`,
+which reports `log.Panicf` and the `usage()` that exits in package `main`.
 Left off because it contradicts a skill: `prealloc`, which reports every
 `var out []T` filled by `append` in a loop, hot path or not, and whose fix
 turns a nil result (`null` under `encoding/json` v1) into an empty one —

@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.46.2] - 2026-10-30
+
 abrun implement (account, catalog, feed, gateway, ledger, roster; medium,
 n=3, 1.46.1 / this tree): Haiku 5.5 sessions reading `LADDER.md` 9/18 / 0/18,
 golden 100% / 100%, $0.0258 / $0.0244 per run; Sonnet 5.5 golden 100% /

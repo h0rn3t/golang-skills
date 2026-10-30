@@ -114,7 +114,7 @@ the verification gate, and the check receipts live in `hooks/helper`, which
   this hook and the ladder hook print JSON `additionalContext`: a subagent
   never sees plain stdout.
 - `go-restraint-ladder.sh`: SessionStart and SubagentStart in a Go directory
-  print the ladder section of `LADDER.md` plus the session's
+  print `LADDER.md` from the ladder heading to its end plus the session's
   `lite`/`full`/`ultra` row from go-code's Intensity table, both read at run
   time; UserPromptSubmit records a level word in `<state>/intensity`.
   `GOLANG_SKILLS_LADDER=lite|full|ultra|off`.

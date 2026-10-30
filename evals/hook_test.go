@@ -1947,13 +1947,14 @@ func TestLadderHook(t *testing.T) {
 			t.Fatalf("exit %d, want 0", code)
 		}
 		owner := filepath.Join(repoRoot(t), "skills", "go-code-refactor", "references", "LADDER.md")
-		for _, want := range []string{owner, "## The Restraint Ladder", "Does this need to exist at all?", "Can it be one line?", "**Never on the chopping block**", "Restraint level `full`", "as written. The default."} {
+		// The file from the ladder to its end, so no model needs to Read it.
+		for _, want := range []string{owner, "do not Read that file", "## The Restraint Ladder", "Does this need to exist at all?", "Can it be one line?", "**Never on the chopping block**", "## Ship, Then Question", "`skipped: <X>, add when <Y>`", "Restraint level `full`", "as written. The default."} {
 			if !strings.Contains(out, want) {
 				t.Errorf("session start must print %q:\n%s", want, out)
 			}
 		}
-		if strings.Contains(out, "## Ship, Then Question") {
-			t.Errorf("only the ladder section is printed, not the rest of the file:\n%s", out)
+		if strings.Contains(out, "> Sources:") {
+			t.Errorf("the file's header is not printed:\n%s", out)
 		}
 	})
 

@@ -4,6 +4,21 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+abrun implement (account, catalog, feed, gateway, ledger, roster; medium,
+n=3, 1.46.1 / this tree): Haiku 5.5 sessions reading `LADDER.md` 9/18 / 0/18,
+golden 100% / 100%, $0.0258 / $0.0244 per run; Sonnet 5.5 golden 100% /
+100%, $0.255 / $0.250. What "Ship, Then Question" changes in reports is
+unmeasured: `skipped:` lines appeared in 1 of 72 reports.
+
+- **The ladder hook prints all of `LADDER.md` below its header**, "Ship,
+  Then Question" included, and says the file needs no Read. Given the ladder
+  section alone, Haiku 5.5 read the file again in 261 of 678 Go sessions
+  (local transcripts, 2026-10-23..29), always before the first edit; Sonnet
+  5.5 and Opus 5.5 never did, so they never saw "Ship, Then Question". The
+  hook prints 5.2K characters per Go session and subagent instead of 3.6K.
+  go-code's and go-code-refactor's routing lines for `LADDER.md` now name
+  the heading to look for instead of "the session-start hook".
+
 ## [1.46.1] - 2026-10-29
 
 Ideas from "How the Claude Code team does code review" (Addy Osmani,

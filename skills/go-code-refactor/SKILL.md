@@ -33,7 +33,7 @@ target project using the resolved absolute script path.
 - `scripts/check-architecture.go` - The checker the wrapper builds and runs; `scripts/check-architecture_test.go` holds its unit tests. Neither is run or read directly.
 - `references/STRUCTURAL.md` - Before moving a type between packages, breaking an import cycle, or changing an exported API.
 - `references/MODERNIZATION.md` - When a hunk adopts a newer API or `go fix -diff` proposes one: safe, conditional, report-only.
-- `references/LADDER.md` - When a step adds a helper, type, layer, option, or import.
+- `references/LADDER.md` - When a step adds a helper, type, layer, option, or import, unless `## The Restraint Ladder` is already in context (the session-start hook prints the whole file).
 - `references/OVER-ENGINEERING.md` - When the ask is "what can we delete", or a simpler stdlib API is sought.
 - `scripts/verify-refactor.sh` - Baseline and final check results, and production LOC before and after.
 - `scripts/check-debt.sh` - Harvest `Kept:` markers and flag the ones naming no ceiling and no fix.

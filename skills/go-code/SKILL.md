@@ -18,7 +18,7 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
 - `../go-linting/SKILL.md` — With a shell, load alongside go-style-core at step 2; its gate and receipt verifier close step 6.
 - `references/INTENSITY.md` — Read when the prompt carries `lite` or `ultra` (`/go-code ultra <task>`, `ultra mode`): what each level changes.
 - `references/NEW-CODE-EXAMPLES.md` — Read when the shape of a Contract Table case, Plain Code body, or budgeted helper is in doubt.
-- `../go-code-refactor/references/LADDER.md` — Read before the first edit on every task, unless the session-start hook already printed its ladder: step 5 climbs it for each added entity.
+- `../go-code-refactor/references/LADDER.md` — Read before the first edit on every task, unless `## The Restraint Ladder` is already in context (the plugin's session-start hook prints the whole file): step 5 climbs it for each added entity.
 - `../go-code-refactor/references/OVER-ENGINEERING.md` — Read its replacement table only when seeking a simpler existing API.
 
 ## Workflow

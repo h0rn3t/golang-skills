@@ -6,11 +6,15 @@
 # implementation control. This hook puts it in context without a Read.
 #
 #   SessionStart (startup, resume, clear, compact) and SubagentStart: in a
-#     directory holding Go, print the ladder section and the session's level.
+#     directory holding Go, print LADDER.md from the ladder heading to its
+#     end, and the session's level. The whole body, not the ladder section
+#     alone: given only the section, Haiku 5.5 read the file again in 261 of
+#     678 Go sessions (2026-10-23..29), and Sonnet and Opus never saw
+#     "Ship, Then Question".
 #     compact is in the matcher because compaction drops what startup printed;
 #     a subagent starts with an empty context. The plugin's go-verify agent
 #     runs checks only and is skipped, as are the host's agents that write no
-#     Go (Explore, claude-code-guide, statusline-setup) — 3.6 KB each they
+#     Go (Explore, claude-code-guide, statusline-setup) — 5 KB each they
 #     would never use. Plan keeps the ladder: it shapes what a plan proposes.
 #     A subagent sees SubagentStart output only as JSON additionalContext, so
 #     that event prints the same text wrapped in it.
@@ -58,14 +62,10 @@ if [[ "$event" == "UserPromptSubmit" ]]; then
     exit 0
 fi
 
-section="$(awk '
-    /^## The Restraint Ladder$/ { on = 1; print; next }
-    on && /^## / { exit }
-    on { print }
-' "$ladder_file" 2>/dev/null)"
+section="$(awk '/^## The Restraint Ladder$/ { on = 1 } on' "$ladder_file" 2>/dev/null)"
 [[ -n "$section" ]] || exit 0
 
-note="$(printf 'golang-skills: this project holds Go. Before writing Go, climb the restraint ladder below, read from %s; its links resolve from that file.\n' "$ladder_file"
+note="$(printf 'golang-skills: this project holds Go. Before writing Go, climb the restraint ladder below. It is %s from `## The Restraint Ladder` to its end, already in context: do not Read that file; its links resolve from it.\n' "$ladder_file"
 printf 'Restraint level `%s`: %s Change it with `/go-code lite|full|ultra <task>` or `lite mode` / `ultra mode`; a behavior-preserving refactor runs at `full`.\n\n' \
     "$level" "$row"
 printf '%s\n' "$section")"

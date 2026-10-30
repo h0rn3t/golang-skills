@@ -5,7 +5,7 @@
 > Last verified: 2026-10-23 against go1.27.1
 
 Normative whenever Go code is written, on any task. The session-start hook
-prints the ladder section; the stdlib table it points to and the audit lane
+prints this file from the ladder to its end; the stdlib table it points to and the audit lane
 live in [OVER-ENGINEERING.md](OVER-ENGINEERING.md).
 
 ## The Restraint Ladder

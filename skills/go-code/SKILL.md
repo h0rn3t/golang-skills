@@ -180,8 +180,9 @@ form; [go-testing](../go-testing/SKILL.md) owns the table-test form, and
 
 ### Plain Code
 
-The body reads as the documentation reads: reject invalid states early, then
-do the main work in its natural order. Return directly when that makes the
+The body reads as the documentation reads: reject invalid states early
+([the early return](../go-style-core/SKILL.md#reduce-nesting)), then do the
+main work in its natural order. Return directly when that makes the
 result clear; do not introduce a result variable to enforce one final return.
 This applies to the entry point, anything it calls, and the contract test.
 
@@ -198,9 +199,6 @@ This applies to the entry point, anything it calls, and the contract test.
   expression does not; otherwise it is written where it is used. A fact the
   code tracks — what was already asked for, what was sent, what failed —
   keeps its own variable even when another one almost holds it.
-- **A comment states what the code cannot show**, never a narration of the
-  next line; [go-style-core](../go-style-core/SKILL.md#formatting) owns
-  comment style and [the early return](../go-style-core/SKILL.md#reduce-nesting).
 - **Use a standard-library operation when it states the intent more clearly**
   (the idiom card lists them); a loop that tracks several related facts may
   read better as a loop. Check ordering, ownership, and nil-versus-empty
@@ -226,7 +224,8 @@ what the test already proves or the code already shows. Each item below is a
 line a reviewer sends back:
 
 - A comment that narrates the next line or repeats what the code already
-  shows. A comment giving a reason the code cannot show stays.
+  shows. A comment giving a reason the code cannot show stays
+  ([go-style-core](../go-style-core/SKILL.md#formatting) owns comments).
 - A name used once that explains nothing, and the variable it fills: the
   value is written where it is used. A name that passes the Plain Code test
   stays.
@@ -305,8 +304,7 @@ show the order of an operation, not a list to reproduce.
 
 The budget counts what survives the restraint ladder in
 [LADDER.md](../go-code-refactor/references/LADDER.md#the-restraint-ladder),
-climbed per declaration before the four rules are checked. Never trade input validation at a trust boundary,
-failure behavior, or a security control for a smaller count.
+climbed per declaration before the four rules are checked.
 
 The report carries one line — `added package-level declarations: N` — and,
 for each, its name and the call sites or caller that need it. A declaration

@@ -4,6 +4,31 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+Opus 5.5 abrun, low, n=1, 1.46.2 / 1.47.0 with the edits below except the
+first: implement (15 fixtures) golden 15/15 / 15/15, $0.521 / $0.502 per
+run; refactor (5 fixtures) golden 5/5 / 5/5, Δlines −18.0 / −14.6. Both arms
+end every session on a finished report (`handed_back` 0/20 / 0/20), so the
+early-stop wording 1.47.0 added changes nothing measurable on Opus at low.
+
+- **go-code-refactor's fold rules are back in SKILL.md.** 1.47.0 moved the
+  completion criteria and the shape choice of Remove Duplication to the End
+  to `POLICY-TABLES.md`, and no session in either arm read a reference. On
+  `pricing` the trap that text names came back: a slice with a `lookup` loop
+  in place of a map, 2 of 4 runs on 1.47.0 (Opus 5.5 low n=1, Haiku 5.5
+  medium n=3) against 0 of 4 on 1.46.2, Δlines −40.8 / −49.8 per run. The
+  1.47.0 entry's refactor no-regression read the pooled Δlines, which hid
+  this fixture. The section, its routing line, and the CATALOG link are
+  1.46.2's text again.
+- go-code states the comment rule once, in the Delete Pass, with a link to
+  go-style-core; the Plain Code bullet that repeated it is gone and its early
+  return link moved to the section's opening sentence. The Declaration
+  Budget no longer repeats the never-cut list that the Delete Pass and the
+  linked ladder already carry.
+- go-style-core keeps what the `go` directive is and that the compiler and
+  `go vet` (`stdversion`) enforce it; the error texts, the two forms that
+  compile at an older directive, and the `//go:build go1.NN` file version
+  move verbatim to `references/LANGUAGE-VERSION.md`.
+
 ## [1.47.0] - 2026-10-30
 
 From a review against 2026 skill research (arXiv 2606.17819, 2608.23067,

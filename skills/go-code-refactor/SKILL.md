@@ -21,7 +21,7 @@ target project using the resolved absolute script path.
 - `../go-linting/SKILL.md` - With a shell, load with go-style-core before edits; select the final gate and attempt receipt verification at step 5.
 - `references/BEHAVIOR-TRAPS.md` - Its Pre-commit checklist before every refactor; a section when a transform moves a `defer`, nil versus empty, goroutine or channel shape, or struct layout.
 - `references/PLAYBOOK.md` - The concrete transformations, ordered by payoff, and the `Kept:` marker for what a refactor leaves alone.
-- `references/POLICY-TABLES.md` - When repeated selection reads fields of one shared policy record, or deciding when that fold is finished.
+- `references/POLICY-TABLES.md` - When repeated selection reads fields of one shared policy record.
 - `references/CATALOG.md` - When a move crosses a function, type, or package boundary: the tool and the risk tier.
 - `references/SAFETY-NET.md` - When the blast radius has thin or no tests.
 - `references/MECHANICAL.md` - When the same edit recurs across many sites.
@@ -296,9 +296,24 @@ cannot solve gets one sentence in the report.
 When branches repeat one policy or computation and differ only in its values,
 separate **selection** (which case applies) from **computation** (what is done
 with the selected values). Within that shared operation, aim to represent each
-policy fact, selection, and condition ladder once. When the fold is finished
-and which shape it takes:
-[POLICY-TABLES.md](references/POLICY-TABLES.md#finishing-the-fold).
+policy fact, selection, and condition ladder once. Replacing literals with
+constants or changing `if` to `switch` alone does not remove repeated logic.
+
+Equal literals and matching switch keys do not establish a shared policy: a
+retry limit of 3 and a grace period of 3 days stay independent facts. Combine
+values only when they belong to one record and the final code reads better;
+stop when another fold adds more coupling than it removes, and name a material
+remaining duplication in the report.
+
+Pick the shape by the final code, call sites included: an exported accessor
+that already performs the selection, before a new unexported helper; a
+`switch` when the cases carry logic; a `map` or slice literal indexed by the
+key when they carry only values. A table exists to delete the branches, not
+to be serviced — no search helper, no method, no loop to rebuild a list that
+was already a literal. If the lookup needs those, the `switch` was shorter.
+Map iteration order is not source order, so an ordered literal stays a
+literal. Error texts and the point where an unknown key fails do not move.
+`references/POLICY-TABLES.md` shows the fold.
 
 ## Architecture at Package Scale
 

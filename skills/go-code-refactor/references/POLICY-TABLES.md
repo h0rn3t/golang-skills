@@ -75,24 +75,5 @@ func Surcharge(name string, kg int) (int, error) {
 ```
 
 Here the zone facts live in one table, while the accessors retain their distinct
-error behavior. The completion criteria and the choice of shape follow.
-
-## Finishing the fold
-
-Replacing literals with
-constants or changing `if` to `switch` alone does not remove repeated logic.
-
-Equal literals and matching switch keys do not establish a shared policy: a
-retry limit of 3 and a grace period of 3 days stay independent facts. Combine
-values only when they belong to one record and the final code reads better;
-stop when another fold adds more coupling than it removes, and name a material
-remaining duplication in the report.
-
-Pick the shape by the final code, call sites included: an exported accessor
-that already performs the selection, before a new unexported helper; a
-`switch` when the cases carry logic; a `map` or slice literal indexed by the
-key when they carry only values. A table exists to delete the branches, not
-to be serviced — no search helper, no method, no loop to rebuild a list that
-was already a literal. If the lookup needs those, the `switch` was shorter.
-Map iteration order is not source order, so an ordered literal stays a
-literal. Error texts and the point where an unknown key fails do not move.
+error behavior. The completion criteria and the choice of shape are in
+[Remove Duplication to the End](../SKILL.md#remove-duplication-to-the-end).

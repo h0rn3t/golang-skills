@@ -22,6 +22,7 @@ the task requires. An ordinary function edit does not require every reference.
 - `references/CONTROL-FLOW.md` - Read when choosing loop/range forms, writing iterators, or preserving iteration behavior.
 - `references/SWITCH-PATTERNS.md` - Read for expression switches, fallthrough, and labeled breaks; route interface semantics to go-interfaces.
 - `references/BLANK-IDENTIFIER.md` - Read for intentional discards and side-effect imports; route interface assertions to go-interfaces.
+- `references/LANGUAGE-VERSION.md` - Read when a file has a `//go:build go1.NN` line, or code compiles at the directive on a newer toolchain but must build on an older one.
 
 ## Style Principles
 
@@ -105,18 +106,11 @@ The directive is the `go` line of the module's `go.mod` — language 1.16 when t
 `go.work` directive does not raise a member module's version — and neither a
 `toolchain` line, `GOTOOLCHAIN`, nor an installed newer Go raises it or
 authorizes a version bump; respect the CI toolchains.
-A language form newer than the directive fails to compile with `requires
-go1.NN or later (-lang was set to go1.MM; check go.mod)` — except
-function-type inference in a conversion or composite-literal element (Go 1.27)
-and a constraint that names its own type parameter (Go 1.26), which compile at
-an older directive on a newer toolchain and fail only on the older one
-(the plugin repository's COMPATIBILITY.md); a library symbol
-newer than it builds, and only `go vet` (`stdversion`) reports it:
-`strings.CutLast requires go1.27 or later (module is go1.26)`. A file whose
-`//go:build` line names a Go version is checked at that version instead,
-above or below the directive and never below 1.21, by the compiler and
-`stdversion` alike: in a `go 1.24` module, a file under `//go:build go1.21`
-rejects `for range n`.
+A language form newer than the directive fails to compile; a library symbol
+newer than it builds, and only `go vet` (`stdversion`) reports it.
+[LANGUAGE-VERSION.md](references/LANGUAGE-VERSION.md) has the error texts, the
+two forms that compile anyway, and the version a `//go:build go1.NN` file is
+checked at.
 
 The rule covers idioms — language features and standard-library APIs — not
 dependencies: the logger, assertion library, router, or ORM the package already

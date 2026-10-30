@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.47.0] - 2026-10-30
+
 From a review against 2026 skill research (arXiv 2606.17819, 2608.23067,
 2605.10039, 2607.27250) and Anthropic's Opus 5.5 prompting guide. Haiku 5.5
 abrun, medium, n=3, 1.46.2 / this tree: implement (14 fixtures) golden 100% /

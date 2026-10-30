@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.47.1] - 2026-10-30
+
 Opus 5.5 abrun, low, n=1, 1.46.2 / 1.47.0 with the edits below except the
 first: implement (15 fixtures) golden 15/15 / 15/15, $0.521 / $0.502 per
 run; refactor (5 fixtures) golden 5/5 / 5/5, Δlines −18.0 / −14.6. Both arms

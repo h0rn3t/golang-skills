@@ -184,8 +184,9 @@ one-line rationale so the user can schedule them.
 
 - **`omitzero` over `omitempty`** (Go 1.24). Clearer intent, finally omits a
   zero `time.Time` — and changes the JSON on the wire.
-- **Migrating call sites to `encoding/json/v2`** (GA in Go 1.27). Faster and a
-  saner API, but v2 defaults are stricter, so it changes what parses.
+- **Migrating call sites to `encoding/json/v2`** (GA in Go 1.27). A saner API,
+  not a speed change (v1 already runs on the v2 engine), and v2 defaults are
+  stricter, so it changes what parses.
 - **Stdlib `uuid`** (Go 1.27) replacing `github.com/google/uuid`. Deletes a
   dependency, but the APIs differ so every call site moves. Usually a small
   mechanical PR once approved. See [go-packages](../../go-packages/SKILL.md).

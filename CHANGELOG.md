@@ -4,6 +4,24 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **The Go 1.27 `encoding/json` marshal numbers are corrected again**, in
+  go-performance, go-packages, go-code-refactor's `MODERNIZATION.md`, and
+  `COMPATIBILITY.md`. 1.47.2 measured payloads with collections and passed
+  pointers; a small struct passed by value regresses more. Interleaved
+  go1.26.4 vs go1.27.1 runs (linux/amd64, 8 × 300 ms, benchstat):
+  - `Marshal` of a five-field struct: +61% by value (1→2 allocs), +22% by
+    pointer (allocs unchanged);
+  - the same struct with a `[]string`, by value: +71% (1→2 allocs);
+  - with a `map[string]string`: +18% (12→9 allocs);
+  - `Encoder.Encode`: +55% by value (1→2 allocs), +34% by pointer
+    (0 allocs);
+  - `GOEXPERIMENT=nojsonv2` on 1.27.1 matches 1.26.4 on every row.
+
+  go-performance now says to pass a pointer on a hot path. goperf.dev's
+  "+1 alloc" holds for by-value structs, so 1.47.2's "did not reproduce"
+  was wrong. MODERNIZATION.md no longer calls the move to
+  `encoding/json/v2` faster.
+
 ## [1.47.2] - 2026-11-04
 
 - **The Go 1.27 `encoding/json` marshal claim is corrected** in go-performance,

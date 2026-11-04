@@ -4,6 +4,15 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **The Go 1.27 `encoding/json` marshal claim is corrected** in go-performance,
+  go-packages, and `COMPATIBILITY.md`: "marshal at parity" was optimistic.
+  Measured go1.26.3 vs go1.27.1 (linux/amd64, 8 × 300 ms, medians): v1
+  `Marshal` +15–17% ns/op with fewer allocations (4→3 small, 152→103 for 50
+  structs), `Unmarshal` −36% (14→7 allocs), and `encoding/json/v2.Marshal`
+  at the v1 speed on 1.27, so the import is still not a speed change.
+  goperf.dev's "encoding 48–51% slower, +1 alloc" did not reproduce: the
+  allocation count moved the other way.
+
 ## [1.47.1] - 2026-10-30
 
 Opus 5.5 abrun, low, n=1, 1.46.2 / 1.47.0 with the edits below except the

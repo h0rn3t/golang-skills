@@ -83,7 +83,7 @@ scope for this repository.
 | API | Replaces |
 |---|---|
 | `uuid` (`New`, `NewV4`, `NewV7`, `Parse`, `MustParse`, `Nil`, `Max`, `Compare`) | `github.com/google/uuid` for the common cases |
-| `encoding/json/v2` + `encoding/json/jsontext` | `encoding/json` for new code that needs its semantics or streaming; `encoding/json` itself runs on the v2 implementation in 1.27 (unmarshal faster, marshal at parity; `GOEXPERIMENT=nojsonv2` restores the old one and removes `encoding/json/v2` and `jsontext` from the build), so the import is not a speed change |
+| `encoding/json/v2` + `encoding/json/jsontext` | `encoding/json` for new code that needs its semantics or streaming; `encoding/json` itself runs on the v2 implementation in 1.27 (unmarshal faster, marshal up to ~15% slower than 1.26 in v1 and v2 alike; `GOEXPERIMENT=nojsonv2` restores the old one and removes `encoding/json/v2` and `jsontext` from the build), so the import is not a speed change |
 | `httptest.NewTestServer(tb, handler)` (in-memory through `srv.Client()`; loopback after `srv.Start()`; without `Start`, `srv.URL` is `http://example.com` once `Client()` runs, so any other client reaches the real host) | `httptest.NewServer` + `defer srv.Close()` |
 | `synctest.Sleep` | Real sleeps inside `synctest.Test` bubbles |
 | `strings.CutLast`, `bytes.CutLast` | `LastIndex` + manual slicing |

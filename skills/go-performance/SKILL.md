@@ -291,8 +291,10 @@ func TestWriteReportAllocs(t *testing.T) {
 Check the standard library first — the iterator variants (`strings.SplitSeq`
 Go 1.24+, `maps.Keys` Go 1.23+) skip the intermediate slice without a new
 dependency. JSON is not such a lever on Go 1.27: `encoding/json` already runs
-on the v2 implementation (unmarshal significantly faster, marshal at parity),
-so moving an import to `encoding/json/v2` measures nothing, and a comparison
+on the v2 implementation (unmarshal about a third faster; marshal up to ~15%
+slower than on 1.26 with fewer allocations, and `encoding/json/v2.Marshal`
+runs at the same speed), so moving an import to `encoding/json/v2` measures
+nothing, and a comparison
 across the 1.26 → 1.27 bump measures the new engine. The JSON wins are in
 the call site: one reused `Encoder` or buffer, a struct in place of
 `map[string]any`. See [go-packages](../go-packages/SKILL.md) for the

@@ -103,7 +103,7 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 - [ ] **Server timeouts**: `http.Server` with `ReadHeaderTimeout` set; no bare `http.ListenAndServe` → [go-http](../go-http/SKILL.md)
 - [ ] **Bounded bodies**: `http.MaxBytesReader` before decoding; `r.Context()` passed downstream → [go-http](../go-http/SKILL.md)
 - [ ] **Error mapping**: Sentinels map to status codes; 500 responses never carry `err.Error()` → [go-http](../go-http/SKILL.md)
-- [ ] **Clients**: Per-dependency `*http.Client` with `Timeout`; `NewRequestWithContext`; body closed on every path → [go-http](../go-http/SKILL.md)
+- [ ] **Clients**: Per-dependency `*http.Client` with `Timeout`; a clone of `http.DefaultTransport`, never a literal (no HTTP/2 without `ForceAttemptHTTP2`), with `SendPingTimeout` on long-lived HTTP/2; `NewRequestWithContext`; body closed on every path, no drain needed (Go 1.27) → [go-http](../go-http/SKILL.md#clients)
 - [ ] **Partial updates**: a PATCH unmarshals onto the loaded writable fields; an absent member stays, `null` clears it, and an unknown member or `password_hash` is a 400 → [go-http](../go-http/SKILL.md#partial-updates)
 
 ## Database

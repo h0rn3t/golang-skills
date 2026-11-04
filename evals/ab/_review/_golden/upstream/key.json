@@ -1,0 +1,13 @@
+{
+  "defects": [
+    {"id": "cow-lost-update", "owner": "go-concurrency", "severity": "must", "file": "registry.go", "match": "func (r *Registry) Set(prefix string, b Backend) {", "span": 5, "note": "Load, clone, Store is not atomic as a whole: the config watcher and the admin API each clone the same map and the later Store drops the other's route. Every access is atomic, so -race reports nothing. Serialize writers with a sync.Mutex (readers stay lock-free) or retry with CompareAndSwap"},
+    {"id": "cow-lost-delete", "owner": "go-concurrency", "severity": "must", "file": "registry.go", "match": "func (r *Registry) Delete(prefix string) {", "span": 5, "note": "the same lost update as Set: a Delete racing a Set can resurrect the removed route or drop the new one; one writer mutex covers both"},
+    {"id": "literal-drops-h2", "owner": "go-http", "severity": "should", "file": "client.go", "match": "t := &http.Transport{", "span": 10, "note": "a Transport literal with DialContext or TLSClientConfig is not offered HTTP/2 unless ForceAttemptHTTP2 is set (or Protocols names HTTP/2): the HTTP2 config is ignored and every call goes over HTTP/1.1, against the doc comment. Clone http.DefaultTransport, or set ForceAttemptHTTP2: true"},
+    {"id": "h2-no-ping", "owner": "go-http", "severity": "should", "file": "client.go", "match": "t.HTTP2 = &http.HTTP2Config{MaxConcurrentStreams: 1000}", "note": "SendPingTimeout is zero, so the client never health-checks the connection: when a NAT or load balancer drops it silently, every multiplexed watch stream hangs for hours with no error. Set SendPingTimeout (and PingTimeout)"},
+    {"id": "revocation-skipped-on-resume", "owner": "go-security", "severity": "must", "file": "server.go", "match": "VerifyPeerCertificate: func(_ [][]byte, chains [][]*x509.Certificate) error {", "span": 9, "tool": "gosec G123", "note": "VerifyPeerCertificate is not called on resumed sessions and session tickets are on by default, so a client revoked after its first handshake keeps resuming for the ticket's lifetime, against 'must stop working on the next connection'. Move the check to VerifyConnection (cs.PeerCertificates[0]), which runs on every handshake"}
+  ],
+  "baits": [
+    {"id": "close-without-drain", "file": "client.go", "match": "defer resp.Body.Close()", "note": "since Go 1.27 Close drains an unread HTTP/1 body up to 256 KiB / 50 ms; closing is the whole obligation on a non-200"},
+    {"id": "load-once-per-read", "file": "registry.go", "match": "b, ok := (*r.routes.Load())[prefix]", "note": "one Load per lookup reads a consistent snapshot that no one mutates; readers need no lock"}
+  ]
+}

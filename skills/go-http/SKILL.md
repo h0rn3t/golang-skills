@@ -208,11 +208,18 @@ For graceful shutdown, `signal.NotifyContext` owns the lifetime;
   two idle connections per host (`http.DefaultMaxIdleConnsPerHost`). Tune a
   clone of it; a `&http.Transport{...}` literal drops `ProxyFromEnvironment`
   and the dial, TLS-handshake, and idle-connection timeouts (the SSRF dialer in
-  [go-security](../go-security/SKILL.md) drops the proxy on purpose):
+  [go-security](../go-security/SKILL.md) drops the proxy on purpose), and with
+  `DialContext` or `TLSClientConfig` set it speaks HTTP/1.1 only unless
+  `ForceAttemptHTTP2` is true — an `HTTP2` config on it is ignored. A client
+  that keeps HTTP/2 connections open — watch streams, many multiplexed
+  requests to one host — sets `SendPingTimeout` (Go 1.24+): at zero no health
+  check runs, and every stream on a connection a NAT dropped silently hangs
+  until its own deadline:
 
   ```go
   t := http.DefaultTransport.(*http.Transport).Clone()
   t.MaxIdleConnsPerHost = 32
+  t.HTTP2 = &http.HTTP2Config{SendPingTimeout: 30 * time.Second}
   client := &http.Client{Timeout: 10 * time.Second, Transport: t}
   ```
 - `http.NewRequestWithContext(ctx, ...)` — the ctx-less form is unbounded;

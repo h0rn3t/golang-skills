@@ -4,6 +4,22 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **go-http's Clients bullet covers HTTP/2 on a client Transport.** A
+  `&http.Transport{}` literal with `DialContext` or `TLSClientConfig` set
+  speaks HTTP/1.1 unless `ForceAttemptHTTP2` is true, and any `HTTP2` config
+  on it is ignored. A client that keeps HTTP/2 connections open sets
+  `SendPingTimeout`. go-code-review's Clients checklist line links both, and
+  adds that closing the body is enough without a drain. The new review fixture `upstream`
+  seeds four defects from a goperf.dev audit: copy-on-write lost updates
+  behind `atomic.Pointer`, the literal Transport, a watch client without
+  pings, and a revocation check in `VerifyPeerCertificate`. Haiku 5.5 medium:
+  - With no skills (n=3), every defect except pings was found; the ping
+    finding was named 0/3.
+  - Reference vs this text (n=6 each): `SendPingTimeout` named 0/6 → 5/6
+    (Fisher p=0.015); a false "drain the body" finding 5/6 → 0/6 (p=0.015);
+    recall 0.80 → 0.97; cost flat ($0.012/run).
+  - Copy-on-write, `VerifyPeerCertificate` (also gosec G123 in the gate), and
+    the literal itself saturate, so no text was added for them.
 - **The Go 1.27 `encoding/json` marshal numbers are corrected again**, in
   go-performance, go-packages, go-code-refactor's `MODERNIZATION.md`, and
   `COMPATIBILITY.md`. 1.47.2 measured payloads with collections and passed

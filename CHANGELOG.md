@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.47.2] - 2026-11-04
+
 - **The Go 1.27 `encoding/json` marshal claim is corrected** in go-performance,
   go-packages, and `COMPATIBILITY.md`: "marshal at parity" was optimistic.
   Measured go1.26.3 vs go1.27.1 (linux/amd64, 8 × 300 ms, medians): v1

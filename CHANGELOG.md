@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.47.3] - 2026-11-05
+
 - **go-http's Clients bullet covers HTTP/2 on a client Transport.** A
   `&http.Transport{}` literal with `DialContext` or `TLSClientConfig` set
   speaks HTTP/1.1 unless `ForceAttemptHTTP2` is true, and any `HTTP2` config

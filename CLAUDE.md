@@ -159,7 +159,7 @@ Spread across `evals/eval_test.go`; an ordinary edit trips them:
   resolve (`TestCrossRefs`; the CI link check also covers `docs/`, `agents/`,
   and root Markdown).
 - A `SKILL.md` body that names a Go version needs a `> Compatibility:` note
-  pointing at `COMPATIBILITY.md`. Inline `(Go 1.NN+)` markers are checked
+  pointing at `skills/go-style-core/references/COMPATIBILITY.md`. Inline `(Go 1.NN+)` markers are checked
   against `$GOROOT/api/go1.NN.txt` by `TestVersionClaimsMatchToolchain`:
   verify with `go doc` or the api files, never from memory.
   `TestGoVersionBaseline` pins the 1.27 baseline and specific rows.
@@ -229,11 +229,12 @@ run against the target project. Skill text writes every command as
   `.claude-plugin/marketplace.json`, and the changelog heading, then an
   annotated `vX.Y.Z` tag; CI creates the GitHub release from that changelog
   section once validation passes. `docs/RELEASE_CHECKLIST.md` lists the validation set.
-- Go baseline is 1.27 (supported: 1.26 and 1.27). `COMPATIBILITY.md` is the
+- Go baseline is 1.27 (supported: 1.26 and 1.27).
+  `skills/go-style-core/references/COMPATIBILITY.md` is the
   source of truth for every version-sensitive claim and says how to re-verify
   each against the installed toolchain. The language version is the module's
   `go` directive, not the installed Go. `go-release-watch.yml` reads the
-  baseline sentence in `COMPATIBILITY.md` and `GOLANGCI_LINT_VERSION` in
+  baseline sentence in that file and `GOLANGCI_LINT_VERSION` in
   `validate-skills.yml` by regex, so keep both spellings intact.
 - Skill wording is judged by measurement, not by reading: a claim that an edit
   helps needs a reference-vs-baseline `abrun` run with raw output retained

@@ -8,7 +8,7 @@ description: Use when resolving Go style or language mechanics such as formattin
 Apply the baseline below; read detailed syntax guidance only for the decision
 the task requires. An ordinary function edit does not require every reference.
 
-> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). Respect the target
+> Compatibility: Baseline Go 1.27 (see [COMPATIBILITY.md](references/COMPATIBILITY.md)). Respect the target
 > module's language version; references name version-sensitive features inline.
 
 ## Resource Routing
@@ -22,6 +22,7 @@ the task requires. An ordinary function edit does not require every reference.
 - `references/CONTROL-FLOW.md` - Read when choosing loop/range forms, writing iterators, or preserving iteration behavior.
 - `references/SWITCH-PATTERNS.md` - Read for expression switches, fallthrough, and labeled breaks; route interface semantics to go-interfaces.
 - `references/BLANK-IDENTIFIER.md` - Read for intentional discards and side-effect imports; route interface assertions to go-interfaces.
+- `references/COMPATIBILITY.md` - Read before stating which Go release added an API or language feature, or choosing a fallback for Go 1.26.
 - `references/LANGUAGE-VERSION.md` - Read when a file has a `//go:build go1.NN` line, or code compiles at the directive on a newer toolchain but must build on an older one.
 
 ## Style Principles
@@ -97,7 +98,7 @@ the source, and a symbol no skill shows is reported, not invented.
 
 Write the older form only when one of four things is true, and name which in
 the report: the current form is not available at the `go` directive
-(the plugin repository's COMPATIBILITY.md lists the language features); it changes observable
+([COMPATIBILITY.md](references/COMPATIBILITY.md) lists the language features); it changes observable
 behavior (the tiers in
 [MODERNIZATION.md](../go-code-refactor/references/MODERNIZATION.md) say which
 swaps do); it does not fit the code at hand; or an explicit user or repository

@@ -9,7 +9,7 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*) Bash(bash ${CLAUDE_PLUGI
 This skill owns the repository's verification gate — the commands that decide
 whether Go work is finished.
 
-> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). Analyzer and
+> Compatibility: Baseline Go 1.27 (see [COMPATIBILITY.md](../go-style-core/references/COMPATIBILITY.md)). Analyzer and
 > linter names are checked against go1.27.2 and golangci-lint 2.15.0.
 
 ## Resource Routing

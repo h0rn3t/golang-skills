@@ -1,5 +1,9 @@
 # Go Compatibility Policy
 
+> Sources: Go release notes; `$(go env GOROOT)/api/go1.NN.txt`; `go tool fix help`; `go tool vet help`
+> Authority: normative
+> Last verified: 2026-11-05
+
 Baseline for all skills in this repository: **Go 1.27**.
 
 Go supports the two most recent major releases. As of Go 1.27 (August 2026)
@@ -9,6 +13,15 @@ maintained toolchain (1.26) lacks the API.
 When a skill recommends a standard-library API or language feature introduced
 after 1.21, it must name the minimum version inline, e.g. `errors.AsType`
 (Go 1.26+).
+
+## Contents
+
+- [Verifying a version claim](#verifying-a-version-claim)
+- [Which version governs](#which-version-governs)
+- [Language features by version](#language-features-by-version)
+- [Standard-library APIs by version](#standard-library-apis-by-version)
+- [Fallback policy](#fallback-policy)
+- [When a new Go release lands](#when-a-new-go-release-lands)
 
 ## Verifying a version claim
 
@@ -158,7 +171,7 @@ forms are 1.24.
 
 ### Deprecated APIs and replacements
 
-The [modernization catalog](skills/go-code-refactor/references/MODERNIZATION.md#deprecated-apis-and-replacements)
+The [modernization catalog](../../go-code-refactor/references/MODERNIZATION.md#deprecated-apis-and-replacements)
 owns the replacement table, deprecation versions, and risk conditions. It ships
 inside the skill so these rules remain available in skill-only installations.
 

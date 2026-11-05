@@ -879,7 +879,13 @@ func (idx exportIndex) add(dir, pattern, goflags string) {
 			continue
 		}
 		if fields[1] != "" {
-			idx.dirs[filepath.Clean(fields[1])] = true
+			// go list бере каталог із getcwd (/private/var на macOS), а
+			// filepath.Abs — із $PWD (/var): ключі зводяться до одного шляху.
+			dir := filepath.Clean(fields[1])
+			if real, err := filepath.EvalSymlinks(dir); err == nil {
+				dir = real
+			}
+			idx.dirs[dir] = true
 		}
 		if fields[2] != "" {
 			idx.files[fields[0]] = fields[2]
@@ -889,6 +895,9 @@ func (idx exportIndex) add(dir, pattern, goflags string) {
 
 func (idx exportIndex) importerFor(fset *token.FileSet, dir string) types.Importer {
 	abs, err := filepath.Abs(dir)
+	if err == nil {
+		abs, err = filepath.EvalSymlinks(abs)
+	}
 	if err != nil || !idx.dirs[abs] {
 		return importer.Default()
 	}

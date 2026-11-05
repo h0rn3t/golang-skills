@@ -108,7 +108,7 @@ its tests read Markdown and shell out to the bundled scripts. Decision on
 
 Not applicable, by the pack's own shape:
 
-- **No version matrix.** The pack states one baseline (`COMPATIBILITY.md`), and
+- **No version matrix.** The pack states one baseline (`skills/go-style-core/references/COMPATIBILITY.md`), and
   CI pins `go-version: '1.27.x'` to match it. A second entry would test the
   toolchain, not the pack.
 - **No `govulncheck`, no `go mod tidy` drift check.** A zero-dependency module

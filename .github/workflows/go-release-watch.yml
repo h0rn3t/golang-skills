@@ -37,14 +37,14 @@ jobs:
           go_latest="$(curl -fsSL 'https://go.dev/dl/?mode=json' \
             | jq -r '.[0].version | ltrimstr("go") | split(".")[:2] | join(".")')"
 
-          # The baseline every skill claims, from COMPATIBILITY.md.
-          go_pinned="$(sed -nE 's/^Baseline for all skills in this repository: \*\*Go ([0-9]+\.[0-9]+)\*\*\.$/\1/p' COMPATIBILITY.md)"
+          # The baseline every skill claims, from skills/go-style-core/references/COMPATIBILITY.md.
+          go_pinned="$(sed -nE 's/^Baseline for all skills in this repository: \*\*Go ([0-9]+\.[0-9]+)\*\*\.$/\1/p' skills/go-style-core/references/COMPATIBILITY.md)"
 
           # Latest golangci-lint tag and the version validate-skills.yml installs.
           lint_latest="$(gh release view --repo golangci/golangci-lint --json tagName --jq .tagName)"
           lint_pinned="$(sed -nE 's/^\s*GOLANGCI_LINT_VERSION:\s*(v[0-9.]+)\s*$/\1/p' .github/workflows/validate-skills.yml)"
 
-          test -n "$go_pinned" || { echo "could not read the Go baseline from COMPATIBILITY.md"; exit 1; }
+          test -n "$go_pinned" || { echo "could not read the Go baseline from skills/go-style-core/references/COMPATIBILITY.md"; exit 1; }
           test -n "$lint_pinned" || { echo "could not read GOLANGCI_LINT_VERSION from validate-skills.yml"; exit 1; }
 
           stale=false
@@ -84,8 +84,8 @@ jobs:
             Work on a new branch named `chore/release-watch-<yyyy-mm>`; never commit to main. Open exactly one pull request per drifted tool, or a single PR when both drifted in a way that must land together. If a tool is not drifted, do not touch its files.
 
             When Go is behind:
-            1. Read `COMPATIBILITY.md` and `docs/RELEASE_CHECKLIST.md` first; they define how a version claim is verified. Use the installed toolchain (`go version`, `go doc`, `go tool fix help`, `go tool vet help`, and `$(go env GOROOT)/api/go<version>.txt`) as the source of truth — never guess an API's version.
-            2. Update the baseline in `COMPATIBILITY.md` (the baseline sentence, the supported-releases sentence, and the per-version tables) with the language and stdlib changes that alter skill guidance.
+            1. Read `skills/go-style-core/references/COMPATIBILITY.md` and `docs/RELEASE_CHECKLIST.md` first; they define how a version claim is verified. Use the installed toolchain (`go version`, `go doc`, `go tool fix help`, `go tool vet help`, and `$(go env GOROOT)/api/go<version>.txt`) as the source of truth — never guess an API's version.
+            2. Update the baseline in `skills/go-style-core/references/COMPATIBILITY.md` (the baseline sentence, the supported-releases sentence, and the per-version tables) with the language and stdlib changes that alter skill guidance.
             3. Update `skills/go-code-refactor/references/MODERNIZATION.md` and the `go fix` analyzer table in `skills/go-linting/SKILL.md` with any new modernizers `go tool fix help` lists.
             4. Update every `> Compatibility:` note and inline `(Go 1.xx+)` claim that the new baseline changes, the Go version in `README.md`, `README.uk.md`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and `go-version` in `.github/workflows/validate-skills.yml`.
             5. Update `TestGoVersionBaseline` in `evals/eval_test.go` so it pins the new baseline, then run `cd evals && go test -count=1 ./...` and fix what fails.

@@ -9,7 +9,7 @@ go1.NN or later (-lang was set to go1.MM; check go.mod)` — except
 function-type inference in a conversion or composite-literal element (Go 1.27)
 and a constraint that names its own type parameter (Go 1.26), which compile at
 an older directive on a newer toolchain and fail only on the older one
-(the plugin repository's COMPATIBILITY.md); a library symbol
+([COMPATIBILITY.md](COMPATIBILITY.md)); a library symbol
 newer than it builds, and only `go vet` (`stdversion`) reports it:
 `strings.CutLast requires go1.27 or later (module is go1.26)`. A file whose
 `//go:build` line names a Go version is checked at that version instead,

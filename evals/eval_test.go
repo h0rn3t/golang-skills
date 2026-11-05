@@ -2750,7 +2750,7 @@ func TestGoVersionBaseline(t *testing.T) {
 		return string(content)
 	}
 
-	compat := read("COMPATIBILITY.md")
+	compat := read("skills/go-style-core/references/COMPATIBILITY.md")
 	for _, needle := range []string{
 		"Baseline for all skills in this repository: **Go 1.27**",
 		"Generic methods",

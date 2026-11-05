@@ -6,7 +6,7 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 
 # Go Interfaces and Composition
 
-> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). Generic methods
+> Compatibility: Baseline Go 1.27 (see [COMPATIBILITY.md](../go-style-core/references/COMPATIBILITY.md)). Generic methods
 > require Go 1.27+.
 
 ## Resource Routing

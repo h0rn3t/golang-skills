@@ -6,7 +6,7 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 
 # Go Code Review Checklist
 
-> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md); the HTTP and
+> Compatibility: Baseline Go 1.27 (see [COMPATIBILITY.md](../go-style-core/references/COMPATIBILITY.md)); the HTTP and
 > database rows route to skills that carry their own version notes.
 
 ## Resource Routing

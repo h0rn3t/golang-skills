@@ -6,7 +6,7 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 
 # Go Refactoring
 
-> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md).
+> Compatibility: Baseline Go 1.27 (see [COMPATIBILITY.md](../go-style-core/references/COMPATIBILITY.md)).
 
 Improve readability while preserving observable behavior. Establish evidence
 for that promise; compilation alone does not establish equivalent behavior.

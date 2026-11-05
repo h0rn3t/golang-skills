@@ -87,8 +87,8 @@ the syntax it gets right.
 - **Require honest reporting.** Where a skill tells the agent to run something,
   it also says: report a skipped or failing step as skipped or failing.
 - **Name the Go version inline** for anything newer than 1.21, and route the
-  skill's `> Compatibility:` note to `COMPATIBILITY.md`. `TestSkillArchitecture`
-  requires the note in any `SKILL.md` whose body names a Go version.
+  skill's `> Compatibility:` note to
+  `skills/go-style-core/references/COMPATIBILITY.md`. `TestSkillArchitecture` requires the note in any `SKILL.md` whose body names a Go version.
 - **Keep examples short and paired.** A before/after pair of a few lines each
   shows the decision; a complete program invites the reader to copy its bulk.
   Every self-contained example is compiled by an `exampleBlock` test in

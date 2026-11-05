@@ -4,7 +4,7 @@
 
 AI [Agent Skills](https://agentskills.io/) for writing idiomatic,
 production-quality Go 1.27 code. The pack contains **24 modular skills**,
-**78 reference files**, **10 bundled scripts**, and **4 asset templates**.
+**79 reference files**, **10 bundled scripts**, and **4 asset templates**.
 The Claude Code plugin also ships a `go-verify` agent and hooks for routing and
 post-edit verification.
 
@@ -414,7 +414,7 @@ source/       Upstream style-guide snapshots with provenance and licenses.
 docs/         Authoring, ownership, script-contract, and release policy.
 ```
 
-`COMPATIBILITY.md` is the source of truth for version-sensitive Go guidance.
+[`COMPATIBILITY.md`](skills/go-style-core/references/COMPATIBILITY.md) is the source of truth for version-sensitive Go guidance.
 `docs/RULE_OWNERSHIP.md` records which skill owns each rule, and
 `docs/SCRIPT_JSON_CONTRACTS.md` defines the bundled script output contracts.
 
@@ -422,7 +422,7 @@ docs/         Authoring, ownership, script-contract, and release policy.
 
 The skills target Go 1.27 and support Go 1.26 and 1.27. Verify version-sensitive
 claims against the installed toolchain and update
-[`COMPATIBILITY.md`](COMPATIBILITY.md) when the baseline changes.
+[`COMPATIBILITY.md`](skills/go-style-core/references/COMPATIBILITY.md) when the baseline changes.
 
 ## License
 

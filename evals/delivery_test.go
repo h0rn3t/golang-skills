@@ -58,7 +58,7 @@ func TestSkillsOnlyInstallLinks(t *testing.T) {
 				continue
 			}
 			base := filepath.Dir(path)
-			if ref == "COMPATIBILITY.md" || strings.HasPrefix(ref, "references/") || strings.HasPrefix(ref, "scripts/") || strings.HasPrefix(ref, "assets/") {
+			if strings.HasPrefix(ref, "references/") || strings.HasPrefix(ref, "scripts/") || strings.HasPrefix(ref, "assets/") {
 				base = skillRoot
 			}
 			target := filepath.Join(base, filepath.FromSlash(ref))
@@ -89,9 +89,6 @@ func relSkill(rel string) string {
 func installRef(token string) (string, bool) {
 	if i := strings.IndexByte(token, '#'); i >= 0 {
 		token = token[:i]
-	}
-	if token == "COMPATIBILITY.md" {
-		return token, true
 	}
 	if token == "" || strings.Contains(token, "://") || strings.Contains(token, "...") || strings.ContainsAny(token, "<>*$") {
 		return "", false

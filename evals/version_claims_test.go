@@ -194,7 +194,6 @@ func TestVersionClaimsMatchToolchain(t *testing.T) {
 
 	var files []string
 	for _, pattern := range []string{
-		"COMPATIBILITY.md",
 		"skills/*/SKILL.md",
 		"skills/*/references/*.md",
 	} {

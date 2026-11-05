@@ -7,7 +7,7 @@ description: Use when writing or fixing Go code (a behavior-preserving refactor 
 
 Route Go work to the relevant owners, then close with their verification gate.
 
-> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md).
+> Compatibility: Baseline Go 1.27 (see [COMPATIBILITY.md](../go-style-core/references/COMPATIBILITY.md)).
 
 ## Resource Routing
 

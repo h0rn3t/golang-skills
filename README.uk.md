@@ -4,7 +4,7 @@
 
 Набір [Agent Skills](https://agentskills.io/) для ідіоматичного та
 production-ready коду на Go 1.27. Пакет містить **24 модульних скіли**,
-**78 довідкових файлів**, **10 вбудованих скриптів** і **4 шаблони-ассети**.
+**79 довідкових файлів**, **10 вбудованих скриптів** і **4 шаблони-ассети**.
 Плагін Claude Code також містить агента `go-verify` та хуки маршрутизації й
 перевірки після редагування.
 
@@ -411,7 +411,7 @@ source/       Знімки upstream-настанов із provenance і ліце
 docs/         Політика авторингу, власності правил, скриптів і release.
 ```
 
-`COMPATIBILITY.md` — джерело правди для версієзалежних настанов Go.
+[`COMPATIBILITY.md`](skills/go-style-core/references/COMPATIBILITY.md) — джерело правди для версієзалежних настанов Go.
 `docs/RULE_OWNERSHIP.md` фіксує власника кожного правила, а
 `docs/SCRIPT_JSON_CONTRACTS.md` — контракти виводу скриптів.
 
@@ -419,7 +419,7 @@ docs/         Політика авторингу, власності прави
 
 Скіли орієнтовані на Go 1.27 і підтримують Go 1.26 та 1.27. Перевіряйте
 версієзалежні твердження встановленим toolchain і оновлюйте
-[`COMPATIBILITY.md`](COMPATIBILITY.md) при зміні baseline.
+[`COMPATIBILITY.md`](skills/go-style-core/references/COMPATIBILITY.md) при зміні baseline.
 
 ## Ліцензія
 

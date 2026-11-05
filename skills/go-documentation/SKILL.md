@@ -6,7 +6,7 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 
 # Go Documentation
 
-> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md). `go doc -ex` and
+> Compatibility: Baseline Go 1.27 (see [COMPATIBILITY.md](../go-style-core/references/COMPATIBILITY.md)). `go doc -ex` and
 > `go doc <pkg>@<version>` require Go 1.27+; doc links and `#` headings Go 1.19+.
 
 ## Resource Routing

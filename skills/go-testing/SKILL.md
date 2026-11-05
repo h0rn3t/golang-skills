@@ -5,7 +5,7 @@ description: Use when writing, reviewing, or improving Go test code — includin
 
 # Go Testing
 
-> Compatibility: Baseline Go 1.27 (see the plugin repository's COMPATIBILITY.md).
+> Compatibility: Baseline Go 1.27 (see [COMPATIBILITY.md](../go-style-core/references/COMPATIBILITY.md)).
 > `httptest.NewTestServer` and `synctest.Sleep` require Go 1.27+;
 > `testing/synctest` Go 1.25+; `t.Context` Go 1.24+. Diff examples use
 > `github.com/google/go-cmp`, in a module that already requires it.

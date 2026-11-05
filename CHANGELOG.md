@@ -4,6 +4,20 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **`COMPATIBILITY.md` ships with the skills.** `npx skills add` and
+  `bunx skills add` copy only `skills/go-*/`, so the 28 mentions of "the
+  plugin repository's COMPATIBILITY.md" pointed at a file a skills-only
+  install never had. The policy now lives at
+  `skills/go-style-core/references/COMPATIBILITY.md` (listed in go-style-core's
+  Resource Routing), every mention is a relative link to it, and
+  `go-release-watch.yml`, the tests, and both READMEs read the new path.
+  `TestSkillsOnlyInstallLinks` no longer exempts the bare filename.
+- **`check-interface-compliance.sh` resolves symlinked directories.** Under
+  `/var` on macOS (a symlink to `/private/var`), `go list` reported package
+  directories through `getcwd` while the lookup used `$PWD`, so a nested
+  module found no export data and came back `incomplete_types` with no
+  findings. Both sides of the lookup now go through `filepath.EvalSymlinks`.
+
 ## [1.47.3] - 2026-11-05
 
 - **go-http's Clients bullet covers HTTP/2 on a client Transport.** A

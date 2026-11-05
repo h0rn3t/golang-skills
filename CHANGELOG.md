@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.47.4] - 2026-11-05
+
 - **`COMPATIBILITY.md` ships with the skills.** `npx skills add` and
   `bunx skills add` copy only `skills/go-*/`, so the 28 mentions of "the
   plugin repository's COMPATIBILITY.md" pointed at a file a skills-only

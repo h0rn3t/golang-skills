@@ -918,9 +918,11 @@ func TestVetHook(t *testing.T) {
 		if err := os.Symlink(filepath.Dir(path), alias); err != nil {
 			t.Fatalf("symlink package directory: %v", err)
 		}
+		// Two findings on the one line, errcheck and gosec G104: the bundled
+		// config sets uniq-by-line false, so neither linter hides the other.
 		for _, editedPath := range []string{path, filepath.Join(alias, "main.go")} {
 			code, out, msg := hookOutput(t, script, t.TempDir(), edited(editedPath))
-			if code != 0 || !strings.Contains(out, "1 finding(s) in other files") || strings.Contains(out, "errcheck") {
+			if code != 0 || !strings.Contains(out, "2 finding(s) in other files") || strings.Contains(out, "errcheck") {
 				t.Errorf("finding in other.go through %s: exit %d, stdout %q, stderr %q; want 0 with a count in additionalContext and no finding text", editedPath, code, out, msg)
 			}
 		}

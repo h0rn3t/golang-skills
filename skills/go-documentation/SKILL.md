@@ -44,7 +44,7 @@ func Encode(w io.Writer, req *Request) { ...
 Unexported names, and exported names under `internal/` or `cmd/`, get a doc
 comment when their behavior is not obvious from the signature.
 
-> **Validation**: `bash <installed-skill-dir>/scripts/check-docs.sh`, run from the project, lists exported names without a doc comment outside `package main` — a comment of only directives or only a `Deprecated:` paragraph counts as none — skipping generated files, methods of unexported types, and the methods revive skips (`Error`, `Read`, `ServeHTTP`, `String`, `Write`, `Unwrap`). Unlike the gate it also reports `internal/` and `cmd/`, where a finding is advisory. Run it once at the end of the task, beside the [go-linting](../go-linting/SKILL.md) gate, which does not run it.
+> **Validation**: `bash <installed-skill-dir>/scripts/check-docs.sh --limit 30 <path>`, run from the project with the directory or file the task touched (one path; without it the whole module is scanned), lists exported names without a doc comment outside `package main` — a comment of only directives or only a `Deprecated:` paragraph counts as none — skipping generated files, methods of unexported types, and the methods revive skips (`Error`, `Read`, `ServeHTTP`, `String`, `Write`, `Unwrap`, and `Len`, `Less`, `Swap` on a type with all three). Unlike the gate it also reports `internal/` and `cmd/`, marked `(advisory)` (`"advisory":true` in `--json`): those count toward exit 1 too, so read the marks, not the exit code. Run it once at the end of the task, beside the [go-linting](../go-linting/SKILL.md) gate, which does not run it.
 
 ---
 

@@ -345,6 +345,7 @@ func exampleBlock(t *testing.T, path, heading string) string {
 	if !ok {
 		t.Fatalf("%s has an unclosed Go example", path)
 	}
+	rememberExampleBlock(t, path, heading, code)
 	return code
 }
 
@@ -356,6 +357,7 @@ func runExampleTest(t *testing.T, code string) {
 			t.Fatal(err)
 		}
 	}
+	defer startExampleLint(t, dir)()
 	cmd := exec.CommandContext(t.Context(), "go", "test", "-count=1", "-race", "./...")
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {

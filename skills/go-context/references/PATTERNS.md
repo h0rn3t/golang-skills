@@ -59,6 +59,7 @@ func run() error {
     // signal channel and goroutine.
     ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
     defer stop()
+    context.AfterFunc(ctx, stop) // after the first signal the default handler is back: a second Ctrl-C ends a shutdown that hangs
     return serve(ctx)
 }
 ```
@@ -72,14 +73,18 @@ Two exceptions where a fresh root is correct rather than lazy:
   `context.WithoutCancel(ctx)` (Go 1.21+) to keep the values while dropping the
   cancellation, or a fresh `context.WithTimeout(context.Background(), ...)`.
 
-**Default to passing a Context** even if you think you don't need to. Only use
-`context.Background()` directly if you have a good reason why passing a context
-would be a mistake:
+**A function that does I/O, or calls one that does, takes `ctx` and passes it
+on**; one that only computes takes none. A `ctx` accepted "for later" and
+never used is a parameter `unparam` in the gate reports. Never replace the
+context a caller passed with `context.Background()`:
 
 ```go
-func LoadConfig(ctx context.Context) (*Config, error) {
-    // Even if not using ctx now, accepting it allows future
-    // additions without API changes
+func LoadConfig(ctx context.Context, store Store) (*Config, error) {
+    raw, err := store.Get(ctx, "config") // the read stops when its caller does
+    if err != nil {
+        return nil, fmt.Errorf("load config: %w", err)
+    }
+    return parseConfig(raw) // pure: no ctx
 }
 ```
 
@@ -270,7 +275,7 @@ place to change the implementation.
 | Request-scoped data | Appropriate for context values |
 | Sharing context | Safe — contexts are immutable |
 | `context.Background()` | Only for non-request-specific code |
-| Default | Pass context even if you think you don't need it |
+| Default | A function that does I/O takes `ctx` and passes it on; pure computation takes none |
 | `defer cancel()` | Defer immediately after `WithTimeout`/`WithCancel`/`WithDeadline` outside a loop |
 | Derived context in a loop | Call its cancel at the end of each iteration, or the iteration in its own function with `defer cancel()` |
 | Value keys | One unexported struct type per key, provide accessor functions |

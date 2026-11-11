@@ -14,20 +14,28 @@ import (
 	"strings"
 )
 
-const version = "1.5.0"
+const version = "1.6.0"
 
 // standardMethods implement a standard interface whose documentation covers
-// them. It is revive exported's commonMethods (v1.15.0); revive also skips
-// Len, Less, and Swap on a sort.Interface type, which this check reports.
+// them. It is revive exported's commonMethods (v1.15.0).
 var standardMethods = map[string]bool{
 	"Error": true, "Read": true, "ServeHTTP": true, "String": true, "Write": true, "Unwrap": true,
 }
+
+// sortMethods are skipped on a type that declares all three, as revive's
+// exported rule skips them: sort.Interface documents them.
+var sortMethods = map[string]int{"Len": 1, "Less": 2, "Swap": 4}
+
+const sortInterface = 1 | 2 | 4
 
 type missingDoc struct {
 	File string `json:"file"`
 	Line int    `json:"line"`
 	Kind string `json:"kind"`
 	Name string `json:"name"`
+	// Advisory marks a finding under internal/ or cmd/, which the lint gate's
+	// revive excludes. It does not change the exit code.
+	Advisory bool `json:"advisory,omitempty"`
 }
 
 type parseError struct {
@@ -39,6 +47,7 @@ type parsedFile struct {
 	path      string
 	file      *ast.File
 	generated bool // a "Code generated ... DO NOT EDIT." file, which the gate skips too
+	sibling   bool // a package mate of a file target: read for the package, not reported
 }
 
 type packageInfo struct {
@@ -47,6 +56,7 @@ type packageInfo struct {
 	firstLine   int
 	handwritten bool
 	hasDoc      bool
+	sortable    map[string]int // receiver type -> the sortMethods it declares
 }
 
 func usage() {
@@ -61,14 +71,18 @@ DESCRIPTION
     comment that holds only directives or only a Deprecated: paragraph is
     missing; a package comment starts with "Package <name>", and a command's
     names the command in its first three words. Like revive's exported rule,
-    it skips package main, _test.go files, methods of unexported types, and
-    the methods Error, Read, ServeHTTP, String, Write, and Unwrap. Like the
-    go-linting gate, it skips generated files (a "Code generated ... DO NOT
-    EDIT." line); unlike the gate, whose revive excludes internal/ and cmd/,
-    it reports those too.
+    it skips package main, _test.go files, methods of unexported types, the
+    methods Error, Read, ServeHTTP, String, Write, and Unwrap, and Len, Less,
+    and Swap on a type that declares all three. Like the go-linting gate, it
+    skips generated files (a "Code generated ... DO NOT EDIT." line); unlike
+    the gate, whose revive excludes internal/ and cmd/, it reports those too,
+    marked advisory ("advisory":true in --json). They still count toward
+    exit 1.
     As go ./... does, it skips vendor and testdata directories, directories
     or files whose names begin with "." or "_", nested modules, and
     directories the go.mod ignore directive names.
+    A file path reports that file's declarations; its package comment and
+    sort.Interface methods are read from the whole package directory.
 
     Exits 0 if everything is documented, 1 if symbols lack docs, 2 on a usage
     error, when the helper does not build, or when a file does not parse. The other files are still checked;
@@ -123,6 +137,12 @@ func main() {
 		}
 		parsed = append(parsed, parsedFile{path: path, file: file, generated: ast.IsGenerated(file)})
 	}
+	// A sibling that does not parse is not this run's finding.
+	for _, path := range packageSiblings(opts.target, files) {
+		if file, err := parser.ParseFile(fset, path, nil, parser.ParseComments); err == nil {
+			parsed = append(parsed, parsedFile{path: path, file: file, generated: ast.IsGenerated(file), sibling: true})
+		}
+	}
 
 	// Nothing imports package main, so outside --strict it has no API to document.
 	if !opts.strict {
@@ -134,13 +154,18 @@ func main() {
 		key := packageKey(pf.path, pf.file.Name.Name)
 		info, ok := packages[key]
 		if !ok {
-			info = &packageInfo{name: pf.file.Name.Name}
+			info = &packageInfo{name: pf.file.Name.Name, sortable: map[string]int{}}
 			packages[key] = info
 		}
 		if isPackageDoc(pf.file.Doc, pf.file.Name.Name, pf.path) {
 			info.hasDoc = true
 		}
-		if pf.generated {
+		for _, decl := range pf.file.Decls {
+			if fn, ok := decl.(*ast.FuncDecl); ok && fn.Recv != nil {
+				info.sortable[receiverName(fn.Recv.List[0].Type)] |= sortMethods[fn.Name.Name]
+			}
+		}
+		if pf.generated || pf.sibling {
 			continue
 		}
 		if line := fset.Position(pf.file.Package).Line; !info.handwritten || pf.path < info.firstFile {
@@ -153,7 +178,7 @@ func main() {
 	missing := []missingDoc{}
 	reportedPackage := map[string]bool{}
 	for _, pf := range parsed {
-		if pf.generated {
+		if pf.generated || pf.sibling {
 			continue
 		}
 		key := packageKey(pf.path, pf.file.Name.Name)
@@ -167,7 +192,7 @@ func main() {
 			})
 			reportedPackage[key] = true
 		}
-		missing = append(missing, findMissingDeclDocs(fset, pf, opts.strict)...)
+		missing = append(missing, findMissingDeclDocs(fset, pf, info.sortable, opts.strict)...)
 	}
 
 	sort.Slice(missing, func(i, j int) bool {
@@ -176,6 +201,21 @@ func main() {
 		}
 		return missing[i].File < missing[j].File
 	})
+
+	advisory := 0
+	modRoots := map[string]string{}
+	for i := range missing {
+		dir := filepath.Dir(missing[i].File)
+		modRoot, ok := modRoots[dir]
+		if !ok {
+			modRoot, _ = moduleIgnores(dir)
+			modRoots[dir] = modRoot
+		}
+		if gateExcludes(modRoot, dir) {
+			missing[i].Advisory = true
+			advisory++
+		}
+	}
 
 	total := len(missing)
 	truncated := false
@@ -220,13 +260,20 @@ func main() {
 			fmt.Println("Undocumented exported symbols:")
 			fmt.Println()
 			for _, item := range missing {
-				fmt.Printf("  %s:%d  [%s] %s\n", item.File, item.Line, item.Kind, item.Name)
+				note := ""
+				if item.Advisory {
+					note = "  (advisory)"
+				}
+				fmt.Printf("  %s:%d  [%s] %s%s\n", item.File, item.Line, item.Kind, item.Name, note)
 			}
 			if truncated {
 				fmt.Printf("  ... and %d more (use --limit to adjust)\n", total-opts.limit)
 			}
 			fmt.Println()
 			fmt.Printf("Total: %d undocumented symbol(s)\n", total)
+			if advisory > 0 {
+				fmt.Printf("Advisory: %d under internal/ or cmd/, which the lint gate does not report\n", advisory)
+			}
 		}
 	}
 
@@ -330,6 +377,43 @@ func findGoFiles(target string) ([]string, error) {
 	}
 
 	return nil, fmt.Errorf("path not found: %s", target)
+}
+
+// packageSiblings returns the other non-test files beside a file target. Its
+// package comment may sit in any of them (doc.go), and so may the rest of a
+// sort.Interface. A directory or pattern target has every file in scope.
+func packageSiblings(target string, files []string) []string {
+	if len(files) != 1 || files[0] != target {
+		return nil
+	}
+	dir := filepath.Dir(target)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var siblings []string
+	for _, e := range entries {
+		name := e.Name()
+		path := filepath.Join(dir, name)
+		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") ||
+			strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || path == filepath.Clean(target) {
+			continue
+		}
+		siblings = append(siblings, path)
+	}
+	return siblings
+}
+
+// gateExcludes reports a directory under internal/ or cmd/, read from the
+// module root as the lint gate's exclusion is.
+func gateExcludes(modRoot, dir string) bool {
+	if abs, err := filepath.Abs(dir); err == nil && modRoot != "" {
+		if rel, err := filepath.Rel(modRoot, abs); err == nil {
+			dir = rel
+		}
+	}
+	parts := strings.Split(filepath.ToSlash(dir), "/")
+	return slices.Contains(parts, "internal") || slices.Contains(parts, "cmd")
 }
 
 func walkGoFiles(root string) ([]string, error) {
@@ -436,13 +520,17 @@ func packageKey(path, name string) string {
 	return filepath.Dir(path) + "|" + name
 }
 
-func findMissingDeclDocs(fset *token.FileSet, pf parsedFile, strict bool) []missingDoc {
+func findMissingDeclDocs(fset *token.FileSet, pf parsedFile, sortable map[string]int, strict bool) []missingDoc {
 	var missing []missingDoc
 	for _, decl := range pf.file.Decls {
 		switch d := decl.(type) {
 		case *ast.FuncDecl:
-			if d.Recv != nil && (standardMethods[d.Name.Name] || !strict && !ast.IsExported(receiverName(d.Recv.List[0].Type))) {
-				continue
+			if d.Recv != nil {
+				recv := receiverName(d.Recv.List[0].Type)
+				if standardMethods[d.Name.Name] || !strict && !ast.IsExported(recv) ||
+					sortMethods[d.Name.Name] != 0 && sortable[recv] == sortInterface {
+					continue
+				}
 			}
 			if ast.IsExported(d.Name.Name) || strict {
 				if docText(d.Doc) == "" {

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 
 usage() {
@@ -19,7 +19,10 @@ DESCRIPTION
       // Ceiling: <the limit this accepts>. Fix: <what to do instead, later>.
 
     A marker that names no Ceiling and no Fix is tagged no-trigger — those are
-    the ones that rot. Test files are scanned too; vendor/ is not.
+    the ones that rot. Test files are scanned too. Like ./..., a directory
+    scan skips vendor/, testdata/, and directories and files whose names
+    start with . or _. A marker is a comment: one inside a string literal on
+    that line is not counted (a raw string spanning lines still is).
 
     Exits 0 when every marker names a Ceiling or a Fix, 1 when at least one is
     no-trigger, 2 on usage or environment error.
@@ -31,7 +34,8 @@ OPTIONS
     --limit N        Show at most N markers (default: all)
 
 ARGUMENTS
-    path             Directory or Go file to scan (default: current directory)
+    path             Directory or Go file to scan (default: current directory);
+                     one at most
 
 EXAMPLES
     bash $SCRIPT_NAME
@@ -59,7 +63,13 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         -*)           echo "error: unknown option: $1" >&2; usage >&2; exit 2 ;;
-        *)            TARGET="$1"; shift ;;
+        *)
+            # One path: a second would silently replace the first.
+            if [[ -n "$TARGET" ]]; then
+                echo "error: one path at most (got $TARGET and $1)" >&2
+                exit 2
+            fi
+            TARGET="$1"; shift ;;
     esac
 done
 
@@ -82,7 +92,7 @@ json_escape() {
         for i in 1 2 3 4 5 6 7 8 11 12 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31; do
             printf -v c "\\$(printf '%03o' "$i")"
             printf -v r '\\u%04x' "$i"
-            s="${s//"$c"/"$r"}"
+            s="${s//"$c"/$r}"
         done
     fi
     printf '%s' "$s"
@@ -107,7 +117,11 @@ find_go_files() {
     if [[ -f "$t" ]]; then
         echo "$t"
     else
-        find "$t" -name '*.go' ! -path '*/vendor/*' ! -path '*/.git/*' 2>/dev/null
+        # What ./... skips, below the scanned root only: the root itself may
+        # sit under a dot directory.
+        find "$t" -mindepth 1 \
+            \( -type d \( -name vendor -o -name testdata -o -name '.*' -o -name '_*' \) -prune \) -o \
+            \( -type f -name '*.go' ! -name '.*' ! -name '_*' -print \) 2>/dev/null
     fi
 }
 
@@ -137,6 +151,10 @@ FNR == 1 && inm { emit() }
         emit()
     }
     if (match($0, /\/\/[ \t]*Kept:/)) {
+        # An odd number of quotes before the marker: it sits in a string.
+        before = substr($0, 1, RSTART - 1)
+        gsub(/\\./, "", before)
+        if (gsub(/"/, "", before) % 2 == 1 || gsub(/`/, "", before) % 2 == 1) next
         inm = 1
         mfile = FILENAME
         mline = FNR

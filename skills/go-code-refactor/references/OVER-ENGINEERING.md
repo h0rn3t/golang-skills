@@ -77,7 +77,8 @@ those rows there. This table lists only what the card does not.
 | A fan-out or no-op log handler | `slog.NewMultiHandler` (Go 1.26), `slog.DiscardHandler` (Go 1.24) → [go-logging](../../go-logging/SKILL.md) |
 | N near-identical test functions; hand-rolled teardown and env restore | One table with `t.Run`; `t.Cleanup`, `t.Setenv` → [go-testing](../../go-testing/SKILL.md) |
 
-`go fix -diff` applies the rows it has modernizers for; the rest are yours.
+`go fix` applies the rows it has modernizers for (`-diff` previews them); the
+rest are yours.
 
 ## Tags
 

@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const version = "1.6.0"
+const version = "1.7.0"
 
 type finding struct {
 	File    string `json:"file"`
@@ -48,6 +48,11 @@ USAGE
     and returned. Skips _test.go and generated files and, as go ./... does,
     vendor and testdata directories, names that begin with "." or "_",
     nested modules, and directories the go.mod ignore directive names.
+
+    Both checks read syntax, not types. The logged-and-returned error is a
+    variable named err or ending in err or Err (cerr, closeErr), the same
+    one in the log call and the return. Text matched after it was stored
+    (msg := err.Error(), then strings.Contains(msg, ...)) is not seen.
 
     Exits 0 if nothing is found, 1 on findings, 2 on a usage error or when a
     file does not parse. The other files are still checked; --json then adds
@@ -240,7 +245,7 @@ func analyzeFile(path string, checkBareReturn bool) ([]finding, error) {
 			findings = append(findings, logAndReturn(fset, path, node.Body)...)
 		case *ast.ReturnStmt:
 			line := fset.Position(node.Return).Line
-			if checkBareReturn && returnsErr(node) {
+			if checkBareReturn && returnsErr(node, "err") {
 				findings = append(findings, finding{
 					File:    path,
 					Line:    line,
@@ -264,19 +269,22 @@ func analyzeFile(path string, checkBareReturn bool) ([]finding, error) {
 // unless it wraps err (`err = fmt.Errorf("op: %w", err)`).
 func logAndReturn(fset *token.FileSet, path string, stmts []ast.Stmt) []finding {
 	var findings []finding
+	var logged []string // the error variables the last log call carried
 	logLine := 0
 	for _, stmt := range stmts {
 		switch s := stmt.(type) {
 		case *ast.ExprStmt:
-			if call, ok := s.X.(*ast.CallExpr); ok && isLogCallWithErr(call) {
-				logLine = fset.Position(call.Pos()).Line
+			if call, ok := s.X.(*ast.CallExpr); ok {
+				if names := loggedErrs(call); len(names) > 0 {
+					logged, logLine = names, fset.Position(call.Pos()).Line
+				}
 			}
 		case *ast.AssignStmt:
-			if assignsIdent(s, "err") && !slices.ContainsFunc(s.Rhs, func(e ast.Expr) bool { return containsIdent(e, "err") }) {
-				logLine = 0
-			}
+			logged = slices.DeleteFunc(logged, func(name string) bool {
+				return assignsIdent(s, name) && !slices.ContainsFunc(s.Rhs, func(e ast.Expr) bool { return containsIdent(e, name) })
+			})
 		case *ast.ReturnStmt:
-			if logLine != 0 && (returnsErr(s) || returnsWrappedErr(s)) {
+			if slices.ContainsFunc(logged, func(name string) bool { return returnsErr(s, name) || returnsWrappedErr(s, name) }) {
 				retLine := fset.Position(s.Return).Line
 				findings = append(findings, finding{
 					File:    path,
@@ -285,10 +293,25 @@ func logAndReturn(fset *token.FileSet, path string, stmts []ast.Stmt) []finding 
 					Message: fmt.Sprintf("error is both logged (line %d) and returned (line %d); handle errors once", logLine, retLine),
 				})
 			}
-			logLine = 0
+			logged = nil
 		}
 	}
 	return findings
+}
+
+// errNames returns the error variables the expressions mention: err, and any
+// name ending in err or Err (cerr, closeErr).
+func errNames(exprs []ast.Expr) []string {
+	var names []string
+	for _, expr := range exprs {
+		ast.Inspect(expr, func(n ast.Node) bool {
+			if ident, ok := n.(*ast.Ident); ok && (strings.HasSuffix(ident.Name, "err") || strings.HasSuffix(ident.Name, "Err")) {
+				names = append(names, ident.Name)
+			}
+			return true
+		})
+	}
+	return names
 }
 
 func assignsIdent(stmt *ast.AssignStmt, name string) bool {
@@ -359,20 +382,18 @@ func containsErrorCall(expr ast.Expr) bool {
 	return found
 }
 
-// isLogCallWithErr reports a logger call that carries err in its arguments or
-// in a call it is chained from. The receiver is the logger itself
-// (`slog.Error`, `logger.Warn`), a field holding it (`s.logger.Error`,
-// `h.log.Printf`), or a chain that starts there (`logger.With("op", op).Error`,
-// `slog.Default().Error`, zerolog's `log.Error().Err(err).Msg`).
-func isLogCallWithErr(call *ast.CallExpr) bool {
+// loggedErrs returns the error variables a logger call carries in its
+// arguments or in a call it is chained from; none when the call is not a
+// logger's. The receiver is the logger itself (`slog.Error`, `logger.Warn`),
+// a field holding it (`s.logger.Error`, `h.log.Printf`), or a chain that
+// starts there (`logger.With("op", op).Error`, `slog.Default().Error`,
+// zerolog's `log.Error().Err(err).Msg`).
+func loggedErrs(call *ast.CallExpr) []string {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok {
-		return false
+		return nil
 	}
-	carriesErr := func(args []ast.Expr) bool {
-		return slices.ContainsFunc(args, func(arg ast.Expr) bool { return containsIdent(arg, "err") })
-	}
-	withErr := carriesErr(call.Args)
+	names := errNames(call.Args)
 	methods := []string{sel.Sel.Name}
 	receiver := sel.X
 	for {
@@ -382,14 +403,11 @@ func isLogCallWithErr(call *ast.CallExpr) bool {
 		}
 		innerSel, ok := inner.Fun.(*ast.SelectorExpr)
 		if !ok {
-			return false
+			return nil
 		}
-		withErr = withErr || carriesErr(inner.Args)
+		names = append(names, errNames(inner.Args)...)
 		methods = append(methods, innerSel.Sel.Name)
 		receiver = innerSel.X
-	}
-	if !withErr {
-		return false
 	}
 	var name string
 	switch x := receiver.(type) {
@@ -398,7 +416,10 @@ func isLogCallWithErr(call *ast.CallExpr) bool {
 	case *ast.SelectorExpr:
 		name = x.Sel.Name
 	}
-	return isLogger(name, methods)
+	if !isLogger(name, methods) {
+		return nil
+	}
+	return names
 }
 
 // isLogger reports a receiver named as a logger or a logging package
@@ -442,18 +463,18 @@ func containsIdent(expr ast.Expr, name string) bool {
 	return found
 }
 
-func returnsErr(stmt *ast.ReturnStmt) bool {
+func returnsErr(stmt *ast.ReturnStmt, name string) bool {
 	if len(stmt.Results) == 0 {
 		return false
 	}
 	ident, ok := stmt.Results[len(stmt.Results)-1].(*ast.Ident)
-	return ok && ident.Name == "err"
+	return ok && ident.Name == name
 }
 
-// returnsWrappedErr reports a last result that carries err in a call or a
-// composite literal, such as fmt.Errorf("save %d: %w", id, err) or
+// returnsWrappedErr reports a last result that carries the named error in a
+// call or a composite literal, such as fmt.Errorf("save %d: %w", id, err) or
 // &opError{Err: err}: the same error, returned with context.
-func returnsWrappedErr(stmt *ast.ReturnStmt) bool {
+func returnsWrappedErr(stmt *ast.ReturnStmt, name string) bool {
 	if len(stmt.Results) == 0 {
 		return false
 	}
@@ -463,13 +484,13 @@ func returnsWrappedErr(stmt *ast.ReturnStmt) bool {
 	}
 	switch e := last.(type) {
 	case *ast.CallExpr:
-		return slices.ContainsFunc(e.Args, func(arg ast.Expr) bool { return containsIdent(arg, "err") })
+		return slices.ContainsFunc(e.Args, func(arg ast.Expr) bool { return containsIdent(arg, name) })
 	case *ast.CompositeLit:
 		return slices.ContainsFunc(e.Elts, func(elt ast.Expr) bool {
 			if kv, ok := elt.(*ast.KeyValueExpr); ok {
 				elt = kv.Value
 			}
-			return containsIdent(elt, "err")
+			return containsIdent(elt, name)
 		})
 	}
 	return false

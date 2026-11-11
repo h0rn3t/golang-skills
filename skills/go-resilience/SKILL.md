@@ -74,7 +74,8 @@ loop owns the budget, the wait, and cancellation:
 ```go
 // retry makes at most attempts calls, with capped, jittered backoff between them.
 // ctx's deadline is the only elapsed-time bound: without one, a server delay of
-// any length is slept out, so callers give ctx a deadline.
+// any length is slept out, so callers give ctx a deadline. base is at most an
+// hour: base<<20 must fit a Duration.
 func retry(ctx context.Context, attempts int, base, maxWait time.Duration,
     attempt func(context.Context) (retryAfter time.Duration, retryable bool, err error)) error {
     for i := range attempts {
@@ -88,6 +89,9 @@ func retry(ctx context.Context, attempts int, base, maxWait time.Duration,
         if d, ok := ctx.Deadline(); ok && time.Until(d) <= wait {
             return err // the wait outlasts the budget: stop now, do not sleep it out
         }
+        if ctx.Err() != nil { // checked first: with a zero wait the select below picks at random
+            return errors.Join(ctx.Err(), err)
+        }
         select {
         case <-ctx.Done():
             return errors.Join(ctx.Err(), err)
@@ -98,8 +102,9 @@ func retry(ctx context.Context, attempts int, base, maxWait time.Duration,
 }
 ```
 
-`attempt` closes or drains a discarded response before returning, and the
-permit for the dependency is released before the wait, not held through it.
+`attempt` closes a discarded response before returning (closing is enough:
+[go-http](../go-http/SKILL.md#clients)), and the permit for the dependency is
+released before the wait, not held through it.
 
 ## Idempotency and Delivery
 
@@ -142,7 +147,8 @@ rejection, and a validation error leave the breaker unchanged. A
 caller's context had already ended (`ctx.Err() != nil` on the caller's `ctx`).
 Coordinate recovery admission so retries cannot bypass an open breaker or flood
 the recovering dependency. Choose windows/thresholds from traffic and failure
-behavior, not universal magic numbers.
+behavior, not universal magic numbers; with no traffic data they are
+constructor parameters, and the report names the chosen values as assumptions.
 
 Fallback is an alternate result with a contract: identity scope, freshness,
 consistency, and caller-visible degradation. Preserve security decisions and

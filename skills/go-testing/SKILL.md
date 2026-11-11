@@ -72,6 +72,7 @@ catches is the missing case. Review runs the same probe for real
 | Real waits for timeout paths | `synctest.Sleep` inside a bubble (fake clock), from the test goroutine only: it calls `synctest.Wait`, which panics with `wait already in progress` when two goroutines reach it at once, so a goroutine the code under test starts sleeps with `time.Sleep`. At 1.26: `time.Sleep(d); synctest.Wait()` | 1.27 |
 | A logger or command under test writing to `os.Stdout`/`os.Stderr` | `slog.New(slog.NewTextHandler(t.Output(), nil))` — printed with its test, on failure or `-v`; a `fmt.Println` in the test itself is `t.Log` | 1.25 |
 | Ad-hoc temp dir for output to keep | `t.ArtifactDir()` with `go test -artifacts -outputdir=DIR` — otherwise removed after the test | 1.26 |
+| An `io.Reader` parameter or a package variable added so a test can fix `crypto/rand` output | `cryptotest.SetGlobalRandom(t, seed)` (`testing/cryptotest`) — deterministic `crypto/rand` for that test; process-wide, so not in a parallel test | 1.26 |
 
 ```go
 func TestFetch(t *testing.T) {

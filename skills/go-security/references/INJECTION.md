@@ -103,7 +103,11 @@ and takes named placeholders:
 ```go
 // ✗ Bad — template.Must(template.New("msg").Parse(user.Template)).Execute(w, page)
 msg := strings.NewReplacer("{name}", customer.Name, "{order}", orderID).Replace(user.Template)
-page.Execute(w, map[string]string{"Message": msg}) // a fixed html/template escapes {{.Message}}
+var buf bytes.Buffer
+if err := page.Execute(&buf, map[string]string{"Message": msg}); err != nil { // a fixed html/template escapes {{.Message}}
+    return err // nothing sent yet: Execute straight into w leaves a truncated 200
+}
+_, err := buf.WriteTo(w)
 ```
 
 The `html/template` escape hatches — `template.HTML`, `template.JS`, `template.URL`,
@@ -227,14 +231,16 @@ func publicClient() *http.Client {
             return nil
         },
     }
-    return &http.Client{Transport: &http.Transport{DialContext: dialer.DialContext}, Timeout: 10 * time.Second}
+    t := http.DefaultTransport.(*http.Transport).Clone() // keeps MaxIdleConns and IdleConnTimeout: a literal leaves both unlimited, and the caller picks the hosts
+    t.Proxy = nil                                        // through a proxy Control would see the proxy's address, not the target's
+    t.DialContext = dialer.DialContext
+    return &http.Client{Transport: t, Timeout: 10 * time.Second}
 }
 ```
 
 Resolving and checking the hostname before the request instead leaves a gap:
-the dial resolves again, and the attacker's DNS can answer differently the
-second time. A new `http.Transport` sets no proxy; a proxy would make the
-check see the proxy's address, not the target's.
+the dial resolves again, and the attacker's DNS can answer differently then.
+`gosec` G704 reports the fetch through either client; with the defense in place, [suppress it on that line](../SKILL.md#a-taint-finding-on-a-defended-line).
 
 ---
 
@@ -264,7 +270,7 @@ func localRedirect(next string) bool {
 Check the exact value passed to `http.Redirect`; do not decode or rebuild it
 after validation. Percent-encoded spaces may remain encoded. Test rejected
 browser-normalized destinations alongside valid local paths, queries, and
-fragments. See the [WHATWG URL parser](https://url.spec.whatwg.org/#relative-slash-state).
+fragments. See the [WHATWG URL parser](https://url.spec.whatwg.org/#relative-slash-state). `gosec` G710 reports the redirect even so: [suppress it on that line](../SKILL.md#a-taint-finding-on-a-defended-line).
 
 ---
 
@@ -280,7 +286,7 @@ Decoders are parsers running on attacker bytes; bound them.
 | `strconv.Atoi` into a size | range-check before `make([]T, n)`; a size multiplied from client values (`w*h*4`) is bounded factor by factor before the multiply (`0 < w <= maxW`, `0 < h <= limit/(4*w)`): a check on the wrapped product passes |
 | Compressed input (`Content-Encoding: gzip`, a `.gz` upload) | `MaxBytesReader` caps the compressed bytes only; read the `gzip.Reader` through `io.LimitReader(zr, limit+1)` and reject at `limit+1` bytes |
 | Body of an outbound fetch | `io.LimitReader(resp.Body, limit+1)` and reject at `limit+1` bytes, as go-http's Bounded Response Bodies does: the SSRF check bounds where the client connects, not how much it reads |
-| Multipart upload | Cap the body before `ParseMultipartForm`; `maxMemory` only sets the memory/disk threshold. Check file sizes and count; use `MultipartReader` with per-part limits when early rejection matters |
+| Multipart upload | Cap the body before `ParseMultipartForm` (`gosec` G120 reports the call even so: [suppress it with the cap as the reason](../SKILL.md#a-taint-finding-on-a-defended-line)); `maxMemory` only sets the memory/disk threshold. Check file sizes and count; use `MultipartReader` with per-part limits when early rejection matters |
 | Struct target | Decode into a request type holding only the client-writable fields, never into the storage model — a `Role`, `OrgID`, or `IsAdmin` field on it is set by whoever sends the body |
 
 The response is the mirror image: `json.Marshal` writes every exported field,

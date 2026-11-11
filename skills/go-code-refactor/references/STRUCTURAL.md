@@ -45,8 +45,12 @@ specifically moving a type between packages, as the motivation.
 The alias keeps type identity, not the type's name: `%T`,
 `reflect.Type.String`/`PkgPath`, and `gob.Register`'s default name now say
 `newpkg.NewName`. Grep for `%T`, `reflect.TypeOf`, and `gob.Register` before
-the move; a type in a persisted or peer-decoded gob stream is registered with
-`gob.RegisterName("<old import path>.OldName", newpkg.NewName{})` instead.
+the move; a type in a persisted or peer-decoded gob stream is registered
+under its old name instead, which differs by form: a value as
+`gob.RegisterName("<old import path>.OldName", newpkg.NewName{})`, a pointer
+as `gob.RegisterName("*oldpkg.OldName", &newpkg.NewName{})` — for a pointer
+gob writes the package *name*, not the import path, and a stream registered
+the other way does not decode.
 
 ```go
 // Step 1 — the new home carries the real definition.

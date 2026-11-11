@@ -22,10 +22,12 @@ subset = slices.Clone(original[1:3])
 
 ```go
 a := make([]int, 3, 5)  // len=3, cap=5
-b := a[0:3]
-a = append(a, 4)    // Fits in capacity - still shared
-a = append(a, 5, 6) // Exceeds capacity - now independent
-fmt.Println(b)      // [0 0 0]: b still sees the old array
+b := append(a, 4)       // fits in capacity: b shares a's array
+c := append(a, 5)       // fits too, and writes the same slot
+fmt.Println(b[3], c[3]) // 5 5: the second append overwrote the first
+d := append(a, 6, 7, 8) // exceeds capacity: d has its own array
+d[0] = 9
+fmt.Println(a[0], d[0]) // 0 9
 ```
 
 ### 3. Memory Leaks from Large Backing Arrays

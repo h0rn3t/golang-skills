@@ -52,21 +52,21 @@ func init() {
 ```go
 // Good: Explicit lifecycle management
 type Worker struct {
-    stop chan struct{}
-    done chan struct{}
+    cancel context.CancelFunc
+    done   chan struct{}
 }
 
 func NewWorker() *Worker {
-    w := &Worker{
-        stop: make(chan struct{}),
-        done: make(chan struct{}),
-    }
-    go w.doWork()
+    ctx, cancel := context.WithCancel(context.Background())
+    w := &Worker{cancel: cancel, done: make(chan struct{})}
+    go w.doWork(ctx) // closes w.done when ctx ends
     return w
 }
 
+// Shutdown stops the worker and waits for it. A second call is safe: closing
+// a stop channel twice would panic.
 func (w *Worker) Shutdown() {
-    close(w.stop)
+    w.cancel()
     <-w.done
 }
 ```

@@ -82,7 +82,11 @@ eg -t template.go -w ./...   # a migration the old body cannot express
 - **In Go**: no tool moves a symbol across a package boundary. Use the
   type-alias gradual repair sequence in [STRUCTURAL.md](STRUCTURAL.md). Moving
   declarations into another file *inside the same package* changes nothing a
-  caller sees and is often enough on its own.
+  caller sees and is often enough on its own, with two exceptions. Files
+  initialize in name order, so an `init()` or a package-level `var` whose
+  initializer has a side effect runs earlier or later after the move. And the
+  new file's name can be a build constraint: one ending in `_test`,
+  `_windows`, or `_arm` leaves the declaration out of some builds.
 - **Risk**: high across packages; low for a same-package file split.
 
 ## Split or merge a package

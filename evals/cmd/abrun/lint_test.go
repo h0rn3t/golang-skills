@@ -136,7 +136,9 @@ func Serve(w http.ResponseWriter, body []byte) { missing(w, body) }
 		want         int
 		unmeasured   bool
 	}{
-		{name: "unchecked write", source: unchecked, want: 1},
+		// errcheck and gosec G104 on the one line: uniq-by-line is false in
+		// the bundled config, so each linter's finding counts.
+		{name: "unchecked write", source: unchecked, want: 2},
 		{name: "checked write", source: checked, want: 0},
 		{name: "does not compile", source: broken, unmeasured: true},
 	} {

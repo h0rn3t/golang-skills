@@ -21,6 +21,7 @@ func buildExampleModule(t *testing.T, files map[string]string) {
 			t.Fatal(err)
 		}
 	}
+	defer startExampleLint(t, dir)()
 	for _, args := range [][]string{{"vet", "./..."}, {"test", "-count=1", "-race", "./..."}} {
 		cmd := exec.CommandContext(t.Context(), "go", args...)
 		cmd.Dir = dir
@@ -363,6 +364,15 @@ func TestRetry(t *testing.T) {
 	})
 	if !errors.Is(err, context.Canceled) || !errors.Is(err, transient) || calls != 1 {
 		t.Fatalf("cancel during backoff: err=%v calls=%d, want Canceled joined with the attempt error after 1 call", err, calls)
+	}
+	for range 50 { // with a zero wait the timer is ready too, and a bare select picks either
+		calls = 0
+		err = retry(cancelled, 3, 0, 0, func(context.Context) (time.Duration, bool, error) {
+			calls++; return 0, true, transient
+		})
+		if !errors.Is(err, context.Canceled) || calls != 1 {
+			t.Fatalf("cancelled with a zero wait: err=%v calls=%d, want Canceled after 1 call", err, calls)
+		}
 	}
 
 	start := time.Now()

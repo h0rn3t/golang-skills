@@ -404,6 +404,9 @@ func TestPortability(t *testing.T) {
 	// Bash 4 features; macOS ships bash 3.2. The hooks run there too.
 	reBash4 := regexp.MustCompile(`declare\s+-A|\b(?:mapfile|readarray)\b|\$\{\w+(?:,,|\^\^)`)
 	reGNUSed := regexp.MustCompile(`sed\s+(-[^E\s]*\s+)?'s/[^']*\\[+]`) // sed without -E using \+
+	// ${s//x/"$r"}: before bash 4.3 the quotes of the replacement stay in the
+	// result, so bash 3.2 prints a"Z"b and a --json string gains stray quotes.
+	reQuotedReplacement := regexp.MustCompile(`\$\{\w+//[^}]*/"\$\w+"\}`)
 
 	t.Run("NoBash4", func(t *testing.T) {
 		t.Parallel()
@@ -418,6 +421,9 @@ func TestPortability(t *testing.T) {
 				}
 				if m := reBash4.FindString(line); m != "" {
 					t.Errorf("%s:%d: uses %q (requires bash 4+, macOS ships 3.2)", filepath.Base(script), i+1, m)
+				}
+				if m := reQuotedReplacement.FindString(line); m != "" {
+					t.Errorf("%s:%d: %s quotes the replacement; bash before 4.3 keeps the quotes: write it unquoted", filepath.Base(script), i+1, m)
 				}
 			}
 		}
@@ -2782,7 +2788,7 @@ func TestGoVersionBaseline(t *testing.T) {
 		"skills/go-generics/SKILL.md":                       {"Generic Methods (Go 1.27+)", "maphash.ComparableHasher"},
 		"skills/go-error-handling/SKILL.md":                 {"errors.AsType[*fs.PathError]"},
 		"skills/go-testing/SKILL.md":                        {"httptest.NewTestServer(t, h)", "synctest.Sleep", "t.Context()"},
-		"skills/go-linting/SKILL.md":                        {"## Verification Gate", "go fix -diff ./...", "govulncheck"},
+		"skills/go-linting/SKILL.md":                        {"## Verification Gate", "go fix -diff <changed packages>", "govulncheck"},
 		"skills/go-packages/SKILL.md":                       {"## Dependency Ladder", "encoding/json/v2"},
 		"skills/go-style-core/references/INITIALIZATION.md": {"new(computeLimit())"},
 		"skills/go-logging/SKILL.md":                        {"slog.NewMultiHandler", "slog.GroupAttrs"},

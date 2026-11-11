@@ -70,7 +70,14 @@ SRC="$SCRIPT_DIR/check-naming-ast.go"
 # upgrade rebuilds it. A helper that does not build or run is an environment
 # error (2).
 WANT_GO="$(go env GOVERSION 2>/dev/null)" || WANT_GO=""
-{ read -r HOSTOS; read -r HOSTARCH; } < <(cd "$CACHE_ROOT" && GOWORK=off GOFLAGS= GOTOOLCHAIN=local go env GOHOSTOS GOHOSTARCH)
+HOSTOS="" HOSTARCH=""
+if HOSTENV="$(cd "$CACHE_ROOT" && GOWORK=off GOFLAGS= GOTOOLCHAIN=local go env GOHOSTOS GOHOSTARCH)"; then
+    { read -r HOSTOS; read -r HOSTARCH; } <<< "$HOSTENV" || true
+fi
+if [[ -z "$HOSTOS" || -z "$HOSTARCH" ]]; then
+    echo "error: go env GOHOSTOS GOHOSTARCH failed" >&2
+    exit 2
+fi
 BUILD_ENV=(env GOWORK=off GOFLAGS= "GOOS=$HOSTOS" "GOARCH=$HOSTARCH" "GOTOOLCHAIN=${WANT_GO:-local}")
 if ! GOVERSION="$(cd "$CACHE_ROOT" && "${BUILD_ENV[@]}" go env GOVERSION 2>/dev/null)"; then
     BUILD_ENV=(env GOWORK=off GOFLAGS= "GOOS=$HOSTOS" "GOARCH=$HOSTARCH" GOTOOLCHAIN=local)

@@ -194,7 +194,7 @@ block, err := aes.NewCipher(key)
 if err != nil { return nil, err }
 aead, err := cipher.NewGCMWithRandomNonce(block)
 if err != nil { return nil, err }
-ct := aead.Seal(nil, nil, plaintext, additionalData)
+ct := aead.Seal(nil, nil, plaintext, additionalData) //nolint:gosec // G407: this AEAD draws the nonce itself and takes nil
 ```
 
 The random-nonce AEAD prefixes the nonce itself: `NonceSize()` is zero; pass

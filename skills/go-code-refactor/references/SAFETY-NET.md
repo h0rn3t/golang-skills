@@ -26,7 +26,11 @@ has to exist *before* the first edit.
 |---|---|---|---|
 | **High** | ≳80% | Refactor, verify after each step | Anything in [CATALOG.md](CATALOG.md) and [MECHANICAL.md](MECHANICAL.md) |
 | **Medium** | ~40–80% | Harden the touched paths first, confirm green, then refactor | Same as high, once targeted tests provably reach the touched lines |
-| **Low / zero** | <40%, or the touched lines specifically | Characterize first, then refactor | Inline; unexported rename with no dynamic-name contract; sprout or wrap for new behavior; no extract and no cross-package move until a net exists |
+| **Low / zero** | <40%, or the touched lines specifically | Characterize first, then refactor | `go fix` inline; unexported rename with no dynamic-name contract; sprout or wrap for new behavior; no extract and no cross-package move until a net exists |
+
+With no shell there is no coverage number: the tier is Low unless a test in
+the package visibly reaches the touched lines, and the report says the
+coverage was read, not measured.
 
 **High** — the net catches many regressions within one test run. Keep steps
 small enough to attribute a failure and review the behavior claim; coverage

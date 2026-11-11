@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="1.5.0"
+VERSION="1.6.0"
 
 for arg in "$@"; do
     case "$arg" in
@@ -19,14 +19,18 @@ DESCRIPTION
     comment that holds only directives or only a Deprecated: paragraph is
     missing; a package comment starts with "Package <name>", and a command's
     names the command in its first three words. Like revive's exported rule,
-    it skips package main, _test.go files, methods of unexported types, and
-    the methods Error, Read, ServeHTTP, String, Write, and Unwrap. Like the
-    go-linting gate, it skips generated files (a "Code generated ... DO NOT
-    EDIT." line); unlike the gate, whose revive excludes internal/ and cmd/,
-    it reports those too.
+    it skips package main, _test.go files, methods of unexported types, the
+    methods Error, Read, ServeHTTP, String, Write, and Unwrap, and Len, Less,
+    and Swap on a type that declares all three. Like the go-linting gate, it
+    skips generated files (a "Code generated ... DO NOT EDIT." line); unlike
+    the gate, whose revive excludes internal/ and cmd/, it reports those too,
+    marked advisory ("advisory":true in --json). They still count toward
+    exit 1.
     As go ./... does, it skips vendor and testdata directories, directories
     or files whose names begin with "." or "_", nested modules, and
     directories the go.mod ignore directive names.
+    A file path reports that file's declarations; its package comment and
+    sort.Interface methods are read from the whole package directory.
 
     Exits 0 if everything is documented, 1 if symbols lack docs, 2 on a usage
     error, when the helper does not build, or when a file does not parse. The other files are still checked;
@@ -69,7 +73,14 @@ SRC="$SCRIPT_DIR/check-docs-ast.go"
 # upgrade rebuilds it. A helper that does not build or run is an environment
 # error (2).
 WANT_GO="$(go env GOVERSION 2>/dev/null)" || WANT_GO=""
-{ read -r HOSTOS; read -r HOSTARCH; } < <(cd "$CACHE_ROOT" && GOWORK=off GOFLAGS= GOTOOLCHAIN=local go env GOHOSTOS GOHOSTARCH)
+HOSTOS="" HOSTARCH=""
+if HOSTENV="$(cd "$CACHE_ROOT" && GOWORK=off GOFLAGS= GOTOOLCHAIN=local go env GOHOSTOS GOHOSTARCH)"; then
+    { read -r HOSTOS; read -r HOSTARCH; } <<< "$HOSTENV" || true
+fi
+if [[ -z "$HOSTOS" || -z "$HOSTARCH" ]]; then
+    echo "error: go env GOHOSTOS GOHOSTARCH failed" >&2
+    exit 2
+fi
 BUILD_ENV=(env GOWORK=off GOFLAGS= "GOOS=$HOSTOS" "GOARCH=$HOSTARCH" "GOTOOLCHAIN=${WANT_GO:-local}")
 if ! GOVERSION="$(cd "$CACHE_ROOT" && "${BUILD_ENV[@]}" go env GOVERSION 2>/dev/null)"; then
     BUILD_ENV=(env GOWORK=off GOFLAGS= "GOOS=$HOSTOS" "GOARCH=$HOSTARCH" GOTOOLCHAIN=local)

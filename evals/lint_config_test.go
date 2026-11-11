@@ -123,6 +123,8 @@ func TestBundledLintConfig(t *testing.T) {
 		{"internal/probe/cleanupctx_test.go", "usetesting", "", false},
 		{"internal/probe/receivers.go", "recvcheck", `"Counter"`, true},
 		{"internal/probe/receivers.go", "recvcheck", `"Celsius"`, false},
+		{"internal/probe/decoders.go", "recvcheck", `"Money"`, false},
+		{"internal/probe/decoders.go", "recvcheck", `"Flag"`, false},
 		{"internal/probe/ctxfield.go", "containedctx", "", true},
 		{"internal/probe/builtin.go", "predeclared", "max", true},
 		{"internal/store/store.go", "revive", "should have comment", false},

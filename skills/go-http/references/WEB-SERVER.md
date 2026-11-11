@@ -96,6 +96,7 @@ func run() error {
 	case err := <-errCh:
 		return err
 	case <-ctx.Done():
+		stop() // signals reach the default handler again: a second Ctrl-C ends a shutdown that hangs
 	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

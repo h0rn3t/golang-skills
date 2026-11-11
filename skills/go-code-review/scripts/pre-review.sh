@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="1.2.0"
+VERSION="1.3.0"
 SCRIPT_NAME="$(basename "$0")"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -22,12 +22,16 @@ DESCRIPTION
     beside this skill) when that file is installed, and otherwise with
     golangci-lint's own defaults, which leave revive, godot, gosec, and
     modernize off. The output names which of the three ran (config:
-    project, baseline, or defaults).
+    project, baseline, or defaults). Lint paths under the working directory
+    are printed relative to it under every configuration.
 
     With --new-from-rev REV, golangci-lint reports only issues new since the
     git revision REV, and gofmt checks only the .go files under the path that
     changed since REV (untracked files included); go vet still runs on the
-    whole path.
+    whole path. The comparison is against the merge base of REV and HEAD, as
+    a pull request shows it: what REV gained after the branch point is not
+    read as removed by the branch. A REV that is an ancestor of HEAD is its
+    own merge base.
 
     The same diff feeds the bar section: moves that turn a check green
     without fixing the code. It lists a new //nolint, //lint:ignore, or
@@ -65,7 +69,8 @@ OPTIONS
                      and list the bar moves since REV
 
 ARGUMENTS
-    path             Package pattern to check (default: ./...); one at most
+    path             Package pattern to check (default: ./...); one at most.
+                     A directory pattern or an import path of this module.
 
 EXAMPLES
     bash $SCRIPT_NAME
@@ -90,7 +95,7 @@ json_escape() {
         for i in 1 2 3 4 5 6 7 8 11 12 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31; do
             printf -v c "\\$(printf '%03o' "$i")"
             printf -v r '\\u%04x' "$i"
-            s="${s//"$c"/"$r"}"
+            s="${s//"$c"/$r}"
         done
     fi
     printf '%s' "$s"
@@ -166,20 +171,46 @@ if [[ -n "$NEW_FROM_REV" ]]; then
         echo "error: --new-from-rev: not a git revision in this checkout: $NEW_FROM_REV" >&2
         exit 2
     fi
+    # Diff against the branch point, not the tip of REV: a branch behind REV
+    # would otherwise show everything REV gained since as removed. Histories
+    # with no common ancestor keep REV itself.
+    BASE=$(git merge-base "$NEW_FROM_REV" HEAD 2>/dev/null) || BASE="$NEW_FROM_REV"
 fi
 
 GOFMT_STATUS="pass"
 GOFMT_FINDINGS=()
 GOFMT_DIR="${TARGET%%/...}"
 GOFMT_DIR="${GOFMT_DIR:-.}"
-if [[ -n "$NEW_FROM_REV" ]]; then
+if [[ ! -d "$GOFMT_DIR" ]]; then
+    # An import path: gofmt and git need the directory behind it, found
+    # through the module it belongs to (the module root may hold no package).
+    # A pattern that resolves to none is left for go vet to report as
+    # no_go_files.
+    IMPORT_PATH="$GOFMT_DIR"
+    GOFMT_DIR=""
+    while IFS=$'\t' read -r mod_path mod_dir; do
+        if [[ "$IMPORT_PATH" == "$mod_path" ]]; then
+            GOFMT_DIR="$mod_dir"
+        elif [[ "$IMPORT_PATH" == "$mod_path"/* ]]; then
+            GOFMT_DIR="$mod_dir/${IMPORT_PATH#"$mod_path"/}"
+        fi
+    done < <(go list -m -f '{{.Path}}{{"\t"}}{{.Dir}}' 2>/dev/null)
+    if [[ "$GOFMT_DIR" == "$PWD" ]]; then
+        GOFMT_DIR="."
+    else
+        GOFMT_DIR="${GOFMT_DIR#"$PWD"/}"
+    fi
+fi
+if [[ ! -d "$GOFMT_DIR" ]]; then
+    UNFORMATTED=""
+elif [[ -n "$NEW_FROM_REV" ]]; then
     # Only the .go files under the path that changed since REV, untracked
     # ones included; a deleted file has nothing left to format.
     CHANGED=()
     while IFS= read -r f; do
         [[ "$f" == *.go && -f "$f" ]] && CHANGED+=("$f")
     done < <({
-        git diff --name-only --relative --diff-filter=d "$NEW_FROM_REV" -- "$GOFMT_DIR"
+        git diff --name-only --relative --diff-filter=d "$BASE" -- "$GOFMT_DIR"
         git ls-files --others --exclude-standard -- "$GOFMT_DIR"
     } 2>/dev/null | sort -u)
     UNFORMATTED=""
@@ -241,11 +272,14 @@ if command -v golangci-lint &>/dev/null; then
         fi
     done
     BASELINE="$SCRIPT_DIR/../../go-linting/assets/golangci.yml"
+    # Absolute paths in, working-directory-relative paths out (below): the
+    # linter's own base differs per configuration (the config file's
+    # directory, go.mod under the baseline).
+    LINT_ARGS+=(--path-mode=abs)
     if $HAS_CONFIG; then
         LINT_CONFIG="project"
     elif [[ -f "$BASELINE" ]]; then
-        # Paths would otherwise be relative to the baseline's directory.
-        LINT_ARGS+=(--config "$BASELINE" --path-mode=abs)
+        LINT_ARGS+=(--config "$BASELINE")
         LINT_BASELINE=true
         LINT_CONFIG="baseline"
     else
@@ -253,13 +287,18 @@ if command -v golangci-lint &>/dev/null; then
         LINT_CONFIG="defaults"
     fi
     if [[ -n "$NEW_FROM_REV" ]]; then
-        LINT_ARGS+=(--new-from-rev="$NEW_FROM_REV")
+        LINT_ARGS+=(--new-from-rev="$BASE")
     fi
     # Exit 1 is findings; any other non-zero exit (no Go files, a go
     # directive newer than the linter, a broken config) is an environment
     # error, not a finding.
     LINT_EXIT=0
     LINT_OUTPUT=$(golangci-lint "${LINT_ARGS[@]}" "$TARGET" 2>&1) || LINT_EXIT=$?
+    # Both spellings of the working directory: golangci-lint resolves
+    # symlinks (/private/var on macOS), $PWD does not.
+    PHYSICAL_PWD="$(pwd -P)"
+    LINT_OUTPUT="${LINT_OUTPUT//"$PWD/"/}"
+    LINT_OUTPUT="${LINT_OUTPUT//"$PHYSICAL_PWD/"/}"
     case "$LINT_EXIT" in
         0) LINT_STATUS="pass" ;;
         1) LINT_STATUS="fail" ;;
@@ -331,7 +370,7 @@ BAR_FINDINGS=()
 if [[ -n "$NEW_FROM_REV" ]]; then
     BAR_STATUS="pass"
     if BAR_DIFF=$(git -c core.quotePath=false diff --no-color --no-ext-diff --no-textconv \
-        --unified=0 --src-prefix=a/ --dst-prefix=b/ --relative "$NEW_FROM_REV" -- "$GOFMT_DIR" 2>/dev/null); then
+        --unified=0 --src-prefix=a/ --dst-prefix=b/ --relative "$BASE" -- "$GOFMT_DIR" 2>/dev/null); then
         # git diff cannot see untracked files; only a new .go file can hold an
         # added-line move, so those are read in as all-added, and a new
         # golangci-lint config replaces the baseline the run linted with.
@@ -487,6 +526,7 @@ else
 
     echo ""
     echo "=== golangci-lint ==="
+    [[ -n "$LINT_CONFIG" ]] && echo "config: $LINT_CONFIG"
     $LINT_BASELINE && echo "No project config: linted with the go-linting baseline"
     [[ "$LINT_CONFIG" == "defaults" ]] && echo "No project config and no go-linting baseline: linted with golangci-lint defaults; revive, godot, gosec, and modernize did not run"
     [[ -n "$NEW_FROM_REV" ]] && echo "Only issues new since $NEW_FROM_REV"

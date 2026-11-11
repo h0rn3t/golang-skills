@@ -21,7 +21,7 @@ A common case: replacing `time.Now` for deterministic tests.
 **Bad**
 ```go
 func IsExpired(expiry time.Time) bool {
-    return time.Now().After(expiry) // untestable
+    return time.Now().After(expiry) // reads the clock: a test controls it only inside a synctest bubble
 }
 ```
 
@@ -42,7 +42,8 @@ if !IsExpired(expiry.Add(time.Second), expiry) {
 }
 ```
 
-Code that sleeps or waits on a timer keeps calling `time.Now`, and its test
+Code that sleeps or waits on a timer keeps calling `time.Now`, and so does an
+existing signature a refactor may not change; its test
 runs inside `synctest.Test`, whose fake clock starts at midnight UTC
 2000-01-01 and advances only when every goroutine in the bubble is blocked
 ([go-testing](../../go-testing/SKILL.md#use-the-toolchains-test-apis)).

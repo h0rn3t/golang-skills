@@ -63,7 +63,8 @@ observed results, not verified gate credit; unconfirmed required checks remain u
 
 Load the skills before the first edit (a read of `../<name>/SKILL.md` where
 there is no `Skill` tool): [go-style-core](../go-style-core/SKILL.md) and
-[go-testing](../go-testing/SKILL.md) on every refactor, then the owner of each
+[go-testing](../go-testing/SKILL.md) on every refactor and, with a shell,
+[go-linting](../go-linting/SKILL.md), then the owner of each
 decision the diff moves, from
 [Related Skills](#related-skills), go-code's
 [Route Before The First Edit](../go-code/SKILL.md#route-before-the-first-edit),
@@ -73,20 +74,26 @@ skill is in context.
 Flag two file classes before editing: **generated** files (exclude silently
 when incidental; a generated target changes through its generator, below) and **build-tagged** files for
 another GOOS/GOARCH, which never compile here — run
-`GOOS=<target> go build ./...` and say in the report that their tests did not run.
+`GOOS=<target> go vet ./...` (`go build` skips their `_test.go` files) and
+say in the report that their tests did not run.
 
 Record the baseline in one shell call; the second line runs even when a red
-baseline exits 1:
+baseline exits 1. `<pattern>` is one package pattern covering the refactor
+(`./internal/cache/...`), the same in step 5:
 
 ```bash
-bash "<installed-skill-dir>/scripts/verify-refactor.sh" baseline ./...
-bash "<installed-skill-dir>/scripts/verify-refactor.sh" loc-baseline ./...
+bash "<installed-skill-dir>/scripts/verify-refactor.sh" baseline <pattern>
+bash "<installed-skill-dir>/scripts/verify-refactor.sh" loc-baseline <pattern>
 ```
 
 When a `Benchmark*` covers a function the refactor touches, save its baseline
-now with go-performance's `bench-compare.sh --save` and compare at step 5 with
-`--baseline` ([the owner's procedure](../go-performance/SKILL.md#benchmarking-and-profiling));
-a slowdown `benchstat` calls significant goes in the findings list with its row.
+now and compare at step 5; a slowdown `benchstat` calls significant goes in
+the findings list with its row:
+
+```bash
+bash "<installed-skill-dir>/../go-performance/scripts/bench-compare.sh" --save .refactor-verify/bench.txt ./path/to/pkg
+bash "<installed-skill-dir>/../go-performance/scripts/bench-compare.sh" --baseline .refactor-verify/bench.txt ./path/to/pkg
+```
 
 If characterization tests are needed, run them against unchanged production
 code, then capture a new baseline with those tests included. Retain the earlier
@@ -133,7 +140,10 @@ for a function-only task, apply relevant hunks manually if the preview also
 changes neighboring functions. A neighbor's older form is not a reason to keep
 it in the touched lines, and an untouched neighbor is not a reason to widen
 the scope. A broader verification gate does not widen the edit scope. If no
-relevant modernization helps, proceed to the hand edits.
+relevant modernization helps, proceed to the hand edits. Four default hunks
+can change behavior and are never applied unread: `hostport`, `omitzero`,
+`waitgroupgo` where an early `return` skips `wg.Done()`, and `slicessort` on
+floats that can hold NaN.
 
 Keep mechanical edits attributable and respect `go.mod` and the risk tiers in
 `references/MODERNIZATION.md`; Tier 3 items go in the findings list.
@@ -168,10 +178,13 @@ Otherwise run the check directly or report it unavailable.
 In one shell call:
 
 ```bash
-bash "<installed-skill-dir>/scripts/verify-refactor.sh" after ./...
+bash "<installed-skill-dir>/scripts/verify-refactor.sh" after <pattern>
 bash "<installed-skill-dir>/scripts/verify-refactor.sh" diff
-bash "<installed-skill-dir>/scripts/verify-refactor.sh" loc-diff ./...
+bash "<installed-skill-dir>/scripts/verify-refactor.sh" loc-diff <pattern>
 ```
+
+`after` already ran the gate's gofmt, build, vet, test, and race rows: beside
+it run only lint and `govulncheck`.
 
 The diff compares recorded check results, not program behavior. An empty diff
 can include the same failures or skipped checks; a nonempty diff can include
@@ -334,7 +347,8 @@ the [Workflow](#workflow), `loc-diff` in step 5.
 
 `loc-diff` exits 0 when neither count grew, 1 when one did, and 2 when the
 recorded path differs. Exit 1 is a signal, not a verdict: name the declaration,
-layer, or dependency that grew and why; unjustified growth is a finding. The
+layer, or dependency that grew and why — a doc comment added to an exported
+symbol is its own reason; unjustified growth is a finding. The
 report carries only the two counts `loc-diff` printed, physical and code; when
 it could not run, that sentence stands where the numbers would. The `baseline`,
 `after` and `diff` modes compare check records and say nothing about size.

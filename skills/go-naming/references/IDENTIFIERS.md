@@ -34,8 +34,11 @@ Package names must be:
 
 > **Advisory**: Don't use generic package names.
 
-Avoid names that tempt users to rename on import: `util`, `common`, `helper`,
-`model`, `base`. Prefer specific names: `stringutil`, `httpauth`, `configloader`.
+Avoid names that tempt users to rename on import. This is the one list:
+`util`, `utils`, `helper`, `helpers`, `common`, `misc`, `shared`, `base`, and
+`lib`, each of which `check-naming.sh` reports, plus `model` and `models` as
+a catch-all (the exception is below; review decides it, the script does not).
+Prefer specific names: `stringutil`, `httpauth`, `configloader`.
 
 The layer directories of a layered tree take the plural layer names
 `handlers`, `services`, `repositories`, and `models`

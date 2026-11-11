@@ -188,7 +188,10 @@ site, `strings.Builder` in a loop) need none of them.
 
    With the same `--filter`, the verdict judges the path the request is
    about: every other benchmark of the package costs about 25 s at the
-   defaults and raises the bar each row must clear. `keep` (exit 0) keeps the
+   defaults and raises the bar each row must clear. The cost is per matching
+   row, sub-benchmarks included: N rows take about N × 25 s, so past four
+   name one sub-benchmark in `--filter` or give the call a timeout above the
+   host's default (120 s in Claude Code). `keep` (exit 0) keeps the
    change; `revert` reverts it; `noisy` raises
    `--count` or `--benchtime` and asks once more, and a change is never kept
    on `noisy`. A second `noisy` is reported as no measurable change: rerunning
@@ -213,16 +216,17 @@ slower — and keeps `--save`/`--baseline` with `benchstat`
 
 ### Read the Profile
 
-`go test -run '^$' -bench <name> -o "${TMPDIR:-/tmp}/pkg.test" -cpuprofile "${TMPDIR:-/tmp}/cpu.prof" ./path/to/pkg`
-(`-o` and absolute paths keep the test binary and the profile out of the
-tree), then `go tool pprof -top -cum "${TMPDIR:-/tmp}/cpu.prof"`; the row
-decides the class of fix:
+`go test -run '^$' -bench <name> -o .perf-snap/pkg.test -cpuprofile .perf-snap/cpu.prof ./path/to/pkg`
+(step 2's `.perf-snap/` keeps the test binary and the profile out of the
+packages, and a path with no shell variable needs no approval), then
+`go tool pprof -top -cum .perf-snap/cpu.prof`; the row decides the class of
+fix:
 
 | The profile shows | The time goes to | First move |
 |---|---|---|
 | a package function and what it calls: `slices.Index`, `strings.Fields`, `regexp.Compile`, a parse per call | repeated or superlinear work | do it once where its input changes; a set in place of a scan |
 | `runtime.mallocgc` above about 15% cumulative, or `gcBgMarkWorker` and `gcAssistAlloc` above about 5% | allocation and GC | `-memprofile`, then `pprof -sample_index=alloc_space`; fewer values on the heap per call |
-| `runtime.scanobject` or `gcDrain` high while allocs/op is low | marking a large, pointer-dense live heap | values instead of `*T` in long-lived slices and maps, indexes instead of pointer links |
+| `runtime.gcDrain` (`scanObject`, `scanSpan` under it) high while allocs/op is low | marking a large, pointer-dense live heap | values instead of `*T` in long-lived slices and maps, indexes instead of pointer links |
 | `sync.(*Mutex).Unlock` at the top of a `-mutexprofile`, or `sync.(*Mutex).Lock` in a `-blockprofile`, of a `RunParallel` benchmark | contention | a shorter critical section; per-key state behind a read-mostly map ([go-concurrency](../go-concurrency/SKILL.md)) |
 | total samples far below the profile's duration | waiting on I/O, a round trip per item, or a lock | an existing batch API; [go-database](../go-database/SKILL.md) for a query per row |
 | a syscall (`syscall.Write`, `Syscall6`) at the top | one system call per small read or write | count calls per op: a `bufio.Writer`/`bufio.Reader` or one batched call is class 1; decline only when each unit of work already makes one call |

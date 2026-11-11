@@ -10,6 +10,10 @@ an existing, access-controlled `net/http/pprof` listener on `127.0.0.1:6060`
 for the HTTP forms. Enabling a listener is a configuration/code change, not a
 read-only diagnostic step. Capture one profile at a time with bounded duration;
 [profiling overhead](https://go.dev/doc/diagnostics) depends on the workload.
+The commands leave files in the working directory — `*.out`, `*.pb.gz`,
+`dlv.init`, and the `pkg.test` binary `go test` keeps beside a profile or
+trace: run them from a scratch directory, or delete the files before the
+report; none belongs in the diff.
 
 ## Contents
 
@@ -174,6 +178,15 @@ dlv test ./pkg -- -test.run '^TestName$' # a single test
 dlv attach <pid>                         # a running process (pauses it)
 dlv core ./app core.1234                 # post-mortem from GOTRACEBACK=crash
 dlv exec ./app                           # a prebuilt binary (build with -gcflags=all=-N\ -l)
+```
+
+Those five are interactive and stop at `Stdin is not a terminal` in a shell
+without one (an agent's Bash call, CI). There, script the session: the
+commands go in a file that ends with `exit`.
+
+```bash
+printf 'break pkg/file.go:42\ncontinue\nprint sum\nexit\n' > dlv.init
+dlv test ./pkg --init dlv.init --allow-non-terminal-interactive -- -test.run '^TestName$'
 ```
 
 Delve is the tool for a *deterministic* wrong result; for races and hangs, the

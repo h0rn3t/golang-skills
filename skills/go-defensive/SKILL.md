@@ -8,7 +8,7 @@ description: Use when hardening Go API boundaries or checking slice/map copies, 
 > Compatibility: Baseline Go 1.27 (see [COMPATIBILITY.md](../go-style-core/references/COMPATIBILITY.md)). `url.URL.Clone` and
 > `url.Values.Clone` require Go 1.27+; `Root.ReadFile` and `Root.MkdirAll` Go
 > 1.25+; `crypto/rand.Text` and `os.Root` Go 1.24+; `slices.Clone`/`maps.Clone`
-> Go 1.21+.
+> Go 1.21+. The standard `uuid` package in the examples is Go 1.27+.
 
 ## Resource Routing
 
@@ -32,7 +32,7 @@ description: Use when hardening Go API boundaries or checking slice/map copies, 
 | `time.Time` `==`, or as a map key | `==` also compares the `Location` and the monotonic reading, so it fails after a JSON or database round trip or `t.In(loc)`: compare with `t.Equal(u)`; a key stores `t.UTC().Round(0)` or `t.UnixNano()` |
 | `defer` in a loop | Calls fire at function exit, not per iteration — extract the body (behavior note in [go-code-refactor](../go-code-refactor/references/BEHAVIOR-TRAPS.md)) |
 | Nil channel | Send and receive block forever, so an unmade channel field is a hang, not an error — a deliberate `nil` in a `select` is the idiom for disabling that case (channel ownership: [go-concurrency](../go-concurrency/SKILL.md)) |
-| Integer division by zero | Panics; guard the divisor. Float division yields `Inf`/`NaN` instead, and every comparison with `NaN` is false, so `x/0.0 >= limit` silently answers no: guard a float divisor too |
+| Integer division by zero | Panics; guard the divisor. Float division by zero panics nowhere: `0/0` is `NaN`, for which every comparison is false, so `x/y >= limit` silently answers no, and any other `x/0` is `±Inf`, which passes or fails every limit: guard a float divisor too |
 | Elapsed time from a converted start | `time.Now().UTC()`, `.In`, `.Local`, and `.Round(0)` drop the monotonic reading, so `end.Sub(start)` jumps with a wall-clock step: take `start := time.Now()` and `time.Since(start)` |
 
 ---

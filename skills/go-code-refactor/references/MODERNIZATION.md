@@ -143,8 +143,9 @@ because for equal keys the output order is observable.
 - **`net.JoinHostPort` over `fmt.Sprintf("%s:%d", host, port)`.** Identical for
   IPv4 and hostnames; for IPv6 the old form produced an unusable address, so if
   IPv6 can reach this code the swap is a **bug fix** — Tier 3. `go vet` and a
-  default `go fix` (`hostport`) catch only an address passed to `net.Dial`,
-  `net.DialTimeout`, or `(*net.Dialer).Dial`; grep `"%s:%d"` for
+  default `go fix` (`hostport`) catch only an address passed to `net.Dial`
+  or `(*net.Dialer).Dial`, and to `net.DialTimeout` through a variable (an
+  inline `fmt.Sprintf` argument there is missed); grep `"%s:%d"` for that,
   `DialContext`, `net.Listen`, `http.Server.Addr`, and URLs.
 - **`os.Root` over `os.Open` with path joining.** `os.Root` refuses paths that
   escape the directory, including via symlinks. That is the point, and it is a

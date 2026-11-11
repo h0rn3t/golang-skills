@@ -29,11 +29,11 @@ whether Go work is finished.
 > A question or documentation-only edit does not require a Go runtime gate.
 
 ```bash
-gofmt -l .            # inspect output: exit 0 alone does not mean clean
+gofmt -l .            # inspect output: exit 0 alone does not mean clean; a vendor/ or testdata/ path is not a finding
 go build ./...
 go vet ./...          # includes stdversion, printf, lostcancel, waitgroup
 go test -race ./...
-go fix -diff ./...    # preview only
+go fix -diff <changed packages>   # preview only; exits 1 whenever it prints a hunk
 golangci-lint run ./...   # no repository config: add --config <installed-skill-dir>/assets/golangci.yml
 govulncheck ./...     # dependency CVEs
 ```
@@ -53,6 +53,9 @@ Gate rules:
   package arguments (for example `go fix -diff ./internal/store`). An empty
   package list means skip; do not fall back to the current package or `./...`.
   Separate pre-existing findings from new ones; do not rewrite unrelated code.
+  The check is `pass` when no hunk lies in the lines the task wrote or
+  changed, whatever the exit code, and the report counts the other hunks as
+  pre-existing; a hunk in those lines is `fail`.
 - `golangci-lint config path` exits non-zero when the repository has no lint
   config; lint with the bundled baseline then. Without it golangci-lint runs
   five default linters: none of the `noctx`, `bodyclose`, `rowserrcheck`,
@@ -117,7 +120,7 @@ scope established above and inspect the preview before applying changes.
 [MODERNIZATION.md](../go-code-refactor/references/MODERNIZATION.md#start-with-go-fix)
 names the rest, the Go 1.27 renames, and which hunks change behavior.
 
-Select a subset with `go fix -waitgroupgo ./...`, or exclude with
+Select a subset with `go fix -rangeint ./...`, or exclude with
 `-NAME=false`. Review the diff: these carry fixes, not just diagnostics, and a
 few change allocation behavior.
 Fixes from two analyzers that overlap are not shown at all: `go fix -diff`
@@ -166,8 +169,9 @@ Each move is legitimate only with a reason a reviewer can check, on the line
 or in the report: the directive's reason ([Nolint Directives](#nolint-directives)),
 the infrastructure a skipped test needs, the requirement that changed a golden
 file. Without one the failure stays and is reported as `fail`. Tightening needs
-no mention. `pre-review.sh --new-from-rev <base>` lists these moves in a diff
-([go-code-review](../go-code-review/SKILL.md)).
+no mention. `pre-review.sh --new-from-rev <base>` lists the first four rows'
+moves in a diff ([go-code-review](../go-code-review/SKILL.md)); a quieted
+compiler is found by reading it.
 
 ---
 

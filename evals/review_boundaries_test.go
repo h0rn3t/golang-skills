@@ -151,11 +151,7 @@ func TestRefactorTruncation(t *testing.T) {
 	script := filepath.Join(repoRoot(t), "skills/go-code-refactor/scripts/verify-refactor.sh")
 	run := func(t *testing.T, mode, limit string) (truncated bool, lines int) {
 		t.Helper()
-		exitCode := 1
-		if mode == "leaks" {
-			exitCode = 3
-		}
-		out := runCommandInDir(t, dir, exitCode, "bash", script, "--json", "--limit", limit, mode)
+		out := runCommandInDir(t, dir, 1, "bash", script, "--json", "--limit", limit, mode)
 		var got struct {
 			Truncated bool   `json:"truncated"`
 			Diff      string `json:"diff"`
@@ -170,7 +166,7 @@ func TestRefactorTruncation(t *testing.T) {
 		}
 		return got.Truncated, len(strings.Split(text, "\n"))
 	}
-	for _, mode := range []string{"diff", "leaks"} {
+	for _, mode := range []string{"diff"} {
 		unlimited, full := run(t, mode, "0")
 		if unlimited {
 			t.Errorf("%s --limit 0: truncated=true, хоча ліміт вимкнено", mode)

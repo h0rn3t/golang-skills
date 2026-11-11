@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="1.5.1"
+VERSION="1.6.0"
 
 for arg in "$@"; do
     case "$arg" in
@@ -55,7 +55,9 @@ OPTIONS
                      "count_missing" stays the total
 
 ARGUMENTS
-    path             Directory, ./... pattern, or Go file (default: current directory)
+    path             Directory, ./... pattern, or Go file (default: current directory).
+                     A file is analyzed with its whole package and reported
+                     for the interfaces it declares
 EOF
             exit 0
             ;;
@@ -87,7 +89,14 @@ SRC="$SCRIPT_DIR/check-interface-compliance.go"
 # upgrade rebuilds it. A helper that does not build or run is an environment
 # error (2).
 WANT_GO="$(go env GOVERSION 2>/dev/null)" || WANT_GO=""
-{ read -r HOSTOS; read -r HOSTARCH; } < <(cd "$CACHE_ROOT" && GOWORK=off GOFLAGS= GOTOOLCHAIN=local go env GOHOSTOS GOHOSTARCH)
+HOSTOS="" HOSTARCH=""
+if HOSTENV="$(cd "$CACHE_ROOT" && GOWORK=off GOFLAGS= GOTOOLCHAIN=local go env GOHOSTOS GOHOSTARCH)"; then
+    { read -r HOSTOS; read -r HOSTARCH; } <<< "$HOSTENV" || true
+fi
+if [[ -z "$HOSTOS" || -z "$HOSTARCH" ]]; then
+    echo "error: go env GOHOSTOS GOHOSTARCH failed" >&2
+    exit 2
+fi
 BUILD_ENV=(env GOWORK=off GOFLAGS= "GOOS=$HOSTOS" "GOARCH=$HOSTARCH" "GOTOOLCHAIN=${WANT_GO:-local}")
 if ! GOVERSION="$(cd "$CACHE_ROOT" && "${BUILD_ENV[@]}" go env GOVERSION 2>/dev/null)"; then
     BUILD_ENV=(env GOWORK=off GOFLAGS= "GOOS=$HOSTOS" "GOARCH=$HOSTARCH" GOTOOLCHAIN=local)

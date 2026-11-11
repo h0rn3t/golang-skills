@@ -14,7 +14,12 @@ interceptors, streams, and peer identity is
 
 A handler returns `status.Error(codes.X, msg)`. Any other error reaches the
 client as `codes.Unknown` with its `Error()` text, except `context.Canceled`
-and `context.DeadlineExceeded`, which map to their codes. Map domain errors
+and `context.DeadlineExceeded`, which map to their codes, and a status wrapped
+with `%w`: the server unwraps it (`status.FromError`), so
+`fmt.Errorf("load profile: %w", err)` around a dependency's `Unauthenticated`
+answers this client `Unauthenticated` with the whole text, the dependency's
+included. Map a dependency's status at the handler as a domain error is
+mapped, never by returning it wrapped. Map domain errors
 once, at the handler, with `errors.Is`: not found → `NotFound`, a duplicate →
 `AlreadyExists`, bad input → `InvalidArgument`, a state conflict →
 `FailedPrecondition`, a dependency down → `Unavailable`, which clients retry.
@@ -70,7 +75,7 @@ fragment below is the test setup:
 lis := bufconn.Listen(1 << 20)
 srv := grpc.NewServer()
 pb.RegisterFooServer(srv, newServer(store))
-go srv.Serve(lis)
+go func() { _ = srv.Serve(lis) }() // returns once the cleanup stops the server
 t.Cleanup(srv.Stop)
 
 conn, err := grpc.NewClient("passthrough:///bufnet",
@@ -81,7 +86,7 @@ conn, err := grpc.NewClient("passthrough:///bufnet",
 if err != nil {
 	t.Fatal(err)
 }
-t.Cleanup(func() { conn.Close() })
+t.Cleanup(func() { _ = conn.Close() }) // the test is over: nothing reads a close error
 client := pb.NewFooClient(conn)
 ```
 

@@ -42,8 +42,9 @@ word; layer directories take the plural layer names `handlers`, `services`,
 
 - **Repetition against context.** `widget.New()` not `widget.NewWidget()`;
   `p.Name()` not `p.ProjectName()`; in package `sqldb`, `Connection` not
-  `DBConnection`. A generic package name — `util`, `common`, `helper` — is a
-  finding; name the package for what it provides (`httpauth`, `stringutil`).
+  `DBConnection`. A generic package name — `util`, `common`, `helper`, and the
+  rest of [the list](references/IDENTIFIERS.md#avoid-uninformative-names) — is
+  a finding; name the package for what it provides (`httpauth`, `stringutil`).
   [REPETITION.md](references/REPETITION.md) has the cases.
 - **`_` prefix on unexported globals** (Uber only; Google style does not use
   it): new code writes `defaultPort`, not `_defaultPort`, including new code
@@ -61,7 +62,7 @@ word; layer directories take the plural layer names `handlers`, `services`,
 
 ## Validation
 
-> **Validation**: `bash <installed-skill-dir>/scripts/check-naming.sh`, run from the project, reports the four patterns its Resource Routing line names. Error names are `errname`'s and package stutter is revive `exported`'s, both in the [go-linting](../go-linting/SKILL.md) gate; the rest of the repetition above has no check. Run the script once at the end of the task, beside that gate, which does not run it.
+> **Validation**: `bash <installed-skill-dir>/scripts/check-naming.sh`, run from the project, reports the four patterns its Resource Routing line names. Error names are `errname`'s, and revive `exported` reports a type or function whose name starts with the package's (`widget.WidgetThing`), both in the [go-linting](../go-linting/SKILL.md) gate; `widget.NewWidget` and the rest of the repetition above have no check. Run the script once at the end of the task, beside that gate, which does not run it.
 
 ## Related Skills
 

@@ -18,7 +18,7 @@ not parse.
 `go-documentation/scripts/check-docs.sh`:
 
 ```json
-{"missing":[{"file":"path","line":1,"kind":"type","name":"Name"}],"total":1,"truncated":false}
+{"missing":[{"file":"path","line":1,"kind":"type","name":"Name"},{"file":"internal/x/path","line":4,"kind":"function","name":"Open","advisory":true}],"total":2,"truncated":false}
 ```
 
 Both skip generated files (a `// Code generated ... DO NOT EDIT.` line,
@@ -27,7 +27,13 @@ Both skip generated files (a `// Code generated ... DO NOT EDIT.` line,
 the path. `check-docs.sh` counts a comment that holds only directives or only a
 `Deprecated:` paragraph as missing, and counts a package comment only when it
 starts `Package <name>`; for a command, the directory name must appear in its
-first three words.
+first three words. `advisory` is `true`, and otherwise absent, on a finding
+under an `internal` or `cmd` directory of the module, which the lint gate's
+revive excludes; it does not change the exit code. Like revive, the check
+skips `Len`, `Less`, and `Swap` on a type that declares all three. A file
+path reports that file's declarations only, and reads its package comment and
+the type's other methods from every non-test file of its directory: a comment
+in `doc.go` counts.
 
 `go-error-handling/scripts/check-errors.sh`:
 
@@ -53,6 +59,9 @@ finding:
 {"interfaces":[{"name":"Reader","file":"path","line":1},{"name":"Store","file":"path","line":9}],"missing":[{"name":"Reader","file":"path","line":1},{"name":"Store","file":"path","line":9,"returned_by":"NewStore"}],"count_interfaces":2,"count_missing":2,"truncated":false}
 ```
 
+A file path is analyzed with every Go file of its directory, where the
+implementations and conversions live, and lists only the interfaces that file
+declares.
 A `missing` entry is an exported interface implemented in its own package that
 nothing there converts to (assignment, return, argument, composite-literal
 element, send, conversion, or a type argument its constraint checks); a
@@ -155,9 +164,13 @@ the pinned install command, which the script never runs:
 `golangci_lint.config` is `project`, `baseline` (`go-linting/assets/golangci.yml`
 beside the skill), or `defaults` (neither: golangci-lint's own linter set,
 without revive, godot, gosec, or modernize); it is empty when golangci-lint is
-not installed. `--new-from-rev REV` limits golangci-lint to issues new since
-REV and gofmt to the .go files changed since REV, untracked files included; a
-revision git does not resolve exits 2.
+not installed. Paths in `golangci_lint.output` under the working directory are
+relative to it under all three. `--new-from-rev REV` limits golangci-lint to
+issues new since REV and gofmt to the .go files changed since REV, untracked
+files included; a revision git does not resolve exits 2. Every comparison is
+against the merge base of REV and HEAD, so a branch behind REV is not charged
+with what REV gained after the branch point. The pattern may be an import
+path of the module; gofmt and the diff then read the directory behind it.
 
 `bar.status` is `skipped` without `--new-from-rev`, `pass`, `fail`, or
 `unavailable` (git could not diff against REV). Each finding is a move since
@@ -262,7 +275,10 @@ in five). `change` is `better` or `worse` for a significant row whose change
 is at least `threshold_pct` (a change from zero, whose `delta_pct` is `null`,
 always counts); a fix that drops `sec/op` by 89% and adds 7 allocations to
 6000 is kept.
-Other units are `unjudged`. Any `worse` `sec/op` or `allocs/op` row makes the
+Other units are `unjudged`: they need no minimum run count, where a judged
+unit with fewer than 6 samples on a side is an error. A sample that is NaN or
+infinite (a `b.ReportMetric` of `0/0`) is dropped before anything is
+computed. Any `worse` `sec/op` or `allocs/op` row makes the
 verdict `revert`; otherwise any `better` row makes it `keep`; otherwise a
 `sec/op` interval wider than the threshold makes it `noisy`; otherwise
 `revert`. `unmatched` lists rows present on one side only.
@@ -287,16 +303,13 @@ on GOOS/GOARCH`). A skip leaves `passed` true and is reported as skipped, not
 as a pass.
 `GO_TEST_TIMEOUT` (default `5m`) is the `-timeout` of every `go test` run.
 
-`diff` (exit 1 when `identical` is false) and `leaks`:
+`diff` (exit 1 when `identical` is false):
 
 ```json
 {"mode":"diff","identical":true,"diff":"","truncated":false}
-{"mode":"leaks","go_minor":27,"passed":false,"tests_passed":true,"leaks_checked":false,"reason":"No in-process leak profile was collected or inspected","output":"ok\tscratch\t0.2s","truncated":false}
 ```
 
-`leaks` exits 3 when tests pass but no leak profile was checked, 1 when tests
-fail, and 2 for usage/environment errors. `truncated` reports whether `--limit`
-actually shortened the `diff` or `output` field.
+`truncated` reports whether `--limit` actually shortened the `diff` field.
 
 `loc-baseline` and `loc-diff` print indented JSON. Each count object is
 `{"root":"/abs/dir","physical":9,"code":8,"files":2,"test_files":0,"generated_files":0,"scan_errors":0,"detail":[{"path":"sum.go","physical":8,"code":7,"sha256":"…"}]}`:

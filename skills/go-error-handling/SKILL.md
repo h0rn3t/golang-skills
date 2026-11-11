@@ -51,7 +51,9 @@ Related concurrent work returns through
 [`errgroup.WithContext`](https://pkg.go.dev/golang.org/x/sync/errgroup) when
 `go.mod` already requires `golang.org/x/sync`: the first failure cancels the
 rest and is what `Wait` returns. Without it, `wg.Go` with
-`context.WithCancelCause` and `errors.Join` covers the same.
+`context.WithCancelCause` covers the same: each failure calls `cancel(err)`,
+and `context.Cause(ctx)` after `wg.Wait()` is the first one. `errors.Join`
+is the other contract, every failure reported.
 
 ---
 

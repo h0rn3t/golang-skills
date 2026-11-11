@@ -104,7 +104,7 @@ json_escape() {
         printf -v c "\\x$hex"
         if [[ $s == *"$c"* ]]; then
             printf -v rep '\\u%04x' "$i"
-            s="${s//"$c"/"$rep"}"
+            s="${s//"$c"/$rep}"
         fi
     done
     printf '%s' "$s"

@@ -57,7 +57,7 @@ slog.LogAttrs(ctx, slog.LevelInfo, "request handled",
     slog.String("method", r.Method),
     slog.Int("status", code),
     slog.Duration("elapsed", elapsed),
-    slog.GroupAttrs("client", slog.String("ip", ip), slog.String("ua", ua)),
+    slog.GroupAttrs("client", slog.String("ua", ua), slog.String("region", region)),
 )
 ```
 

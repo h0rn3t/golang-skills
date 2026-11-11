@@ -27,7 +27,7 @@ those paths, with the standard-library defense that closes it.
 
 | Threat | Defense | Caught by |
 |---|---|---|
-| SQL injection | `QueryContext(ctx, q, args...)` placeholders; identifiers from a `switch` over known names | `gosec` G201/G202 |
+| SQL injection | `QueryContext(ctx, q, args...)` placeholders; identifiers from a `switch` over known names | `gosec` G201/G202, and G701 for a request value in the query text |
 | Foreign row by ID | `AND org_id =` the caller's tenant, a parameter beside the ID ([INJECTION.md](references/INJECTION.md#sql)); a foreign ID is `sql.ErrNoRows` | review |
 | Tenant from the client | The tenant the middleware checked is the one the query uses; no `OrgID` in the request type ([ACCESS-CONTROL.md](references/ACCESS-CONTROL.md#the-tenant-the-check-saw)) | review |
 | Route outside the auth wrapper | Wrap the whole mux once and list the public patterns in the wrapper ([ACCESS-CONTROL.md](references/ACCESS-CONTROL.md#authenticate-the-whole-mux)) | review |
@@ -37,14 +37,14 @@ those paths, with the standard-library defense that closes it.
 | Quota, balance, or one-time code checked then spent | One conditional `UPDATE … WHERE` or a locked row ([go-database](../go-database/SKILL.md#transactions)) | review — `-race` sees no race between two transactions |
 | Model output, tool-call arguments | Untrusted input; the tool handler authorizes as the user the agent acts for ([ACCESS-CONTROL.md](references/ACCESS-CONTROL.md#model-output-and-tool-calls)) | review |
 | Command injection | `exec.CommandContext(ctx, "gzip", "--keep", "--", name)`: argv, no shell, `--` before input | `gosec` G204, which fires on this safe form too: suppress it on that line with the reason, as in [Injection](#injection) |
-| XSS | `html/template` (contextual escaping) | `gosec` G203 (unsafe `template.HTML`) |
-| Template written by a client | Never `Parse` client text: it calls any exported method on the data; fixed placeholders ([INJECTION.md](references/INJECTION.md#html-and-templates)) | review |
-| Path traversal | `root.Open(name)` on an `os.Root` opened once at startup ([go-defensive](../go-defensive/SKILL.md#confine-filesystem-access) owns the form) | review — `gosec` G304 fires on every variable path, so the bundled config excludes it |
+| XSS | `html/template` (contextual escaping) | `gosec` G203 (unsafe `template.HTML`), G705 (a request value written to the response) |
+| Template written by a client | Never `Parse` client text: it calls any exported method on the data; fixed placeholders ([INJECTION.md](references/INJECTION.md#html-and-templates)) | review — `gosec` G708 sees a request value in `text/template`'s `Parse` only, not `html/template`'s |
+| Path traversal | `root.Open(name)` on an `os.Root` opened once at startup ([go-defensive](../go-defensive/SKILL.md#confine-filesystem-access) owns the form) | review — `gosec` G703 reports a request value in `os.Open` and passes `root.Open`; G304 fires on every variable path, so the bundled config excludes it |
 | Upload served inline | `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, a `Content-Type` you derived; or a separate origin | review |
-| SSRF | Hostname allowlist by whole label: `host == d` or `strings.HasSuffix(host, "."+d)`, re-checked on every redirect in `CheckRedirect`; else a `net.Dialer.Control` that rejects, on the dialed address, `netip.Addr.IsPrivate()`/loopback and the CGNAT and NAT64 prefixes those methods miss ([INJECTION.md](references/INJECTION.md#arbitrary-public-destinations)) | review |
-| Decompression bomb | `io.LimitReader` on the `gzip.Reader`, not only `MaxBytesReader` on the body; the same cap on a fetched response body | review |
+| SSRF | Hostname allowlist by whole label: `host == d` or `strings.HasSuffix(host, "."+d)`, re-checked on every redirect in `CheckRedirect`; else a `net.Dialer.Control` that rejects, on the dialed address, `netip.Addr.IsPrivate()`/loopback and the CGNAT and NAT64 prefixes those methods miss ([INJECTION.md](references/INJECTION.md#arbitrary-public-destinations)) | review — `gosec` G704 reports the request either way ([below](#a-taint-finding-on-a-defended-line)) |
+| Decompression bomb | `io.LimitReader` on the `gzip.Reader`, not only `MaxBytesReader` on the body; the same cap on a fetched response body | review — `gosec` G110 sees `io.Copy` from the reader, not `io.ReadAll` |
 | Duration or count from input | Parse, then clamp to a server [min, max]; 0 and huge are both attacks | review |
-| Open redirect | One leading `/`; reject `//`, `\`, and control characters; or an allowlist of hosts | review |
+| Open redirect | One leading `/`; reject `//`, `\`, and control characters; or an allowlist of hosts | review — `gosec` G710 reports the redirect either way ([below](#a-taint-finding-on-a-defended-line)) |
 | Predictable tokens | `crypto/rand.Text()` / `rand.Read` | `gosec` G404 |
 | Timing leak on compare | `subtle.ConstantTimeCompare(a, b) == 1` | review |
 | Webhook signature | HMAC over the raw body bytes and the signed timestamp, `hmac.Equal`, a tolerance window, decode only after ([SECRETS-AND-CRYPTO.md](references/SECRETS-AND-CRYPTO.md#inbound-webhook-signatures)) | review |
@@ -63,9 +63,25 @@ Apply a row's defense **at the boundary**, once — not at every call site
 downstream, where it is forgotten.
 
 `gosec` is in the baseline `.golangci.yml`; a finding it raises is a gate
-failure, not advice. See [go-linting](../go-linting/SKILL.md). No tool covers
-a row whose last column says `review`: a clean `gosec` run says nothing about
-those rows.
+failure, not advice. See [go-linting](../go-linting/SKILL.md). A row marked
+`review` has no tool, or a tool that sees one shape of it; a clean `gosec`
+run does not clear it.
+
+### A taint finding on a defended line
+
+`gosec`'s taint rules (G701–G710) follow a request value to a sink and cannot
+see the check in between: G704 reports a client URL fetched after the
+allowlist or through `publicClient`, G710 a redirect after `localRedirect`,
+and G120 a `ParseMultipartForm` under `MaxBytesReader`. Once the defense is
+in the code, suppress on the reported line with that defense as the reason —
+a fragment of three handlers; never suppress first and defend later:
+
+```go
+req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil) //nolint:gosec // G704: client dials through a Control that rejects private ranges
+resp, err := client.Do(req)                                              //nolint:gosec // G704: the same client
+http.Redirect(w, r, next, http.StatusSeeOther)                           //nolint:gosec // G710: next passed localRedirect
+err := r.ParseMultipartForm(1 << 20)                                     //nolint:gosec // G120: body capped by MaxBytesReader above
+```
 
 ## Injection
 
@@ -112,6 +128,9 @@ http.SetCookie(w, &http.Cookie{
 })
 ```
 
+`gosec` G124 reports a cookie missing any of `Secure`, `HttpOnly`, or
+`SameSite`.
+
 CORS relaxes the same-origin policy, so the allowlist is the whole defense:
 exact origins, never a reflected `Origin` or `"null"` beside
 `Allow-Credentials`, and the same list trusted in `CrossOriginProtection`
@@ -122,7 +141,9 @@ the middleware).
   so one blank import anywhere in the binary publishes them on every server
   whose `Handler` is nil. Serve the public listener from your own mux and
   mount the debug handlers on a separate internal listener — they leak heap
-  contents and goroutine stacks.
+  contents and goroutine stacks. `gosec` G108 reports the `pprof` blank
+  import wherever it is, the internal listener included: suppress it there
+  with the listener as the reason.
 - `X-Forwarded-For` is client-writable and append-only: join every
   `r.Header.Values("X-Forwarded-For")` line and take the rightmost entry that
   is not one of your own proxies; `r.Header.Get` returns only the first line,

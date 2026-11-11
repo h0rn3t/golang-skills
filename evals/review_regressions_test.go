@@ -1,10 +1,6 @@
 package evals_test
 
 import (
-	"encoding/json"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -70,37 +66,4 @@ func TestEncryption(t *testing.T) {
  }
 }
 `)
-}
-
-func TestLeakModeDoesNotCertifyOrdinaryTests(t *testing.T) {
-	dir := t.TempDir()
-	for name, content := range map[string]string{
-		"go.mod":       "module leakexample\n\ngo 1.27\n",
-		"leak_test.go": "package leakexample\nimport \"testing\"\nfunc TestLeak(t *testing.T) { go func(){ select{} }() }\n",
-	} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	cmd := exec.CommandContext(t.Context(), "bash", filepath.Join(repoRoot(t), "skills/go-code-refactor/scripts/verify-refactor.sh"), "--json", "leaks", "./...")
-	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
-	if err == nil {
-		t.Fatalf("leaks повернув успіх без перевірки профілю: %s", out)
-	}
-	// 3 is "tests passed, leaks unverified"; 2 stays the usage/environment error.
-	if cmd.ProcessState == nil || cmd.ProcessState.ExitCode() != 3 {
-		t.Fatalf("leaks: error=%v output=%s, очікував код 3", err, out)
-	}
-	var result struct {
-		Passed       bool `json:"passed"`
-		TestsPassed  bool `json:"tests_passed"`
-		LeaksChecked bool `json:"leaks_checked"`
-	}
-	if err := json.Unmarshal(out, &result); err != nil {
-		t.Fatalf("leaks: вивід не є JSON (%v): %s", err, out)
-	}
-	if result.Passed || !result.TestsPassed || result.LeaksChecked {
-		t.Fatalf("leaks: невірний стан перевірки: %s", out)
-	}
 }

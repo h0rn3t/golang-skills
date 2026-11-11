@@ -22,12 +22,11 @@ In the same block, `:=` may reuse an existing variable if at least one other
 non-blank variable is new and the reused variable keeps its type:
 
 ```go
-f, err := os.Open(name)
+info, err := os.Stat(name)
 if err != nil {
     return err
 }
-defer f.Close()
-d, err := f.Stat() // new d, same err
+data, err := os.ReadFile(name) // new data, same err
 ```
 
 An inner block instead declares a new variable with that name. See

@@ -31,7 +31,7 @@ func BenchmarkStrconv(b *testing.B) {
 func BenchmarkFmtSprint(b *testing.B) {
     n := 123456789
     for b.Loop() {
-        _ = fmt.Sprint(n) // vet's unusedresult reports a bare fmt.Sprint
+        _ = fmt.Sprint(n) //nolint:perfsprint // the slower form is the one measured; `_ =` because vet's unusedresult reports a bare fmt.Sprint
     }
 }
 ```
@@ -77,9 +77,12 @@ func BenchmarkConvert(b *testing.B) {
 ## Using benchstat for Comparison
 
 ```bash
-go get -tool golang.org/x/perf/cmd/benchstat@latest   # pinned in go.mod, per go-packages
+go get -tool golang.org/x/perf/cmd/benchstat@latest   # only when the task asks to add the tool: it edits go.mod
 go tool benchstat old.txt new.txt
 ```
+
+A verdict needs no benchstat: `bench-compare.sh --verdict` computes its own
+statistics, and the gate never adds a tool to `go.mod` to make a check run.
 
 `bench-compare.sh` runs `go tool benchstat` when `go.mod` declares the tool,
 otherwise a `benchstat` on `PATH`; with neither it prints raw lines and says

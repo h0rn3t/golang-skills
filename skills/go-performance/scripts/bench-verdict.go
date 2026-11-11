@@ -22,7 +22,7 @@ import (
 	"text/tabwriter"
 )
 
-const version = "1.1.0"
+const version = "1.1.1"
 
 const (
 	verdictKeep   = "keep"
@@ -97,7 +97,9 @@ func parse(r io.Reader) (samples, error) {
 		}
 		for i := 2; i < len(f); i += 2 {
 			v, err := strconv.ParseFloat(f[i], 64)
-			if err != nil {
+			// A b.ReportMetric of 0/0 prints NaN: it has no rank, no median,
+			// and no JSON encoding, so the sample is dropped.
+			if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
 				continue
 			}
 			unit := f[i+1]
@@ -129,7 +131,9 @@ func compare(base, changed samples, threshold, alpha float64) (report, error) {
 			continue
 		}
 		y := changed.vals[k]
-		if len(x) < minSamples || len(y) < minSamples {
+		// The floor is for the units that decide the verdict: a custom metric
+		// that printed NaN on some runs has fewer samples and is only shown.
+		if judged(k.unit) && (len(x) < minSamples || len(y) < minSamples) {
 			return rep, fmt.Errorf("%s %s has %d base and %d new samples; a verdict needs at least %d per side", k.name, k.unit, len(x), len(y), minSamples)
 		}
 		x, y = slices.Sorted(slices.Values(x)), slices.Sorted(slices.Values(y))
@@ -283,7 +287,7 @@ func uTest(x, y []float64) float64 {
 	slices.SortFunc(all, func(a, b obs) int { return cmp.Compare(a.v, b.v) })
 	var rankSum, ties float64
 	for i := 0; i < len(all); {
-		j := i
+		j := i + 1 // from i+1: a value unequal to itself (NaN) must still advance
 		for j < len(all) && all[j].v == all[i].v {
 			j++
 		}

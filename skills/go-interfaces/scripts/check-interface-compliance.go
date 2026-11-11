@@ -13,11 +13,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 )
 
-const version = "1.5.1"
+const version = "1.6.0"
 
 type ifaceInfo struct {
 	Name string `json:"name"`
@@ -111,7 +112,9 @@ OPTIONS
                      "count_missing" stays the total
 
 ARGUMENTS
-    path             Directory, ./... pattern, or Go file (default: current directory)
+    path             Directory, ./... pattern, or Go file (default: current directory).
+                     A file is analyzed with its whole package and reported
+                     for the interfaces it declares
 `, version)
 }
 
@@ -136,6 +139,17 @@ func main() {
 		os.Exit(2)
 	}
 
+	// A file target is analyzed with its whole package, where the
+	// implementations and conversions live, and reported for that file only.
+	only := ""
+	if len(files) == 1 && files[0] == opts.target {
+		only = filepath.Clean(opts.target)
+		if files, err = packageFiles(only); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(2)
+		}
+	}
+
 	// Test files are scanned only with --include-test, generated files never;
 	// both are still type-checked with their package.
 	allFiles := make([]sourceFile, 0, len(files))
@@ -150,7 +164,7 @@ func main() {
 			os.Exit(2)
 		}
 		include := (!strings.HasSuffix(path, "_test.go") || opts.includeTest) && !generated
-		if include {
+		if include && (only == "" || path == only) {
 			scanned++
 		}
 		allFiles = append(allFiles, sourceFile{path: path, pkgName: pkgName, includeInScan: include})
@@ -187,6 +201,9 @@ func main() {
 		interfaces = append(interfaces, groupInterfaces...)
 		localImpl[group.key] = groupImpls
 		returned[group.key] = groupReturned
+	}
+	if only != "" {
+		interfaces = slices.DeleteFunc(interfaces, func(iface ifaceInfo) bool { return iface.File != only })
 	}
 
 	sort.Slice(interfaces, func(i, j int) bool {
@@ -503,7 +520,9 @@ func staticConversions(files []*ast.File, info *types.Info, interfaces []ifaceIn
 					note(fun.Type, n.Args[0])
 					break
 				}
-				sig, ok := fun.Type.(*types.Signature)
+				// Underlying: a call through a value of a named func type
+				// (type handler func(Sink)) converts its arguments too.
+				sig, ok := underlying(fun.Type).(*types.Signature)
 				if !ok || sig.Params().Len() == 0 {
 					break
 				}
@@ -879,8 +898,9 @@ func (idx exportIndex) add(dir, pattern, goflags string) {
 			continue
 		}
 		if fields[1] != "" {
-			// go list бере каталог із getcwd (/private/var на macOS), а
-			// filepath.Abs — із $PWD (/var): ключі зводяться до одного шляху.
+			// go list reports the directory through getcwd (/private/var on
+			// macOS) while filepath.Abs uses $PWD (/var): resolve both to
+			// one path.
 			dir := filepath.Clean(fields[1])
 			if real, err := filepath.EvalSymlinks(dir); err == nil {
 				dir = real
@@ -932,6 +952,23 @@ func findGoFiles(target string) ([]string, error) {
 	}
 
 	return nil, fmt.Errorf("path not found: %s", target)
+}
+
+// packageFiles lists the Go files beside a file target, the target included:
+// its package, test files too, without descending.
+func packageFiles(target string) ([]string, error) {
+	dir := filepath.Dir(target)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var files []string
+	for _, e := range entries {
+		if name := e.Name(); !e.IsDir() && strings.HasSuffix(name, ".go") && !ignored(name) {
+			files = append(files, filepath.Join(dir, name))
+		}
+	}
+	return files, nil
 }
 
 func walkGoFiles(root string) ([]string, error) {

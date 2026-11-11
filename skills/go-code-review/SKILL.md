@@ -39,7 +39,8 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 3. From the project, run `bash <installed-skill-dir>/scripts/pre-review.sh ./...` plus
    `go fix -diff <packages in the diff>`; for a diff against a revision add
    `--new-from-rev <base>`, which narrows gofmt and lint to the diff and lists
-   its `bar` moves. With no diff, add `--limit 50`: unbounded, a whole
+   its `bar` moves; `<base>` is the target branch, and the script compares
+   with its merge base, as the pull request does. With no diff, add `--limit 50`: unbounded, a whole
    module's findings fill the context. Write the path itself into the command:
    `<installed-skill-dir>` is the base directory the host printed when
    it loaded this skill, or the directory this SKILL.md was read from (under
@@ -141,6 +142,7 @@ once per condition:
 ```bash
 m=$(mktemp -d); f=$PWD/internal/pay/check.go       # the changed file
 sed '14s/!=/==/' "$f" > "$m/check.go"              # invert one condition
+cmp -s "$f" "$m/check.go" && echo "mutation did not apply: a green run proves nothing"
 printf '{"Replace":{"%s":"%s"}}' "$f" "$m/check.go" > "$m/overlay.json"
 go test -count=1 -overlay="$m/overlay.json" ./internal/pay/
 ```

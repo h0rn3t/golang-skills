@@ -115,4 +115,4 @@ slog.Info("users loaded", "count", len(users))
 | Full request body | **No** | Log content length and type |
 | PII (email, name) | **Avoid** | Log opaque user ID |
 | Large collections | **No** | Log count or summary |
-| Stack traces | Debug only | Use `slog.Debug` |
+| Stack traces | A recovered panic's, at Error ([PANIC-RECOVER.md](../../go-defensive/references/PANIC-RECOVER.md)); otherwise Debug only | `slog.Debug` |

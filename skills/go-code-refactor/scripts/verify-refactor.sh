@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-VERSION="1.4.0"
+VERSION="1.5.0"
 SCRIPT_NAME="$(basename "$0")"
 
 usage() {
@@ -23,7 +23,6 @@ DESCRIPTION
       baseline      Record the state before any edit
       after         Record the state after a refactor step
       diff          Compare recorded check results, including failures and skips
-      leaks         Run tests; leak verification stays incomplete without a profile
       loc-baseline  Record the starting production LOC, before the first edit
       loc-diff      Recount the same path and compare against that record
 
@@ -40,9 +39,6 @@ DESCRIPTION
     Exits 0 if all checks pass (or the diff is empty, or neither LOC count
     grew), 1 if a check failed, the diff is non-empty, or a count grew,
     2 on usage or environment error, including loc-diff on another path.
-    The leaks mode exits 3 when tests pass: this harness does not collect or
-    inspect in-process leak profiles, so it cannot certify leak freedom. Its
-    2 keeps the environment meaning (a toolchain older than Go 1.26).
 
 OPTIONS
     -h, --help       Show this help message
@@ -52,20 +48,19 @@ OPTIONS
     --out DIR        Result directory (default: .refactor-verify)
 
 ARGUMENTS
-    mode             baseline | after | diff | leaks | loc-baseline | loc-diff
+    mode             baseline | after | diff | loc-baseline | loc-diff
     path             Package pattern (default: ./...); the loc modes count the
                      directory it names, recursively
 
 ENVIRONMENT
-    GO_TEST_TIMEOUT  -timeout for each go test run: the test, race, and leaks
-                     runs (default: 5m)
+    GO_TEST_TIMEOUT  -timeout for each go test run: the test and race runs
+                     (default: 5m)
 
 EXAMPLES
     bash $SCRIPT_NAME baseline ./...
     bash $SCRIPT_NAME after ./internal/...
     bash $SCRIPT_NAME diff
     bash $SCRIPT_NAME --json after ./...
-    bash $SCRIPT_NAME leaks ./...
     bash $SCRIPT_NAME loc-baseline ./internal/gateway
     bash $SCRIPT_NAME --json loc-diff ./internal/gateway
 EOF
@@ -84,7 +79,7 @@ json_escape() {
         for i in 1 2 3 4 5 6 7 8 11 12 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31; do
             printf -v c "\\$(printf '%03o' "$i")"
             printf -v r '\\u%04x' "$i"
-            s="${s//"$c"/"$r"}"
+            s="${s//"$c"/$r}"
         done
     fi
     printf '%s' "$s"
@@ -156,7 +151,7 @@ if ! [[ "$LIMIT" =~ ^[0-9]+$ ]]; then
 fi
 
 case "$MODE" in
-    baseline|after|diff|leaks|loc-baseline|loc-diff) ;;
+    baseline|after|diff|loc-baseline|loc-diff) ;;
     "") echo "error: missing mode" >&2; usage >&2; exit 2 ;;
     *)  echo "error: unknown mode: $MODE" >&2; usage >&2; exit 2 ;;
 esac
@@ -549,47 +544,6 @@ if [[ "$MODE" == "diff" ]]; then
         echo "Inspect the results; record equality alone does not establish behavior."
     fi
     exit "$DIFF_RC"
-fi
-
-# ----------------------------------------------------------------- leaks mode
-# The goroutineleak pprof profile is GA since Go 1.27; Go 1.26 gates it behind
-# GOEXPERIMENT=goroutineleakprofile, and setting that on 1.27+ fails the build.
-if [[ "$MODE" == "leaks" ]]; then
-    GO_MINOR="$(go version 2>/dev/null | sed -E 's/.*go1\.([0-9]+).*/\1/')"
-    if ! [[ "$GO_MINOR" =~ ^[0-9]+$ ]] || [[ "$GO_MINOR" -lt 26 ]]; then
-        echo "error: leaks mode needs Go 1.26+ (got go1.${GO_MINOR:-?})" >&2
-        exit 2
-    fi
-    LEAK_LOG="$OUT_DIR/leaks.log"
-    if [[ "$GO_MINOR" -ge 27 ]]; then
-        go test -count=1 -timeout "$GO_TEST_TIMEOUT" "$TARGET" >"$LEAK_LOG" 2>&1 && LEAK_RC=0 || LEAK_RC=1
-    else
-        GOEXPERIMENT=goroutineleakprofile go test -count=1 -timeout "$GO_TEST_TIMEOUT" "$TARGET" \
-            >"$LEAK_LOG" 2>&1 && LEAK_RC=0 || LEAK_RC=1
-    fi
-    apply_limit "$(cat "$LEAK_LOG")"
-    LEAK_OUT="$LIMITED_TEXT"
-    if $JSON_OUTPUT; then
-        printf '{"mode":"leaks","go_minor":%s,"passed":false,"tests_passed":%s,"leaks_checked":false,"reason":"No in-process leak profile was collected or inspected","output":"%s","truncated":%s}\n' \
-            "$GO_MINOR" \
-            "$( [[ $LEAK_RC -eq 0 ]] && echo true || echo false )" \
-            "$(json_escape "$LEAK_OUT")" \
-            "$($TRUNCATED && echo true || echo false)"
-    else
-        echo "=== tests for leak investigation (go1.$GO_MINOR) ==="
-        echo "$LEAK_OUT"
-        $TRUNCATED && echo "... (truncated at $LIMIT lines)"
-        if [[ "$GO_MINOR" -ge 27 ]]; then
-            echo 'Collect and inspect the profile in-process via runtime/pprof.Lookup("goroutineleak").WriteTo(w, 1)'
-            echo "or the /debug/pprof/goroutineleak endpoint."
-        fi
-        echo "INCOMPLETE: no leak profile was collected or inspected by this harness."
-        echo "Use an instrumented test or the project's existing leak assertions."
-        echo "--- full log: $LEAK_LOG ---"
-    fi
-    # 3, not 2: 2 is this script's usage/environment error everywhere else.
-    [[ "$LEAK_RC" -ne 0 ]] && exit "$LEAK_RC"
-    exit 3
 fi
 
 # --------------------------------------------------------- baseline / after

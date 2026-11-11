@@ -10,7 +10,8 @@ When asked to audit, trace **data flow**, not files: start at every input
 output and tool-call arguments) and walk forward to the first sensitive sink.
 Read the `gosec` output first, then check every [Quick Reference](../SKILL.md#quick-reference) row marked
 `review` against every handler in scope: those rows are the findings the
-review exists for.
+review exists for. With no `gosec` run (no shell, no linter), every row is a
+review row, and the report says `gosec` did not run.
 
 A finding names the lower-trust caller and what it can already do, the input
 it controls, the sink, the missing control, and **whose** resource the effect

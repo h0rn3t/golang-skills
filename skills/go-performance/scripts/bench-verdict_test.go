@@ -167,6 +167,45 @@ func TestRunUsage(t *testing.T) {
 	}
 }
 
+// TestNonFiniteMetric: b.ReportMetric(hits/total, "hit-ratio") prints NaN for
+// 0/0 and +Inf for n/0. Those samples are dropped, and a custom metric left
+// with fewer than minSamples values is shown without stopping the verdict.
+func TestNonFiniteMetric(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	write := func(name string, ns float64) string {
+		var b strings.Builder
+		for i, ratio := range []string{"0.5", "0.25", "0.75", "NaN", "NaN", "+Inf", "NaN", "-Inf", "NaN", "NaN"} {
+			fmt.Fprintf(&b, "BenchmarkJoin-8\t1000\t%g ns/op\t%s hit-ratio\n", ns+float64(i), ratio)
+		}
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	base, changed := write("base.txt", 100), write("new.txt", 50)
+	var stdout, stderr bytes.Buffer
+	exit := run([]string{"--json", base, changed}, &stdout, &stderr)
+	var rep report
+	if err := json.Unmarshal(stdout.Bytes(), &rep); err != nil {
+		t.Fatalf("run(--json) with NaN and Inf samples is not a report: %v\n%s%s", err, stdout.String(), stderr.String())
+	}
+	if rep.Verdict != verdictKeep || exit != 0 {
+		t.Errorf("run(NaN hit-ratio) = verdict %q exit %d, want %q exit 0 (reason %q)", rep.Verdict, exit, verdictKeep, rep.Reason)
+	}
+	for _, r := range rep.Rows {
+		if r.Unit != "hit-ratio" {
+			continue
+		}
+		if r.NBase != 3 || r.NNew != 3 || r.Base != 0.5 || r.Change != changeUnjudged {
+			t.Errorf("hit-ratio row = n %d+%d, base %g, change %q; want 3+3, 0.5, %q", r.NBase, r.NNew, r.Base, r.Change, changeUnjudged)
+		}
+		return
+	}
+	t.Errorf("run(NaN hit-ratio) rows = %+v, want a hit-ratio row built from the finite samples", rep.Rows)
+}
+
 func repeat(v float64, n int) []float64 {
 	s := make([]float64, n)
 	for i := range s {

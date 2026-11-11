@@ -180,9 +180,11 @@ Keep `NULL` when absence differs from an empty string or zero. Use `sql.Null[T]`
 or a pointer to preserve that distinction; do not introduce `COALESCE` or
 `NOT NULL DEFAULT ''` merely to simplify scanning.
 
-For a column type of your own, implement `sql.Scanner` and `driver.Valuer`;
-`sql.ConvertAssign` (Go 1.27+) exposes the conversion `Rows.Scan` applies, so a
-custom scanner can defer to it instead of reimplementing the type table.
+For a column type of your own, implement `sql.Scanner` and `driver.Valuer`.
+`sql.ConvertAssign(scanCtx driver.ScanContext, dest any, src driver.Value)`
+(Go 1.27+) exposes the conversion `Rows.Scan` applies. It is meant for
+drivers; a `Scan` method that defers to it passes `driver.ScanContext{}`
+first: `sql.ConvertAssign(driver.ScanContext{}, &m.cents, src)`.
 
 ## ORM rules when the repository already has one
 

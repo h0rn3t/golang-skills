@@ -20,7 +20,7 @@ if condition {
 return err  // always nil!
 ```
 
-### Fix: Return Where the Error Occurs
+### Fix: Declare Before the Block
 
 When a value must outlive the block, declare it before the block and assign
 it with `=`.

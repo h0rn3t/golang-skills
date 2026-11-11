@@ -76,7 +76,7 @@ func main() {
 
 func run(args []string, stdout, stderr io.Writer) error {
     if len(args) == 0 {
-        fmt.Fprintln(stderr, "usage: tool serve|migrate [flags]")
+        _, _ = fmt.Fprintln(stderr, "usage: tool serve|migrate [flags]") // a failed write to stderr has nowhere to go
         return errUsage
     }
     switch args[0] {
@@ -97,7 +97,7 @@ func run(args []string, stdout, stderr io.Writer) error {
         }
         return migrate(stdout, *dryRun)
     default:
-        fmt.Fprintf(stderr, "unknown command %q\nusage: tool serve|migrate [flags]\n", args[0])
+        _, _ = fmt.Fprintf(stderr, "unknown command %q\nusage: tool serve|migrate [flags]\n", args[0]) // as above
         return errUsage
     }
 }

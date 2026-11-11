@@ -67,9 +67,10 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    ([go-testing](../go-testing/SKILL.md#assertions-match-the-repository) owns
    the assertion rule). Resolve routine choices without stopping; ask only
    for missing information that changes correctness, scope, or authorization.
-6. **Verify and report.** With a shell, **load the `go-linting` skill**
-   (`Skill` tool with the router's namespace, otherwise read its `SKILL.md`),
-   select the gate scope, then run the Contract Table file with that gate.
+6. **Verify and report.** With a shell, use the `go-linting` skill, in
+   context since step 2 — **load it now only if it is not** (`Skill` tool
+   with the router's namespace, otherwise read its `SKILL.md`) — select the
+   gate scope, then run the Contract Table file with that gate.
    Hook receipts count only as [go-linting](../go-linting/SKILL.md#verification-gate)
    verifies them. Without a shell, read each case against its code path.
    Report as [go-style-core](../go-style-core/SKILL.md#how-much-to-say) says,
@@ -77,7 +78,7 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
 
    ```text
    <what the change does, in one sentence>
-   checks: gofmt pass · vet pass · test -race pass · lint pass
+   checks: gofmt pass · build pass · vet pass · test -race pass · fix pass (2 pre-existing hunks) · lint pass · govulncheck skipped (no dependency change)
    added package-level declarations: 1 — parseLimit: handleList, handleSearch
    <one sentence per material gap, or nothing>
    ```
@@ -86,7 +87,8 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
 
 ## Route Before The First Edit
 
-The third column adds owners only under its stated condition. Prefer the
+The third column adds its owners under the condition it states, and always
+where it states none. Prefer the
 narrower owner when topics overlap; a local or unexported identifier alone
 does not require `go-naming` or `go-documentation`.
 
@@ -126,7 +128,7 @@ the requested scope; a repository gate replaces the defaults rather than
 joining them. Bundled scripts add evidence the gate lacks:
 
 - Error handling: `bash <installed-skill-dir>/../go-error-handling/scripts/check-errors.sh ./...`.
-- Exported API documentation: `bash <installed-skill-dir>/../go-documentation/scripts/check-docs.sh`.
+- Exported API documentation: `bash <installed-skill-dir>/../go-documentation/scripts/check-docs.sh --limit 30 <path the task touched>`.
 - Before submitting: [go-code-review](../go-code-review/SKILL.md).
 
 `<installed-skill-dir>` is the directory the host loaded this file from; each
@@ -341,8 +343,8 @@ exempt.
   here because a body written behind one signature folds them in: the parse
   of untyped data into its typed struct, the pure match or decision on that
   struct, and the interval or set arithmetic. Each is a package-level
-  function, not a closure inside the entry point, which keeps the step names,
-  the branches, and the writes and stays within about 40 lines. Any other
+  function, not a closure inside the entry point. The entry point keeps the
+  step names, the branches, and the writes, and stays within about 40 lines. Any other
   wrapper around one expression or one error check is inlined. Its name says what the
   step means in the domain, not the library call behind it: verb-like for an
   action or a predicate (`subtract`, `matches`), noun-like for a value it

@@ -102,7 +102,8 @@ err != nil // true — the interface holds a type
 ```
 
 Changing a return type from `*MyError` to `error` — a common "cleanup" — flips
-`err != nil` at every call site. Narrowing a concrete return to an interface
+`err != nil` wherever the function returns a nil `*MyError` variable
+(`return p`); a literal `return nil` stays nil. Narrowing a concrete return to an interface
 removes methods callers may use; widening an interface parameter to a concrete
 type breaks callers passing other implementations.
 
@@ -214,4 +215,5 @@ exported signatures · error text and `%w` chains · nil-vs-empty returns ·
 defer order and arguments · channel buffers and lock scopes · struct tags and
 field order · numeric types · receiver kinds · goroutine counts · timeout
 durations · JSON field presence · evaluation order and short-circuit (an
-operand hoisted above `&&`/`||`) · order and count of side effects.
+operand hoisted above `&&`/`||`) · order and count of side effects · package
+init order (an `init()` or a `var` with a side effect moved to another file).

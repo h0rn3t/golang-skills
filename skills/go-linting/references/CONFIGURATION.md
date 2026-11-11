@@ -41,9 +41,9 @@ the `w, r` a handler type fixes, and `iface`'s `unused` and `identical`, which
 fire on exported interfaces a library offers its callers.
 `recvcheck`, `containedctx`, and `predeclared` joined after the same check on
 `x/sync`, `x/oauth2`, `x/vuln`, `x/perf`, and this repository's tools: each
-finding was a rule a skill states, and `recvcheck`'s built-in exclusions keep
-the value encoders and `String` that
-[go-interfaces](../../go-interfaces/SKILL.md#receiver-type) exempts. Left out
+finding was a rule a skill states, and `recvcheck`'s built-in exclusions plus
+`*.Scan` and `*.UnmarshalJSONFrom` keep the pointer decoders on a value type
+that [go-interfaces](../../go-interfaces/SKILL.md#receiver-type) exempts. Left out
 after it: `thelper`, which cannot tell a setup helper from a shared test body
 (where `t.Helper()` would hide the failing line), and `revive`'s `deep-exit`,
 which reports `log.Panicf` and the `usage()` that exits in package `main`.

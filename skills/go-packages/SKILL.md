@@ -93,8 +93,9 @@ not have (v1, v3, v5, custom sources).
   [go-code-refactor's ARCHITECTURE.md](../go-code-refactor/references/ARCHITECTURE.md):
   the import-graph audit, the target shapes, the staged move, and the
   boundary test. This skill decides where a *new* package goes.
-- A package named `util`, `helper`, or `common` is a finding:
-  [go-naming](../go-naming/references/IDENTIFIERS.md#package-names) owns the rule.
+- A package with a generic name (`util`, `helper`, `common`, `shared`, `lib`)
+  is a finding: [go-naming](../go-naming/references/IDENTIFIERS.md#avoid-uninformative-names)
+  owns the rule and the list.
 
 ### Package Size
 

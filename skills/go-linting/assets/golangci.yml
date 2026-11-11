@@ -30,7 +30,7 @@ linters:
     - nolintlint    # go-linting: a suppression names its linter and its reason
     - perfsprint    # go-performance: strconv over fmt.Sprint for a lone value; Sprintf formatting stays
     - predeclared   # go-naming: no local named len, max, new, or error
-    - recvcheck     # go-interfaces: one receiver kind per type; encoders and String on a value type are exempt
+    - recvcheck     # go-interfaces: one receiver kind per type; a value type's pointer decoders are exempt (settings below)
     - rowserrcheck  # go-database: rows.Err checked after the loop
     - sloglint      # go-logging: static message, key-value attrs, snake_case keys
     - sqlclosecheck # go-database: rows and statements closed
@@ -39,8 +39,10 @@ linters:
     - usestdlibvars # go-http: named HTTP methods and status codes
   settings:
     errcheck:
-      # Closing what was only read has no error worth handling
-      # (go-database, go-http); Close on a written file still reports.
+      # Closing a database/sql row set, a rolled-back transaction, or an
+      # io.ReadCloser (a response body) has no error worth handling
+      # (go-database, go-http). Close on any *os.File still reports,
+      # read-only included.
       exclude-functions:
         - (*database/sql.Rows).Close
         - (*database/sql.Tx).Rollback
@@ -74,6 +76,14 @@ linters:
     perfsprint:
       string-format: false
       strconcat: false
+    recvcheck:
+      # The built-in exclusions cover UnmarshalText/JSON/YAML/XML/Binary and
+      # GobDecode. go-interfaces exempts every pointer decoder on a value
+      # type: sql.Scanner and the json/v2 decoder are not built in, and moving
+      # Value to *T to satisfy the linter stops the value being a driver.Valuer.
+      exclusions:
+        - "*.Scan"
+        - "*.UnmarshalJSONFrom"
     depguard:
       rules:
         stdlib-first:
@@ -120,6 +130,9 @@ issues:
   # what reaches a reader with a script's --limit instead.
   max-issues-per-linter: 0
   max-same-issues: 0
+  # The default keeps one finding per line: the second linter's finding on
+  # that line appears only after the first is fixed.
+  uniq-by-line: false
 
 formatters:
   enable:

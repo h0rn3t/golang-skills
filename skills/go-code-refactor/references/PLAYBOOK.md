@@ -75,9 +75,11 @@ commented-out code; an `err != nil` branch on a call documented never to fail
 `if b == true`; string conversions of strings. An exported field no Go code
 reads is still on the wire: a finding, not a deletion.
 
-The line to hold: **provably** unreachable. "Nothing calls this" needs `go vet`,
-a linter with `unused`, or a repo-wide grep including tests, generated code,
-and reflection-based dispatch — an exported symbol may have callers outside the
+The line to hold: **provably** unreachable. "Nothing calls this" needs
+`deadcode -test ./...` (`golang.org/x/tools/cmd/deadcode`, where installed),
+a linter with `unused` (unexported names only), or a repo-wide grep including
+tests, generated code, and reflection-based dispatch; `go vet` has no
+analyzer for an unused function — an exported symbol may have callers outside the
 module. When you cannot prove it, it is a finding, not a deletion. Deletions
 belong at the top of the report; reviewers approve them at a glance. Duplication
 that differs only in values folds instead: [POLICY-TABLES.md](POLICY-TABLES.md).
@@ -192,7 +194,8 @@ shadowing. See [go-style-core](../../go-style-core/SKILL.md).
 
 Delete comments that restate the code; keep and add comments that explain
 **why**. Adding a doc comment to an undocumented exported symbol is pure gain —
-nothing changes at runtime. See [go-documentation](../../go-documentation/SKILL.md).
+nothing changes at runtime; `loc-diff` counts its lines as growth, and the
+comment is the reason the report gives. See [go-documentation](../../go-documentation/SKILL.md).
 Leave `TODO`/`FIXME` in place; they are someone's open thread. Delete only
 those describing work that demonstrably shipped.
 

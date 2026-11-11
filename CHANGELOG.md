@@ -4,6 +4,100 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+Fixes for the 2026-11-10 review of all 24 skills (3 high, 19 medium, 52 low).
+The facts below were reproduced on go1.27.1 (go1.26.4 for the 1.26 claims)
+and golangci-lint 2.15.0 before the edit, except two taken from the review:
+the OpenTelemetry sampler sentence, and the bash quoting, emulated with
+`compat42` rather than run on bash 3.2. No model run measured the wording
+changes, which are listed last. The review's request for more eval cases
+(go-testing, go-generics, go-code-review, go-documentation, go-database) is
+not done: new cases need a control run, and the published pass rates are of
+the 110 and 75 cases in the tree.
+
+- **The bundled `golangci.yml` stops reporting forms the skills endorse.**
+  `recvcheck` now excludes `*.Scan` and `*.UnmarshalJSONFrom`: its built-in
+  exclusions cover `UnmarshalJSON` and `UnmarshalText` only, so the
+  `Value`/`Scan` pair go-interfaces exempts was a finding, and "fixing" it
+  moves `Value` to `*T` and stops the value being a `driver.Valuer`.
+  `uniq-by-line: false` shows every linter's finding on a line instead of the
+  first (`rowserrcheck` hid `sqlclosecheck`, `errcheck` hid gosec G104), so an
+  unchecked error now counts twice in abrun's lint column and the edit hook.
+  `evals/fixtures/lint` holds the Valuer/Scanner and json/v2 pairs.
+- **Example blocks are linted with that config.** Every block the example
+  tests compile is linted while its test runs, and a finding on a line of the
+  block fails the test unless `exampleLintFindings` pins it as the wrong form
+  the block shows. It found the unchecked `fmt.Fprintln(stderr, …)` in
+  `PACKAGE-SIZE.md` and gosec G407 on the random-nonce `aead.Seal` in
+  `SECRETS-AND-CRYPTO.md`; the `defer f.Close()` in `SCOPE.md`, the
+  `go srv.Serve(lis)` and `conn.Close()` in `GRPC.md`, the template written
+  straight into `w` in `INJECTION.md`, and the benchmark of `fmt.Sprint` in
+  `BENCHMARKS.md` are fixed the same way.
+- **go-security names what gosec reports.** The taint rules G701–G710 and
+  G108, G110, G120, G124 were in no skill, the Quick Reference said `review`
+  for rows a tool partly covers, and the defended forms drew findings with no
+  suppression shown. The `Caught by` column is corrected (G703 passes
+  `root.Open`, G708 sees `text/template` only, G110 sees `io.Copy` only), and
+  a new section gives the suppression for G704 after the allowlist or through
+  `publicClient`, G710 after `localRedirect`, and G120 under `MaxBytesReader`.
+  `TestSecurityExampleTaintSuppressions` lints them in handlers behind a mux:
+  a suppression that stops working is a gosec finding, one no longer needed a
+  `nolintlint` finding. `publicClient` now clones `http.DefaultTransport`
+  (a literal left `MaxIdleConns` and `IdleConnTimeout` unlimited while the
+  caller names the hosts) and clears `Proxy`.
+- **`pre-review.sh` 1.3.0 compares with the merge base.** Against the tip of
+  `--new-from-rev`, a branch behind its base showed everything the base
+  gained as removed, and the `bar` section reported a deleted test the branch
+  never touched. A pattern may be an import path; lint paths are relative to
+  the working directory under every configuration; text mode prints `config:`.
+- **`bench-verdict.go` 1.1.1 drops NaN and infinite samples.** A
+  `b.ReportMetric` of `0/0` hung the U test's tie loop, and `+Inf` failed
+  `--json`. A unit the verdict does not judge needs no minimum run count.
+- **A file path is read with its package.** `check-docs.sh pay/charge.go`
+  reported a missing package comment that sat in `pay/doc.go`, and
+  `check-interface-compliance.sh prod/iface.go` found nothing where `./prod`
+  found the interface. `check-docs.sh` 1.6.0 also marks findings under
+  `internal/` and `cmd/` `advisory` (the exit code is unchanged) and skips
+  `Len`, `Less`, `Swap` on a type with all three, as revive does;
+  `check-interface-compliance.sh` 1.6.0 counts a call through a value of a
+  named func type as a conversion.
+- **Other script fixes.** `json_escape` in four scripts quoted the
+  replacement, which bash before 4.3 keeps as literal quotes
+  (`TestPortability` now rejects the form); four wrappers exited 1 with no
+  output when `go env` failed, and now exit 2; `check-debt.sh` 1.1.0 skips
+  what `./...` skips, ignores a marker inside a string literal, and takes one
+  path; `check-errors.sh` 1.7.0 matches the logged and returned error by name
+  (`cerr`, `closeErr`), not only `err`; `verify-refactor.sh` 1.5.0 drops the
+  `leaks` mode, which checked no profile and exited 3 outside the contract.
+- **Facts corrected.** `if !t.Stop() { <-t.C }` is dead code, not a new
+  deadlock; a same-package file move reorders `init()` and `var` side effects
+  and can add a build constraint; gob names a registered pointer
+  `*pkg.Name`, not by import path; `runtime.scanobject` is `scanObject` and
+  `scanSpan` under `gcDrain`; `http.TimeoutHandler` cannot outlast
+  `WriteTimeout`, `SetWriteDeadline` can; a gRPC status wrapped with `%w`
+  reaches the client with the dependency's code and text; `go build` skips
+  the `_test.go` files of another GOOS, `go vet` does not; `hostport` misses
+  an inline `fmt.Sprintf` in `net.DialTimeout`; `go fix -atomictypes` and
+  `-waitgroupgo` do not exist on a 1.26 toolchain; `dlv` needs
+  `--init … --allow-non-terminal-interactive` without a terminal; a float
+  division by zero is `±Inf` unless it is `0/0`; `sql.ConvertAssign` takes a
+  `driver.ScanContext` first.
+- **Examples corrected.** go-resilience's `retry` checks `ctx.Err()` before
+  its `select` (with a zero wait the `select` chose between `ctx.Done()` and
+  the timer at random, so a cancelled context still made further attempts);
+  `Worker.Shutdown` cancels a context instead of closing a channel a
+  second call would close again; `signal.NotifyContext` examples call `stop`
+  once the context is done, so a second Ctrl-C ends a shutdown that hangs;
+  the slices example now prints the aliasing it describes.
+- **Wording, not measured.** go-code step 6 loads go-linting only when step 2
+  did not; its sample report shows the whole gate with one `skipped`;
+  go-linting says when `go fix -diff` is `pass` and the gate block no longer
+  writes `./...` for it; go-performance says a verdict costs about 25 s per
+  matching row; go-context takes `ctx` in a function that does I/O and not
+  "for later"; go-code-refactor names the four `go fix` hunks that change
+  behavior, loads go-linting in step 1, and writes its commands with one
+  package pattern. One list of generic package names lives in
+  `IDENTIFIERS.md`.
+
 ## [1.47.4] - 2026-11-05
 
 - **`COMPATIBILITY.md` ships with the skills.** `npx skills add` and

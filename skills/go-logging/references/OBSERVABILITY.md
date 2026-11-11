@@ -46,8 +46,9 @@ A feature in a service is not done until an operator can see it fail:
   gets `span.RecordError(err)` and `span.SetStatus(codes.Error, …)`, since
   `RecordError` alone leaves it unset, and `tp.Shutdown(ctx)` at exit flushes
   the last batch. A ratio sampler is wrapped,
-  `sdktrace.ParentBased(sdktrace.TraceIDRatioBased(r))`: a bare one decides
-  again in every service and splits the trace.
+  `sdktrace.ParentBased(sdktrace.TraceIDRatioBased(r))`: a bare one ignores
+  the caller's decision, so services with different ratios or samplers split
+  the trace.
 - **Dashboards and alerts** — a metric nobody queries is not observability:
   land each one in the project's dashboards and alert rules, or say plainly
   that it shipped unwired.

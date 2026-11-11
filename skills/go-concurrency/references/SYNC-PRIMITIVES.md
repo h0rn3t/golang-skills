@@ -17,8 +17,9 @@ embed the mutex on the struct, even if the struct is not exported.
 Prefer typed atomics in new code. In an existing struct, swapping a raw `int64` or
 `unsafe.Pointer` field for `atomic.Int64` or `atomic.Pointer[T]` makes the
 struct no-copy: every by-value copy of it then fails `go vet` (`passes lock by
-value: … contains sync/atomic.noCopy`), and `go fix -atomictypes ./...` makes
-the swap without rewriting those copies. `atomic.Value` differs from
+value: … contains sync/atomic.noCopy`), and `go fix -atomictypes ./...` (Go
+1.27 toolchain; 1.26 has no such flag) makes the swap without rewriting those
+copies. `atomic.Value` differs from
 `atomic.Pointer[T]` (`Value` panics on a nil store and on a change of dynamic
 type): migrate a type as one change, not call by call.
 
@@ -51,9 +52,10 @@ Go 1.23 timer semantics hold for every module on a Go 1.27 toolchain (on
 `Reset` never leave a stale value behind, and an unreferenced timer is
 collected without `Stop`.
 
-- The old drain `if !t.Stop() { <-t.C }` now blocks forever: `Stop` returns
-  false only when the value was already received or the timer was already
-  stopped. Delete it; `t.Reset(d)` alone is correct.
+- The old drain `if !t.Stop() { <-t.C }` is dead code: `Stop` returns true
+  while a fired value is still undelivered, so the branch runs only where
+  the receive blocked before 1.23 too — the value already received, or the
+  timer already stopped. Delete it; `t.Reset(d)` alone is correct.
 - A leftover `GODEBUG=asynctimerchan=1` in the deployment's environment stops
   a binary built with Go 1.27 at startup (`removed GODEBUG "asynctimerchan"`);
   delete it with the drain.

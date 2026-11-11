@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="1.6.0"
+VERSION="1.7.0"
 
 for arg in "$@"; do
     case "$arg" in
@@ -18,6 +18,11 @@ USAGE
     and returned. Skips _test.go and generated files and, as go ./... does,
     vendor and testdata directories, names that begin with "." or "_",
     nested modules, and directories the go.mod ignore directive names.
+
+    Both checks read syntax, not types. The logged-and-returned error is a
+    variable named err or ending in err or Err (cerr, closeErr), the same
+    one in the log call and the return. Text matched after it was stored
+    (msg := err.Error(), then strings.Contains(msg, ...)) is not seen.
 
     Exits 0 if nothing is found, 1 on findings, 2 on a usage error or when a
     file does not parse. The other files are still checked; --json then adds
@@ -62,7 +67,14 @@ SRC="$SCRIPT_DIR/check-errors-ast.go"
 # upgrade rebuilds it. A helper that does not build or run is an environment
 # error (2).
 WANT_GO="$(go env GOVERSION 2>/dev/null)" || WANT_GO=""
-{ read -r HOSTOS; read -r HOSTARCH; } < <(cd "$CACHE_ROOT" && GOWORK=off GOFLAGS= GOTOOLCHAIN=local go env GOHOSTOS GOHOSTARCH)
+HOSTOS="" HOSTARCH=""
+if HOSTENV="$(cd "$CACHE_ROOT" && GOWORK=off GOFLAGS= GOTOOLCHAIN=local go env GOHOSTOS GOHOSTARCH)"; then
+    { read -r HOSTOS; read -r HOSTARCH; } <<< "$HOSTENV" || true
+fi
+if [[ -z "$HOSTOS" || -z "$HOSTARCH" ]]; then
+    echo "error: go env GOHOSTOS GOHOSTARCH failed" >&2
+    exit 2
+fi
 BUILD_ENV=(env GOWORK=off GOFLAGS= "GOOS=$HOSTOS" "GOARCH=$HOSTARCH" "GOTOOLCHAIN=${WANT_GO:-local}")
 if ! GOVERSION="$(cd "$CACHE_ROOT" && "${BUILD_ENV[@]}" go env GOVERSION 2>/dev/null)"; then
     BUILD_ENV=(env GOWORK=off GOFLAGS= "GOOS=$HOSTOS" "GOARCH=$HOSTARCH" GOTOOLCHAIN=local)

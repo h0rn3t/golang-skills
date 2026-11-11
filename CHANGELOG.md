@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.47.5] - 2026-11-11
+
 Fixes for the 2026-11-10 review of all 24 skills (3 high, 19 medium, 52 low).
 The facts below were reproduced on go1.27.1 (go1.26.4 for the 1.26 claims)
 and golangci-lint 2.15.0 before the edit, except two taken from the review:

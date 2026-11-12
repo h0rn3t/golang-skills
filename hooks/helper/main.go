@@ -49,6 +49,8 @@ func main() {
 		fmt.Println(strings.Join(fileHints(args), " "))
 	case "edit-file":
 		editFile()
+	case "codex-edit":
+		os.Exit(codexEdit())
 	case "session-key":
 		sessionKey()
 	case "verification":

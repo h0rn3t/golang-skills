@@ -76,6 +76,22 @@ bunx skills add h0rn3t/golang-skills --all -a codex -a github-copilot -a cursor 
 
 Start a new session in the agent after installing.
 
+### Native Codex and Cursor plugins
+
+Codex can install the complete plugin, including routing notes and checks after
+`apply_patch` edits:
+
+```bash
+codex plugin marketplace add h0rn3t/golang-skills
+codex plugin add golang-skills@golang-skills
+```
+
+Review and trust its hooks with `/hooks` in a new Codex session. In Cursor,
+import `h0rn3t/golang-skills` through **Customize → From GitHub Repository**,
+then install the plugin. Cursor gets the skills and an always-applied Go
+routing rule. See [host installation and verification](docs/HOST_PLUGINS.md)
+for updates, local development, hook coverage, and host limitations.
+
 ### Claude Code plugin
 
 ```text
@@ -143,9 +159,10 @@ so once per session (`GOLANG_SKILLS_ROUTING_GATE=off` turns it off). The
 hooks need nothing beyond bash and Go: their parser is a small
 standard-library program in `hooks/helper`, built on first use into the user
 cache directory. Skills installed with
-`npx skills` or copied get no hooks, so the instruction is all there is; a host
-that loads the plugin's `hooks/hooks.json` (Codex) runs the hooks with the
-routing gate off.
+`npx skills` or copied get no hooks, so the instruction is all there is.
+The native Codex plugin uses `hooks/codex.json` and adapts `apply_patch` to
+the post-edit checker; its skill-load gate stays off. The native Cursor plugin
+installs its routing rule automatically and runs no hooks.
 
 After each `.go` edit the post-edit hook runs gofmt, `go vet`, `go fix -diff`,
 the package's tests (`go test -short`), and golangci-lint with the
@@ -406,7 +423,8 @@ go run ./cmd/abrun -corpus implement -runner opencode \
 
 ```text
 skills/       Runtime skill directories.
-hooks/        Claude Code routing and post-edit hooks.
+hooks/        Claude Code and Codex routing and post-edit hooks.
+rules/        Cursor's always-applied Go routing rule.
 agents/       Optional plugin agents.
 evals/        Structural tests, fixtures, golden tests, and runners.
 plugin-evals/ Cases for `claude plugin eval`.

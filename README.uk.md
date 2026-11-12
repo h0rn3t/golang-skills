@@ -75,6 +75,23 @@ bunx skills add h0rn3t/golang-skills --all -a codex -a github-copilot -a cursor 
 
 Після встановлення відкрийте нову сесію агента.
 
+### Нативні плагіни Codex і Cursor
+
+Codex може встановити повний плагін із підказками маршрутизації та
+перевірками після правок через `apply_patch`:
+
+```bash
+codex plugin marketplace add h0rn3t/golang-skills
+codex plugin add golang-skills@golang-skills
+```
+
+У новій сесії Codex перегляньте й підтвердьте довіру до хуків через `/hooks`.
+У Cursor імпортуйте `h0rn3t/golang-skills` через
+**Customize → From GitHub Repository**, потім встановіть плагін. Cursor
+отримає скіли та правило маршрутизації Go з `alwaysApply: true`.
+[Інструкція для хостів](docs/HOST_PLUGINS.md) описує оновлення, локальне
+встановлення, перевірку інтеграції та межі роботи хуків.
+
 ### Плагін Claude Code
 
 ```text
@@ -141,9 +158,10 @@ Write або MultiEdit, доки ці завантаження не зафікс
 не потрібно нічого, крім bash і Go: їхній парсер — невелика програма на
 стандартній бібліотеці в `hooks/helper`, що збирається при першому запуску в
 кеш-каталог користувача. Скіли, встановлені через
-`npx skills` або скопійовані, хуків не мають, тож там працює лише інструкція;
-хост, що завантажує `hooks/hooks.json` плагіна (Codex), запускає хуки з
-вимкненим routing gate.
+`npx skills` або скопійовані, хуків не мають, тож там працює лише інструкція.
+Нативний плагін Codex використовує `hooks/codex.json` і адаптує `apply_patch`
+до post-edit перевірки; його skill-load gate вимкнений. Нативний плагін
+Cursor встановлює правило маршрутизації автоматично й не запускає хуків.
 
 Після кожної правки `.go` post-edit хук без запиту запускає gofmt, `go vet`,
 `go fix -diff`, тести пакета (`go test -short`) і golangci-lint з конфігом

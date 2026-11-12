@@ -95,6 +95,12 @@ load-then-edit turns cost one skipped load into a failed edit, and the
 
 ## Clients without these hooks
 
+Native Codex and Cursor plugins are described in [Host Plugins](HOST_PLUGINS.md).
+Codex's plugin supplies routing notes and post-edit checks but no skill-load
+gate; the block below remains useful for project-required routing. Cursor's
+plugin installs the equivalent Go routing rule automatically. The directory
+installs described below still need project instructions.
+
 Codex, GitHub Copilot, Cursor, and any other client that reads the
 skills from a directory. In `AGENTS.md`, or the file the client reads for project
 instructions:

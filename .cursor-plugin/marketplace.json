@@ -1,0 +1,7 @@
+{
+  "name": "golang-skills",
+  "owner": { "name": "h0rn3t" },
+  "plugins": [
+    { "name": "golang-skills", "source": "./" }
+  ]
+}

@@ -56,6 +56,10 @@ jobs:
       - name: Verify golangci-lint config
         run: golangci-lint config verify --config skills/go-linting/assets/golangci.yml
 
+      - name: Test hook helper
+        working-directory: hooks/helper
+        run: go test -count=1 -race -shuffle=on ./...
+
       # hooks.json is parsed by TestHookScriptsSyntax, the relative links and
       # anchors by TestRelativeLinks, both in the eval tests above.
       - name: Validate plugin hooks and agents

@@ -1,0 +1,17 @@
+---
+description: Route Go tasks through the installed golang-skills pack
+alwaysApply: true
+---
+
+For Go work, use the skills from this plugin before the first edit:
+
+1. Load `go-code` to write or fix Go, `go-code-refactor` for a refactor that
+   preserves behavior, or `go-code-review` for a review.
+2. For writing, fixing, or refactoring, also load `go-style-core` in full;
+   it includes the current Go idiom card.
+3. Load only the owner skills named by the router for this task.
+
+Use the installed skill entries to find their directories. Read each selected
+`SKILL.md` whole, using the plugin-qualified name when the host provides one.
+Name the skills loaded before the first edit. No hook enforces these loads in
+Cursor. If the task is not Go work, ignore this rule.

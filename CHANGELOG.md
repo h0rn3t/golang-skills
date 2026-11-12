@@ -4,6 +4,16 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.48.1] - 2026-11-12
+
+- Add native Codex and Cursor plugin manifests and installation catalogs.
+  Cursor installs an always-applied Go routing rule. Its manifest explicitly
+  disables discovery of Claude hooks and agents.
+- Add a Codex `apply_patch` post-edit adapter that checks all surviving Go
+  destinations, including renames, using the existing checks and receipts.
+  Codex uses its own hook configuration without the Claude skill-load gate.
+  Add adapter and packaging regression tests, and run helper tests in CI.
+
 ## [1.48.0] - 2026-11-12
 
 Taken from the Ponytail 5 update (github.com/DietrichGebert/ponytail, v5.3.3).

@@ -1,0 +1,12 @@
+{
+  "name": "golang-skills",
+  "version": "1.48.1",
+  "description": "Modular Go skills with an always-applied rule for Go task routing.",
+  "author": { "name": "h0rn3t" },
+  "repository": "https://github.com/h0rn3t/golang-skills",
+  "license": "Apache-2.0",
+  "skills": "./skills/",
+  "rules": "./rules/",
+  "agents": [],
+  "hooks": { "version": 1, "hooks": {} }
+}

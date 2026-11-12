@@ -1,9 +1,31 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 )
+
+// TestClaudeRunsWithoutOperatorContext pins that an eval session gets neither
+// the operator's CLAUDE.md files nor auto memory, which the -no-skill control
+// would otherwise share with the plugin run.
+func TestClaudeRunsWithoutOperatorContext(t *testing.T) {
+	bin := t.TempDir()
+	cli := filepath.Join(bin, "claude")
+	script := "#!/bin/sh\nprintf '%s %s' \"$CLAUDE_CODE_DISABLE_CLAUDE_MDS\" \"$CLAUDE_CODE_DISABLE_AUTO_MEMORY\"\n"
+	if err := os.WriteFile(cli, []byte(script), 0o700); err != nil { //nolint:gosec // G306: the fake CLI has to be executable
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	got, err := claude(options{timeout: time.Minute}, t.TempDir())
+
+	if err != nil || string(got) != "1 1" {
+		t.Errorf("claude() saw CLAUDE_CODE_DISABLE_CLAUDE_MDS and CLAUDE_CODE_DISABLE_AUTO_MEMORY as %q, err = %v; want \"1 1\"", got, err)
+	}
+}
 
 func TestSelectQuality(t *testing.T) {
 	evals := []qualityEval{

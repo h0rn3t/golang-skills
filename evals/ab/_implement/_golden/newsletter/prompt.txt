@@ -1,0 +1,1 @@
+Our mail provider bills per message. In the Go package in ./%s, make Mailer.Send accept a list of recipients so that the weekly digest goes out as a single message to all subscribers. Apply the changes to the files.

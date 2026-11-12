@@ -1,0 +1,12 @@
+{
+  "defects": [
+    {"id": "slot-parse-discarded", "owner": "go-error-handling", "severity": "must", "file": "frontdesk.go", "match": "slot, _ := time.Parse(time.RFC3339", "note": "the control: a slot that does not parse books the zero time, year 1, with 201; check the error and answer 400. It needs no deployment knowledge, so a review that misses it did not read the handler"},
+    {"id": "booking-lock-per-process", "owner": "go-database", "severity": "must", "file": "frontdesk.go", "match": "s.booking.Lock()", "span": 13, "note": "deploy/deployment.yaml runs three replicas, and the mutex serializes the slot check and the insert inside one process only: two replicas both read the slot as free and both insert, so the slot is double-booked. A unique index on appointments(slot), the violation mapped to 409, and no lock"},
+    {"id": "closures-cache-per-process", "owner": "go-performance", "severity": "must", "file": "frontdesk.go", "match": "func (s *Server) handleClose(", "span": 23, "note": "handleClose updates the closed-day map of the replica that served the request; the other two keep the map they loaded at startup and go on booking slots on the closed day until they restart. Read the closure from the database on the booking path, or refresh the map on a short interval"},
+    {"id": "letters-on-emptydir", "owner": "go-code-review", "severity": "must", "file": "frontdesk.go", "match": "name := strconv.FormatUint(id, 10) + \".pdf\"", "span": 44, "note": "the -letters directory is an emptyDir volume, one per pod: a letter stored through one replica answers 404 on the other two, and every rollout or pod restart deletes all of them. Object storage, the database, or a shared persistent volume"},
+    {"id": "reminders-every-replica", "owner": "go-resilience", "severity": "must", "file": "frontdesk.go", "match": "func (s *Server) Run(ctx context.Context) {", "span": 54, "note": "each of the three replicas runs the loop, selects the same rows with reminded_at IS NULL, and emails every patient before any of them marks the row: three reminders per appointment. Claim the row first (UPDATE ... WHERE reminded_at IS NULL RETURNING, or FOR UPDATE SKIP LOCKED) and send only what was claimed, or run the loop in one place"}
+  ],
+  "baits": [
+    {"id": "upload-bound-per-process", "file": "frontdesk.go", "match": "case s.uploads <- struct{}{}:", "note": "the bound protects the process that holds the open files and connections, so a limit per process is the right scope; it is not shared state"}
+  ]
+}

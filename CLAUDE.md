@@ -68,7 +68,12 @@ abrun sessions have no shell and no MCP server; `-gopls mcp` (own
 records `gopls_calls` per result. `-keep` leaves the run's trees under one
 `$TMPDIR/abrun-keep-*` directory, which the run prints. gopls lives in `~/go/bin`. `-shell go` gives
 them Bash for the Go toolchain and the bundled scripts (`commands` counts the
-calls).
+calls). `-mutants N` injects up to N small bugs (a flipped comparison, a moved
+boundary, a dropped `if`) into the code each run leaves and reports how many
+the run's own tests catch (`mutation` per result, one summary line per arm).
+Both runners start `claude` with `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` and
+`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` (`evalplugin.Env`), since `--restricted`
+ignores the settings files only.
 
 ## Architecture
 

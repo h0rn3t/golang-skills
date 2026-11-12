@@ -167,6 +167,47 @@ func TestScoreReview(t *testing.T) {
 	}
 }
 
+// TestCitationsWithoutARepeatedFileName is the regression test for a false
+// miss: a finding with several sites names the file once, and the site the key
+// anchors on is often not the first one listed.
+func TestCitationsWithoutARepeatedFileName(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+		want []string // file:from-to, in the order cited
+	}{
+		{name: "ranges in one code span", line: "**1. `desk.go:37,104-116`: double booking.**", want: []string{"desk.go:37-37", "desk.go:104-116"}},
+		{name: "comma list", line: "2. **`desk.go:41-42, 49-64, 146`, closed days are cached.**", want: []string{"desk.go:41-42", "desk.go:49-64", "desk.go:146-146"}},
+		{name: "colon form across code spans", line: "**2. `desk.go:42` / `:99` / `:137`: closing a day.**", want: []string{"desk.go:42-42", "desk.go:99-99", "desk.go:137-137"}},
+		{name: "colon form after and", line: "`pkg/desk.go:136-138` and `:99`: other pods", want: []string{"desk.go:136-138", "desk.go:99-99"}},
+		{name: "plain list before a dash", line: "3. desk.go:42, 99, 137 — a day closed on one pod", want: []string{"desk.go:42-42", "desk.go:99-99", "desk.go:137-137"}},
+		{name: "each file starts its own list", line: "desk.go:10, 12 and store.go:20, 22.", want: []string{"desk.go:10-10", "desk.go:12-12", "store.go:20-20", "store.go:22-22"}},
+		{name: "a count after a comma is not a line", line: "desk.go:94, 3 replicas all book it", want: []string{"desk.go:94-94"}},
+		{name: "a count after and is not a line", line: "desk.go:94 and 3 other places", want: []string{"desk.go:94-94"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got []string
+			for i, c := range parseCitations(tt.line) {
+				if c.anchor != (i == 0) {
+					t.Errorf("parseCitations(%q) citation %d anchor = %v, want only the first to anchor the finding", tt.line, i, c.anchor)
+				}
+				got = append(got, c.file+":"+strconv.Itoa(c.from)+"-"+strconv.Itoa(c.to))
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("parseCitations(%q) = %v, want %v", tt.line, got, tt.want)
+			}
+		})
+	}
+
+	key := reviewKey{Defects: []reviewDefect{{ID: "lock", Severity: "must", File: "desk.go", line: 104, Span: 13}}}
+	score := scoreReview(key, "### Must Fix\n**1. `desk.go:37,104-116`: double booking across replicas.**\n")
+	if score.Found != 1 || score.MustAsMust != 1 {
+		t.Errorf("scoreReview(finding citing desk.go:37,104-116) found %d as must %d, want the defect at 104 found as a must", score.Found, score.MustAsMust)
+	}
+}
+
 func TestScorePreExisting(t *testing.T) {
 	key := reviewKey{Defects: []reviewDefect{
 		{ID: "old", Severity: "must", File: "store.go", line: 20, Span: 1, PreExisting: true},

@@ -236,8 +236,10 @@ Converting repetitive test functions to table-driven form is worth *proposing*
 ## 10. Mark what you deliberately left alone
 
 When you keep something ugly because changing it would change behavior, say so
-in the code, not only in the report. `Kept:` / `Ceiling:` / `Fix:` are fixed
-prefixes, so the markers stay greppable:
+in the code, not only in the report. New code that takes a shortcut with a
+known limit — a global lock, an O(n²) scan, a naive heuristic — carries the
+same marker. `Kept:` / `Ceiling:` / `Fix:` are fixed prefixes, so the markers
+stay greppable:
 
 ```go
 // Kept: defer stays inside the loop; hoisting the body closes each file as its iteration ends.

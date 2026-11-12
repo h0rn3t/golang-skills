@@ -18,21 +18,23 @@ Every finding carries how it was established: `verified` names the run that
 proved it, `plausible` admits it was only read. With a diff in scope, a
 finding on lines the change did not touch says `pre-existing` after its
 location: it keeps its severity, and the verdict does not wait on it.
+Findings are numbered once across all severities, so the author can answer
+"fix 2 and 5"; the count does not restart under a heading.
 
 ### Must Fix
-- [ ] [file:line] Description of critical issue
-      Evidence: verified (how) | plausible (not proven)
-      Fix: the concrete action
+1. [file:line] Description of critical issue
+   Evidence: verified (how) | plausible (not proven)
+   Fix: the concrete action
 
 ### Should Fix
-- [ ] [file:line] Description of recommended improvement
-      Evidence: verified (how) | plausible (not proven)
-      Fix: the concrete action
-- [ ] [file:line] delete: | reuse: | yagni: | stdlib: | dep: | shrink: what can stop existing
-      Fix: the shorter form
+2. [file:line] Description of recommended improvement
+   Evidence: verified (how) | plausible (not proven)
+   Fix: the concrete action
+3. [file:line] delete: | reuse: | yagni: | stdlib: | dep: | shrink: what can stop existing
+   Fix: the shorter form
 
 ### Nits
-- [ ] [file:line] Description of minor suggestion
+4. [file:line] Description of minor suggestion
 
 ## Automated Checks
 Gate result per go-linting (PASS/FAIL/INCOMPLETE) with the checks actually run,

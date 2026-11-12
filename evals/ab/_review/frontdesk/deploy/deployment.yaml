@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontdesk
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: frontdesk
+  template:
+    metadata:
+      labels:
+        app: frontdesk
+    spec:
+      containers:
+        - name: frontdesk
+          image: registry.example/clinic/frontdesk:1.8.0
+          args: ["-listen=:8080", "-letters=/var/lib/frontdesk/letters"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: frontdesk-db
+                  key: url
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: letters
+              mountPath: /var/lib/frontdesk/letters
+      volumes:
+        - name: letters
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontdesk
+spec:
+  selector:
+    app: frontdesk
+  ports:
+    - port: 80
+      targetPort: 8080

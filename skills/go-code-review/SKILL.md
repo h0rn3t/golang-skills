@@ -80,6 +80,7 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 - [ ] **Shorter only where it reads as well**: never golf; validation at trust boundaries, data-loss error handling, and security checks are never "simplified" away, nor are the tests that fail when the logic breaks → [go-code-refactor](../go-code-refactor/references/LADDER.md#the-restraint-ladder)
 - [ ] **Already in the repo**: for each added helper or type, search the module for one doing the same job; a near-duplicate is `reuse:` naming the existing symbol and its file → [go-code-refactor](../go-code-refactor/references/OVER-ENGINEERING.md#tags)
 - [ ] **What the diff orphaned**: a declaration whose last caller the diff removed is `delete:`; the `unused` linter sees only unexported ones, `deadcode -test ./...` the rest in a module with a `main` package → [go-code-refactor](../go-code-refactor/references/MECHANICAL.md#after-every-bulk-rewrite)
+- [ ] **Marked shortcuts**: a `Kept:` / `Ceiling:` / `Fix:` marker that names its limit records a decision and is not a finding, unless the code already runs past that limit; a marker with neither a ceiling nor a fix is a Should Fix → [go-code-refactor](../go-code-refactor/references/PLAYBOOK.md#10-mark-what-you-deliberately-left-alone)
 
 ## Correctness
 

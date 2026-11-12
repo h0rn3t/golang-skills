@@ -4,6 +4,67 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+Taken from the Ponytail 5 update (github.com/DietrichGebert/ponytail, v5.3.3).
+Its rule text is already in the restraint ladder; what is new there is the
+benchmark, so this adds its mutation check to abrun and ports two of its task
+shapes as fixtures. Opus 5.5 and Sonnet 5.5 at medium ran both fixtures in
+the `no-skill` and `baseline` arms (n=3 review, n=5 implement). No reference
+arm ran: nothing below is a before/after claim about skill text.
+
+- **abrun scores the tests a run writes.** `-mutants N` injects up to N small
+  bugs into the production code a run leaves — a comparison negated, a
+  relational boundary moved by one, an `if` whose body no longer runs — one at
+  a time in a copy of the tree, and runs the run's own tests against each. A
+  result carries `mutation` (`total`, `caught`, `tests`, `survived`), and each
+  arm prints two rates: over every valid run, where a run that left no test
+  catches nothing, and over the runs that left tests. Off by default: it costs
+  one `go test` per mutant. The operators keep types and statement structure,
+  so a mutant compiles, and tests that fail before any mutant are reported as
+  `mutation_unmeasured` instead of a perfect score.
+- **`_implement/newsletter`: a change that reaches a caller nobody named.**
+  The prompt asks for `Mailer.Send` to take a list so the weekly digest goes
+  out as one message. The hidden test also holds two things the prompt does
+  not say: the subscribers must not be shown to each other, and the welcome
+  message must still name its one recipient in `To`. Every session of both
+  models put the subscribers in `Bcc`. The second check discriminates, and
+  against the plugin: the smallest `Send` moves every recipient to `Bcc`, the
+  welcome message with them, and rewrites the package's own assertion to
+  match. `no-skill` passed 3/5 on Opus 5.5 and 5/5 on Sonnet 5.5, `baseline`
+  0/5 and 2/5 (pooled 8/10 against 2/10, Fisher p = 0.02; p = 0.17 on each
+  model alone), most failing sessions naming the side effect in their
+  reports. The check is a judgment that a welcome message sent as `Bcc` is a
+  regression, and no skill text was changed for it. A variant without a
+  `Bcc` field (an envelope and a header map) was saturated, 20/20 on the two
+  models, and is not kept. The mutation score had nothing to say here: zero
+  to six sites per session, every mutant caught.
+- **`_review/frontdesk`: defects that exist only at the deployed scale.** A
+  booking service whose code is right for one process, with
+  `deploy/deployment.yaml` running three replicas on an `emptyDir` volume: a
+  mutex around check-then-insert, a closed-day cache updated in one replica, a
+  reminder loop every replica runs, letters on a per-pod directory, and one
+  control defect that needs no manifest. Recall is 1.00 in all four cells and
+  all twelve sessions opened the manifest unasked, so the review checklist
+  gets no deployment row: there is no miss for it to fix.
+- **A review citation is followed across its ranges.** `frontdesk.go:37,104-116`
+  and `` `frontdesk.go:42` / `:99` `` were scored on their first range only, so
+  a finding that listed the struct field before the handler counted as a
+  miss: 4 of the 60 defect readings above, all found on reading the reviews.
+  The later ranges now count as supporting citations of the same file;
+  `store.go:94, 3 replicas` still cites one line. A saved report scores higher
+  under `-rescore` where it has such citations.
+- **Eval sessions run without the operator's `CLAUDE.md` and auto memory.**
+  `abrun` and `evalrun` start `claude` with `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1`
+  and `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` (`evalplugin.Env`). `--restricted`
+  ignores the settings files only, so a `~/.claude/CLAUDE.md` reached every
+  arm, the control included.
+- **Review findings are numbered across severities** in `review-template.md`
+  instead of carrying checkboxes, so an author can answer "fix 2 and 5".
+  Unmeasured: abrun scores citations, not the list form.
+- **New code marks a known ceiling.** `go-code`'s Delete Pass and a
+  `go-code-review` row route to go-code-refactor's `Kept:` / `Ceiling:` /
+  `Fix:` marker, whose playbook section now covers a shortcut new code takes,
+  and review reads a marker that names its limit as a decision. Unmeasured.
+
 ## [1.47.5] - 2026-11-11
 
 Fixes for the 2026-11-10 review of all 24 skills (3 high, 19 medium, 52 low).

@@ -239,23 +239,48 @@ func parseCitations(review string) []cited {
 			continue
 		}
 		pre := preSection || preMark.MatchString(line)
-		for i, m := range citation.FindAllStringSubmatch(line, -1) {
-			from, _ := strconv.Atoi(m[3])
-			to := from
-			if m[4] != "" {
-				to, _ = strconv.Atoi(m[4])
+		sev := current
+		if inline != "" {
+			sev = inline
+		}
+		for i, m := range citation.FindAllStringSubmatchIndex(line, -1) {
+			file := line[m[4]:m[5]]
+			from, to := lineRange(line, m[6], m[7], m[8], m[9])
+			out = append(out, cited{file: file, from: from, to: to, severity: sev, anchor: i == 0, pre: pre})
+			// The lines that follow without a file name belong to the same file.
+			for rest := line[m[1]:]; ; {
+				c := continuation.FindStringSubmatchIndex(rest)
+				if c == nil || (c[2] == c[3] && !afterRange.MatchString(rest[c[1]:])) {
+					break
+				}
+				from, to := lineRange(rest, c[4], c[5], c[6], c[7])
+				out = append(out, cited{file: file, from: from, to: to, severity: sev, pre: pre})
+				rest = rest[c[1]:]
 			}
-			if to < from {
-				from, to = to, from
-			}
-			sev := current
-			if inline != "" {
-				sev = inline
-			}
-			out = append(out, cited{file: m[2], from: from, to: to, severity: sev, anchor: i == 0, pre: pre})
 		}
 	}
 	return out
+}
+
+// continuation matches one more line or range of the file just cited, written
+// without its name: "server.go:37,104-116", "`store.go:42` / `:99`",
+// "pool.go:35 and :65". The first group is the colon of the ":99" form.
+var continuation = regexp.MustCompile("^`?\\s*(?:,|/|and)\\s*`?(:?)(\\d+)(?:\\s*[-–]\\s*(\\d+))?")
+
+// afterRange is what may follow a continuation written without a colon, so
+// that "store.go:94, 3 replicas" does not cite line 3: the end of the line,
+// closing punctuation, or a dash or slash after a space.
+var afterRange = regexp.MustCompile("^(?:$|[`,)\\];.:]|\\s+(?:[^\\w\\s]|and\\b))")
+
+// lineRange reads the line s[from0:from1] and the optional end of its range
+// s[to0:to1] (a negative index when the group did not match), lowest first.
+func lineRange(s string, from0, from1, to0, to1 int) (from, to int) {
+	from, _ = strconv.Atoi(s[from0:from1]) // the patterns match digits only
+	to = from
+	if to0 >= 0 {
+		to, _ = strconv.Atoi(s[to0:to1]) // digits only, as above
+	}
+	return min(from, to), max(from, to)
 }
 
 func severityOf(line string) string {

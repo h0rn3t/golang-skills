@@ -227,7 +227,10 @@ line a reviewer sends back:
 
 - A comment that narrates the next line or repeats what the code already
   shows. A comment giving a reason the code cannot show stays
-  ([go-style-core](../go-style-core/SKILL.md#formatting) owns comments).
+  ([go-style-core](../go-style-core/SKILL.md#formatting) owns comments), and
+  a shortcut taken with a known limit — a global lock, an O(n²) scan — says
+  so in a `Kept:` / `Ceiling:` / `Fix:` marker
+  ([go-code-refactor](../go-code-refactor/references/PLAYBOOK.md#10-mark-what-you-deliberately-left-alone)).
 - A name used once that explains nothing, and the variable it fills: the
   value is written where it is used. A name that passes the Plain Code test
   stays.

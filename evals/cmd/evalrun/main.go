@@ -369,6 +369,7 @@ func claude(o options, dir string, args ...string) ([]byte, error) {
 	}
 	cmd := exec.CommandContext(ctx, "claude", args...)
 	cmd.Dir = dir
+	cmd.Env = evalplugin.Env()
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()

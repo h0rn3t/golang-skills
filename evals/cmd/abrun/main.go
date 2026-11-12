@@ -200,6 +200,9 @@ type options struct {
 	// toolchain, cd, and bash for the bundled scripts — the shell a user's
 	// session has, which the default arms leave out.
 	shell string
+	// mutants caps the bugs injected into the code a run leaves, to count how
+	// many the run's own tests catch (mutate.go); 0 leaves the score out.
+	mutants int
 }
 
 func main() {
@@ -217,6 +220,7 @@ func main() {
 	flag.StringVar(&o.gopls, "gopls", "", "give each claude session gopls: mcp (the gopls MCP server) or cli (Bash allowed for gopls only); default neither")
 	flag.StringVar(&o.shell, "shell", "", "give each claude session a shell: go (Bash allowed for go, gofmt, golangci-lint, govulncheck, cd, and bash for the bundled scripts); default none")
 	flag.StringVar(&o.rescore, "rescore", "", "re-score the review results of this saved JSON report against the current keys and print the summary; -out writes the re-scored report")
+	flag.IntVar(&o.mutants, "mutants", 0, "inject up to this many small bugs into the code each run leaves and count how many the run's own tests catch (default 0: not scored)")
 	flag.IntVar(&o.reps, "n", 2, "repetitions per fixture per arm")
 	flag.IntVar(&o.parallel, "j", 2, "runs to execute concurrently")
 	flag.Int64Var(&o.seed, "seed", 1, "deterministic job-order seed")
@@ -396,6 +400,11 @@ type result struct {
 	// ModelTests is pass, fail, or skipped (no test files). Older reports omit it.
 	ModelTests    string `json:"model_tests,omitempty"`
 	ModelTestFail string `json:"model_test_failure,omitempty"`
+	// Mutation is the -mutants score; nil when the flag is off, the run did
+	// not build, or its own tests fail. MutationUnmeasured says why a run that
+	// should have a score has none.
+	Mutation           *mutationScore `json:"mutation,omitempty"`
+	MutationUnmeasured string         `json:"mutation_unmeasured,omitempty"`
 	// Edited reports whether the fixture files actually changed. A session that
 	// touched nothing and reported success is not a behavior-preserving refactor
 	// with a zero delta; it is a run that never happened where it was measured,
@@ -1187,6 +1196,14 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 			if !measure() {
 				return res
 			}
+		}
+	}
+
+	// The run's tests are still in the tree here, and the mutants go into a
+	// copy of it, so the golden overlay below lands on what the session left.
+	if o.mutants > 0 && res.Build && res.ModelTests != "fail" {
+		if res.Mutation, err = scoreMutants(o.timeout, work, taskName, o.mutants, res.ModelTests == "pass"); err != nil {
+			res.MutationUnmeasured = err.Error()
 		}
 	}
 
@@ -2264,6 +2281,7 @@ func claude(timeout time.Duration, dir string, args ...string) ([]byte, error) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "claude", args...)
 	cmd.Dir = dir
+	cmd.Env = evalplugin.Env()
 	out, err := commandOutput(cmd)
 	if ctx.Err() != nil {
 		return out, fmt.Errorf("timed out after %s", timeout)
@@ -2502,6 +2520,7 @@ type armSummary struct {
 	// summary prints a dash rather than a zero.
 	Readability readabilitySum
 	Tests       testSizeSum
+	Mutation    mutationSum
 }
 
 type readabilitySum struct {
@@ -2654,6 +2673,7 @@ func summarizeArm(rep report, name string) armSummary {
 		summary.Suppressions += r.Delta.Suppressions
 		summary.Readability.add(r.Delta)
 		summary.Tests.add(r.Delta)
+		summary.Mutation.add(r.Mutation)
 		if r.FixHunksBefore != nil && r.FixHunks != nil {
 			summary.FixMeasured++
 			summary.FixBefore += *r.FixHunksBefore
@@ -2737,6 +2757,9 @@ func printSummary(rep report) {
 		}
 		fmt.Printf("%-24s   %s\n", "", summary.Readability.line(summary.Valid))
 		fmt.Printf("%-24s   %s\n", "", summary.Tests.line(summary.Valid))
+		if line := summary.Mutation.line(); line != "" {
+			fmt.Printf("%-24s   %s\n", "", line)
+		}
 		if summary.FixMeasured > 0 {
 			fixMean := func(sum int) float64 { return float64(sum) / float64(summary.FixMeasured) }
 			fmt.Printf("%-24s   go fix pending %.2f -> %.2f hunk(s)/run, nothing left to propose in %d/%d\n",

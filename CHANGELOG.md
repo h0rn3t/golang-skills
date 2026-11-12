@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.48.0] - 2026-11-12
+
 Taken from the Ponytail 5 update (github.com/DietrichGebert/ponytail, v5.3.3).
 Its rule text is already in the restraint ladder; what is new there is the
 benchmark, so this adds its mutation check to abrun and ports two of its task

@@ -453,7 +453,9 @@ func sortedKeys(m map[string]bool) []string {
 }
 
 var (
-	positionLine = regexp.MustCompile(`(?m)^/.*:\d+:\d+: `)
+	// A linter that reports a whole line, such as revive's
+	// line-length-limit, prints no column.
+	positionLine = regexp.MustCompile(`(?m)^/.*:\d+(?::\d+)?: `)
 	fixFinding   = regexp.MustCompile(`(?m)^--- |^fix: \d+ of \d+ fixes skipped`)
 )
 

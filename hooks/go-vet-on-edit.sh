@@ -236,16 +236,20 @@ if has_module; then
             if [[ -n "$lint_out" || "$lint_status" -ne 0 ]]; then
                 # Keep the findings' scope for both spellings of the file path;
                 # diagnostics of a failed run are not a finding in another file.
-                issues="$(printf '%s\n' "$lint_out" | grep -E '^/.*:[0-9]+:[0-9]+: ' || true)"
+                # A finding has a column unless its linter reports whole lines
+                # (revive's line-length-limit); receipt.go and usage.go in
+                # hooks/helper match the same shape.
+                lint_issue='^/.*:[0-9]+(:[0-9]+)?: '
+                issues="$(printf '%s\n' "$lint_out" | grep -E "$lint_issue" || true)"
                 mine="$(printf '%s\n' "$issues" | grep -F -e "$file:" -e "$real:" || true)"
-                others="$(printf '%s\n' "$issues" | grep -E '^/.*:[0-9]+:[0-9]+: ' | grep -vF -e "$file:" -e "$real:" | wc -l | tr -d ' ')"
+                others="$(printf '%s\n' "$issues" | grep -E "$lint_issue" | grep -vF -e "$file:" -e "$real:" | wc -l | tr -d ' ')"
                 if [[ -n "$mine" ]]; then
                     findings+="$(section "golangci-lint $pkg:" "$mine")"$'\n'
                 fi
                 if [[ "$others" -gt 0 ]]; then
                     notes+="golangci-lint $pkg: $others finding(s) in other files of the package; run golangci-lint run . to list them"$'\n'
                 fi
-                lint_diag="$(printf '%s\n' "$lint_out" | grep -vE '^/.*:[0-9]+:[0-9]+: ' || true)"
+                lint_diag="$(printf '%s\n' "$lint_out" | grep -vE "$lint_issue" || true)"
                 if [[ "$lint_status" -ne 0 ]] && { [[ "$lint_status" -ne 1 ]] || [[ -n "$lint_diag" || -z "$issues" ]]; }; then
                     findings+="$(section "golangci-lint $pkg: failed (exit $lint_status):" "${lint_diag:-golangci-lint did not complete successfully}")"$'\n'
                 fi
@@ -275,6 +279,9 @@ if [[ -n "$receipt_dir" ]]; then
             esac
         fi
     done
+    # One usage-log line per run: each check's status and, for a failed lint,
+    # the linters that fired.
+    hook_usage check "${session:-default}" "$receipt_dir"
 else
     findings+="Edit-hook receipts unavailable (the Go helper or writable state is missing); silence cannot count as pass (hook)."$'\n'
 fi

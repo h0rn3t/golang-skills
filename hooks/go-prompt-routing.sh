@@ -115,6 +115,8 @@ if [[ "$mode" == "slash" ]]; then
     # here: go-code-routing.sh gates an edit only for a session whose `loaded`
     # names a router.
     mkdir -p "$state" && printf '%s\n' "$skill" >> "$state/loaded"
+    # The same usage-log line go-code-routing.sh writes for a Skill or Read load.
+    hook_usage load "${session:-default}" "$skill" slash
 else
     has "$state/prompted" "$skill" && exit 0
     mkdir -p "$state" && printf '%s\n' "$skill" >> "$state/prompted"

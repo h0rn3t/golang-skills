@@ -134,6 +134,19 @@ the verification gate, and the check receipts live in `hooks/helper`, which
 `evals/hook_test.go` drives the first five; `evals/verification_routing_test.go`
 drives the sixth.
 
+The routing, prompt, and edit hooks also append to a usage log,
+`<CLAUDE_PLUGIN_DATA>/usage.jsonl` (`hooks/helper/usage.go`), through
+`hook_usage` in `go-hook-helper.sh`: `load`, `block`, and `check` events
+holding the time, the plugin version, the session id, and beyond those skill
+names, check statuses, and linter and rule names only.
+It outlives the two-day prune of `routing/`, `checks/`, and `verification/`;
+`bash hooks/go-hook-helper.sh stats [--json] [--days N] [log ...]` summarizes
+it by sessions (from a terminal it looks under `CLAUDE_CONFIG_DIR` or
+`~/.claude`), and `GOLANG_SKILLS_USAGE_LOG=off` stops it.
+`evals/usage_log_test.go` drives it.
+`golang-skills-inline` holds `--plugin-dir` sessions (abrun and evalrun among
+them), `golang-skills-golang-skills` the installed plugin's.
+
 ### Rule ownership
 
 Every rule has one owner skill; other skills route to it in one or two lines

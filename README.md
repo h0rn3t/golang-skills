@@ -171,6 +171,26 @@ repository's own config, without asking: repository code runs (`TestMain`,
 `GOLANG_SKILLS_EDIT_LINT=off`. A lint config that loads `custom:` plugins is
 replaced by the bundled baseline.
 
+The hooks keep a local usage log, `usage.jsonl` in the plugin data directory
+(`~/.claude/plugins/data/golang-skills-*/`): one line per skill load with its
+route (the Skill tool, a read of `SKILL.md`, or a slash command), per
+routing-gate block with the skills it named, and per post-edit run with each
+check's status and, for a failed lint, the linters and rules that fired. Each
+line also carries its time, the plugin version, and the session id, which ties
+it to that session's transcript on the same machine. Beyond those it holds
+skill names, statuses, and linter and rule names only (no paths, prompts, or
+code), and it is never sent anywhere.
+`bash <plugin-root>/hooks/go-hook-helper.sh stats` sums it up: which skills
+sessions load and which they never do, how often the gate blocks and for which
+skills, and in how many sessions each linter fired. `--days N` limits the
+window and `--json` prints one object per log. Run from a terminal, it finds
+the logs under Claude Code's configuration directory (`CLAUDE_CONFIG_DIR`,
+else `~/.claude`); another host keeps plugin data elsewhere, so name the file:
+`stats <data-dir>/usage.jsonl`. Hooks wired without a plugin data directory
+log under `$TMPDIR/golang-skills-hooks/`, which lasts only as long as the
+temporary directory does. The log rotates at 4 MB;
+`GOLANG_SKILLS_USAGE_LOG=off` stops it.
+
 ## Validation
 
 `evals/` contains the structural Go test suite, fixtures, golden tests, and

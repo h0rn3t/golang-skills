@@ -4,6 +4,23 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- Add a local usage log. The routing, prompt, and post-edit hooks append one
+  line to `usage.jsonl` in the plugin data directory per skill load (with its
+  route), per routing-gate block (with the skills it named), and per post-edit
+  run (check statuses and the linters that fired). The routing and check state
+  is pruned after two days, so until now nothing recorded how the plugin is
+  used outside the eval runs. `bash hooks/go-hook-helper.sh stats [--json]
+  [--days N] [log ...]` summarizes it: skills loaded per session and never
+  loaded, gate blocks and the sessions the gate stopped, failed checks, and
+  the sessions each linter and rule fired in. Beside its time, the plugin
+  version, and the session id, a line holds names and statuses only. The log
+  stays on the machine, rotates at 4 MB, and `GOLANG_SKILLS_USAGE_LOG=off`
+  disables it.
+- Fix the post-edit hook on a lint finding without a column, which revive's
+  `line-length-limit` prints: it was shown as a failed golangci-lint run and
+  its receipt said `unavailable`; it is now a finding in the edited file, or
+  one of the count for the package's other files, with a `fail` receipt.
+
 ## [1.48.1] - 2026-11-12
 
 - Add native Codex and Cursor plugin manifests and installation catalogs.

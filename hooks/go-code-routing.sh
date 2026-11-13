@@ -165,11 +165,14 @@ session_state="$routing/${session:-default}"
 state="$session_state${agent:+/agent-$agent}"
 loaded="$state/loaded"
 reminded="$state/reminded"
+usage_key="${session:-default}${agent:+/$agent}"
 
-record() { # record <skill> — a plugin install names skills "golang-skills:go-code"
+record() { # record <skill> <via> — a plugin install names skills "golang-skills:go-code"
     local name="${1##*:}"
     [[ "$name" =~ ^go-[a-z-]+$ ]] || return 0
     mkdir -p "$state" && printf '%s\n' "$name" >> "$loaded"
+    # Another plugin's go-* skill is not this plugin's usage.
+    available "$name" && hook_usage load "$usage_key" "$name" "$2"
 }
 
 has() { # has <file> <skill>
@@ -188,10 +191,10 @@ current() { # current <skill> — loaded since the last compaction
 case "$event" in
 PostToolUse)
     case "$tool" in
-    Skill) record "$skill" ;;
+    Skill) record "$skill" Skill ;;
     Read)
         case "$path" in
-        */go-*/SKILL.md) record "$(basename "$(dirname "$path")")" ;;
+        */go-*/SKILL.md) record "$(basename "$(dirname "$path")")" Read ;;
         esac
         ;;
     esac
@@ -268,6 +271,7 @@ PreToolUse)
     fresh=""
     for m in $missing; do has "$reminded" "$m" || fresh+="$m "; done
     [[ -z "$fresh" ]] || printf '%s\n' $fresh >> "$reminded"
+    hook_usage block "$usage_key" "$attempt" $missing
 
     list="$(names $missing)"
     if (( attempt >= 3 )); then

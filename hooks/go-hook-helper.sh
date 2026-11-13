@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The hooks' Go helper (hooks/helper), built on first use. Sourced, it defines
 # hook_helper, which prints the path of the built binary or fails when Go is
-# missing or the build fails; run, it executes the helper with its arguments:
+# missing or the build fails, and hook_usage, which appends to the usage log;
+# run, it executes the helper with its arguments:
 #
 #   bash go-hook-helper.sh <command> [args...]
 #
@@ -29,6 +30,18 @@ hook_helper() {
             mv -f "$bin.$$" "$bin" || { rm -f "$bin.$$"; return 1; }
     fi
     printf '%s\n' "$bin"
+}
+
+# hook_usage load|block|check <session-key> <args...> — one line in the usage
+# log (hooks/helper/usage.go), written with the helper the calling hook keeps
+# in $helper. The log outlives the hooks' two-day session state, so that
+# `go-hook-helper.sh stats` can say which skills real sessions load, which the
+# gate has to name, and what the edit hook finds. Statistics only: a failed
+# write is dropped and changes no hook's answer. GOLANG_SKILLS_USAGE_LOG=off
+# writes nothing.
+hook_usage() {
+    GOLANG_SKILLS_HOOK_ROOT="${GOLANG_SKILLS_HOOK_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}" \
+        "$helper" usage "$@" 2>/dev/null || true
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

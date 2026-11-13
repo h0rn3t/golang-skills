@@ -44,6 +44,12 @@ when routing is a project requirement.
 The helper needs bash and Go 1.26 or newer. It compiles into the user cache on
 first use. `GOLANG_SKILLS_EDIT_TESTS=off` and `GOLANG_SKILLS_EDIT_LINT=off`
 disable package tests and lint respectively, as in the Claude integration.
+Each post-edit run also adds a line to the local usage log, which
+`GOLANG_SKILLS_USAGE_LOG=off` stops; the README describes it and its `stats`
+command. Run from a terminal, `stats` looks under Claude Code's data directory
+only, so pass it the log: `usage.jsonl` in the directory the hook receives as
+`CLAUDE_PLUGIN_DATA`, or in `$TMPDIR/golang-skills-hooks/` when the host sets
+none.
 Only receipts accepted by `go-check-receipt.sh` may be credited as hook passes.
 
 To update a Git-backed install, refresh the marketplace and reinstall:

@@ -34,12 +34,14 @@ func hookOutput(t *testing.T, script, state string, payload map[string]any, env 
 	cmd := exec.Command("bash", script)
 	cmd.Stdin = strings.NewReader(string(body))
 	// Receipts hash only build variables, so the empty PLUGIN_ROOT changes no
-	// digest; the gate reads an empty one as unset, that is, as Claude.
+	// digest; the gate reads an empty one as unset, that is, as Claude. The
+	// empty usage-log switch keeps a developer's own "off" out of the hooks.
 	cmd.Env = append(append(os.Environ(),
 		"CLAUDE_PLUGIN_ROOT="+repoRoot(t),
 		"CLAUDE_PLUGIN_DATA="+state,
 		"CLAUDE_PROJECT_DIR="+repoRoot(t),
-		"PLUGIN_ROOT="), env...)
+		"PLUGIN_ROOT=",
+		"GOLANG_SKILLS_USAGE_LOG="), env...)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -1070,7 +1072,8 @@ func promptEvent(t *testing.T, state, session, cwd, prompt string, env ...string
 		"CLAUDE_PLUGIN_ROOT="+repoRoot(t),
 		"CLAUDE_PLUGIN_DATA="+state,
 		"CLAUDE_PROJECT_DIR="+repoRoot(t),
-		"PLUGIN_ROOT="), env...)
+		"PLUGIN_ROOT=",
+		"GOLANG_SKILLS_USAGE_LOG="), env...)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

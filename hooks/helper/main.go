@@ -57,6 +57,14 @@ func main() {
 		os.Exit(verification())
 	case "receipt":
 		os.Exit(receiptMain(args))
+	case "usage":
+		// A hook ignores the failure: a lost statistics line changes no answer.
+		if err := usageMain(args); err != nil {
+			fmt.Fprintln(os.Stderr, "helper: usage:", err)
+			os.Exit(1)
+		}
+	case "stats":
+		os.Exit(stats(os.Stdout, args))
 	default:
 		fmt.Fprintln(os.Stderr, "helper: unknown command "+os.Args[1])
 		os.Exit(2)

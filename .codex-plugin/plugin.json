@@ -1,6 +1,6 @@
 {
   "name": "golang-skills",
-  "version": "1.49.0",
+  "version": "1.49.1",
   "description": "Modular Go skills with task routing and checks after apply_patch edits.",
   "author": { "name": "h0rn3t" },
   "repository": "https://github.com/h0rn3t/golang-skills",

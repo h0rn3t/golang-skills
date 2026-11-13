@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.49.1] - 2026-11-13
+
 - Reword skill lines that a prompt audit for Opus 5.5 read as contradictory,
   ambiguous, or stale. No rule changes.
 - `go-testing`: the Validation note put running the tests in the gate "once,

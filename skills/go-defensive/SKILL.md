@@ -166,8 +166,9 @@ confines nothing.
 cleans to `.`: `filepath.Join(dir, "")` and `filepath.Join(dir, "a/..")` are
 both `dir`, and `filepath.IsLocal("a/..")` is true. `root.RemoveAll` refuses
 `.` and `..`, but a name that reaches the root through an existing entry
-does not: on go1.27.1 `root.RemoveAll("ws/..")`, with `ws` present, deletes
-everything under the root before it returns `invalid argument`. A `{id}`
+does not: `root.RemoveAll("ws/..")`, with `ws` present, deletes everything
+under the root before it returns `invalid argument` (observed on go1.27.1
+through go1.27.3). A `{id}`
 wildcard receives `ws/..` from `ws%2F..`, `.` from `%2E`, and `..` from
 `%2E%2E`. Rebuild the
 name from a parsed value, so it names exactly one entry:

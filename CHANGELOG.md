@@ -4,6 +4,22 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- Reword skill lines that a prompt audit for Opus 5.5 read as contradictory,
+  ambiguous, or stale. No rule changes.
+- `go-testing`: the Validation note put running the tests in the gate "once,
+  at the end of the task", against the Delete Pass and Reader Pass in
+  `go-code`, which rerun the cases. "Once" now names the full `-race` run, and
+  rerunning the cases in hand between steps is the router's workflow.
+- `go-data-structures`: "`Equal`, `Concat`, `Insert`, and `Delete` have none
+  and are written by hand" could be read as an instruction to write the loop;
+  it now says to replace those loops yourself.
+- `go-code`, `go-code-refactor`: the Resource Routing lines said the
+  session-start hook prints the whole `LADDER.md`. It prints from the ladder
+  heading to the end of the file.
+- `go-defensive`: the `root.RemoveAll("ws/..")` observation named go1.27.1
+  only. It gave the same result on go1.27.2 and go1.27.3 and now names that
+  range.
+
 ## [1.49.0] - 2026-11-13
 
 - Add a local usage log. The routing, prompt, and post-edit hooks append one

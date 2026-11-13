@@ -21,7 +21,8 @@ The `slices` and `maps` packages (Go 1.21+) cover most hand-written loops.
 Writing the loop instead is a reviewable defect, not a style choice.
 `go fix -diff` on the edited package previews the loops a fixer exists for
 (`slicescontains`, `slicesbackward`, `slicessort`, `mapsloop`, `minmax`);
-`Equal`, `Concat`, `Insert`, and `Delete` have none and are written by hand.
+`Equal`, `Concat`, `Insert`, and `Delete` have none: replace those loops
+yourself.
 
 | Loop you were about to write | Use |
 |---|---|

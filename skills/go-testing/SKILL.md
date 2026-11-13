@@ -181,9 +181,10 @@ of a panic or a partial value. Plain `go test` runs the seeds; `-fuzz`
 explores. The time-capped fuzz run for a parser at a trust boundary is
 [go-security](../go-security/SKILL.md)'s.
 
-> **Validation**: Running the tests, with `-race` and the pipeline's flags,
-> belongs to the [go-linting](../go-linting/SKILL.md) gate, once, at the end
-> of the task.
+> **Validation**: The full run, with `-race` and the pipeline's flags, belongs
+> to the [go-linting](../go-linting/SKILL.md) gate, once, at the end of the
+> task. Rerunning the cases in hand between steps is the router's workflow
+> ([go-code](../go-code/SKILL.md#delete-pass)), not a second gate.
 
 ---
 

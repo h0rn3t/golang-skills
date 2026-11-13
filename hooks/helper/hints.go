@@ -76,6 +76,13 @@ var (
 	selectorName = regexp.MustCompile(`\b([A-Za-z_]\w*)\s*\.`)
 	panicCall    = regexp.MustCompile(`\bpanic\s*\(`)
 	contextType  = regexp.MustCompile(`\bcontext\.Context\b`)
+	// A function that returns a context derives one. A ctx parameter that
+	// is passed on names nothing: in the abrun sessions kept on 2026-11-13
+	// the gate's table named go-context for an edit in 8 of the 102 whose
+	// note had named it for a bare context.Context (pool and profile). With
+	// this rule and the stub rule in stubOwners (medium, 42 sessions per
+	// arm) no gate block named it, and its loads fell from 21 of 37 to 0.
+	contextResult = regexp.MustCompile(`\)\s*\(?\s*(?:\w+\s+)?context\.Context\b`)
 
 	extraOwners = []struct {
 		owner string
@@ -98,6 +105,7 @@ var (
 	}
 	dotContext = regexp.MustCompile(`Context\b`)
 
+	cancelContract = regexp.MustCompile(`(?i)\b(?:cancel|deadline|time[sd]?[ -]?out)`)
 	boundedWorkers = regexp.MustCompile(`(?i)\bbounded\b.{0,50}\bworkers?\b|\bat most\b.{0,70}\bin flight\b|\bowns\b.{0,40}\bgoroutines\b`)
 	// "retry" as a verb, not the start of "Retry-After".
 	retryContract = regexp.MustCompile(`(?is)\b(?:honor(?:s|ing)?|respect(?:s|ing)?|retr(?:ies|ied|ying))\b.{0,100}\b(?:Retry-After|backoff)\b|\bretry[^\w-].{0,99}\b(?:Retry-After|backoff)\b`)
@@ -187,7 +195,7 @@ func promptHints(path, text string) []string {
 			out = append(out, x.owner)
 		}
 	}
-	if contextType.MatchString(resolved) || (slices.Contains(dot, "context") && matchesUnqualified(dotContext, resolved)) {
+	if contextResult.MatchString(resolved) {
 		out = append(out, "go-context")
 	}
 	for _, p := range dotOwners {
@@ -214,7 +222,8 @@ func promptHints(path, text string) []string {
 			}
 		}
 	}
-	out = append(out, stubOwners(lexical, literals, comments)...)
+	takesContext := contextType.MatchString(resolved) || (slices.Contains(dot, "context") && matchesUnqualified(dotContext, resolved))
+	out = append(out, stubOwners(lexical, literals, comments, takesContext)...)
 	return dedupe(out)
 }
 
@@ -291,8 +300,8 @@ func parseImports(lexical string, literals map[int]string) (imports map[string]s
 
 // stubOwners names the owners a stub's documented contract points at: a
 // panic("not implemented") body whose comments describe bounded workers,
-// retries, or a cache with a ttl.
-func stubOwners(lexical string, literals map[int]string, comments []string) []string {
+// retries, a cache with a ttl, or cancelling a ctx it takes.
+func stubOwners(lexical string, literals map[int]string, comments []string, takesContext bool) []string {
 	stub := false
 	for _, loc := range panicCall.FindAllStringIndex(lexical, -1) {
 		if literalAfter(lexical, loc[1], literals, func(v string) bool { return v == `"not implemented"` || v == "`not implemented`" }) {
@@ -312,6 +321,11 @@ func stubOwners(lexical string, literals map[int]string, comments []string) []st
 	// a gate requirement.
 	if stub && cacheContract.MatchString(contract) {
 		owners = append(owners, "go-performance")
+	}
+	// A ctx parameter that is passed on is routine. A stub that takes one
+	// and whose contract cancels work or bounds it in time derives a context.
+	if stub && takesContext && cancelContract.MatchString(contract) {
+		owners = append(owners, "go-context")
 	}
 	return owners
 }

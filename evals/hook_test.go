@@ -1660,6 +1660,52 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
+	// A refactor rewrites declarations; other work fills or changes bodies,
+	// and the gate names go-interfaces at an edit that declares one.
+	t.Run("a declared interface names go-interfaces for a refactor only", func(t *testing.T) {
+		t.Parallel()
+		cwd := t.TempDir()
+		pkg := filepath.Join(cwd, "dispatch")
+		if err := os.MkdirAll(pkg, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		src := "package dispatch\n\ntype Store interface {\n\tGet(id string) (string, error)\n}\n\nfunc Run(s Store) error {\n\t_, err := s.Get(\"a\")\n\treturn fmt.Errorf(\"run: %w\", err)\n}\n"
+		if err := os.WriteFile(filepath.Join(pkg, "dispatch.go"), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, out := promptEvent(t, t.TempDir(), "p32", cwd, refactor); !strings.Contains(out, "`golang-skills:go-interfaces`") {
+			t.Errorf("refactor note must name go-interfaces:\n%s", out)
+		}
+		_, out := promptEvent(t, t.TempDir(), "p33", cwd, "Fix the bug in the Go package in ./dispatch.")
+		if strings.Contains(out, "`golang-skills:go-interfaces`") || !strings.Contains(out, "`golang-skills:go-error-handling`") {
+			t.Errorf("a fix must name go-error-handling and not go-interfaces:\n%s", out)
+		}
+	})
+
+	// The hook settles "if you write or edit a test" by fact: a change to a
+	// package that has tests edits them, one to a package without tests
+	// keeps the condition.
+	t.Run("a package with tests names go-testing without a condition", func(t *testing.T) {
+		t.Parallel()
+		cwd := t.TempDir()
+		for _, name := range []string{"tested/tested.go", "tested/tested_test.go", "bare/bare.go"} {
+			path := filepath.Join(cwd, name)
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte("package "+filepath.Base(filepath.Dir(path))+"\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		const unconditional, conditional = "too, since this package has tests", "if you write or edit a test"
+		if _, out := promptEvent(t, t.TempDir(), "p34", cwd, "Fix the bug in the Go package in ./tested."); !strings.Contains(out, unconditional) || strings.Contains(out, conditional) {
+			t.Errorf("a package with a test file: want %q and no condition:\n%s", unconditional, out)
+		}
+		if _, out := promptEvent(t, t.TempDir(), "p35", cwd, "Fix the bug in the Go package in ./bare."); !strings.Contains(out, conditional) || strings.Contains(out, unconditional) {
+			t.Errorf("a package without a test file: want %q:\n%s", conditional, out)
+		}
+	})
+
 	t.Run("ukrainian wording", func(t *testing.T) {
 		t.Parallel()
 		if _, out := promptEvent(t, t.TempDir(), "p11", t.TempDir(), "Реалізуй Go-пакет у ./catalog за документацією"); !strings.Contains(out, "`golang-skills:go-code`") {

@@ -94,7 +94,7 @@ parsed="$(printf '%s' "$input" | "$helper" prompt-parse)" || exit 0
 # A read loop, not mapfile: macOS ships bash 3.2, which has no mapfile.
 files=()
 {
-    read -r session; read -r skill; read -r kind; read -r mode; read -r newcode; read -r speed
+    read -r session; read -r skill; read -r kind; read -r mode; read -r newcode; read -r speed; read -r tested
     while IFS= read -r f; do [[ -n "$f" ]] && files+=("$f"); done
 } <<< "$parsed"
 [[ -n "$skill" ]] || exit 0
@@ -141,6 +141,21 @@ q() { printf '%s%s' "${ns:+$ns:}" "$1"; }
 owners=""
 if [[ -n "${files[*]-}" ]]; then
     owners="$(bash "$(dirname "${BASH_SOURCE[0]}")/go-code-routing.sh" --hints "${files[@]}" 2>/dev/null)" || owners=""
+fi
+# An interface the target declares names go-interfaces for a refactor only: a
+# refactor rewrites declarations, other work fills or changes bodies, and the
+# gate names the skill at the edit that declares an interface. In the abrun
+# sessions kept on 2026-11-13 the gate's table named it for an edit in 0 of 86
+# implement sessions whose note had named it and in 4 of 8 refactor sessions.
+# Without it (implement, medium, that day) no gate block named it and its
+# loads fell from 20 of 31 sessions to 0 (Opus 5.5 10 of 10, Sonnet 5.5 10 of
+# 21). A note left with no owner then lost the batch go-testing came in with
+# (Sonnet 5.5's newsletter test edit: blocked in 9 of 9 sessions against 5 of
+# 9); the go-testing clause below settles that by fact.
+if [[ "$skill" != go-code-refactor ]]; then
+    kept=""
+    for o in $owners; do [[ "$o" == go-interfaces ]] || kept+="${kept:+ }$o"; done
+    owners="$kept"
 fi
 # A review writes nothing: the note names go-code-review and sets the boundary
 # "before the first finding"; the review picks the owners behind its findings
@@ -218,7 +233,22 @@ if [[ "$skill" == "go-code" && "$newcode" == "new" ]]; then
     line+="${sep}$tt too, since new code starts with its contract test"
 elif [[ "$skill" == "go-code-refactor" ]]; then
     line+="${sep}$tt too, since a refactor often edits tests"
+elif [[ "$tested" == "tests" ]]; then
+    # The hook settles the condition below by fact: the target package has a
+    # test file, so a change to its code edits it. On 2026-11-13 (abrun,
+    # Sonnet 5.5 medium, both arms in one run) against the conditional form:
+    # on newsletter (n=10) go-testing came with the router in 10 sessions
+    # against 0, the gate blocked the test edit in 0 against 9, the hidden
+    # checks passed in 7 against 3 (Fisher p = 0.18), and a session cost
+    # $0.199 against $0.226; quotes and tariff (perf, n=3 each) passed 6 of 6
+    # in both arms, with 0 against 11 and 42 against 42 test lines added per
+    # session. Opus 5.5 loaded go-testing with the router under either form.
+    line+="${sep}$tt too, since this package has tests and a change to its code edits them"
 else
+    # A package without a test file keeps the condition. Without it ("too,
+    # since a fix or a change lands with the test that proves it", same day)
+    # lintfix loaded go-testing in 6 of 6 sessions and wrote tests nobody
+    # asked for in 4 of them (0 of 12 with the condition).
     line+="${sep}$tt if you write or edit a test"
 fi
 line+='. All of them in one message, before the first edit.'

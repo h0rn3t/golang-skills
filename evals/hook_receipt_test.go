@@ -225,10 +225,12 @@ func TestPromptStubHints(t *testing.T) {
 		name, source string
 		want, absent []string
 	}{
-		{"aliased signatures", "package stub\nimport (ctx \"context\"; lock \"sync\"; log \"log/slog\")\ntype Pool struct { mu lock.Mutex; logger *log.Logger }\nfunc Run(c ctx.Context) error { panic(\"not implemented\") }\n", []string{"go-context", "go-concurrency", "go-logging"}, nil},
+		{"aliased signatures", "package stub\nimport (ctx \"context\"; lock \"sync\"; log \"log/slog\")\ntype Pool struct { mu lock.Mutex; logger *log.Logger }\n// Run returns when c is cancelled.\nfunc Run(c ctx.Context) error { panic(\"not implemented\") }\n", []string{"go-context", "go-concurrency", "go-logging"}, nil},
+		{"ctx parameter alone", "package stub\nimport \"context\"\n// Run stores the record.\nfunc Run(c context.Context) error { panic(\"not implemented\") }\n", nil, []string{"go-context"}},
+		{"context result", "package stub\nimport \"context\"\nfunc WithTenant(c context.Context, tenant string) context.Context { panic(\"not implemented\") }\n", []string{"go-context"}, nil},
 		{"errors alias", "package stub\nimport e \"errors\"\nvar ErrInvalid = e.New(\"invalid\")\nfunc Run() error { panic(\"not implemented\") }\n", []string{"go-error-handling"}, nil},
 		{"blank and unused imports", "package stub\nimport (_ \"sync\"; _ \"context\"; \"errors\"; \"log/slog\")\nfunc Run() { panic(\"not implemented\") }\n", nil, []string{"go-context", "go-concurrency", "go-error-handling", "go-logging"}},
-		{"dot signature", "package stub\nimport . \"context\"\nfunc Run(c Context) { panic(\"not implemented\") }\n", []string{"go-context"}, nil},
+		{"dot signature", "package stub\nimport . \"context\"\n// Run gives up at the deadline of c.\nfunc Run(c Context) { panic(\"not implemented\") }\n", []string{"go-context"}, nil},
 		{"comments and strings are not imports", "package stub\n// import \"sync\"\n// context.WithCancel and errors.New are examples, not this contract.\nvar text = `import \"log/slog\"; sync.Mutex; go func`\nfunc Run() { panic(\"not implemented\") }\n", nil, []string{"go-context", "go-concurrency", "go-error-handling", "go-logging"}},
 		{"foreign aliases are not standard owners", "package stub\nimport (sync \"example.com/locks\"; context \"example.com/ctx\")\nfunc Run(c context.Context, m sync.Mutex) { panic(\"not implemented\") }\n", nil, []string{"go-context", "go-concurrency"}},
 		{"existing HTTP signature", "package stub\nimport \"net/http\"\nfunc Run(r *http.Request) { panic(\"not implemented\") }\n", []string{"go-http"}, []string{"go-error-handling"}},

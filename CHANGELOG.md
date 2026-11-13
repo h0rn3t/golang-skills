@@ -16,6 +16,39 @@ All notable changes to this repository are documented here.
   version, and the session id, a line holds names and statuses only. The log
   stays on the machine, rotates at 4 MB, and `GOLANG_SKILLS_USAGE_LOG=off`
   disables it.
+- Narrow two owner hints in the prompt note. `go-context` is named for a
+  function that returns a `context.Context` and for a stub that takes one
+  and whose contract speaks of cancellation, a deadline, or a timeout, no
+  longer for any `context.Context` in the target's files. `go-interfaces` is
+  named for an interface the target declares only when the router is
+  go-code-refactor. The edit gate is unchanged and still names either skill
+  at an edit that needs it. In the abrun sessions kept from earlier runs the
+  gate's table named `go-context` for an edit in 8 of the 102 sessions whose
+  note had named it and `go-interfaces` in 4 of 94; every other hinted owner
+  was needed in each of its sessions. Of the 30 fixtures that get an owner
+  list the note is the same for 20, reordered for 2, and shorter for 8;
+  those 8 ran reference against baseline at medium (Sonnet 5.5, 30 sessions
+  per arm over implement, refactor and perf; Opus 5.5, 12 per arm over
+  implement). No gate block named either skill, their loads fell from 41 of
+  the 68 times the note had named one to 0, and the hidden checks passed in
+  34 of 42 sessions before and 37 of 42 after. Session cost moved +3% on
+  Sonnet 5.5 and -5.5% on Opus 5.5, both inside run-to-run noise. One side
+  effect: a note left with no owner list no longer brings go-testing in with
+  the first batch on Sonnet 5.5, whose newsletter test edit was blocked in 9
+  of 9 sessions against 5 of 9; the next entry removes it.
+- Name go-testing by fact in the prompt note. For a fix or a change to
+  existing code the note said "`go-testing` if you write or edit a test";
+  when a target package already has a `_test.go` file it now says "too,
+  since this package has tests and a change to its code edits them". A
+  package without tests keeps the condition: an unconditional form made
+  sessions write tests nobody asked for (lintfix, 4 of 6 sessions against 0
+  of 12). Sonnet 5.5 at medium, both arms in one run: on newsletter (n=10)
+  go-testing came with the router in 10 sessions against 0, the gate blocked
+  the test edit in 0 against 9, the hidden checks passed in 7 against 3
+  (Fisher p = 0.18), and a session cost $0.199 against $0.226; the perf
+  fixtures quotes and tariff (n=3 each) passed 6 of 6 in both arms and added
+  no more test lines than before. Opus 5.5 loaded go-testing with the router
+  under either form (n=3).
 - Fix the post-edit hook on a lint finding without a column, which revive's
   `line-length-limit` prints: it was shown as a failed golangci-lint run and
   its receipt said `unavailable`; it is now a finding in the edited file, or

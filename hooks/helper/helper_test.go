@@ -164,6 +164,10 @@ func TestPromptHints(t *testing.T) {
 		{"Retry-After alone", "package p\n\n// Get reads the Retry-After header.\nfunc Get() { panic(\"not implemented\") }\n", nil},
 		{"cache stub", "package p\n\n// Cache keeps each answer for ttl.\nfunc Get() { panic(\"not implemented\") }\n", []string{"go-performance"}},
 		{"content hash", "package p\n\nimport \"crypto/sha256\"\n\nvar _ = sha256.Sum256\n", nil},
+		{"ctx passed on", "package p\n\nimport \"context\"\n\nfunc F(ctx context.Context) error { return g(ctx) }\n", nil},
+		{"context result", "package p\n\nimport \"context\"\n\nfunc WithTenant(ctx context.Context, tenant string) context.Context { return ctx }\n", []string{"go-context"}},
+		{"cancelling stub", "package p\n\nimport \"context\"\n\n// Run cancels the ctx of the jobs still running.\nfunc Run(ctx context.Context) error { panic(\"not implemented\") }\n", []string{"go-context"}},
+		{"cancel without a ctx", "package p\n\n// Cancel marks the order cancelled.\nfunc Cancel(id string) error { panic(\"not implemented\") }\n", nil},
 	}
 	for _, tt := range tests {
 		if got := promptHints("/x/p.go", tt.src); !slices.Equal(got, tt.want) {

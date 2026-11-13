@@ -1,6 +1,6 @@
 {
   "name": "golang-skills",
-  "version": "1.48.1",
+  "version": "1.49.0",
   "description": "Modular Go skills with an always-applied rule for Go task routing.",
   "author": { "name": "h0rn3t" },
   "repository": "https://github.com/h0rn3t/golang-skills",

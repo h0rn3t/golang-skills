@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.49.0] - 2026-11-13
+
 - Add a local usage log. The routing, prompt, and post-edit hooks append one
   line to `usage.jsonl` in the plugin data directory per skill load (with its
   route), per routing-gate block (with the skills it named), and per post-edit

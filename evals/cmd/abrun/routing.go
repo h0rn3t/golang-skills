@@ -525,6 +525,7 @@ func printRoutingSummary(rep report, armName string) {
 	} else {
 		fmt.Printf("%-24s   command calls: unmeasured (runner %q)\n", "", runner)
 	}
+	fmt.Printf("%-24s   %s\n", "", stepsLine(rep, armName))
 	if refused > 0 {
 		fmt.Printf("%-24s   %d run(s) ended in a safety refusal (stop_reason refusal); read their traces before scoring them against the skills\n", "", refused)
 	}

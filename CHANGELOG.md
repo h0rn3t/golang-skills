@@ -4,6 +4,23 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **abrun records what a session did, not only what it cost.** A claude
+  result carries `steps`: `turns` (model responses), `tools` (tool calls by
+  tool name, a blocked attempt included), `before_first_go_edit` (tool calls
+  before the first `.go` edit was attempted, absent when there was none), and
+  `output_tokens` with `thinking_tokens` inside it. The tokens are summed
+  over the result event's `modelUsage`: its own `usage` reads zero when the
+  work ran in a fork, as in 130 of 315 kept traces (the `/code-review` runs).
+  Each arm prints one `steps/run` line of per-run means. Event counts hold
+  between separate runs where dollars do not, and until now they had to be
+  rebuilt from session transcripts, which expire: a replay of the abrun
+  sessions of 2026-10-19..11-14 put the plugin at 13.9 tool calls against 4.6
+  for the no-skill arm on the implement corpus (Opus 5.5, medium, 33 sessions
+  each; 5.5 of the difference are Skill calls, 2.1 test-file edits), 6.9
+  turns against 4.3, and 4.5 times the thinking tokens. The counter agrees
+  with an independent count on all 315 kept traces. Other runners and older
+  reports leave the field out.
+
 ## [1.49.2] - 2026-11-15
 
 - Name go-code-review for a bare review request. "Review the changes" or

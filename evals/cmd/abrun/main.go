@@ -493,6 +493,9 @@ type result struct {
 	// every turn, keyed "go-http/SKILL.md" or "go-http/references/JSON-V2.md".
 	// Other runners leave it empty.
 	SkillReads map[string]int `json:"skill_reads,omitempty"`
+	// Steps counts a claude session's turns, tool calls, and output tokens
+	// across every turn. Other runners and older reports leave it nil.
+	Steps *stepStats `json:"steps,omitempty"`
 	// Refused reports that a safety classifier declined a turn of a claude
 	// session (stop_reason "refusal"). The run is scored as it ended, and the
 	// summary counts it: a missing edit or review there is the classifier's,
@@ -1246,6 +1249,7 @@ type sessionTurn struct {
 	commands      int
 	gopls         int
 	skillReads    map[string]int
+	steps         *stepStats
 	refused       bool
 	err           error
 	codexEvidence *codexSkillEvidence
@@ -1289,6 +1293,7 @@ func runSession(o options, a arm, work, prompt string) sessionTurn {
 		t.gopls = goplsCalls(t.out)
 		t.commands = claudeCommands(t.out)
 		t.skillReads = skillreads.Count(t.out)
+		t.steps = claudeSteps(t.out)
 		t.refused = claudeRefused(t.out)
 		routing := claudeRouting(t.out)
 		t.routing = &routing
@@ -1328,6 +1333,12 @@ func (r *result) merge(t sessionTurn) {
 			r.Routing = &routingStats{}
 		}
 		r.Routing.add(*t.routing)
+	}
+	if t.steps != nil {
+		if r.Steps == nil {
+			r.Steps = &stepStats{}
+		}
+		r.Steps.add(*t.steps)
 	}
 	r.GoplsCalls += t.gopls
 	for file, n := range t.skillReads {

@@ -71,6 +71,10 @@ them Bash for the Go toolchain and the bundled scripts (`commands` counts the
 calls). `-mutants N` injects up to N small bugs (a flipped comparison, a moved
 boundary, a dropped `if`) into the code each run leaves and reports how many
 the run's own tests catch (`mutation` per result, one summary line per arm).
+Every claude result carries `steps` (turns, tool calls by tool, tool calls
+before the first `.go` edit, output and thinking tokens) and each arm prints
+one `steps/run` line: counts that hold between separate runs, where dollars
+do not.
 Both runners start `claude` with `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` and
 `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` (`evalplugin.Env`), since `--restricted`
 ignores the settings files only.

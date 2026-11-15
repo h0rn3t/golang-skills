@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.49.2] - 2026-11-15
+
 - Name go-code-review for a bare review request. "Review the changes" or
   "сделай ревью проекта" names neither Go nor a code element, so the prompt
   hook said nothing, and a review edits nothing, so no gate caught it later.

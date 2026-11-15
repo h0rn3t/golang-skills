@@ -1242,6 +1242,76 @@ func TestPromptRouting(t *testing.T) {
 		}
 	})
 
+	// A review asked for in bare words names neither Go nor a code element,
+	// so the facts say whether its subject is Go: a Go module around the
+	// session, or a changed .go file when the prompt speaks of changes. In
+	// real sessions of 2026-10-18..11-13 the model loaded go-code-review after
+	// 3 of 3 such prompts that got the note and after 0 of 3 that did not.
+	t.Run("bare review request routes by fact", func(t *testing.T) {
+		t.Parallel()
+		if _, err := exec.LookPath("git"); err != nil {
+			t.Skip("git not installed")
+		}
+		// worktree is a git working tree with committed files and files
+		// changed since.
+		worktree := func(t *testing.T, committed, changed []string) string {
+			t.Helper()
+			dir := t.TempDir()
+			write := func(names []string) {
+				t.Helper()
+				for _, name := range names {
+					path := filepath.Join(dir, name)
+					if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(path, []byte("package feed\n"), 0o600); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			write(committed)
+			cmd := exec.CommandContext(t.Context(), "bash", "-c",
+				"git init -q && git add -A && git -c user.email=t@example.com -c user.name=t -c commit.gpgsign=false commit -q -m base")
+			cmd.Dir = dir
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("git init and commit: %v\n%s", err, out)
+			}
+			write(changed)
+			return dir
+		}
+		for _, tt := range []struct {
+			name, prompt       string
+			committed, changed []string
+			want               bool
+		}{
+			{
+				name: "project-in-a-module", prompt: "сделай ревью всего проекта поищи проблемы",
+				committed: []string{"go.mod", "feed.go"}, want: true,
+			},
+			{
+				name: "changed-go-outside-a-module", prompt: "зроби рев'ю змін",
+				committed: []string{"README.md"}, changed: []string{"internal/feed/feed.go"}, want: true,
+			},
+			{
+				name: "only-markdown-changed", prompt: "сделай ревью изменений",
+				committed: []string{"internal/feed/feed.go"}, changed: []string{"README.md"},
+			},
+			{
+				name: "other-subject-beside-changed-go", prompt: "сделай ревью всех скилов учитывая рекомендации антропик",
+				committed: []string{"README.md"}, changed: []string{"internal/feed/feed.go"},
+			},
+			{
+				name: "review-mentioned", prompt: "review-2026-10-22.md давай исправим оставшиеся пункты ревью",
+				committed: []string{"go.mod", "feed.go"}, changed: []string{"feed.go"},
+			},
+		} {
+			code, out := promptEvent(t, t.TempDir(), "p26-"+tt.name, worktree(t, tt.committed, tt.changed), tt.prompt)
+			if got := strings.Contains(out, "`golang-skills:go-code-review`") && strings.Contains(out, "Before the first finding"); code != 0 || got != tt.want || (!tt.want && out != "") {
+				t.Errorf("%s: %q: exit %d, stdout %q; want 0 and go-code-review named = %t", tt.name, tt.prompt, code, out, tt.want)
+			}
+		}
+	})
+
 	t.Run("clean-up wording is a refactor", func(t *testing.T) {
 		t.Parallel()
 		_, out := promptEvent(t, t.TempDir(), "p3", t.TempDir(), "This Go file is messy, clean it up")

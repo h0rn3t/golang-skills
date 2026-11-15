@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
@@ -185,7 +187,14 @@ var (
 		`як працю\w*|как работа\w*`)
 	questionStart = regexp.MustCompile(`(?i)^\s*(?:explain|find|locate|where|who|how|show|trace|understand|` +
 		strings.ReplaceAll(`поясн\w*|объясн\w*|знайд\w*|найд\w*|покаж\w*|`, `\w`, w) + `(?:де|где|хто|кто|як|как)` + we + `)`)
-	review     = words(`review\w*|audit\w*|рев[ьи]ю\w*|ревью\w*`)
+	review = words(`review\w*|audit\w*|рев['ʼ’]?[ьи]?ю\w*`)
+	// A review asked for, not one mentioned: the word opens the prompt or
+	// follows the verb that asks, and no path or longer name runs on from it
+	// (review-2026-10-22.md, review/audit, reviewer).
+	reviewAsked = regexp.MustCompile(`(?i)(?:^\s*|` + wb + `(?:do|run|perform|please|you|let'?s|сделай|сделать|зроби|зробити|проведи|провести)\s+(?:an?\s+|the\s+)?)` +
+		`(?:code[ -]|код[ -])?(?:review|рев['ʼ’]?[ьи]?ю)[.,!?:;]*(?:\s|$)`)
+	// The working tree as what a review is of.
+	changeNoun = words(`changes?|diffs?|PR|MR|(?:pull|merge) request|commits?|изменени\w*|змін\w*|правк\w*|коммит\w*|коміт\w*`)
 	panicLine  = regexp.MustCompile(wb + `(?:panic|fatal error): `)
 	goroutineN = regexp.MustCompile(wb + `goroutine \d+ \[`)
 
@@ -327,6 +336,42 @@ func goFiles(dir string) []string {
 	return out
 }
 
+// reviewsGo reports a review asked for in bare words whose subject is Go.
+// "Review the changes" names neither Go nor a code element, so the facts
+// decide: the session sits in a Go module, or the prompt speaks of changes
+// and the working tree has a changed .go file. Go two levels down is not
+// enough here: a review of the Markdown beside it is not a Go review, and
+// neither is one of the skills while Go edits sit uncommitted.
+func reviewsGo(prompt, cwd string) bool {
+	return reviewAsked.MatchString(prompt) && filepath.IsAbs(cwd) &&
+		(inGoModule(cwd) || (changeNoun.MatchString(prompt) && changedGo(cwd)))
+}
+
+// inGoModule reports go.mod or go.work in dir or in a directory above it.
+func inGoModule(dir string) bool {
+	for {
+		for _, name := range []string{"go.mod", "go.work"} {
+			if fi, err := os.Stat(filepath.Join(dir, name)); err == nil && fi.Mode().IsRegular() {
+				return true
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return false
+		}
+		dir = parent
+	}
+}
+
+// changedGo reports a .go file among the changed and untracked files of the
+// git working tree that holds dir. Without git or a repository, or when the
+// status takes over two seconds, there is none.
+func changedGo(dir string) bool {
+	// -z ends every path with NUL and quotes none; a rename lists both names.
+	code, out, timedOut, err := runCapped([]string{"git", "--no-optional-locks", "status", "--porcelain", "-z", "--untracked-files=all"}, dir, false, 2*time.Second)
+	return err == nil && !timedOut && code == 0 && bytes.Contains(out, []byte(".go\x00"))
+}
+
 // promptParse prints the verdict go-prompt-routing.sh acts on: session,
 // skill, kind, mode (slash, mention, or note), "new" for new code, "speed"
 // for a speed request, "tests" for a target package with a test file, then
@@ -393,10 +438,12 @@ func promptParse() {
 	if proofread.MatchString(prompt) || (translate.MatchString(prompt) && humanLanguage.MatchString(prompt)) {
 		return
 	}
-	// A prompt that does not name Go counts as Go work only when the working
-	// directory holds Go and the prompt names a code element, by a noun or by
-	// a path to Go source; "add a line to the README" must not fire.
-	goWork := namesGo(prompt) || (hasGoFiles(cwd) && (codeNoun.MatchString(prompt) || len(targetFiles(prompt, cwd, true)) > 0))
+	// A prompt that does not name Go counts as Go work only when it asks for
+	// a review of Go, or when the working directory holds Go and the prompt
+	// names a code element, by a noun or by a path to Go source; "add a line
+	// to the README" must not fire.
+	goWork := namesGo(prompt) || reviewsGo(prompt, cwd) ||
+		(hasGoFiles(cwd) && (codeNoun.MatchString(prompt) || len(targetFiles(prompt, cwd, true)) > 0))
 	if !goWork {
 		return
 	}

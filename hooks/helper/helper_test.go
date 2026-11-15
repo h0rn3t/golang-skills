@@ -121,6 +121,35 @@ func TestNamesGo(t *testing.T) {
 	}
 }
 
+// The mentions are prompts from real sessions: a review file named by path, a
+// review cited as the source of the work, and a word that only contains one.
+func TestReviewAsked(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		prompt string
+		want   bool
+	}{
+		{"сделай ревью изменений", true},
+		{"зроби рев'ю змін", true},
+		{"сделай код-ревью всего проекта поищи проблемы", true},
+		{"Review the changes", true},
+		{"can you review this PR?", true},
+		{"do a code review of the diff", true},
+		{"посмотри изменения и сделай ревью.", true},
+		{"review-2026-10-22.md давай исправим оставшиеся пункты ревью", false},
+		{"треба покращити скіли спираючись на ревью review-2026-10-28-anthropic.md", false},
+		{"напиши короткий description сюди для reviewer", false},
+		{"стиснення драбини, перебудова review/audit дасть профіт?", false},
+		{"fix the review comments", false},
+		{"/code-review ./orders", false},
+	}
+	for _, tt := range tests {
+		if got := reviewAsked.MatchString(tt.prompt); got != tt.want {
+			t.Errorf("reviewAsked.MatchString(%q) = %t, want %t", tt.prompt, got, tt.want)
+		}
+	}
+}
+
 func TestMentionedRouter(t *testing.T) {
 	t.Parallel()
 	tests := []struct{ prompt, want string }{

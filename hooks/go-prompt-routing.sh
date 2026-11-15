@@ -22,6 +22,22 @@
 # host adds to the prompt (<ide_opened_file>, <ide_selection>) is removed
 # before any of these tests.
 #
+# A review asked for in bare words ("review the changes", "сделай ревью
+# проекта") names neither Go nor a code element, and a review edits nothing,
+# so no gate catches it later. It is Go work by fact: the session sits in a
+# Go module (go.mod or go.work in the working directory or above it), or the
+# prompt speaks of changes and git lists a changed or untracked .go file. A
+# review only mentioned ("fix the review findings", review-2026-10-22.md,
+# "reviewer") is not a request, and a typed /code-review is not one. Until
+# 1.32.0 such a prompt got its note only when the IDE's opened-file text
+# happened to name Go. In the real sessions of 2026-10-18..11-13 the model
+# loaded go-code-review after 3 of 3 bare review prompts that got the note
+# and after 0 of 3 that did not: it took the host's code-review skill in 2
+# and no skill in 1. On the review corpus (2026-11-14, 13 fixtures, medium,
+# Sonnet 5.5 n=3 and Opus 5.5 n=2) that skill's default recipe found 435 of
+# 600 seeded defects and 285 of 325 must-fix ones, go-code-review 582 and
+# 325.
+#
 # A prompt naming a router in its text (`use go-code`, `$go-code-refactor`,
 # `/opsx:apply add-auth /go-code`) selects that router instead of silencing
 # the reminder: a mention loads nothing, and such a prompt used to leave the

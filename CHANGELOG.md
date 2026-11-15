@@ -4,6 +4,32 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- Name go-code-review for a bare review request. "Review the changes" or
+  "сделай ревью проекта" names neither Go nor a code element, so the prompt
+  hook said nothing, and a review edits nothing, so no gate caught it later.
+  A review that is asked for now counts as Go work by fact: the session sits
+  in a Go module (`go.mod` or `go.work` in the working directory or above
+  it), or the prompt speaks of changes and `git status` lists a changed or
+  untracked `.go` file. A review that is only mentioned ("fix the review
+  findings", a `review-2026-10-22.md` path, "reviewer") gets no note, and a
+  typed `/code-review` is left as it was. The review word also reads the
+  Ukrainian spellings `рев'ю` and `ревю`, which used to route a review that
+  names Go to go-code. In real sessions of 2026-10-18..11-13 the model loaded
+  go-code-review after 3 of 3 bare review prompts that got the note (through
+  IDE context, a route 1.32.0 closed) and after 0 of 3 that did not: it took
+  the host's built-in code-review skill in 2 and no skill in 1. On the review
+  corpus (13 fixtures, 120 seeded defects, medium, Sonnet 5.5 n=3 and Opus
+  5.5 n=2) the built-in skill's default recipe found 435 of 600 defects and
+  285 of 325 must-fix ones; go-code-review found 582 and 325 at five times
+  the session cost, and the model with no skill 567 and 325. The corpus is a
+  whole package dense with defects and has no diff to read, so these are
+  corpus numbers, not pull-request rates. Replayed over the 48 real prompts
+  that hold a review word, with changed Go files in the tree: the note is new
+  for 7, each a request to review the changes or a Go project, and for none
+  of the requests to review the skills, to fix review findings, or the
+  passing mentions; in a tree with only Markdown changed it is new for none
+  of this repository's 39.
+
 ## [1.49.1] - 2026-11-13
 
 - Reword skill lines that a prompt audit for Opus 5.5 read as contradictory,

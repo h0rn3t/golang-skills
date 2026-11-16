@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.50.0] - 2026-11-16
+
 - **Review rounds converge.** From Anthropic's "Solving code review at
   Anthropic" (2026): a repeat review of the same change in go-code-review
   scopes itself to the diff since the last review and does not repeat a

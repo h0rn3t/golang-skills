@@ -4,6 +4,27 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- **Review rounds converge.** From Anthropic's "Solving code review at
+  Anthropic" (2026): a repeat review of the same change in go-code-review
+  scopes itself to the diff since the last review and does not repeat a
+  finding the new diff left alone; from the third review on, a recurring
+  class of finding asks whether the approach should change. Their git-blame
+  count put about 59% of what a looping reviewer flagged in code present
+  since its first pass. Unmeasured here: abrun has no multi-round review.
+- The review template's Summary opens with the finding count, or
+  `Nothing to fix.`, and names changed CI-workflow, auth, payment, release,
+  and installer paths as needing a human approver.
+- Measured together on one review round (abrun `-corpus review`, 14 fixtures,
+  Haiku 5.5 medium, n=2, reference = HEAD before these edits, ~$1): recall
+  0.94 → 0.95, must 0.98 → 0.99, $/run flat; as-must 0.89 → 0.83 (118/133
+  vs 112/135, Fisher p≈0.22), the drop sitting in runs the new template
+  lines never reached. Only 3/28 sessions wrote the new Summary lines, since
+  Haiku seldom reads the template; one of the three applied "Needs a human"
+  outside the listed paths.
+- go-style-core's House Style read list includes a repository `REVIEW.md` on
+  a review, the file where code owners state what a failure looks like in
+  their part of the tree.
+
 - **abrun records what a session did, not only what it cost.** A claude
   result carries `steps`: `turns` (model responses), `tools` (tool calls by
   tool name, a blocked attempt included), `before_first_go_edit` (tool calls

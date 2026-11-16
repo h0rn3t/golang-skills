@@ -6,7 +6,11 @@ severity is one line saying it is empty, and a severity the request filtered
 out is one line counting its findings.
 
 ## Summary
+Findings: N (Must Fix X, Should Fix Y, Nits Z) — or `Nothing to fix.` when N is 0.
 [Brief description of the changes]
+Needs a human: [changed CI workflows, auth, payment, release or installer
+paths] — omit the line when the diff touches none; a review covers these but
+does not stand in for a person's approval.
 Net lines: +A / -B. Growth the change did not need is a finding below, not a footnote.
 Verdict: approve | request changes. Request changes while any Must Fix the
 change introduced stands; the bar is a change that leaves the code healthier,

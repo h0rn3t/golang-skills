@@ -24,6 +24,12 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
    request names, else the first under `cmd/`, and list the rest under Not Reviewed.
    The flat checklist below is for a diff, not for a whole package. A defect
    on lines the diff did not change is still reported, tagged `pre-existing`.
+   A **repeat review** of a change already reviewed — earlier in this
+   session, or with review threads open on the PR — has the diff since that
+   review as its scope: a finding already reported is not repeated unless the
+   new diff changed it. From the third review of the same change on, a finding of a class already
+   reported names the class and asks whether the approach should change,
+   instead of adding one more instance.
 2. **Load the owners before the first finding** (a read of
    `../<name>/SKILL.md` where there is no `Skill` tool):
    [go-style-core](../go-style-core/SKILL.md) on every review, then, for each

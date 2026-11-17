@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.50.1] - 2026-11-18
+
 - A bare review request ("зроби ревью") at the root of a repository whose Go
   modules sit one or two levels down now gets the go-code-review note.
   The nested module lookup applies only when the request has no subject.

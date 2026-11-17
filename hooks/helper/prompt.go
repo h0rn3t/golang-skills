@@ -336,15 +336,28 @@ func goFiles(dir string) []string {
 	return out
 }
 
-// reviewsGo reports a review asked for in bare words whose subject is Go.
-// "Review the changes" names neither Go nor a code element, so the facts
-// decide: the session sits in a Go module, or the prompt speaks of changes
-// and the working tree has a changed .go file. Go two levels down is not
-// enough here: a review of the Markdown beside it is not a Go review, and
-// neither is one of the skills while Go edits sit uncommitted.
+// reviewsGo infers the language for a review request that does not name Go.
+// Below the working directory, a module only supplies context for a review
+// without a subject. A request to review changes uses the working tree.
 func reviewsGo(prompt, cwd string) bool {
-	return reviewAsked.MatchString(prompt) && filepath.IsAbs(cwd) &&
-		(inGoModule(cwd) || (changeNoun.MatchString(prompt) && changedGo(cwd)))
+	match := reviewAsked.FindStringIndex(prompt)
+	if match == nil || !filepath.IsAbs(cwd) {
+		return false
+	}
+	return inGoModule(cwd) ||
+		(strings.TrimSpace(prompt[match[1]:]) == "" && moduleBelow(cwd)) ||
+		(changeNoun.MatchString(prompt) && changedGo(cwd))
+}
+
+// moduleBelow reports a go.mod one or two directories below dir: a
+// monorepo root whose services are separate modules.
+func moduleBelow(dir string) bool {
+	for _, pattern := range []string{"*/go.mod", "*/*/go.mod"} {
+		if m, _ := filepath.Glob(filepath.Join(filepath.Clean(dir), pattern)); len(m) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // inGoModule reports go.mod or go.work in dir or in a directory above it.

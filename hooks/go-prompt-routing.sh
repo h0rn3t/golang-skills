@@ -25,8 +25,9 @@
 # A review asked for in bare words ("review the changes", "сделай ревью
 # проекта") names neither Go nor a code element, and a review edits nothing,
 # so no gate catches it later. It is Go work by fact: the session sits in a
-# Go module (go.mod or go.work in the working directory or above it), or the
-# prompt speaks of changes and git lists a changed or untracked .go file. A
+# Go module (go.mod or go.work in the working directory or above it), the
+# request has no subject and a go.mod sits one or two levels below it, or
+# the prompt speaks of changes and git lists a changed or untracked .go file. A
 # review only mentioned ("fix the review findings", review-2026-10-22.md,
 # "reviewer") is not a request, and a typed /code-review is not one. Until
 # 1.32.0 such a prompt got its note only when the IDE's opened-file text

@@ -4,6 +4,13 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- A bare review request ("зроби ревью") at the root of a repository whose Go
+  modules sit one or two levels down now gets the go-code-review note.
+  The nested module lookup applies only when the request has no subject.
+- Repeat Go reviews recheck prior blockers and carry unresolved ones into
+  the verdict. Findings are classified against the base revision, and
+  pre-review checks run from each in-scope module.
+
 ## [1.50.0] - 2026-11-16
 
 - **Review rounds converge.** From Anthropic's "Solving code review at

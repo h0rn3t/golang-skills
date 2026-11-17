@@ -1289,6 +1289,27 @@ func TestPromptRouting(t *testing.T) {
 				committed: []string{"go.mod", "feed.go"}, want: true,
 			},
 			{
+				name: "modules-below-the-root", prompt: "зроби ревью",
+				committed: []string{"README.md", "services/feed/go.mod", "services/feed/feed.go"}, want: true,
+			},
+			{
+				name: "skill-review-beside-module", prompt: "сделай ревью скила",
+				committed: []string{"evals/go.mod", "evals/eval_test.go", "skills/go-code-review/SKILL.md"},
+			},
+			{
+				name: "markdown-review-beside-module", prompt: "сделай ревью README.md",
+				committed: []string{"README.md", "services/feed/go.mod", "services/feed/feed.go"},
+			},
+			{
+				name: "review-markdown-changes-beside-module", prompt: "review the changes",
+				committed: []string{"README.md", "services/feed/go.mod", "services/feed/feed.go"},
+				changed:   []string{"README.md"},
+			},
+			{
+				name: "go-file-review-beside-module", prompt: "review services/feed/feed.go",
+				committed: []string{"README.md", "services/feed/go.mod", "services/feed/feed.go"}, want: true,
+			},
+			{
 				name: "changed-go-outside-a-module", prompt: "зроби рев'ю змін",
 				committed: []string{"README.md"}, changed: []string{"internal/feed/feed.go"}, want: true,
 			},

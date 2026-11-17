@@ -22,14 +22,18 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
    Security → HTTP → Database → Concurrency → the rest; the section order below
    applies within a file. A module with more than one binary: review the one the
    request names, else the first under `cmd/`, and list the rest under Not Reviewed.
-   The flat checklist below is for a diff, not for a whole package. A defect
-   on lines the diff did not change is still reported, tagged `pre-existing`.
-   A **repeat review** of a change already reviewed — earlier in this
-   session, or with review threads open on the PR — has the diff since that
-   review as its scope: a finding already reported is not repeated unless the
-   new diff changed it. From the third review of the same change on, a finding of a class already
-   reported names the class and asks whether the approach should change,
-   instead of adding one more instance.
+   The checklist is for a diff. Report defects even on untouched lines.
+   Use `pre-existing` when a repro or code trace shows the defect on the
+   full change's base and the change did not worsen it. For inconclusive
+   comparisons use `origin undetermined` and name the missing evidence.
+   On a **repeat review**, look for new findings in the diff since the
+   reviewed revision, or the full change if that revision is unknown.
+   Recheck prior blockers in the current code, including unchanged lines.
+   Record status and evidence by ID or location in the template and carry
+   open or unverified blockers into the verdict. Relist a prior finding only
+   when new evidence changes it. From the third review on, group new
+   instances of a recurring class by severity, retain their locations,
+   and ask whether the approach should change.
 2. **Load the owners before the first finding** (a read of
    `../<name>/SKILL.md` where there is no `Skill` tool):
    [go-style-core](../go-style-core/SKILL.md) on every review, then, for each
@@ -42,8 +46,11 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
    they fix the report language, error style, and test style, and outrank
    every rule here — except the idiom: an older form kept for consistency with
    the package is a finding ([Write Current Go](../go-style-core/SKILL.md#write-current-go)).
-3. From the project, run `bash <installed-skill-dir>/scripts/pre-review.sh ./...` plus
-   `go fix -diff <packages in the diff>`; for a diff against a revision add
+3. Map in-scope packages to their nearest `go.mod`. For a repository-wide
+   review, identify modules from the layout. From each module root run
+   `bash <installed-skill-dir>/scripts/pre-review.sh ./...` (or a narrower
+   package target) and `go fix -diff <packages in the diff>` if any. Report
+   checks by module. For a diff against a revision, pass the script
    `--new-from-rev <base>`, which narrows gofmt and lint to the diff and lists
    its `bar` moves; `<base>` is the target branch, and the script compares
    with its merge base, as the pull request does. With no diff, add `--limit 50`: unbounded, a whole

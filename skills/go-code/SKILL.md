@@ -67,12 +67,14 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    ([go-testing](../go-testing/SKILL.md#assertions-match-the-repository) owns
    the assertion rule). Resolve routine choices without stopping; ask only
    for missing information that changes correctness, scope, or authorization.
-6. **Reader Pass, then verify and report.** On every edit, trace the entry
-   point to its result or side effects. Make the main decision, state
-   transitions, error exits, and write order easy to find. Keep a one-use
-   name only when it exposes a domain boundary or state, and a helper only
-   when it hides detail that obscures the caller's decision; inline any other
-   wrapper and rerun the cases. Verify the resulting diff.
+6. **Reader Pass, then verify and report.** Start with the current task's diff
+   and keep simplifications within the authorized scope. Read surrounding
+   code and callers as needed to check contracts and the order of effects.
+   Trace the entry point to its result or side effects. Make the main
+   decision, state transitions, error exits, and write order easy to find.
+   Keep a one-use name only when it exposes a domain boundary or state, and a
+   helper only when it hides detail that obscures the caller's decision.
+   Inline any other wrapper and rerun the cases. Verify the resulting diff.
    With a shell, use the `go-linting` skill, in
    context since step 2 — **load it now only if it is not** (`Skill` tool
    with the router's namespace, otherwise read its `SKILL.md`) — select the

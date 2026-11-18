@@ -4,6 +4,11 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.51.0] - 2026-11-18
+
+- Start the Go Reader Pass from the current task's diff and keep
+  simplifications within the authorized scope.
+
 ## [1.50.2] - 2026-11-18
 
 - Run the Reader Pass on Go implementations, fixes, and refactors. Keep

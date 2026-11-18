@@ -4,6 +4,12 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- Run the Reader Pass on Go implementations, fixes, and refactors. Keep
+  decisions, error exits, and write order visible in the changed code.
+- Choose the JSON API for the target Go build and wire contract. The business
+  rule example validates the complete plan before writing, and the manifest
+  example reports a zero-byte file as largest when it is the only file.
+
 ## [1.50.1] - 2026-11-18
 
 - A bare review request ("зроби ревью") at the root of a repository whose Go

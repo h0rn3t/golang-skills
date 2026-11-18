@@ -26,8 +26,9 @@ library default treats unlike the rest:
 | "returns the matching entries as a JSON array" | zero matches | `[]`, not `null` |
 | "any other value is an error naming the parameter" | `limit=abc` | error text contains `limit` |
 | "any method other than `GET` is a 405" | `HEAD /healthz` | 405, not the `GET` body |
+| "largest names the largest listed file" | one file `empty.txt` of size 0 | `largest: "empty.txt"`, `total: 0` |
 
-The last row is the one a default leaks through: a `GET /healthz` pattern on
+For the method clause, a `GET /healthz` pattern on
 `ServeMux` answers `HEAD` with 200 and the `GET` body, so the class "any other
 method" is tested at `HEAD`, not at `POST`. The same reasoning picks `t` and
 `1` under `strconv.ParseBool` and the bare path under a subtree pattern.
@@ -39,9 +40,10 @@ a failure message in the `Func(input) = got, want` form;
 ## A Plain Code Body
 
 The function below is the whole implementation of a documented JSON document,
-with `import json "encoding/json/v2"`: one function-local type, one anonymous
-document, the empty-input rule and the one tracked fact (`largest`, the size
-behind `doc.Largest`) as code. It carries no comment: v2 writes the nil
+with `import json "encoding/json/v2"`: a function-local type projects the
+wire fields from `File` into an anonymous document. The empty-input rule and
+the one tracked fact (`largest`, the size
+behind `doc.Largest`) are visible in the code. v2 writes the nil
 `Files` of a build with no files as `[]`, so that clause is a case in the
 contract test rather than a line in the body. Under `encoding/json` v1 the
 same clause costs `Files: []entry{}` in the literal plus the one comment that
@@ -75,7 +77,7 @@ func Manifest(build string, files []File) ([]byte, error) {
 		}
 		doc.Files = append(doc.Files, entry{Path: f.Path, Size: f.Size})
 		doc.Total += f.Size
-		if f.Size > largest {
+		if doc.Largest == "" || f.Size > largest {
 			largest = f.Size
 			doc.Largest = f.Path
 		}

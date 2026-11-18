@@ -12,7 +12,7 @@ description: Use when writing or reviewing Go HTTP code — handlers, routing wi
 ## Resource Routing
 
 - `references/WEB-SERVER.md` - Read when assembling a complete server: routing, handler, and graceful shutdown in one `main`.
-- `references/JSON-V2.md` - Read when choosing JSON v2 I/O APIs, decoding a bounded document, migrating wire formats, or testing exact JSON bytes (Go 1.27+).
+- `references/JSON-V2.md` - Read when choosing a JSON API, decoding a bounded document with v2, migrating wire formats, or testing exact JSON bytes.
 - `references/GRPC.md` - Read when writing a gRPC server or client: status codes, generated-server embedding, `grpc.NewClient`, bounded `GracefulStop`, and bufconn tests.
 
 ## Routing (Go 1.22+)

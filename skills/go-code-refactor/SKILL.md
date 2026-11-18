@@ -169,7 +169,8 @@ migration, never one atomic commit (`references/STRUCTURAL.md`).
 
 ### 5. Verify
 
-With a shell, use the already loaded `go-linting` gate.
+Run the [Reader Pass](../go-code/SKILL.md#workflow). With a shell, use the
+already loaded `go-linting` gate.
 Where the plugin hook runs, run the `--gate` Bash verification command
 printed by the last edit hook before repeating checks;
 only returned `hook_credit=true` permits `pass (hook)` for its exact scope.

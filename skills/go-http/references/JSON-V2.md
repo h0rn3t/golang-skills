@@ -5,9 +5,12 @@
 > Minimum Go: 1.27
 > Last verified: 2026-10-01 against go1.27.1
 
-Use `encoding/json/v2` for new code when its semantics fit the contract.
-Preserve existing wire formats when refactoring. An import change can compile
-while changing accepted inputs or output bytes.
+For a package choosing its first JSON API, use `encoding/json/v2` when the
+module targets Go 1.27 or later, the supported build configurations include
+the package, and its defaults fit the wire contract. `GOEXPERIMENT=nojsonv2`
+excludes the package on Go 1.27. Use `encoding/json` when v2 is unavailable
+or v1 semantics fit the contract. Keep the package's existing API until a
+migration is requested. Check the defaults below for any new wire contract.
 
 ## Choose the I/O API
 

@@ -18,6 +18,7 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
 - `../go-linting/SKILL.md` — With a shell, load alongside go-style-core at step 2; its gate and receipt verifier close step 6.
 - `references/INTENSITY.md` — Read when the prompt carries `lite` or `ultra` (`/go-code ultra <task>`, `ultra mode`): what each level changes.
 - `references/NEW-CODE-EXAMPLES.md` — Read when the shape of a Contract Table case, Plain Code body, or budgeted helper is in doubt.
+- `../go-http/references/JSON-V2.md` — Read when choosing a JSON API or changing wire defaults.
 - `../go-code-refactor/references/LADDER.md` — Read before the first edit on every task, unless `## The Restraint Ladder` is already in context (the plugin's session-start hook prints from that heading to the end of the file): step 5 climbs it for each added entity.
 - `../go-code-refactor/references/OVER-ENGINEERING.md` — Read its replacement table only when seeking a simpler existing API.
 
@@ -58,8 +59,7 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    code takes the [Plain Code](#plain-code) form, counts every package-level
    declaration that survives the ladder in the
    [Declaration Budget](#declaration-budget), and gets the
-   [Delete Pass](#delete-pass) and [Reader Pass](#reader-pass) once its cases
-   pass. Restructuring follows the
+   [Delete Pass](#delete-pass) once its cases pass. Restructuring follows the
    [delete-first priority](../go-code-refactor/SKILL.md#delete-before-you-restructure). Preserve
    required behavior, validation, security controls, and meaningful tests. A
    task that does not ask for a dependency adds none: `go.mod` stays as it
@@ -67,7 +67,13 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    ([go-testing](../go-testing/SKILL.md#assertions-match-the-repository) owns
    the assertion rule). Resolve routine choices without stopping; ask only
    for missing information that changes correctness, scope, or authorization.
-6. **Verify and report.** With a shell, use the `go-linting` skill, in
+6. **Reader Pass, then verify and report.** On every edit, trace the entry
+   point to its result or side effects. Make the main decision, state
+   transitions, error exits, and write order easy to find. Keep a one-use
+   name only when it exposes a domain boundary or state, and a helper only
+   when it hides detail that obscures the caller's decision; inline any other
+   wrapper and rerun the cases. Verify the resulting diff.
+   With a shell, use the `go-linting` skill, in
    context since step 2 — **load it now only if it is not** (`Skill` tool
    with the router's namespace, otherwise read its `SKILL.md`) — select the
    gate scope, then run the Contract Table file with that gate.
@@ -207,9 +213,8 @@ This applies to the entry point, anything it calls, and the contract test.
   results. [Reach For What Go Ships](../go-code-refactor/references/OVER-ENGINEERING.md#reach-for-what-go-ships)
   lists replacements; [go-data-structures](../go-data-structures/SKILL.md)
   owns collection semantics.
-- **New JSON is `encoding/json/v2`.** A package with no `encoding/json` import writes
-  `import json "encoding/json/v2"` (Go 1.27) and no `make([]T, 0, n)` for the wire; one on v1 keeps v1.
-  [JSON-V2.md](../go-http/references/JSON-V2.md#defaults-that-can-change-the-contract) owns what each writes for nil.
+- **Choose JSON for the target build and wire contract.** Follow
+  [JSON-V2.md](../go-http/references/JSON-V2.md) before choosing an import.
 - **Neighbors set the register.** Where the package has code, match its
   naming and comment density ([House Style](../go-style-core/SKILL.md#house-style-wins)).
   Not its Go version: the current form at the module's `go` directive is
@@ -255,15 +260,6 @@ line a reviewer sends back:
 The pass runs behind the test, never ahead of it: a line a case needs stays,
 and validation at a trust boundary, failure behavior, and security controls
 are not deleted for a smaller diff. Rerun or reread the cases after it.
-
-### Reader Pass
-
-Read the changed path from its entry point to its result or side effect. Can a
-reader find the main decision, error exits, and state the code tracks without
-chasing wrappers that only rename an operation? Keep a one-use name when it
-exposes a meaningful boundary or state; keep a helper when it hides details
-that obscure the caller's decision. If either adds a jump without answering a
-reader's question, inline it and run the cases again.
 
 ### Declaration Budget
 
@@ -330,13 +326,14 @@ exempt.
   may carry the steps as methods; a fluent chain that passes intermediate
   results through struct fields hides the data flow and is not written.
 - **Effects at the top, logic below.** Deep functions return data; writes and
-  external calls happen in the entry point or a step of its chain. Lifting an
-  effect keeps the order and count of writes
+  external calls happen in the entry point or a step of its chain. When bad
+  input must leave state untouched, validate all input and compute the changes
+  before the first write. Lifting an effect keeps the order and count of writes
   ([BEHAVIOR-TRAPS.md](../go-code-refactor/references/BEHAVIOR-TRAPS.md#pre-commit-checklist)).
 - **Untyped data is parsed once.** A map, a JSON document, or a database row
-  becomes a typed struct in one place, which returns the parse error; the
-  decisions and comparisons after it are pure functions with no `error`
-  result. Checking the value types and converting them is that one pass, not
+  becomes a typed struct in one place. A step that validates a domain rule
+  can return an error. A comparison on validated data returns its decision.
+  Checking the value types and converting them is one pass, not
   a validation loop followed by a second `switch v.(type)` in the matcher:
   the matcher takes the typed struct, never the `map[string]any`, and holds
   no type switch or assertion.
@@ -359,9 +356,10 @@ exempt.
   service's complexity linters in its golangci config (`gocyclo`, `gocognit`,
   `funlen`, `nestif`) and stay clear of their limits, not at them.
 
-A fragment of an entry point in that shape; `b` holds only the dependencies,
-`bindCombination` writes by snapshot and returns what it left uncovered, and
-inside it `readSnapshot` parses each snapshot once so `matches` stays pure:
+A fragment of an entry point in that shape. `planZoneChanges` validates every
+snapshot, then computes changes in period order: an uncovered period is
+cleared on bind and gets no change on unbind. A bad snapshot leaves the store
+untouched:
 
 ```go
 	interval, ok, err := b.processingInterval()
@@ -372,15 +370,12 @@ inside it `readSnapshot` parses each snapshot once so `matches` stays pure:
 	if err != nil {
 		return false, err
 	}
-	remainders, err := b.bindCombination(interval, snapshots)
+	changes, err := planZoneChanges(interval, snapshots, data)
 	if err != nil {
 		return false, err
 	}
-	if !data.Bind {
-		return true, nil // unbind leaves values outside the combination alone
-	}
-	for _, r := range remainders {
-		if err := b.clear(r); err != nil {
+	for _, change := range changes {
+		if err := b.setZone(change); err != nil {
 			return false, err
 		}
 	}

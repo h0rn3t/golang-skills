@@ -31,6 +31,62 @@ func buildExampleModule(t *testing.T, files map[string]string) {
 	}
 }
 
+func TestManifestExample(t *testing.T) {
+	manifest := exampleBlock(t, "skills/go-code/references/NEW-CODE-EXAMPLES.md", "## A Plain Code Body")
+	runExampleTest(t, `package example
+
+import (
+	"errors"
+	"reflect"
+	"testing"
+
+	json "encoding/json/v2"
+)
+
+type File struct {
+	Path       string
+	Size       int64
+	Executable bool
+}
+
+`+manifest+`
+func TestManifest(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		files []File
+		want  string
+	}{
+		{
+			name: "no files",
+			want: "{\"build\":\"b\",\"largest\":\"\",\"total\":0,\"files\":[]}",
+		},
+		{
+			name:  "zero-byte file",
+			files: []File{{Path: "empty.txt", Executable: true}},
+			want:  "{\"build\":\"b\",\"largest\":\"empty.txt\",\"total\":0,\"files\":[{\"path\":\"empty.txt\",\"size\":0}]}",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Manifest("b", tt.files)
+			if err != nil {
+				t.Fatalf("Manifest(%q, %v) = %s, %v; want %s, nil", "b", tt.files, got, err, tt.want)
+			}
+			var gotDoc, wantDoc any
+			if err := json.Unmarshal(got, &gotDoc); err != nil {
+				t.Fatalf("Manifest(%q, %v) = %q, want valid JSON: %v", "b", tt.files, got, err)
+			}
+			if err := json.Unmarshal([]byte(tt.want), &wantDoc); err != nil {
+				t.Fatalf("decode expected JSON %q: %v", tt.want, err)
+			}
+			if !reflect.DeepEqual(gotDoc, wantDoc) {
+				t.Errorf("Manifest(%q, %v) = %s, want %s", "b", tt.files, got, tt.want)
+			}
+		})
+	}
+}
+`)
+}
+
 // The SSRF defenses are the security reference most likely to be copied
 // verbatim: the allowlist must match whole labels, and the client must refuse
 // the literal addresses an attacker reaches for before it connects, including

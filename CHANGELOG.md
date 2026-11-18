@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.50.2] - 2026-11-18
+
 - Run the Reader Pass on Go implementations, fixes, and refactors. Keep
   decisions, error exits, and write order visible in the changed code.
 - Choose the JSON API for the target Go build and wire contract. The business

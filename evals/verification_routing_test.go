@@ -14,7 +14,7 @@ func TestPromptLoadsEverySelectedSkillInPrimaryAction(t *testing.T) {
 	cwd := filepath.Join(repoRoot(t), "evals", "ab", "_implement")
 	_, out := promptEvent(t, t.TempDir(), "primary", cwd, "Implement the Go package in ./fetch")
 	var primary string
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		if strings.HasPrefix(line, "Before the first edit,") {
 			primary = line
 			break
@@ -114,7 +114,7 @@ func TestVerificationRouting(t *testing.T) {
 			t.Errorf("piped check %q = (%d,%q), want blocked until a standalone verifier", command, code, msg)
 		}
 	}
-	cmd := exec.Command("bash", filepath.Join(root, "hooks", "go-check-receipt.sh"), "--gate", paths[0], dir)
+	cmd := exec.CommandContext(t.Context(), "bash", filepath.Join(root, "hooks", "go-check-receipt.sh"), "--gate", paths[0], dir)
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -169,7 +169,7 @@ func TestVerificationRouting(t *testing.T) {
 		t.Fatalf("later edit = (%d,%q), want verifier again", code, msg)
 	}
 	// An old run can never release the guard for the later edit.
-	cmd = exec.Command("bash", filepath.Join(root, "hooks", "go-check-receipt.sh"), "--gate", paths[0], dir)
+	cmd = exec.CommandContext(t.Context(), "bash", filepath.Join(root, "hooks", "go-check-receipt.sh"), "--gate", paths[0], dir)
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	_ = cmd.Run()
 	if code, msg := check("go vet ."); code != 2 {

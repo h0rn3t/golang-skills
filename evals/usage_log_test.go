@@ -163,7 +163,7 @@ func TestUsageLog(t *testing.T) {
 		state, path, bin := t.TempDir(), scratchMain(t), t.TempDir()
 		finding := path + ":6: line-length-limit: line is 129 characters, out of limit 120 (revive)"
 		stub := "#!/usr/bin/env bash\nif [[ \"$1\" == config ]]; then exit 1; fi\nprintf '%s\\n' \"$LINT_OUTPUT\"\nexit 1\n"
-		if err := os.WriteFile(filepath.Join(bin, "golangci-lint"), []byte(stub), 0o755); err != nil { //nolint:gosec // G306: the hook runs the stub from PATH, so it is executable
+		if err := os.WriteFile(filepath.Join(bin, "golangci-lint"), []byte(stub), 0o755); err != nil { // the hook runs the stub from PATH, so it is executable
 			t.Fatalf("write golangci-lint stub: %v", err)
 		}
 		edited := routingPayload("PostToolUse", "u5", "Write", map[string]any{"file_path": path})

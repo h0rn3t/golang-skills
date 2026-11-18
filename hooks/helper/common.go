@@ -233,8 +233,8 @@ func resolve(p string) string {
 	if err != nil {
 		return p
 	}
-	if real, err := filepath.EvalSymlinks(abs); err == nil {
-		return real
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		return resolved
 	}
 	parent := filepath.Dir(abs)
 	if parent == abs {

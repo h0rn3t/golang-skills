@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -24,7 +25,7 @@ var versionClaim = regexp.MustCompile(`\bGo 1\.[0-9]+`)
 
 func repoRoot(t *testing.T) string {
 	t.Helper()
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	cmd := exec.CommandContext(t.Context(), "git", "rev-parse", "--show-toplevel")
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("git rev-parse --show-toplevel: %v", err)
@@ -70,7 +71,7 @@ func readLines(t *testing.T, path string) []string {
 	if err != nil {
 		t.Fatalf("open %s: %v", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }() // read-only; a close error loses nothing
 	var lines []string
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
@@ -84,11 +85,11 @@ func readLines(t *testing.T, path string) []string {
 
 func runCommand(t *testing.T, wantExit int, name string, args ...string) []byte {
 	t.Helper()
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(t.Context(), name, args...)
 	out, err := cmd.CombinedOutput()
 	gotExit := 0
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			gotExit = exitErr.ExitCode()
 		} else {
 			t.Fatalf("%s %s failed to start: %v\n%s", name, strings.Join(args, " "), err, out)
@@ -102,14 +103,14 @@ func runCommand(t *testing.T, wantExit int, name string, args ...string) []byte 
 
 func runCommandStdout(t *testing.T, wantExit int, name string, args ...string) []byte {
 	t.Helper()
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(t.Context(), name, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	gotExit := 0
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			gotExit = exitErr.ExitCode()
 		} else {
 			t.Fatalf("%s %s failed to start: %v\nstderr:\n%s", name, strings.Join(args, " "), err, stderr.String())
@@ -123,12 +124,12 @@ func runCommandStdout(t *testing.T, wantExit int, name string, args ...string) [
 
 func runCommandInDir(t *testing.T, dir string, wantExit int, name string, args ...string) []byte {
 	t.Helper()
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(t.Context(), name, args...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	gotExit := 0
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			gotExit = exitErr.ExitCode()
 		} else {
 			t.Fatalf("%s %s failed to start in %s: %v\n%s", name, strings.Join(args, " "), dir, err, out)
@@ -219,16 +220,13 @@ func parseFrontmatter(content []byte) (name, desc, body string) {
 		return "", "", body
 	}
 
-	for _, line := range strings.Split(fm, "\n") {
+	for line := range strings.SplitSeq(fm, "\n") {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "name:") {
-			name = strings.TrimSpace(strings.TrimPrefix(line, "name:"))
+		if after, found := strings.CutPrefix(line, "name:"); found {
+			name = strings.TrimSpace(after)
 		}
-		if strings.HasPrefix(line, "description:") {
-			rest := strings.TrimPrefix(line, "description:")
-			rest = strings.TrimSpace(rest)
-			rest = strings.Trim(rest, `"'>`)
-			desc = rest
+		if after, found := strings.CutPrefix(line, "description:"); found {
+			desc = strings.Trim(strings.TrimSpace(after), `"'>`)
 		}
 	}
 
@@ -236,7 +234,7 @@ func parseFrontmatter(content []byte) (name, desc, body string) {
 	if desc == "" || desc == "|" || desc == ">" {
 		inDesc := false
 		var descLines []string
-		for _, line := range strings.Split(fm, "\n") {
+		for line := range strings.SplitSeq(fm, "\n") {
 			trimmed := strings.TrimSpace(line)
 			if strings.HasPrefix(trimmed, "description:") {
 				inDesc = true
@@ -476,7 +474,7 @@ func TestScriptSmoke(t *testing.T) {
 
 		t.Run(base+"/help", func(t *testing.T) {
 			t.Parallel()
-			cmd := exec.Command("bash", script, "--help")
+			cmd := exec.CommandContext(t.Context(), "bash", script, "--help")
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Errorf("--help failed (exit %v):\n%s", err, out)
@@ -485,7 +483,7 @@ func TestScriptSmoke(t *testing.T) {
 
 		t.Run(base+"/version", func(t *testing.T) {
 			t.Parallel()
-			cmd := exec.Command("bash", script, "--version")
+			cmd := exec.CommandContext(t.Context(), "bash", script, "--version")
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Errorf("--version failed (exit %v):\n%s", err, out)
@@ -497,7 +495,6 @@ func TestScriptSmoke(t *testing.T) {
 func TestScriptSyntax(t *testing.T) {
 	t.Parallel()
 	for _, script := range findAllScripts(t) {
-		script := script
 		t.Run(filepath.Base(script), func(t *testing.T) {
 			t.Parallel()
 			runCommand(t, 0, "bash", "-n", script)
@@ -1443,7 +1440,7 @@ func TestScriptFunctional(t *testing.T) {
 			}
 		}
 		noLintPath := bin + string(os.PathListSeparator) + "/usr/bin" + string(os.PathListSeparator) + "/bin"
-		cmd := exec.Command("bash", script, "--json", ".")
+		cmd := exec.CommandContext(t.Context(), "bash", script, "--json", ".")
 		cmd.Dir = cleanDir
 		cmd.Env = append(os.Environ(), "PATH="+noLintPath)
 		out, err := cmd.Output()
@@ -1783,7 +1780,7 @@ func TestAdd(t *testing.T) {
 		// `go fix -diff` exits 1 when the diff is non-empty: a pending
 		// modernization must yield a line count, not "n/a". Without cgo,
 		// -race cannot run outside macOS: that is a skip, not a red baseline.
-		cmd := exec.Command("bash", script, "--json", "baseline", ".")
+		cmd := exec.CommandContext(t.Context(), "bash", script, "--json", "baseline", ".")
 		cmd.Dir = dir
 		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 		out, runErr := cmd.Output()
@@ -1886,7 +1883,6 @@ func TestAdd(t *testing.T) {
 			{"go-performance", "bench-compare.sh", nil},
 		}
 		for _, tc := range cases {
-			tc := tc
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 				script := scriptPath(tc.skill, tc.name)
@@ -1958,7 +1954,7 @@ func TestStructure(t *testing.T) {
 			}
 			frontmatterKeys := map[string]bool{}
 			if fm, _, ok := splitFrontmatter(content); ok {
-				for _, line := range strings.Split(fm, "\n") {
+				for line := range strings.SplitSeq(fm, "\n") {
 					line = strings.TrimSpace(line)
 					if line == "" || strings.HasPrefix(line, "#") {
 						continue
@@ -2044,7 +2040,6 @@ func TestFrontmatterDescriptionsInvariant(t *testing.T) {
 		"go-testing":         "Use when writing, reviewing, or improving Go test code — including table-driven tests, subtests, parallel tests, test helpers, test doubles, and assertions with cmp.Diff. Also use when a user asks to write a test for a Go function, even if they don't mention specific patterns like table-driven tests or subtests. Does not cover benchmark performance testing (see go-performance).",
 	}
 	for _, dir := range findSkillDirs(t) {
-		dir := dir
 		t.Run(filepath.Base(dir), func(t *testing.T) {
 			t.Parallel()
 			content, err := os.ReadFile(filepath.Join(dir, "SKILL.md"))
@@ -2079,7 +2074,6 @@ func TestSkillArchitecture(t *testing.T) {
 	}
 
 	for _, dir := range findSkillDirs(t) {
-		dir := dir
 		t.Run(filepath.Base(dir), func(t *testing.T) {
 			t.Parallel()
 			contentBytes, err := os.ReadFile(filepath.Join(dir, "SKILL.md"))
@@ -2118,16 +2112,11 @@ func TestSkillArchitecture(t *testing.T) {
 			if maxBlock > 40 {
 				t.Fatalf("largest fenced code block has %d lines, want <= 40; move long examples into references", maxBlock)
 			}
-			idx := strings.Index(content, "\n## Resource Routing\n")
-			if idx < 0 {
+			_, rest, ok := strings.Cut(content, "\n## Resource Routing\n")
+			if !ok {
 				t.Fatal("missing ## Resource Routing section")
 			}
-			rest := content[idx+len("\n## Resource Routing\n"):]
-			end := strings.Index(rest, "\n## ")
-			routing := rest
-			if end >= 0 {
-				routing = rest[:end]
-			}
+			routing, _, _ := strings.Cut(rest, "\n## ") // the whole rest when it is the last section
 			if strings.TrimSpace(routing) == "" {
 				t.Fatal("empty Resource Routing section")
 			}
@@ -2225,7 +2214,7 @@ func maxFencedBlockLines(content string) int {
 	inBlock := false
 	count := 0
 	maxCount := 0
-	for _, line := range strings.Split(content, "\n") {
+	for line := range strings.SplitSeq(content, "\n") {
 		if strings.HasPrefix(strings.TrimSpace(line), "```") {
 			if inBlock {
 				if count > maxCount {
@@ -2733,8 +2722,8 @@ func TestDeleteFirstRule(t *testing.T) {
 	// Resource Routing, Review Procedure, then the checklist — Less Code first.
 	var sections []string
 	for _, line := range readLines(t, filepath.Join(root, "skills", "go-code-review", "SKILL.md")) {
-		if strings.HasPrefix(line, "## ") {
-			sections = append(sections, strings.TrimPrefix(line, "## "))
+		if after, ok := strings.CutPrefix(line, "## "); ok {
+			sections = append(sections, after)
 		}
 	}
 	if len(sections) < 3 || sections[2] != "Less Code" {
@@ -3218,7 +3207,6 @@ func TestManifestCounts(t *testing.T) {
 		{".claude-plugin/marketplace.json", `(\d+) automation scripts`, scripts},
 		{".claude-plugin/marketplace.json", `(\d+) asset templates`, assets},
 	} {
-		tc := tc
 		t.Run(tc.file+"/"+tc.pattern, func(t *testing.T) {
 			t.Parallel()
 			content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(tc.file)))

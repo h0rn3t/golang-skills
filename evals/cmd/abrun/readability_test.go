@@ -127,7 +127,8 @@ func TestReadabilitySummaryOfOldReport(t *testing.T) {
 	rep.Results[0].Delta.EchoDocs = new(0)
 	rep.Results[0].Delta.OneCallHelpers = new(1)
 	rep.Results[0].Delta.LogAndReturn = new(0)
-	got := summarizeArm(rep, "baseline").Readability.line(1)
+	sum := summarizeArm(rep, "baseline")
+	got := sum.Readability.line(1)
 	if !strings.Contains(got, "max func 12.0") || !strings.Contains(got, "(1/1 runs)") {
 		t.Errorf("readability line for a measured run = %q, want max func 12.0 over 1/1 runs", got)
 	}

@@ -515,7 +515,7 @@ func stageReviewBase(timeout time.Duration, work, task, baseDir string) (string,
 		if err != nil {
 			return "", err
 		}
-		if err := os.WriteFile(filepath.Join(pkg, e.Name()), base, 0o600); err != nil { //nolint:gosec // G703: names come from the repository's own base/ listing
+		if err := os.WriteFile(filepath.Join(pkg, e.Name()), base, 0o600); err != nil { // names come from the repository's own base/ listing
 
 			return "", err
 		}
@@ -525,7 +525,7 @@ func stageReviewBase(timeout time.Duration, work, task, baseDir string) (string,
 		defer cancel()
 		// The user's git configuration — hooks, signing, templates — stays out.
 		args = append([]string{"-c", "user.name=abrun", "-c", "user.email=abrun@example.invalid", "-c", "commit.gpgsign=false"}, args...)
-		cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // G204: fixed program, argv built here, no input
+		cmd := exec.CommandContext(ctx, "git", args...) // fixed program, argv built here, no input
 		cmd.Dir = work
 		cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1")
 		out, err := cmd.CombinedOutput()

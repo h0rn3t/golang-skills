@@ -1,0 +1,172 @@
+# This repository's own lint config, for the evals/ and hooks/helper modules.
+# The linters block, from "linters:" to its exclusions, is a verbatim copy of
+# skills/go-linting/assets/golangci.yml (TestRepoLintConfigTracksBundled
+# fails on drift); only the exclusions below are this repository's. Each is
+# recorded under "Scope Exceptions" in docs/RULE_OWNERSHIP.md.
+version: "2"
+run:
+  # Paths below are relative to this file, so one config serves both modules.
+  relative-path-mode: cfg
+linters:
+  enable:
+    # Minimum recommended
+    - errcheck
+    - govet
+    - revive
+    - staticcheck
+    # Additional recommended
+    - bodyclose
+    - gocyclo       # only a tangled function: a flat chain of error checks stays under 30
+    - gosec         # G304 off: a path from a client is go-security's os.Root rule
+    - ineffassign
+    - misspell
+    # Enforce what the go-* skills teach
+    - containedctx  # go-context: a Context is a parameter, not a struct field
+    - depguard      # go-packages: stdlib-first dependency ladder
+    - errname       # go-naming: ErrFoo sentinels, FooError types
+    - errorlint     # go-error-handling: errors.Is/AsType, never == or a type assertion
+    - exhaustive    # go-style-core: switch covers every iota enum member
+    - godot         # go-documentation: doc comments are full sentences
+    - iface         # go-interfaces: a constructor returns the concrete type, not an interface with one implementation
+    - modernize     # go-style-core: current Go idioms; appendclipped/slicesdelete stay off (they change nilness)
+    - nilnil        # go-error-handling: no in-band nil, nil; return a sentinel or an ok bool
+    - noctx         # go-context / go-http: outbound calls carry a context
+    - nolintlint    # go-linting: a suppression names its linter and its reason
+    - perfsprint    # go-performance: strconv over fmt.Sprint for a lone value; Sprintf formatting stays
+    - predeclared   # go-naming: no local named len, max, new, or error
+    - recvcheck     # go-interfaces: one receiver kind per type; a value type's pointer decoders are exempt (settings below)
+    - rowserrcheck  # go-database: rows.Err checked after the loop
+    - sloglint      # go-logging: static message, key-value attrs, snake_case keys
+    - sqlclosecheck # go-database: rows and statements closed
+    - unparam       # go-code-refactor: a parameter that always gets one value, a result always nil or never read
+    - usetesting    # go-testing: t.Context, t.TempDir, t.Setenv over hand-rolled forms
+    - usestdlibvars # go-http: named HTTP methods and status codes
+  settings:
+    errcheck:
+      # Closing a database/sql row set, a rolled-back transaction, or an
+      # io.ReadCloser (a response body) has no error worth handling
+      # (go-database, go-http). Close on any *os.File still reports,
+      # read-only included.
+      exclude-functions:
+        - (*database/sql.Rows).Close
+        - (*database/sql.Tx).Rollback
+        - (io.ReadCloser).Close
+    revive:
+      # Only the rules listed here run: a rules list replaces revive's defaults.
+      rules:
+        # go-documentation: imported API only; internal/ and cmd/ are excluded below
+        - name: exported
+        # go-naming: initialisms, receiver names, error strings
+        - name: var-naming
+        - name: receiver-naming
+        - name: error-strings
+        # go-style-core Reduce Nesting: no else after a branch that exits
+        - name: early-return
+        - name: indent-error-flow
+        - name: superfluous-else
+        # go-defensive: a defer in a loop runs at function exit, not per iteration
+        - name: defer
+          arguments: [["loop"]]
+    iface:
+      # opaque only: `unused` and `identical` report exported interfaces a
+      # library declares for its callers.
+      enable:
+        - opaque
+    gocyclo:
+      min-complexity: 30
+    gosec:
+      excludes:
+        - G304
+    perfsprint:
+      string-format: false
+      strconcat: false
+    recvcheck:
+      # The built-in exclusions cover UnmarshalText/JSON/YAML/XML/Binary and
+      # GobDecode. go-interfaces exempts every pointer decoder on a value
+      # type: sql.Scanner and the json/v2 decoder are not built in, and moving
+      # Value to *T to satisfy the linter stops the value being a driver.Valuer.
+      exclusions:
+        - "*.Scan"
+        - "*.UnmarshalJSONFrom"
+    depguard:
+      rules:
+        stdlib-first:
+          deny:
+            - pkg: github.com/pkg/errors
+              desc: use fmt.Errorf with %w, errors.Is, errors.AsType (go-error-handling)
+            - pkg: golang.org/x/exp/slices
+              desc: use slices from the standard library (Go 1.21+)
+            - pkg: golang.org/x/exp/maps
+              desc: use maps from the standard library (Go 1.21+)
+    errorlint:
+      # %v at a system boundary is deliberate (go-error-handling); keep the
+      # comparison and type-assertion checks, which are never deliberate.
+      errorf: false
+    exhaustive:
+      default-signifies-exhaustive: true
+    sloglint:
+      static-msg: true
+      key-naming-case: snake
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    usetesting:
+      context-background: true
+      context-todo: true
+    usestdlibvars:
+      http-method: true
+      http-status-code: true
+  exclusions:
+    generated: lax
+    rules:
+      - path: '(^|/)(internal|cmd)/'
+        linters:
+          - revive
+        text: should have comment
+      # The test suite and the eval runners create their own trees under
+      # t.TempDir or $TMPDIR, write scripts there, and exec the bundled
+      # scripts, git, go, and the model CLIs by computed path: that is the
+      # harness's job, not untrusted input reaching a shell or a file.
+      - path: '^evals/(.*_test\.go|cmd/)'
+        linters:
+          - gosec
+        text: 'G(122|204|301|302|306|702|703):'
+      # Scripted hook sessions and stream parsers are long flat sequences of
+      # steps and event cases; splitting them hides the sequence a failure
+      # message points at.
+      - path: '^evals/(.*_test\.go|cmd/)'
+        linters:
+          - gocyclo
+      # The hook helper reads paths from the host's hook payload (cwd,
+      # transcript, its own state dir), never from a remote client.
+      - path: '^hooks/helper/'
+        linters:
+          - gosec
+        text: 'G703:'
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      # Eval corpora: deliberately unidiomatic code the evals ask a model to
+      # review, refactor, or fix. Linting them would remove the trap.
+      - ^evals/fixtures/
+      - ^evals/files/
+      - ^evals/ab/
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  uniq-by-line: false
+
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - ^evals/fixtures/
+      - ^evals/files/
+      - ^evals/ab/

@@ -75,12 +75,12 @@ func TestReviewFixturesAreToolClean(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(work, "go.mod"), []byte("module abeval\n\ngo 1.27\n"), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			out, err := exec.Command("gofmt", "-l", filepath.Join(work, task)).CombinedOutput()
+			out, err := exec.CommandContext(t.Context(), "gofmt", "-l", filepath.Join(work, task)).CombinedOutput()
 			if err != nil || len(strings.TrimSpace(string(out))) > 0 {
 				t.Errorf("gofmt -l: %v %s", err, out)
 			}
 			for _, args := range [][]string{{"vet", "./..."}, {"test", "-count=1", "./..."}} {
-				cmd := exec.Command("go", args...)
+				cmd := exec.CommandContext(t.Context(), "go", args...)
 				cmd.Dir = work
 				if out, err := cmd.CombinedOutput(); err != nil {
 					t.Errorf("go %s: %v\n%s", strings.Join(args, " "), err, out)

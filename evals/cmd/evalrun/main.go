@@ -156,7 +156,7 @@ func run(o options) error {
 	if _, err := exec.LookPath("claude"); err != nil {
 		return exitError{2, "claude CLI not found on PATH; install with: npm install -g @anthropic-ai/claude-code"}
 	}
-	if help, err := exec.Command("claude", "--help").CombinedOutput(); err == nil {
+	if help, err := exec.CommandContext(context.Background(), "claude", "--help").CombinedOutput(); err == nil {
 		o.restricted = strings.Contains(string(help), "--restricted")
 	}
 	if o.noSkill && o.kind != "quality" {
@@ -334,16 +334,16 @@ func workDir(root string, files []string) (string, error) {
 	for _, rel := range files {
 		data, err := os.ReadFile(filepath.Join(root, rel))
 		if err != nil {
-			os.RemoveAll(dir)
+			_ = os.RemoveAll(dir) // best-effort; the copy error is the one to report
 			return "", fmt.Errorf("fixture %s: %w", rel, err)
 		}
 		dst := filepath.Join(dir, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-			os.RemoveAll(dir)
+			_ = os.RemoveAll(dir) // best-effort; the copy error is the one to report
 			return "", err
 		}
 		if err := os.WriteFile(dst, data, 0o644); err != nil {
-			os.RemoveAll(dir)
+			_ = os.RemoveAll(dir) // best-effort; the copy error is the one to report
 			return "", err
 		}
 	}
@@ -351,7 +351,7 @@ func workDir(root string, files []string) (string, error) {
 }
 
 func repoRoot() (string, error) {
-	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	out, err := exec.CommandContext(context.Background(), "git", "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		return "", fmt.Errorf("git rev-parse --show-toplevel: %w", err)
 	}
@@ -391,7 +391,7 @@ func runTrigger(o options, root string, ev triggerEval) triggerResult {
 		res.Err = err.Error()
 		return res
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }() // best-effort scratch cleanup
 	args := []string{"-p", ev.Query, "--plugin-dir", root, "--output-format", "stream-json",
 		"--verbose", "--max-turns", "3", "--tools", "Skill", "--allowed-tools", "Skill"}
 	if o.model != "" {
@@ -544,7 +544,7 @@ func runQuality(o options, root string, ev qualityEval) qualityResult {
 		res.Err = err.Error()
 		return res
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }() // best-effort scratch cleanup
 	tools := "Read,Glob,Grep"
 	// --verbose turns the json output into the whole message array, which
 	// resultText reads like the single result and skillreads counts Reads in.

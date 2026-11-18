@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -58,7 +59,7 @@ func grokHomes(arms []arm) (func(), error) {
 	var homes []string
 	cleanup := func() {
 		for _, home := range homes {
-			_ = os.RemoveAll(home) //nolint:errcheck // best-effort cleanup of temporary arm homes
+			_ = os.RemoveAll(home) // best-effort cleanup of temporary arm homes
 		}
 	}
 	auth, err := grokAuth()
@@ -211,13 +212,13 @@ func grokSession(o options, home, work, prompt string) ([]byte, error) {
 		return nil, err
 	}
 	defer func() {
-		_ = os.Remove(sockName)             //nolint:errcheck // best-effort cleanup of the session socket
-		_ = os.Remove(sockName + ".daemon") //nolint:errcheck // best-effort cleanup of the session socket
+		_ = os.Remove(sockName)             // best-effort cleanup of the session socket
+		_ = os.Remove(sockName + ".daemon") // best-effort cleanup of the session socket
 	}()
 	args := []string{
 		"-p", prompt,
 		"--output-format", "streaming-messages-json",
-		"--max-turns", fmt.Sprint(maxSteps),
+		"--max-turns", strconv.Itoa(maxSteps),
 		"--always-approve",
 		"--permission-mode", "bypassPermissions",
 		"--no-subagents",
@@ -248,8 +249,8 @@ func grokCmd(timeout time.Duration, dir, home string, args ...string) ([]byte, e
 		return nil, err
 	}
 	defer func() {
-		_ = stdout.Close()           //nolint:errcheck // best-effort cleanup of the transcript buffer
-		_ = os.Remove(stdout.Name()) //nolint:errcheck // best-effort cleanup of the transcript buffer
+		_ = stdout.Close()           // best-effort cleanup of the transcript buffer
+		_ = os.Remove(stdout.Name()) // best-effort cleanup of the transcript buffer
 	}()
 	var stderr strings.Builder
 	cmd := exec.CommandContext(ctx, "grok", args...)

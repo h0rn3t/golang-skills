@@ -50,7 +50,7 @@ func copilotHomes(arms []arm) (func(), error) {
 	var homes []string
 	cleanup := func() {
 		for _, home := range homes {
-			_ = os.RemoveAll(home) //nolint:errcheck // best-effort cleanup of temporary arm homes
+			_ = os.RemoveAll(home) // best-effort cleanup of temporary arm homes
 		}
 	}
 	for i, a := range arms {
@@ -176,8 +176,8 @@ func copilotOutput(timeout time.Duration, dir, home string, args ...string) ([]b
 		return nil, "", err
 	}
 	defer func() {
-		_ = stdout.Close()           //nolint:errcheck // best-effort cleanup of the transcript buffer
-		_ = os.Remove(stdout.Name()) //nolint:errcheck // best-effort cleanup of the transcript buffer
+		_ = stdout.Close()           // best-effort cleanup of the transcript buffer
+		_ = os.Remove(stdout.Name()) // best-effort cleanup of the transcript buffer
 	}()
 	var stderr strings.Builder
 	cmd := exec.CommandContext(ctx, "copilot", args...)

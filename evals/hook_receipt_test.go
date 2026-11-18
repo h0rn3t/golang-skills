@@ -2,6 +2,7 @@ package evals_test
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -335,13 +336,13 @@ func receiptCommand(t *testing.T, args ...string) (int, string) {
 
 func receiptCommandEnv(t *testing.T, env []string, args ...string) (int, string) {
 	t.Helper()
-	cmd := exec.Command("bash", append([]string{filepath.Join(repoRoot(t), "hooks", "go-hook-helper.sh"), "receipt"}, args...)...)
+	cmd := exec.CommandContext(t.Context(), "bash", append([]string{filepath.Join(repoRoot(t), "hooks", "go-hook-helper.sh"), "receipt"}, args...)...)
 	cmd.Env = append(append(os.Environ(), "GOWORK=off"), env...)
 	out, err := cmd.CombinedOutput()
 	if err == nil {
 		return 0, string(out)
 	}
-	if exit, ok := err.(*exec.ExitError); ok {
+	if exit, ok := errors.AsType[*exec.ExitError](err); ok {
 		return exit.ExitCode(), string(out)
 	}
 	t.Fatalf("receipt command %v: %v", args, err)
@@ -368,13 +369,13 @@ func TestReceiptShellCredit(t *testing.T) {
 	verify := func(t *testing.T, cwd string, command ...string) (int, string) {
 		t.Helper()
 		args := append([]string{filepath.Join(repoRoot(t), "hooks", "go-check-receipt.sh"), record, cwd}, command...)
-		cmd := exec.Command("bash", args...)
+		cmd := exec.CommandContext(t.Context(), "bash", args...)
 		cmd.Env = append(os.Environ(), "GOWORK=off")
 		out, err := cmd.CombinedOutput()
 		if err == nil {
 			return 0, string(out)
 		}
-		if exit, ok := err.(*exec.ExitError); ok {
+		if exit, ok := errors.AsType[*exec.ExitError](err); ok {
 			return exit.ExitCode(), string(out)
 		}
 		t.Fatalf("shell verifier: %v", err)
@@ -461,7 +462,7 @@ func TestHookOffersRunnableVerifier(t *testing.T) {
 func offeredGate(t *testing.T, text string) string {
 	t.Helper()
 	var commands []string
-	for _, line := range strings.Split(text, "\n") {
+	for line := range strings.SplitSeq(text, "\n") {
 		if strings.HasPrefix(line, "bash ") {
 			commands = append(commands, line)
 		}
@@ -476,7 +477,7 @@ func offeredGate(t *testing.T, text string) string {
 // without plugin env, and returns hook_credit per check.
 func runOfferedGate(t *testing.T, command string) map[string]bool {
 	t.Helper()
-	cmd := exec.Command("bash", "-c", command)
+	cmd := exec.CommandContext(t.Context(), "bash", "-c", command)
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	out, _ := cmd.Output()
 	var result struct {
@@ -640,7 +641,7 @@ func TestReceiptInvalidation(t *testing.T) {
 	t.Run("FIFO inputs do not block snapshot or allow reuse", func(t *testing.T) {
 		t.Parallel()
 		dir, _ := newRecord(t, "vet", "", "go", "vet", ".")
-		if out, err := exec.Command("mkfifo", filepath.Join(dir, "runtime.pipe")).CombinedOutput(); err != nil {
+		if out, err := exec.CommandContext(t.Context(), "mkfifo", filepath.Join(dir, "runtime.pipe")).CombinedOutput(); err != nil {
 			t.Fatalf("mkfifo = %v: %s", err, out)
 		}
 		records := t.TempDir()

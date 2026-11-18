@@ -17,7 +17,7 @@ import (
 
 func goroot(t *testing.T) string {
 	t.Helper()
-	out, err := exec.Command("go", "env", "GOROOT").Output()
+	out, err := exec.CommandContext(t.Context(), "go", "env", "GOROOT").Output()
 	if err != nil {
 		t.Skipf("go env GOROOT: %v", err)
 	}
@@ -67,7 +67,7 @@ func apiIndex(t *testing.T) map[string]string {
 		if err != nil {
 			t.Fatalf("read %s: %v", f, err)
 		}
-		for _, l := range strings.Split(string(content), "\n") {
+		for l := range strings.SplitSeq(string(content), "\n") {
 			if g := field.FindStringSubmatch(l); g != nil {
 				record(g[1], g[2], minor)
 				continue
@@ -98,8 +98,8 @@ func apiIndex(t *testing.T) map[string]string {
 }
 
 func path(importPath string) string {
-	if i := strings.LastIndex(importPath, "/"); i >= 0 {
-		return importPath[i+1:]
+	if _, after, ok := strings.CutLast(importPath, "/"); ok {
+		return after
 	}
 	return importPath
 }
@@ -259,13 +259,13 @@ var ambiguousAnalyzerNames = map[string]bool{
 func analyzerSets(t *testing.T) (vet, fix map[string]bool) {
 	t.Helper()
 	load := func(tool string) map[string]bool {
-		out, err := exec.Command("go", "tool", tool, "help").CombinedOutput()
+		out, err := exec.CommandContext(t.Context(), "go", "tool", tool, "help").CombinedOutput()
 		if err != nil {
 			t.Skipf("go tool %s help: %v", tool, err)
 		}
 		names := map[string]bool{}
 		inList := false
-		for _, line := range strings.Split(string(out), "\n") {
+		for line := range strings.SplitSeq(string(out), "\n") {
 			switch {
 			case strings.HasPrefix(line, "Registered analyzers:"):
 				inList = true

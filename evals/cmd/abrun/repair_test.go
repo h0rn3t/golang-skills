@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +14,7 @@ import (
 // satisfied its own gate under a different one, and assertion text without the
 // position that would name the hidden test.
 func TestRepairFeedback(t *testing.T) {
-	grown := repairFeedback("gw0", 132, 148, "")
+	grown := repairFeedback("gw0", 132, 148, "", true)
 	for _, want := range []string{
 		"Package under review: ./gw0",
 		"Starting production LOC: 132",
@@ -31,7 +32,7 @@ func TestRepairFeedback(t *testing.T) {
 	}
 
 	broke := repairFeedback("gw0", 135, 130, "go test ./gw0/...: exit status 1: --- FAIL: TestEmptyListIsJSONArray/nil (0.00s)\n"+
-		"        golden_test.go:200: GET /accounts = 200 \"null\", want 200 []\nFAIL\nFAIL\tabeval/gw0\t0.2s")
+		"        golden_test.go:200: GET /accounts = 200 \"null\", want 200 []\nFAIL\nFAIL\tabeval/gw0\t0.2s", true)
 	if !strings.Contains(broke, "Gate: PASS on line count.") {
 		t.Errorf("repairFeedback(shrunk) reported growth:\n%s", broke)
 	}
@@ -55,7 +56,8 @@ func TestProbeGoldenLeavesTreeUntouched(t *testing.T) {
 	writeTestFile(t, filepath.Join(golden, "golden_test.go"),
 		"package task\n\nimport \"testing\"\n\nfunc TestGolden(t *testing.T) {\n\tif Value() != 1 {\n\t\tt.Fatalf(\"Value() = %d, want 1\", Value())\n\t}\n}\n")
 
-	pass, failure, err := probeGolden(time.Minute, work, "task", golden)
+	goldenArgs := []string{"test", "./task/..."}
+	pass, failure, err := probeGolden(time.Minute, work, "task", golden, goldenArgs)
 	if err != nil {
 		t.Fatalf("probeGolden error = %v, want nil", err)
 	}
@@ -80,29 +82,42 @@ func TestProbeGoldenLeavesTreeUntouched(t *testing.T) {
 
 	// And it answers true when the package satisfies the golden.
 	writeTestFile(t, filepath.Join(work, "task/task.go"), "package task\n\nfunc Value() int { return 1 }\n")
-	if pass, _, err := probeGolden(time.Minute, work, "task", golden); err != nil || !pass {
+	if pass, _, err := probeGolden(time.Minute, work, "task", golden, goldenArgs); err != nil || !pass {
 		t.Errorf("probeGolden(passing) = %v, err = %v, want true and nil", pass, err)
 	}
 }
 
 // TestRunOneRepairLoop drives the whole loop through runOne with a fake CLI that
-// grows the package on its first turn and shrinks it on the second, so the
-// recorded result has to describe the tree after the repair, not before it.
+// grows the package on its first turn, then returns a contract-passing repair.
 func TestRunOneRepairLoop(t *testing.T) {
 	const fixture = "package task\n\nfunc Value() int { return 1 }\n"
 	const grown = "package task\n\n// grown past the gate\nfunc helper() int { return 1 }\n\nfunc Value() int { return helper() }\n"
 	const repaired = "package task\n\nfunc Value() int { return 1 } // repaired\n"
+	broken := strings.Replace(grown, "return 1", "return 2", 1)
 
 	for _, tt := range []struct {
 		name        string
+		corpus      string
+		firstTurn   string
+		secondTurn  string
 		repair      bool
 		wantFired   bool
 		wantGate    bool
 		wantLines   int
 		wantPreGold bool
 	}{
-		{name: "loop off leaves the growth", wantLines: 3},
-		{name: "loop on repairs it", repair: true, wantFired: true, wantGate: true, wantLines: 0, wantPreGold: true},
+		{name: "loop off leaves the growth", corpus: corpusRefactor, wantLines: 3},
+		{name: "refactor repairs growth", corpus: corpusRefactor, repair: true, wantFired: true, wantGate: true, wantPreGold: true},
+		{name: "implementation can grow", corpus: corpusImplement, repair: true, wantLines: 3},
+		{
+			name: "implementation repairs behavior", corpus: corpusImplement, repair: true,
+			firstTurn: broken, secondTurn: grown,
+			wantFired: true, wantLines: 3,
+		},
+		{
+			name: "perf repairs an assertion enabled by race", corpus: corpusPerf, repair: true,
+			firstTurn: broken, wantFired: true, wantGate: true,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			bin, corpus, model := t.TempDir(), t.TempDir(), t.TempDir()
@@ -123,20 +138,27 @@ printf '%s\n' "{\"type\":\"result\",\"result\":\"turn $turn done\"}"
 			}
 			t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 			writeTestFile(t, filepath.Join(corpus, "task/task.go"), fixture)
-			writeTestFile(t, filepath.Join(corpus, "_golden/task/golden_test.go"),
-				"package task\n\nimport \"testing\"\n\nfunc TestGolden(t *testing.T) {\n\tif Value() != 1 {\n\t\tt.Fatal(\"golden mismatch\")\n\t}\n}\n")
-			writeTestFile(t, filepath.Join(model, "turn1.go"), grown)
-			writeTestFile(t, filepath.Join(model, "turn2.go"), repaired)
+			goldenTest := "package task\n\nimport \"testing\"\n\nfunc TestGolden(t *testing.T) {\n\tif Value() != 1 {\n\t\tt.Fatal(\"golden mismatch\")\n\t}\n}\n"
+			if tt.corpus == corpusPerf {
+				// Exercise -race without relying on the scheduling of a real data race.
+				goldenTest = "//go:build race\n\n" + goldenTest
+				writeTestFile(t, filepath.Join(corpus, "_golden/task/key.json"),
+					`{"prompt":"Speed up Value in ./%s.","expect":"speedup","bench":"^BenchmarkValue$","targets":["Value"]}`)
+			}
+			writeTestFile(t, filepath.Join(corpus, "_golden/task/golden_test.go"), goldenTest)
+			writeTestFile(t, filepath.Join(model, "turn1.go"), cmp.Or(tt.firstTurn, grown))
+			writeTestFile(t, filepath.Join(model, "turn2.go"), cmp.Or(tt.secondTurn, repaired))
 			workFile := filepath.Join(model, "work")
 			t.Setenv("ABRUN_TEST_SOURCE", model)
 			t.Setenv("ABRUN_TEST_WORK", workFile)
 
-			got := runOne(options{runner: runnerClaude, prompt: "Refactor %s", keep: true,
+			got := runOne(options{runner: runnerClaude, corpus: tt.corpus, prompt: "Update %s", keep: true,
 				repair: tt.repair, timeout: time.Minute}, corpus, arm{Name: "baseline"}, "task", 0)
 			t.Cleanup(func() { _ = os.RemoveAll(got.WorkDir) })
 
 			if got.Err != "" || !got.Build || !got.Golden {
-				t.Fatalf("runOne(%s) = %+v, want a clean build and golden pass", tt.name, got)
+				t.Fatalf("runOne(%s): error = %q, build = %t, golden = %t, repair fired = %t, want a clean build and golden pass\n%s",
+					tt.name, got.Err, got.Build, got.Golden, got.RepairFired, got.GoFail)
 			}
 			if got.RepairFired != tt.wantFired {
 				t.Errorf("repair_fired = %v, want %v", got.RepairFired, tt.wantFired)
@@ -159,8 +181,12 @@ printf '%s\n' "{\"type\":\"result\",\"result\":\"turn $turn done\"}"
 			if got.PreRepairGolden != tt.wantPreGold {
 				t.Errorf("pre_repair_golden = %v, want %v", got.PreRepairGolden, tt.wantPreGold)
 			}
-			if !strings.Contains(got.RepairFeedback, "Gate: FAIL, growth +3") {
+			if tt.corpus == corpusRefactor && !strings.Contains(got.RepairFeedback, "Gate: FAIL, growth +3") {
 				t.Errorf("repair feedback did not carry the measured growth:\n%s", got.RepairFeedback)
+			}
+			if tt.corpus != corpusRefactor &&
+				(!strings.Contains(got.RepairFeedback, "golden mismatch") || strings.Contains(got.RepairFeedback, "LOC")) {
+				t.Errorf("%s repair feedback should carry only the contract failure:\n%s", tt.corpus, got.RepairFeedback)
 			}
 			// Both turns have to survive in one trace.
 			trace, err := os.ReadFile(got.Trace)
@@ -170,7 +196,7 @@ printf '%s\n' "{\"type\":\"result\",\"result\":\"turn $turn done\"}"
 			if got.Output != "turn 2 done" {
 				t.Errorf("final message = %q, want the repair turn's", got.Output)
 			}
-			summary := summarizeArm(report{Results: []result{got}}, "baseline")
+			summary := summarizeArm(report{Corpus: tt.corpus, Results: []result{got}}, "baseline")
 			if summary.RepairsFired != 1 || summary.RepairsRescued != 1 {
 				t.Errorf("summary fired=%d rescued=%d, want 1 and 1", summary.RepairsFired, summary.RepairsRescued)
 			}

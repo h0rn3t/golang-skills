@@ -212,7 +212,7 @@ func TestGoldenClamp(t *testing.T) {
 			bin, corpus, model := t.TempDir(), t.TempDir(), t.TempDir()
 			cli := filepath.Join(bin, "claude")
 			writeTestFile(t, cli, "#!/bin/sh\nset -eu\ncp \"$ABRUN_TEST_SOURCE\"/*.go task/\nprintf '%s\\n' '{\"type\":\"result\",\"result\":\"done\"}'\n")
-			if err := os.Chmod(cli, 0o700); err != nil { //nolint:gosec // G302: the fake CLI has to be executable
+			if err := os.Chmod(cli, 0o700); err != nil { // the fake CLI has to be executable
 				t.Fatal(err)
 			}
 			t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))

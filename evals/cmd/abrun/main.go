@@ -35,6 +35,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -227,7 +228,7 @@ func main() {
 	flag.DurationVar(&o.timeout, "timeout", 10*time.Minute, "per-run timeout")
 	flag.BoolVar(&o.verbose, "verbose", false, "print the model's final message for every run")
 	flag.BoolVar(&o.keep, "keep", false, "keep every run's scratch tree, including successful source and model tests (.model)")
-	flag.BoolVar(&o.repair, "repair", false, "after the session, return the measured line count and any independent failure and grant one repair turn")
+	flag.BoolVar(&o.repair, "repair", false, "grant one repair turn for an independent contract failure or production line growth in a refactor")
 	flag.BoolVar(&o.judge, "judge", false, "after the runs, ask a blind pairwise judge which arm's production code reads better (through the claude CLI, whatever -runner is)")
 	flag.StringVar(&o.judgeModel, "judge-model", judgeModelDefault, "model the -judge comparisons ask")
 	flag.StringVar(&o.judgePair, "judge-pair", referenceArm+",baseline", "the two arms -judge compares, comma-separated")
@@ -345,7 +346,7 @@ func subPtr(a, b *int) *int {
 	return new(*a - *b)
 }
 
-func (m metrics) sub(o metrics) metrics {
+func (m *metrics) sub(o metrics) metrics {
 	return metrics{
 		Lines:        m.Lines - o.Lines,
 		Files:        m.Files - o.Files,
@@ -472,7 +473,7 @@ type result struct {
 	// agentic runs"). Like ReportedCounts it reads prose: the trace settles it.
 	HandedBack bool `json:"handed_back,omitempty"`
 	// RepairFired reports that -repair granted a second turn, which happens only
-	// when the first turn missed the line gate or failed the independent check.
+	// when the first turn failed the independent check or grew a refactor.
 	// PreRepair and PreRepairGolden are the readings that triggered it, so the
 	// report shows what the loop was handed and what it did with it.
 	RepairFired     bool     `json:"repair_fired,omitempty"`
@@ -765,7 +766,7 @@ func buildJobs(arms []arm, tasks []string, reps int, seed int64) []job {
 			}
 		}
 	}
-	rng := rand.New(rand.NewSource(seed))
+	rng := rand.New(rand.NewSource(seed)) //nolint:gosec // G404: a job order reproducible from -seed, not a secret
 	rng.Shuffle(len(jobs), func(i, j int) {
 		jobs[i], jobs[j] = jobs[j], jobs[i]
 	})
@@ -856,7 +857,7 @@ func buildArms(root, referenceRoot, variantsDir, only string) ([]arm, func(), er
 	var dirs []string
 	cleanup := func() {
 		for _, d := range dirs {
-			_ = os.RemoveAll(d) //nolint:errcheck // best-effort cleanup of temporary plugin copies
+			_ = os.RemoveAll(d) // best-effort cleanup of temporary plugin copies
 		}
 	}
 	arms := []arm{{Name: controlArm}}
@@ -956,7 +957,7 @@ func pluginDigest(root string) (string, error) {
 			return "", err
 		}
 	}
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // selectArms keeps only the named arms, or all of them when only is empty.
@@ -1019,7 +1020,7 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		if res.perfJob != nil {
 			return // measurePerfResults removes it once the tree is measured
 		}
-		_ = os.RemoveAll(work) //nolint:errcheck // best-effort cleanup after the result is recorded
+		_ = os.RemoveAll(work) // best-effort cleanup after the result is recorded
 	}()
 
 	pkgDir := filepath.Join(work, taskName)
@@ -1171,23 +1172,25 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 		res.Review = &score
 		return res
 	}
-	// The repair loop closes the gap stage 2 measured: a session that is handed
-	// its own numbers back, in the harness's own counting convention, together
-	// with the independent failure, repairs what a generic re-review does not.
-	// The probe runs on a throwaway copy of the whole module, so the golden
-	// never enters the tree the model can see.
+	goldenArgs := []string{"test", "./" + taskName + "/..."}
+	if o.corpus == corpusPerf {
+		// A speedup made by dropping a lock passes a plain run of the same test.
+		goldenArgs = []string{"test", "-race", "./" + taskName + "/..."}
+	}
+	// Probe in a throwaway module so the model only sees the failure message.
 	if o.repair && res.Err == "" {
-		probePass, probeFail, probeErr := probeGolden(o.timeout, work, taskName, golden)
+		limitLines := o.corpus == corpusRefactor
+		probePass, probeFail, probeErr := probeGolden(o.timeout, work, taskName, golden, goldenArgs)
 		switch {
 		case probeErr != nil:
 			res.Err = fmt.Sprintf("probe golden: %v", probeErr)
 			return res
-		case res.LineGatePass && probePass:
+		case probePass && (!limitLines || res.LineGatePass):
 			// Nothing to repair; the loop costs no extra turn.
 		default:
 			pre := res.After
 			res.RepairFired, res.PreRepair, res.PreRepairGolden = true, &pre, probePass
-			res.RepairFeedback = repairFeedback(taskName, before.Lines, pre.Lines, probeFail)
+			res.RepairFeedback = repairFeedback(taskName, before.Lines, pre.Lines, probeFail, limitLines)
 			repair := runSession(o, a, work, res.RepairFeedback)
 			res.merge(repair)
 			if err := appendTrace(work, repair.out); err == nil && o.keep {
@@ -1220,11 +1223,6 @@ func runOne(o options, abDir string, a arm, taskName string, rep int) (res resul
 	if err := os.CopyFS(pkgDir, os.DirFS(golden)); err != nil {
 		res.Err = fmt.Sprintf("copy golden: %v", err)
 		return res
-	}
-	goldenArgs := []string{"test", "./" + taskName + "/..."}
-	if o.corpus == corpusPerf {
-		// A speedup made by dropping a lock passes a plain run of the same test.
-		goldenArgs = []string{"test", "-race", "./" + taskName + "/..."}
 	}
 	if err := goCmd(o.timeout, work, goldenArgs...); err != nil {
 		res.GoFail = err.Error()
@@ -1362,7 +1360,7 @@ func appendTrace(work string, out []byte) error {
 		return err
 	}
 	if _, err := f.Write(out); err != nil {
-		_ = f.Close() //nolint:errcheck // the write error is the one worth reporting
+		_ = f.Close() // the write error is the one worth reporting
 		return err
 	}
 	return f.Close()
@@ -1375,13 +1373,13 @@ func appendTrace(work string, out []byte) error {
 // model can read, or the next turn would be repairing against a test it can
 // see, which is a different experiment. The probe leaves the model's tree
 // untouched, including the tests the model wrote.
-func probeGolden(timeout time.Duration, work, taskName, goldenDir string) (bool, string, error) {
+func probeGolden(timeout time.Duration, work, taskName, goldenDir string, testArgs []string) (bool, string, error) {
 	probe, err := os.MkdirTemp("", "abrun-probe-")
 	if err != nil {
 		return false, "", err
 	}
 	defer func() {
-		_ = os.RemoveAll(probe) //nolint:errcheck // best-effort cleanup of the probe copy
+		_ = os.RemoveAll(probe) // best-effort cleanup of the probe copy
 	}()
 	// MkdirTemp already created the directory, and CopyFS refuses to overwrite,
 	// so the copy goes into a fresh child.
@@ -1396,7 +1394,7 @@ func probeGolden(timeout time.Duration, work, taskName, goldenDir string) (bool,
 	if err := os.CopyFS(pkgDir, os.DirFS(goldenDir)); err != nil {
 		return false, "", err
 	}
-	if err := goCmd(timeout, root, "test", "./"+taskName+"/..."); err != nil {
+	if err := goCmd(timeout, root, testArgs...); err != nil {
 		return false, err.Error(), nil
 	}
 	return true, "", nil
@@ -1412,22 +1410,28 @@ func probeGolden(timeout time.Duration, work, taskName, goldenDir string) (bool,
 //
 // The independent failure arrives as assertion text with file positions
 // stripped: the model is told what broke, not which file holds the test.
-func repairFeedback(taskName string, start, current int, failure string) string {
+func repairFeedback(taskName string, start, current int, failure string, limitLines bool) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Package under review: ./%s\n\n", taskName)
-	fmt.Fprintf(&b, "Starting production LOC: %d\n", start)
-	fmt.Fprintf(&b, "Current production LOC: %d\n", current)
-	if current > start {
-		fmt.Fprintf(&b, "Gate: FAIL, growth +%d\n", current-start)
-	} else {
-		b.WriteString("Gate: PASS on line count.\n")
+	if limitLines {
+		fmt.Fprintf(&b, "Starting production LOC: %d\n", start)
+		fmt.Fprintf(&b, "Current production LOC: %d\n", current)
+		if current > start {
+			fmt.Fprintf(&b, "Gate: FAIL, growth +%d\n", current-start)
+		} else {
+			b.WriteString("Gate: PASS on line count.\n")
+		}
+		b.WriteString("LOC counts physical lines in the package's non-test *.go files, blank lines and comments included.\n")
 	}
-	b.WriteString("LOC counts physical lines in the package's non-test *.go files, blank lines and comments included.\n")
 	if failure != "" {
 		fmt.Fprintf(&b, "\nIndependent contract failure:\n%s\n", assertionsOnly(failure))
 	}
-	b.WriteString("\nRepair the implementation or restore the starting version.\n")
-	fmt.Fprintf(&b, "Done when LOC <= %d and the contract test passes.\n", start)
+	if limitLines {
+		b.WriteString("\nRepair the implementation or restore the starting version.\n")
+		fmt.Fprintf(&b, "Done when LOC <= %d and the contract test passes.\n", start)
+	} else {
+		b.WriteString("\nRepair the implementation so the contract test passes.\n")
+	}
 	return b.String()
 }
 
@@ -1464,7 +1468,7 @@ func claudeSession(o options, armDir, work, prompt string) ([]byte, error) {
 		// visible in the transcript; without the flag the host adds it
 		// silently and the trace cannot show whether the hook fired.
 		"--include-hook-events",
-		"--max-turns", fmt.Sprint(maxSteps),
+		"--max-turns", strconv.Itoa(maxSteps),
 		"--permission-mode", "acceptEdits",
 		// The arms differ only in skill text, so the run must not pick up the
 		// operator's own settings or hooks on top of the plugin under test.
@@ -1523,9 +1527,11 @@ func claudeToolArgs(o options, tools string) []string {
 	}
 	if o.shell == shellGo {
 		bash = true
+		var allowedSb1529 strings.Builder
 		for _, c := range shellGoCommands {
-			allowed += ",Bash(" + c + ":*)"
+			allowedSb1529.WriteString(",Bash(" + c + ":*)")
 		}
+		allowed += allowedSb1529.String()
 	}
 	if bash {
 		tools += ",Bash"
@@ -1712,7 +1718,7 @@ func fixtureDigest(dir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // analyze counts the structure of every Go file in dir.
@@ -1998,6 +2004,7 @@ func countDecls(file *ast.File, m *metrics) {
 						}
 					}
 				}
+			default: // IMPORT declarations add no API surface
 			}
 		}
 	}
@@ -2329,7 +2336,7 @@ func goCmd(timeout time.Duration, dir string, args ...string) error {
 }
 
 func repoRoot() (string, error) {
-	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	out, err := exec.CommandContext(context.Background(), "git", "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		return "", fmt.Errorf("git rev-parse --show-toplevel: %w", err)
 	}
@@ -2374,7 +2381,7 @@ func printResult(r result, verbose bool) {
 		return
 	}
 	status := resultStatus(r)
-	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  clos %+d  bcom %+d  exp %+d  branch %+d  build=%v model_tests=%s golden=%v gate=%v skills=%v",
+	fmt.Printf("[%s] %-24s %-10s #%d  lines %+d  types %+d  funcs %+d  clos %+d  bcom %+d  exp %+d  branch %+d  build=%v model_tests=%s golden=%v loc_non_growth=%v skills=%v",
 		status, r.Arm, r.Task, r.Rep, r.Delta.Lines, r.Delta.Types, r.Delta.Funcs, r.Delta.Closures, r.Delta.BodyComments, r.Delta.Exported, r.Delta.Branches, r.Build, r.ModelTests, r.Golden, r.LineGatePass, r.Skills)
 	if r.GoplsRoute != "" {
 		fmt.Printf(" gopls(%s)=%d", r.GoplsRoute, r.GoplsCalls)
@@ -2498,8 +2505,8 @@ type armSummary struct {
 	EmptyDiffs     int
 	ReportedCounts int
 	// RepairsFired and RepairsRescued count the loop: how often a second turn
-	// was granted, and how often the run cleared both the gate and the golden
-	// afterwards. The second number is the only one that says the loop worked.
+	// was granted, and how often it passed the golden and the applicable line
+	// limit afterwards.
 	RepairsFired   int
 	RepairsRescued int
 	// Commands рахує shell tool calls у завершених runs незалежно від success.
@@ -2556,7 +2563,7 @@ func (s *readabilitySum) add(d metrics) {
 }
 
 // line renders the per-run means, or a dash when no run was measured.
-func (s readabilitySum) line(valid int) string {
+func (s *readabilitySum) line(valid int) string {
 	if s.Runs == 0 {
 		return "readability Δ/run: — (not measured in this report)"
 	}
@@ -2652,7 +2659,7 @@ func summarizeArm(rep report, name string) armSummary {
 		}
 		if r.RepairFired {
 			summary.RepairsFired++
-			if r.LineGatePass && r.Golden {
+			if r.Golden && (rep.Corpus != corpusRefactor || r.LineGatePass) {
 				summary.RepairsRescued++
 			}
 		}
@@ -2757,7 +2764,7 @@ func printSummary(rep report) {
 		if summary.HarnessFailures > 0 {
 			fmt.Printf("%-24s   %d golden failure(s) were harness collisions, not behavior changes\n", "", summary.HarnessFailures)
 		}
-		fmt.Printf("%-24s   line gate %d/%d, behavior failures %d, counts reported %d/%d\n",
+		fmt.Printf("%-24s   no LOC growth %d/%d, behavior failures %d, counts reported %d/%d\n",
 			"", summary.LineGatePasses, completed, summary.BehaviorFailures, summary.ReportedCounts, completed)
 		if summary.Suppressions != 0 {
 			fmt.Printf("%-24s   checker suppressions added %+d over %d valid run(s)\n", "", summary.Suppressions, summary.Valid)
@@ -2782,7 +2789,7 @@ func printSummary(rep report) {
 				"", lintMean(summary.LintBefore), lintMean(summary.LintAfter), summary.LintClean, summary.LintMeasured)
 		}
 		if summary.RepairsFired > 0 {
-			fmt.Printf("%-24s   repair turn fired %d time(s), cleared gate and golden in %d\n",
+			fmt.Printf("%-24s   repair turn fired %d time(s), met repair criteria in %d\n",
 				"", summary.RepairsFired, summary.RepairsRescued)
 		}
 	}

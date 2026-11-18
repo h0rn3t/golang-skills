@@ -632,12 +632,12 @@ func run(args []string) (int, error) {
 			// The per-check cap of go-vet-on-edit.sh's run_check, applied
 			// here rather than through timeout(1), which macOS lacks.
 			limit, _ := strconv.ParseFloat(os.Getenv("GOLANG_SKILLS_CHECK_LIMIT"), 64)
-			cap := time.Duration(limit * float64(time.Second))
-			capped := limit > 0 && cap < remaining()-4*time.Second
+			budget := time.Duration(limit * float64(time.Second))
+			capped := limit > 0 && budget < remaining()-4*time.Second
 			if !capped {
-				cap = max(time.Millisecond, remaining()-4*time.Second)
+				budget = max(time.Millisecond, remaining()-4*time.Second)
 			}
-			c, raw, timedOut, err := runCapped(command, filepath.Dir(resolve(file)), false, cap)
+			c, raw, timedOut, err := runCapped(command, filepath.Dir(resolve(file)), false, budget)
 			switch {
 			case err != nil:
 				c, raw = 127, []byte(err.Error()+"\n")

@@ -2,6 +2,7 @@ package evals_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -31,7 +32,7 @@ func hookOutput(t *testing.T, script, state string, payload map[string]any, env 
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
 	}
-	cmd := exec.Command("bash", script)
+	cmd := exec.CommandContext(t.Context(), "bash", script)
 	cmd.Stdin = strings.NewReader(string(body))
 	// Receipts hash only build variables, so the empty PLUGIN_ROOT changes no
 	// digest; the gate reads an empty one as unset, that is, as Claude. The
@@ -49,7 +50,7 @@ func hookOutput(t *testing.T, script, state string, payload map[string]any, env 
 	if err == nil {
 		return 0, stdout.String(), stderr.String()
 	}
-	exitErr, ok := err.(*exec.ExitError)
+	exitErr, ok := errors.AsType[*exec.ExitError](err)
 	if !ok {
 		t.Fatalf("run %s: %v", script, err)
 	}
@@ -108,7 +109,7 @@ func TestHookScriptsSyntax(t *testing.T) {
 		}
 	}
 	for script := range seen {
-		if out, err := exec.Command("bash", "-n", script).CombinedOutput(); err != nil {
+		if out, err := exec.CommandContext(t.Context(), "bash", "-n", script).CombinedOutput(); err != nil {
 			t.Errorf("bash -n %s: %v\n%s", script, err, out)
 		}
 	}
@@ -517,7 +518,7 @@ func TestRoutingGate(t *testing.T) {
 		if err := os.WriteFile(tf, []byte("package api\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		out, err := exec.Command("bash", script, "--hints", src, tf, filepath.Join(dir, "missing.go")).Output()
+		out, err := exec.CommandContext(t.Context(), "bash", script, "--hints", src, tf, filepath.Join(dir, "missing.go")).Output()
 		if err != nil {
 			t.Fatalf("--hints: %v", err)
 		}
@@ -528,7 +529,7 @@ func TestRoutingGate(t *testing.T) {
 		if err := os.WriteFile(db, []byte("package store\n\nimport \"database/sql\"\n\nfunc count(db *sql.DB) {}\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		out, err = exec.Command("bash", script, "--hints", db).Output()
+		out, err = exec.CommandContext(t.Context(), "bash", script, "--hints", db).Output()
 		if err != nil {
 			t.Fatalf("--hints %s: %v", db, err)
 		}
@@ -699,7 +700,6 @@ func TestRoutingGate(t *testing.T) {
 				"package x\n\nimport \"crypto/subtle\"\n\nfunc eq(a, b []byte) bool { return subtle.ConstantTimeCompare(a, b) == 1 }\n", "go-security"},
 		}
 		for _, tc := range cases {
-			tc := tc
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 				state := t.TempDir()
@@ -939,7 +939,7 @@ func TestVetHook(t *testing.T) {
 		path := module(t, bareWrite)
 		git := func(args ...string) {
 			t.Helper()
-			cmd := exec.Command("git", append([]string{"-c", "user.email=t@example.com", "-c", "user.name=t", "-c", "commit.gpgsign=false"}, args...)...)
+			cmd := exec.CommandContext(t.Context(), "git", append([]string{"-c", "user.email=t@example.com", "-c", "user.name=t", "-c", "commit.gpgsign=false"}, args...)...)
 			cmd.Dir = filepath.Dir(path)
 			if out, err := cmd.CombinedOutput(); err != nil {
 				t.Fatalf("git %v: %v\n%s", args, err, out)
@@ -1066,7 +1066,7 @@ func promptEvent(t *testing.T, state, session, cwd, prompt string, env ...string
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
 	}
-	cmd := exec.Command("bash", filepath.Join(repoRoot(t), "hooks", "go-prompt-routing.sh"))
+	cmd := exec.CommandContext(t.Context(), "bash", filepath.Join(repoRoot(t), "hooks", "go-prompt-routing.sh"))
 	cmd.Stdin = strings.NewReader(string(body))
 	cmd.Env = append(append(os.Environ(),
 		"CLAUDE_PLUGIN_ROOT="+repoRoot(t),
@@ -1084,7 +1084,7 @@ func promptEvent(t *testing.T, state, session, cwd, prompt string, env ...string
 	if err == nil {
 		return 0, stdout.String()
 	}
-	exitErr, ok := err.(*exec.ExitError)
+	exitErr, ok := errors.AsType[*exec.ExitError](err)
 	if !ok {
 		t.Fatalf("run prompt hook: %v", err)
 	}
@@ -1876,7 +1876,7 @@ func subagentEvent(t *testing.T, event, cwd, agentType string, env ...string) (i
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
 	}
-	cmd := exec.Command("bash", filepath.Join(repoRoot(t), "hooks", "go-subagent-routing.sh"))
+	cmd := exec.CommandContext(t.Context(), "bash", filepath.Join(repoRoot(t), "hooks", "go-subagent-routing.sh"))
 	cmd.Stdin = strings.NewReader(string(body))
 	cmd.Env = append(append(os.Environ(),
 		"CLAUDE_PLUGIN_ROOT="+repoRoot(t),
@@ -1892,7 +1892,7 @@ func subagentEvent(t *testing.T, event, cwd, agentType string, env ...string) (i
 	if err == nil {
 		return 0, subagentStdout(t, event, stdout.String())
 	}
-	exitErr, ok := err.(*exec.ExitError)
+	exitErr, ok := errors.AsType[*exec.ExitError](err)
 	if !ok {
 		t.Fatalf("run subagent hook: %v", err)
 	}
@@ -1930,7 +1930,7 @@ func TestSubagentRouting(t *testing.T) {
 
 	t.Run("Go project names the routers", func(t *testing.T) {
 		t.Parallel()
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			code, out := subagentEvent(t, "SubagentStart", goDir, "general-purpose")
 			if code != 0 {
 				t.Fatalf("subagent %d in a Go directory: exit %d, want 0", i, code)
@@ -2040,7 +2040,7 @@ func ladderEvent(t *testing.T, state string, payload map[string]any, env ...stri
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
 	}
-	cmd := exec.Command("bash", filepath.Join(repoRoot(t), "hooks", "go-restraint-ladder.sh"))
+	cmd := exec.CommandContext(t.Context(), "bash", filepath.Join(repoRoot(t), "hooks", "go-restraint-ladder.sh"))
 	cmd.Stdin = strings.NewReader(string(body))
 	cmd.Env = append(append(os.Environ(), "CLAUDE_PLUGIN_DATA="+state, "GOLANG_SKILLS_LADDER="), env...)
 	var stdout, stderr strings.Builder
@@ -2054,7 +2054,7 @@ func ladderEvent(t *testing.T, state string, payload map[string]any, env ...stri
 	if err == nil {
 		return 0, subagentStdout(t, event, stdout.String())
 	}
-	exitErr, ok := err.(*exec.ExitError)
+	exitErr, ok := errors.AsType[*exec.ExitError](err)
 	if !ok {
 		t.Fatalf("run ladder hook: %v", err)
 	}
@@ -2231,14 +2231,14 @@ func TestForeignHostHooks(t *testing.T) {
 			for _, entry := range entries {
 				for _, h := range entry.Hooks {
 					ran++
-					cmd := exec.Command("bash", "-c", h.Command)
+					cmd := exec.CommandContext(t.Context(), "bash", "-c", h.Command)
 					cmd.Stdin = strings.NewReader(body)
 					cmd.Env = append(os.Environ(), "CLAUDE_PLUGIN_ROOT=", "CLAUDE_PROJECT_DIR=", "PLUGIN_ROOT=")
 					out, err := cmd.CombinedOutput()
 					if err == nil {
 						continue
 					}
-					exitErr, ok := err.(*exec.ExitError)
+					exitErr, ok := errors.AsType[*exec.ExitError](err)
 					if !ok || exitErr.ExitCode() != 0 {
 						code := -1
 						if ok {
@@ -2281,7 +2281,7 @@ func TestForeignHostHooks(t *testing.T) {
 		if command == "" {
 			t.Fatal("PreToolUse has no go-code-routing.sh command")
 		}
-		cmd := exec.Command("bash", "-c", command)
+		cmd := exec.CommandContext(t.Context(), "bash", "-c", command)
 		cmd.Stdin = strings.NewReader(`{"hook_event_name":"PreToolUse","session_id":"claude","tool_name":"Write","tool_input":{"file_path":"/repo/api/handler.go","content":"package api\n"}}`)
 		cmd.Env = append(os.Environ(),
 			"CLAUDE_PLUGIN_ROOT="+repoRoot(t),
@@ -2289,7 +2289,7 @@ func TestForeignHostHooks(t *testing.T) {
 			"CLAUDE_PROJECT_DIR="+repoRoot(t),
 			"PLUGIN_ROOT=")
 		out, err := cmd.CombinedOutput()
-		exitErr, ok := err.(*exec.ExitError)
+		exitErr, ok := errors.AsType[*exec.ExitError](err)
 		if !ok || exitErr.ExitCode() != 2 || !strings.Contains(string(out), "go-code") {
 			code := 0
 			if ok {
@@ -2307,7 +2307,7 @@ func noteLinesWithSkillTool(t *testing.T, out, skillPath string) {
 		t.Errorf("note = %q, want %q", out, "or read "+skillPath+" whole")
 	}
 	var saw bool
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		if !strings.Contains(line, "Skill tool") {
 			continue
 		}

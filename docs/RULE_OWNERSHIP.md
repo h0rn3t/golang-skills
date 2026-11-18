@@ -135,3 +135,23 @@ Deliberate divergence, with the residual risk stated rather than argued away:
 `evals/evals.json` quality eval 45 grades a model on flagging exactly this
 shape in a *service* pipeline. That eval is correct as written; it does not
 describe this repository.
+
+### The repository lint config excludes eval corpora and harness-only findings
+
+The root `.golangci.yml` lints `evals/` and `hooks/helper/` with the bundled
+linter set (`TestRepoLintConfigTracksBundled` keeps the copy verbatim) and adds
+exclusions `go-linting`'s Holding the Bar asks to be recorded:
+
+- **Paths `evals/fixtures/`, `evals/files/`, `evals/ab/`.** These are corpora
+  whose unidiomatic code is the trap an eval measures; fixing them to satisfy
+  the linter removes what the eval checks.
+- **gosec G122, G204, G301, G302, G306, G702, G703 in `evals/*_test.go` and
+  `evals/cmd/`.** The suite and the runners write their own trees under
+  `t.TempDir` or `$TMPDIR`, mark scripts executable, and exec the bundled
+  scripts, git, go, and the model CLIs by computed path. No remote input
+  reaches a file name or an argv.
+- **gocyclo in the same paths.** Scripted hook sessions and stream parsers
+  are long flat sequences; the `hooks/helper` production code stays under
+  the threshold.
+- **gosec G703 in `hooks/helper/`.** Paths come from the host's hook payload
+  and the helper's own state directory, not from a remote client.

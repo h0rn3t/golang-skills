@@ -2,6 +2,7 @@ package evals_test
 
 import (
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -68,7 +69,7 @@ func runArchCheck(t *testing.T, wantExit int, args ...string) archReport {
 	cmd := exec.CommandContext(t.Context(), "bash", append([]string{script, "--json"}, args...)...)
 	out, err := cmd.Output()
 	code := 0
-	if exit, ok := err.(*exec.ExitError); ok {
+	if exit, ok := errors.AsType[*exec.ExitError](err); ok {
 		code = exit.ExitCode()
 	} else if err != nil {
 		t.Fatalf("run checker: %v", err)

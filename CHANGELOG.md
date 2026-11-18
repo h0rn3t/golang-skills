@@ -9,6 +9,13 @@ All notable changes to this repository are documented here.
 - Choose the JSON API for the target Go build and wire contract. The business
   rule example validates the complete plan before writing, and the manifest
   example reports a zero-byte file as largest when it is the only file.
+- In `abrun`, `-repair` retries implementations after a contract failure.
+  Production line growth triggers a repair turn for refactors. For performance
+  tasks, both golden checks run with the race detector.
+- Add a root `.golangci.yml` for `evals/` and `hooks/helper/`: the bundled
+  linter set plus recorded exclusions for eval corpora and harness-only gosec
+  findings. Both modules lint clean; the remaining findings were fixed in code
+  (`errors.AsType`, `exec.CommandContext`, explicit discards, current idioms).
 
 ## [1.50.1] - 2026-11-18
 

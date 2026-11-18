@@ -43,7 +43,7 @@ func opencodeHomes(arms []arm) (func(), error) {
 	var homes []string
 	cleanup := func() {
 		for _, home := range homes {
-			_ = os.RemoveAll(home) //nolint:errcheck // best-effort cleanup of temporary arm homes
+			_ = os.RemoveAll(home) // best-effort cleanup of temporary arm homes
 		}
 	}
 	auth, err := opencodeAuth()
@@ -142,10 +142,8 @@ func writeOpencodeHome(home, armDir string, auth []byte) error {
 	// (provider.no-route), so copy the operator's database when present.
 	// Only the main file is copied; -shm/-wal are recreated on open.
 	if src, err := opencodeDbPath(); err == nil && src != "" {
-		if dst, err := copyOpencodeDb(src, data); err != nil {
+		if _, err := copyOpencodeDb(src, data); err != nil {
 			return err
-		} else {
-			_ = dst
 		}
 	}
 	if armDir == "" {
@@ -280,7 +278,7 @@ func opencodeSession(o options, home, work, prompt string) ([]byte, error) {
 // default, which would make the effort recorded in the report a lie.
 func checkOpencodeVariant(model, variant string) error {
 	provider, _, _ := strings.Cut(model, "/")
-	out, err := exec.Command("opencode", "models", provider, "--verbose").Output()
+	out, err := exec.CommandContext(context.Background(), "opencode", "models", provider, "--verbose").Output()
 	if err != nil {
 		return fmt.Errorf("list opencode models for %s: %w", provider, err)
 	}
@@ -328,8 +326,8 @@ func opencodeCmd(timeout time.Duration, dir, home string, args ...string) ([]byt
 		return nil, err
 	}
 	defer func() {
-		_ = stdout.Close()           //nolint:errcheck // best-effort cleanup of the transcript buffer
-		_ = os.Remove(stdout.Name()) //nolint:errcheck // best-effort cleanup of the transcript buffer
+		_ = stdout.Close()           // best-effort cleanup of the transcript buffer
+		_ = os.Remove(stdout.Name()) // best-effort cleanup of the transcript buffer
 	}()
 	var stderr strings.Builder
 	cmd := exec.CommandContext(ctx, "opencode", args...)

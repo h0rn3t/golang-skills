@@ -13,7 +13,7 @@ import (
 )
 
 func TestCommandOutputReturnsPartialOutputAndError(t *testing.T) {
-	cmd := exec.Command(os.Args[0], "-test.run=TestHelperProcess", "--", "partial-error")
+	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=TestHelperProcess", "--", "partial-error")
 	cmd.Env = append(os.Environ(), "GO_WANT_HELPER_PROCESS=1")
 
 	got, err := commandOutput(cmd)
@@ -383,7 +383,7 @@ func TestValidateOptions(t *testing.T) {
 	}
 }
 
-func TestHelperProcess(t *testing.T) {
+func TestHelperProcess(_ *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}

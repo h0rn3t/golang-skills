@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -38,7 +39,7 @@ func codexHomes(arms []arm) (func(), error) {
 	var homes []string
 	cleanup := func() {
 		for _, home := range homes {
-			_ = os.RemoveAll(home) //nolint:errcheck // best-effort cleanup of temporary arm homes
+			_ = os.RemoveAll(home) // best-effort cleanup of temporary arm homes
 		}
 	}
 	auth, err := codexAuth()
@@ -158,8 +159,8 @@ func codexCmd(timeout time.Duration, dir, home string, args ...string) ([]byte, 
 		return nil, err
 	}
 	defer func() {
-		_ = stdout.Close()           //nolint:errcheck // best-effort cleanup of the transcript buffer
-		_ = os.Remove(stdout.Name()) //nolint:errcheck // best-effort cleanup of the transcript buffer
+		_ = stdout.Close()           // best-effort cleanup of the transcript buffer
+		_ = os.Remove(stdout.Name()) // best-effort cleanup of the transcript buffer
 	}()
 	var stderr strings.Builder
 	cmd := exec.CommandContext(ctx, "codex", args...)
@@ -235,7 +236,7 @@ func codexSkillInventory(a arm) (map[string]string, error) {
 		return inventory, nil
 	}
 	if a.home == "" {
-		return nil, fmt.Errorf("codex arm home is missing")
+		return nil, errors.New("codex arm home is missing")
 	}
 	root := filepath.Join(codexHomeDir(a.home), "skills")
 	entries, err := os.ReadDir(root)
@@ -264,7 +265,7 @@ func codexSkillInventory(a arm) (map[string]string, error) {
 		}
 	}
 	if len(inventory) == 0 {
-		return nil, fmt.Errorf("staged codex arm has no Go skills")
+		return nil, errors.New("staged codex arm has no Go skills")
 	}
 	return inventory, nil
 }

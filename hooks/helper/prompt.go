@@ -414,24 +414,7 @@ func promptParse() {
 		fmt.Println(pick(newCode.MatchString(prompt), "new", ""))
 		fmt.Println(pick(speedRequest.MatchString(prompt), "speed", ""))
 		files := targetFiles(prompt, cwd, false)
-		// A package that already has tests: a change to its code edits them,
-		// so the note names go-testing without leaving that forecast to the
-		// model.
-		tested := false
-		for i, f := range files {
-			dir := filepath.Dir(f)
-			if i > 0 && dir == filepath.Dir(files[i-1]) {
-				continue // goFiles lists a directory's files together
-			}
-			entries, err := os.ReadDir(dir)
-			if err != nil {
-				continue // unreadable: the note keeps its conditional form
-			}
-			tested = tested || slices.ContainsFunc(entries, func(e os.DirEntry) bool {
-				return strings.HasSuffix(e.Name(), "_test.go")
-			})
-		}
-		fmt.Println(pick(tested, "tests", ""))
+		fmt.Println(pick(hasTests(files), "tests", ""))
 		for _, p := range files[:min(len(files), 40)] {
 			fmt.Println(p)
 		}
@@ -519,4 +502,27 @@ func sessionKey() {
 		key += "/" + agent
 	}
 	fmt.Println(key)
+}
+
+// hasTests reports whether a package among files, which goFiles lists one
+// directory at a time, already has a test file. A change to its code edits
+// those tests, so the note names go-testing without leaving that forecast to
+// the model.
+func hasTests(files []string) bool {
+	for i, f := range files {
+		dir := filepath.Dir(f)
+		if i > 0 && dir == filepath.Dir(files[i-1]) {
+			continue
+		}
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue // unreadable: the note keeps its conditional form
+		}
+		if slices.ContainsFunc(entries, func(e os.DirEntry) bool {
+			return strings.HasSuffix(e.Name(), "_test.go")
+		}) {
+			return true
+		}
+	}
+	return false
 }

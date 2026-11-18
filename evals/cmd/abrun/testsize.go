@@ -29,7 +29,7 @@ func (s *testSizeSum) add(d metrics) {
 }
 
 // line renders the per-run means, or a dash when no run was measured.
-func (s testSizeSum) line(valid int) string {
+func (s *testSizeSum) line(valid int) string {
 	if s.Runs == 0 {
 		return "tests Δ/run: — (not measured in this report)"
 	}

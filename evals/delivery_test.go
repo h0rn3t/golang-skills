@@ -132,7 +132,7 @@ func TestRouterSectionsLead(t *testing.T) {
 		}
 		off, line := 0, 1
 		found := false
-		for _, ln := range strings.Split(string(raw), "\n") {
+		for ln := range strings.SplitSeq(string(raw), "\n") {
 			if ln == tc.heading {
 				found = true
 				break
@@ -249,7 +249,7 @@ var hostHookCondition = regexp.MustCompile(`Where the (Claude Code )?plugin( edi
 
 func hookParagraphs(text string) []string {
 	var paras []string
-	for _, chunk := range strings.Split(text, "\n\n") {
+	for chunk := range strings.SplitSeq(text, "\n\n") {
 		paras = append(paras, strings.Split("\n"+chunk, "\n- ")[1:]...)
 		if !strings.Contains(chunk, "\n- ") && !strings.HasPrefix(chunk, "- ") {
 			paras = append(paras, chunk)

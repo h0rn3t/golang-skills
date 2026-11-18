@@ -3,6 +3,7 @@ package evals_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -66,6 +67,34 @@ func TestLintInstallPinMatchesCI(t *testing.T) {
 	}
 }
 
+// TestRepoLintConfigTracksBundled keeps the repository's own .golangci.yml on
+// the bundled linter set: golangci-lint has no config inheritance, so the
+// root file copies the bundled linters block verbatim and adds only its
+// exclusions. A linter or setting changed in one copy alone fails here.
+func TestRepoLintConfigTracksBundled(t *testing.T) {
+	t.Parallel()
+	root := repoRoot(t)
+	bundled, err := os.ReadFile(filepath.Join(root, "skills", "go-linting", "assets", "golangci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo, err := os.ReadFile(filepath.Join(root, ".golangci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, linters, ok := bytes.Cut(bundled, []byte("\nlinters:\n"))
+	if !ok {
+		t.Fatal("bundled golangci.yml has no top-level linters block")
+	}
+	linters, _, ok = bytes.Cut(linters, []byte("\n  exclusions:\n"))
+	if !ok {
+		t.Fatal("bundled golangci.yml has no linters.exclusions block")
+	}
+	if !bytes.Contains(repo, append([]byte("\nlinters:\n"), linters...)) {
+		t.Error(".golangci.yml linters block differs from skills/go-linting/assets/golangci.yml; copy it from \"linters:\" to its exclusions")
+	}
+}
+
 // TestBundledLintConfig runs the bundled golangci.yml over fixtures/lint, one
 // scenario per file. The edit hook lints with this config when a repository
 // has none, and go-style-core says a finding it prints is fixed, so a finding
@@ -78,10 +107,10 @@ func TestBundledLintConfig(t *testing.T) {
 	root := repoRoot(t)
 	config := filepath.Join(root, "skills", "go-linting", "assets", "golangci.yml")
 	jsonPath := filepath.Join(t.TempDir(), "report.json")
-	cmd := exec.Command(golangciLint, "run", "--config", config, "--output.json.path", jsonPath, "./...")
+	cmd := exec.CommandContext(t.Context(), golangciLint, "run", "--config", config, "--output.json.path", jsonPath, "./...")
 	cmd.Dir = filepath.Join(root, "evals", "fixtures", "lint")
 	if out, err := cmd.CombinedOutput(); err != nil {
-		if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() != 1 {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); !ok || exitErr.ExitCode() != 1 {
 			t.Fatalf("golangci-lint run: %v, want exit 0 or 1\n%s", err, out)
 		}
 	}

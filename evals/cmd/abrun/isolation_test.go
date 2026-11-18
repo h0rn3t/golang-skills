@@ -14,7 +14,7 @@ func TestClaudeRunsWithoutOperatorContext(t *testing.T) {
 	bin := t.TempDir()
 	cli := filepath.Join(bin, "claude")
 	writeTestFile(t, cli, "#!/bin/sh\nprintf '%s %s' \"$CLAUDE_CODE_DISABLE_CLAUDE_MDS\" \"$CLAUDE_CODE_DISABLE_AUTO_MEMORY\"\n")
-	if err := os.Chmod(cli, 0o700); err != nil { //nolint:gosec // G302: the fake CLI has to be executable
+	if err := os.Chmod(cli, 0o700); err != nil { // the fake CLI has to be executable
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))

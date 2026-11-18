@@ -2,6 +2,7 @@ package evals_test
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -52,7 +53,7 @@ func TestCodexEditHook(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			cmd := exec.Command("bash", filepath.Join(repoRoot(t), "hooks/go-hook-helper.sh"), "codex-edit")
+			cmd := exec.CommandContext(t.Context(), "bash", filepath.Join(repoRoot(t), "hooks/go-hook-helper.sh"), "codex-edit")
 			cmd.Stdin = strings.NewReader(string(body))
 			cmd.Env = append(os.Environ(), "PLUGIN_ROOT="+repoRoot(t), "CLAUDE_PLUGIN_ROOT="+repoRoot(t), "CLAUDE_PLUGIN_DATA="+state, "GOLANG_SKILLS_EDIT_LINT=off", "GOLANG_SKILLS_EDIT_TESTS=off")
 			var stdout, stderr strings.Builder
@@ -80,7 +81,7 @@ func TestCodexEditHook(t *testing.T) {
 				}
 				return
 			}
-			exitErr, ok := err.(*exec.ExitError)
+			exitErr, ok := errors.AsType[*exec.ExitError](err)
 			if !ok || exitErr.ExitCode() != 2 {
 				t.Fatalf("unformatted edit: %v, stdout %q, stderr %q; want exit 2", err, stdout.String(), stderr.String())
 			}

@@ -159,7 +159,7 @@ func TestHTTPExampleHeadNotAllowed(t *testing.T) {
 	recipe := exampleBlock(t, "skills/go-http/SKILL.md", "Only when the contract makes `HEAD` a 405")
 	handler := regexp.MustCompile(`s\.handle\w+`)
 	var routes []string
-	for _, line := range strings.Split(routing, "\n") {
+	for line := range strings.SplitSeq(routing, "\n") {
 		if strings.HasPrefix(line, "mux.HandleFunc(") {
 			routes = append(routes, handler.ReplaceAllString(line, "served"))
 		}

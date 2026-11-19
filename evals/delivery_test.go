@@ -164,6 +164,7 @@ func TestCompactionKeepsPerEditRules(t *testing.T) {
 		file, heading string
 		before        []string
 	}{
+		{"skills/go-code/SKILL.md", "## Security Check", []string{"## Close With The Gate"}},
 		{"skills/go-code/SKILL.md", "## Close With The Gate", []string{"## Writing New Code"}},
 		{"skills/go-code-review/SKILL.md", "## Security", []string{"## HTTP"}},
 		{"skills/go-code-review/SKILL.md", "## HTTP", []string{"## Database"}},

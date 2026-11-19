@@ -4,6 +4,21 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- Check security in the `go-code` implementation workflow. Plan boundary
+  cases before writing new code, then review the final diff and report the
+  security evidence before handoff.
+- Trace sensitive operations back to their entry points in security reviews.
+  Compare allowed and denied access using the returned data or stored state
+  as evidence. The gatekeeper review eval now pairs a tenant-selection defect
+  with the membership check that correctly guards the route.
+- Load `go-security` for a new or changed handler that reads client input:
+  `go-code` step 3 names it, the Security Check asks who may act, what the
+  input may set, and what the answer exposes, and new code reports a
+  `security:` line. The prompt hook names `go-security` for an HTTP handler
+  stub whose contract reads a request body.
+- Load `go-security` in a code review for code that checks who may act or
+  handles secrets, tokens, or personal data, with or without HTTP.
+
 ## [1.51.0] - 2026-11-18
 
 - Start the Go Reader Pass from the current task's diff and keep

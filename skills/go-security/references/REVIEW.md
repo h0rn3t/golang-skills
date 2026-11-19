@@ -1,8 +1,8 @@
 # Security Review Mode
 
-> Sources: OWASP Go-SCP; OWASP API Security Top 10 (2023); Cloudflare security-audit skill (MIT) for the every-door and finding-gate method
+> Sources: OWASP Go-SCP, OWASP API Security Top 10 (2023), Cloudflare security-audit skill (MIT; every-door and finding-gate method), [Claude-BugHunter triage-validation](https://github.com/elementalsouls/Claude-BugHunter/blob/main/skills/triage-validation/SKILL.md) and [evidence-hygiene](https://github.com/elementalsouls/Claude-BugHunter/blob/main/skills/evidence-hygiene/SKILL.md) (controls and evidence handling)
 > Authority: advisory
-> Last verified: 2026-10-30
+> Last verified: 2026-11-19
 
 When asked to audit, trace **data flow**, not files: start at every input
 (`r.Form`, `r.Body`, `r.PathValue`, headers and cookies, `os.Args`,
@@ -22,6 +22,12 @@ caller acting on its own data with its own rights crosses nothing.
   batch and export endpoints, the background job, the gRPC stream beside the
   unary method. The weakest one is the control; compare the checks, not only
   that each door has one.
+- **Trace back from the effect**: for a sensitive read, write, or disclosure,
+  start at the operation and follow its callers back to the entry points.
+  At each hop, check where the principal, tenant, and resource ID come from
+  and whether the operation uses the same values the authorization checked.
+  Include deferred work and cached or exported copies that can return the
+  same data. Check retrieval separately when it has its own access check.
 - **Variants**: after a finding, search the package for the same shape and
   report each reachable copy; a fix in one caller leaves its siblings open.
 - **Hardening, not a finding**: a missing layer behind a working one (no
@@ -48,9 +54,41 @@ Fully defeats or only weakens decides high against medium. A handler panic
 [go-code-review](../../go-code-review/SKILL.md) pass, each finding goes into that
 skill's template with its `verified`/`plausible` marker: a crossing you can
 name is Must Fix, ordered by rank; low and hardening lines are Should Fix.
-`verified` means a test you ran shows the effect — two dummy tenants through
-`httptest`, the forged input, the wrong answer — never a request to a
-running deployment.
+`verified` means a test you ran locally shows the effect, never a request to
+a running deployment.
+
+## Check an implementation
+
+Before editing a trust boundary, identify the caller, protected operation or
+data, and required control. In new code's Contract Table, cover allowed and
+denied behavior for new or changed access paths and rejection for new or
+changed input controls. Reuse cases that exercise the control through the
+affected entry point.
+
+Review the final diff and the paths it affects. Follow the applicable review
+rules above, including alternate entry points and error paths. At the sensitive
+operation, verify that the code uses the principal, tenant, and resource that
+the authorization checked. With a shell, run applicable cases with the gate
+and use the checks below to verify the effect. Fix confirmed security defects
+introduced by the task and recheck. When tests cannot run, report what was checked in
+source and which results remain unverified.
+
+## Validate the effect
+
+- For access control, compare an allowed case with a denied case for the
+  same operation on the same dummy resource. Keep the input and resource
+  fixed and vary the caller, membership, or permission under review. For
+  HTTP, use `httptest` with the registered router and its middleware so the
+  test exercises the same checks as the application.
+- Read the order of parsing, authorization, and the business operation. A
+  `400` can come from a parser before authorization runs. Use well-formed
+  input when checking access. Check the protected data returned for reads
+  and the protected state after a write attempt. A status code alone does
+  not establish a finding. Mark a source-grounded candidate `plausible`
+  when a named condition still needs verification.
+- Report the observed outcome, the relevant source locations, and any
+  control you could only inspect in source. Use dummy records in local tests
+  and redact secrets and personal data from any evidence in the review.
 
 > **Validation**: add `go test -fuzz=^FuzzDecode$ -fuzztime=30s` on any
 > hand-written parser at a boundary, with that parser's fuzz target in place

@@ -16,8 +16,9 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
 
 - `../go-style-core/SKILL.md` — Load on every task (step 2); it carries the idiom card, and its references are read only for a decision the task requires.
 - `../go-linting/SKILL.md` — With a shell, load alongside go-style-core at step 2; its gate and receipt verifier close step 6.
+- `../go-security/SKILL.md` — Load before a security-sensitive edit. Use `../go-security/references/REVIEW.md` for the [Security Check](#security-check) on a changed trust boundary.
 - `references/INTENSITY.md` — Read when the prompt carries `lite` or `ultra` (`/go-code ultra <task>`, `ultra mode`): what each level changes.
-- `references/NEW-CODE-EXAMPLES.md` — Read when the shape of a Contract Table case, Plain Code body, or budgeted helper is in doubt.
+- `references/NEW-CODE-EXAMPLES.md` — Read for examples of Contract Tables, Plain Code bodies, budgeted helpers, and business-rule chains.
 - `../go-http/references/JSON-V2.md` — Read when choosing a JSON API or changing wire defaults.
 - `../go-code-refactor/references/LADDER.md` — Read before the first edit on every task, unless `## The Restraint Ladder` is already in context (the plugin's session-start hook prints from that heading to the end of the file): step 5 climbs it for each added entity.
 - `../go-code-refactor/references/OVER-ENGINEERING.md` — Read its replacement table only when seeking a simpler existing API.
@@ -34,7 +35,7 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    in the same initial Skill message. `go-style-core` carries the
    idiom card. Then inspect repository instructions, `go.mod` (its `go`
    directive sets the idiom), neighboring code and tests. Without a shell
-   tool, step 6 runs nothing and `go-linting` stays unread. A new function,
+   tool, skip commands at step 6 and leave `go-linting` unread. A new function,
    package, or stub body makes step 4 apply. A fix skips the table but adds
    one case that fails on the code before it and passes after
    ([go-troubleshooting](../go-troubleshooting/SKILL.md#fix-and-regression-proof)),
@@ -42,15 +43,17 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
 3. **Load the owners before the first edit.** Match the task against
    [Route Before The First Edit](#route-before-the-first-edit) and load each
    matched owner plus every `Also load` entry whose condition holds, all in
-   one message. When step 4 applies or the task is a fix, `go-testing` is one of them. Select by the decisions being changed: a routine local
+   one message. When step 4 applies or the task is a fix, `go-testing` is one of them.
+   A new or changed handler, RPC method, or consumer that reads a request
+   body, parameter, or message loads `go-security` in that message too. Select by the decisions being changed: a routine local
    variable or `if` triggers no owner. No edit before every selected skill is
    in context; add owners when new evidence requires them. Wait for successful
    Skill results before the edit message; do not dispatch loads and edits together.
 4. **Write the Contract Table, for new code only.** Turn the documentation
    and the request into the test file the [Contract Table](#contract-table)
    describes before the first production edit: a case written after the body
-   checks only what the body already does. Its cases are what step 6 runs or
-   reads.
+   checks only what the body already does. When the [Security Check](#security-check)
+   finds an affected boundary, its cases go in this table.
 5. **Implement the authorized scope.** Every task — new code, a fix, a
    restructuring — climbs the restraint ladder in
    [LADDER.md](../go-code-refactor/references/LADDER.md#the-restraint-ladder)
@@ -74,24 +77,25 @@ its `SKILL.md` is in context: the `Skill` tool where the host has one, else a re
    decision, state transitions, error exits, and write order easy to find.
    Keep a one-use name only when it exposes a domain boundary or state, and a
    helper only when it hides detail that obscures the caller's decision.
-   Inline any other wrapper and rerun the cases. Verify the resulting diff.
-   With a shell, use the `go-linting` skill, in
-   context since step 2 — **load it now only if it is not** (`Skill` tool
-   with the router's namespace, otherwise read its `SKILL.md`) — select the
-   gate scope, then run the Contract Table file with that gate.
+   Inline any other wrapper and rerun the cases. Before the gate, run the
+   [Security Check](#security-check) for new code and security-sensitive fixes.
+   With a shell, use `go-linting`. If absent, load it with the namespaced
+   `Skill` tool or read its `SKILL.md`. Select the gate scope and run the
+   Contract Table file with that gate.
    Hook receipts count only as [go-linting](../go-linting/SKILL.md#verification-gate)
    verifies them. Without a shell, read each case against its code path.
-   Report as [go-style-core](../go-style-core/SKILL.md#how-much-to-say) says,
-   in this shape and order:
+   Report in this [format](../go-style-core/SKILL.md#how-much-to-say):
 
    ```text
    <what the change does, in one sentence>
    checks: gofmt pass · build pass · vet pass · test -race pass · fix pass (2 pre-existing hunks) · lint pass · govulncheck skipped (no dependency change)
    added package-level declarations: 1 — parseLimit: handleList, handleSearch
+   security: body sets only title and due (case: owner_id in body → 400) · read scoped to caller's tenant (case: other tenant → 404)
    <one sentence per material gap, or nothing>
    ```
 
-   Name the test file and result, not each case.
+   Name the test file and result, not each case. New code always carries the
+   `security:` line: the control and its case, or `no trust boundary changed`.
 
 ## Route Before The First Edit
 
@@ -120,14 +124,30 @@ does not require `go-naming` or `go-documentation`.
 | package layout, imports, dependencies | [go-packages](../go-packages/SKILL.md) | — |
 | restructuring or deleting existing code | [go-code-refactor](../go-code-refactor/SKILL.md) | — |
 | linter config, CI checks | [go-linting](../go-linting/SKILL.md) | — |
-| HTTP handlers, routing, middleware, servers, clients; gRPC services and clients | [go-http](../go-http/SKILL.md) ([GRPC.md](../go-http/references/GRPC.md) for gRPC) | [go-security](../go-security/SKILL.md) if input reaches a file, shell, URL, or template |
+| HTTP handlers, routing, middleware, servers, clients; gRPC services and clients | [go-http](../go-http/SKILL.md) ([GRPC.md](../go-http/references/GRPC.md) for gRPC) | [go-security](../go-security/SKILL.md) for new or changed entry points or when input reaches a file, shell, URL, or template |
 | SQL queries, transactions, repositories, migrations | [go-database](../go-database/SKILL.md) | [go-security](../go-security/SKILL.md) if a request value picks a row by ID or names a column, table, or sort order |
-| untrusted input, secrets, tokens, TLS, cookies | [go-security](../go-security/SKILL.md) | [go-defensive](../go-defensive/SKILL.md) |
+| untrusted input, authentication, authorization, tenant or owner scoping, sensitive data, secrets, tokens, TLS, cookies | [go-security](../go-security/SKILL.md) | [go-defensive](../go-defensive/SKILL.md) |
 | retries, idempotency, circuit breakers, overload, backpressure, fallback | [go-resilience](../go-resilience/SKILL.md) | the HTTP, SQL, context, or concurrency owner when its mechanics change |
 | ticket, wrong result, environment regression, panic, hang, leak, flaky test; cause unknown | [go-troubleshooting](../go-troubleshooting/SKILL.md) | the owner of the mechanism once found |
 | JSON and other wire formats, struct tags | [go-http](../go-http/SKILL.md) ([JSON-V2.md](../go-http/references/JSON-V2.md)) | [go-defensive](../go-defensive/SKILL.md) (tags) |
 | CLI entry point, flags, `main`/`run` | [go-packages](../go-packages/SKILL.md) | — |
 | a list of findings from a review or audit | the rows the findings name | per area, not per task |
+
+## Security Check
+
+An entry point the task adds or changes that reads client input or returns
+stored data is a trust boundary. Before the Contract Table, answer, each with
+a case:
+
+- **Who may act?** The operation uses the principal and tenant the check saw,
+  not ones the input names.
+- **What may the input set?** Decode into the client-writable fields, never
+  the stored record: its `Role`, `ID`, or owner field is set by any sender.
+- **What does the answer expose?** No hash, token, or internal field in the
+  response, error body, or log line.
+
+Apply [go-security's implementation checks](../go-security/references/REVIEW.md#check-an-implementation)
+before editing and on the final diff; report on step 6's `security:` line.
 
 ## Close With The Gate
 
@@ -358,31 +378,7 @@ exempt.
   service's complexity linters in its golangci config (`gocyclo`, `gocognit`,
   `funlen`, `nestif`) and stay clear of their limits, not at them.
 
-A fragment of an entry point in that shape. `planZoneChanges` validates every
-snapshot, then computes changes in period order: an uncovered period is
-cleared on bind and gets no change on unbind. A bad snapshot leaves the store
-untouched:
-
-```go
-	interval, ok, err := b.processingInterval()
-	if err != nil || !ok {
-		return false, err
-	}
-	snapshots, err := b.loadSnapshots(interval)
-	if err != nil {
-		return false, err
-	}
-	changes, err := planZoneChanges(interval, snapshots, data)
-	if err != nil {
-		return false, err
-	}
-	for _, change := range changes {
-		if err := b.setZone(change); err != nil {
-			return false, err
-		}
-	}
-	return true, nil
-```
+See [A Business Rule Chain](references/NEW-CODE-EXAMPLES.md#a-business-rule-chain).
 
 ## Related Skills
 

@@ -4,9 +4,7 @@
 > Authority: advisory
 > Last verified: 2026-09-19 against go1.27.1
 
-Read when the shape of a Contract Table case or a Plain Code body is in
-doubt. The rules live in the parent skill; this file only shows them applied
-once.
+Use these examples alongside the [parent skill](../SKILL.md).
 
 ## Contents
 
@@ -14,6 +12,7 @@ once.
 - [A Plain Code Body](#a-plain-code-body)
 - [A Name Used Once](#a-name-used-once)
 - [A Helper That Earns Its Line](#a-helper-that-earns-its-line)
+- [A Business Rule Chain](#a-business-rule-chain)
 
 ## A Contract Table
 
@@ -121,3 +120,30 @@ the domain rule. Request decoding is not such a step: bound, decode, and
 validate stay in the handler, as [go-http](../../go-http/SKILL.md#handler-shape)
 writes them. A helper that only forwards one call adds a name to follow
 without hiding meaningful detail.
+
+## A Business Rule Chain
+
+In this entry-point fragment, `planZoneChanges` validates every snapshot and
+computes changes in period order. Binding clears an uncovered period, while
+unbinding leaves it as it is. A bad snapshot leaves the store untouched.
+
+```go
+	interval, ok, err := b.processingInterval()
+	if err != nil || !ok {
+		return false, err
+	}
+	snapshots, err := b.loadSnapshots(interval)
+	if err != nil {
+		return false, err
+	}
+	changes, err := planZoneChanges(interval, snapshots, data)
+	if err != nil {
+		return false, err
+	}
+	for _, change := range changes {
+		if err := b.setZone(change); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
+```

@@ -21,7 +21,7 @@ those paths, with the standard-library defense that closes it.
 - `references/INJECTION.md` - Read when untrusted data reaches SQL, `os/exec`, a template or a template's source, a file path, an outbound URL, a redirect, or a decompressor, or is served back as a download.
 - `references/SECRETS-AND-CRYPTO.md` - Read when handling passwords, a login or reset flow, tokens, API keys, webhook signatures, TLS configuration, or choosing a hash or cipher.
 - `references/ACCESS-CONTROL.md` - Read when code decides who may act: auth middleware and route registration, the tenant a query uses, batch, export, import, or background jobs, a cache, model tool calls, mTLS, gRPC, or queue identity, an OAuth login, or CORS with credentials.
-- `references/REVIEW.md` - Read when asked to audit or find vulnerabilities, or when writing up and ranking a security finding inside a review.
+- `references/REVIEW.md` - Read for the security check on a changed trust boundary in `go-code`, when asked to audit or find vulnerabilities, or when ranking a security finding in a review.
 
 ## Quick Reference
 

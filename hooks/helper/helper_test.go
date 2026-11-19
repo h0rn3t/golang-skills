@@ -196,6 +196,9 @@ func TestPromptHints(t *testing.T) {
 		{"ctx passed on", "package p\n\nimport \"context\"\n\nfunc F(ctx context.Context) error { return g(ctx) }\n", nil},
 		{"context result", "package p\n\nimport \"context\"\n\nfunc WithTenant(ctx context.Context, tenant string) context.Context { return ctx }\n", []string{"go-context"}},
 		{"cancelling stub", "package p\n\nimport \"context\"\n\n// Run cancels the ctx of the jobs still running.\nfunc Run(ctx context.Context) error { panic(\"not implemented\") }\n", []string{"go-context"}},
+		{"handler stub reading a body", "package p\n\nimport \"net/http\"\n\n// NewHandler decodes the body into the account.\nfunc NewHandler() http.Handler { panic(\"not implemented\") }\n", []string{"go-http", "go-security"}},
+		{"handler stub without a body", "package p\n\nimport \"net/http\"\n\n// NewHandler answers GET /health.\nfunc NewHandler() http.Handler { panic(\"not implemented\") }\n", []string{"go-http"}},
+		{"body without a handler", "package p\n\n// Parse reads the body of a mail.\nfunc Parse(s string) string { panic(\"not implemented\") }\n", nil},
 		{"cancel without a ctx", "package p\n\n// Cancel marks the order cancelled.\nfunc Cancel(id string) error { panic(\"not implemented\") }\n", nil},
 	}
 	for _, tt := range tests {

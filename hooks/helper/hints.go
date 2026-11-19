@@ -111,6 +111,12 @@ var (
 	retryContract = regexp.MustCompile(`(?is)\b(?:honor(?:s|ing)?|respect(?:s|ing)?|retr(?:ies|ied|ying))\b.{0,100}\b(?:Retry-After|backoff)\b|\bretry[^\w-].{0,99}\b(?:Retry-After|backoff)\b`)
 	// Cache-Control is not a cache.
 	cacheContract = regexp.MustCompile(`(?is)\bcach(?:e[sd]?|ing)[^\w-].{0,159}\bttl\b|\bttl\b.{0,160}\bcach(?:e[sd]?|ing)(?:[^\w-]|$)`)
+	httpServing   = regexp.MustCompile(`\bhttp\.(?:Handler|HandlerFunc|Request|ResponseWriter)\b`)
+	// A request body is client input a handler decodes: which fields it may
+	// set is go-security's decision. In abrun on 2026-11-19 no Haiku 5.5
+	// session of the account fixture loaded go-security from the routing
+	// table's Also-load column alone.
+	bodyContract = regexp.MustCompile(`(?i)\bbody\b`)
 )
 
 // canonical maps an import path to the name the owner patterns use for it.
@@ -223,7 +229,7 @@ func promptHints(path, text string) []string {
 		}
 	}
 	takesContext := contextType.MatchString(resolved) || (slices.Contains(dot, "context") && matchesUnqualified(dotContext, resolved))
-	out = append(out, stubOwners(lexical, literals, comments, takesContext)...)
+	out = append(out, stubOwners(lexical, literals, comments, takesContext, httpServing.MatchString(resolved))...)
 	return dedupe(out)
 }
 
@@ -301,7 +307,7 @@ func parseImports(lexical string, literals map[int]string) (imports map[string]s
 // stubOwners names the owners a stub's documented contract points at: a
 // panic("not implemented") body whose comments describe bounded workers,
 // retries, a cache with a ttl, or cancelling a ctx it takes.
-func stubOwners(lexical string, literals map[int]string, comments []string, takesContext bool) []string {
+func stubOwners(lexical string, literals map[int]string, comments []string, takesContext, servesHTTP bool) []string {
 	stub := false
 	for _, loc := range panicCall.FindAllStringIndex(lexical, -1) {
 		if literalAfter(lexical, loc[1], literals, func(v string) bool { return v == `"not implemented"` || v == "`not implemented`" }) {
@@ -326,6 +332,9 @@ func stubOwners(lexical string, literals map[int]string, comments []string, take
 	// and whose contract cancels work or bounds it in time derives a context.
 	if stub && takesContext && cancelContract.MatchString(contract) {
 		owners = append(owners, "go-context")
+	}
+	if stub && servesHTTP && bodyContract.MatchString(contract) {
+		owners = append(owners, "go-security")
 	}
 	return owners
 }

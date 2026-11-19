@@ -93,6 +93,13 @@
   ],
   "baits": [
     {
+      "id": "create-route-membership-check",
+      "file": "server.go",
+      "match": "if !s.store.IsMember(r.PathValue(\"org\"), p.UserID) {",
+      "span": 3,
+      "note": "the create route uses member, which authenticates and rejects callers outside the route organisation before createDoc reads the body. A validation error from createDoc is not evidence that this middleware was skipped. The paired defect tenant-from-body is in the handler's choice of organisation for the write"
+    },
+    {
       "id": "hashed-session-map-lookup",
       "file": "server.go",
       "match": "p, err := s.sessions.Lookup(hash)",

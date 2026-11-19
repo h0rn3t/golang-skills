@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.52.0] - 2026-11-19
+
 - Check security in the `go-code` implementation workflow. Plan boundary
   cases before writing new code, then review the final diff and report the
   security evidence before handoff.

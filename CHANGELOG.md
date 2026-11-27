@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.53.0] - 2026-11-27
+
 - Add `go-project-instructions` to audit, create, or update `AGENTS.md` and
   `CLAUDE.md` from Go module metadata, build recipes, CI, and existing project
   rules.

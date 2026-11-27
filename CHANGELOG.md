@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+## [1.53.1] - 2026-11-28
+
 ### Changed
 
 - `go-project-instructions` keeps the always-loaded guide to rules for every

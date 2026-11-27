@@ -3,8 +3,8 @@
 **English** | [Українська](README.uk.md)
 
 AI [Agent Skills](https://agentskills.io/) for writing idiomatic,
-production-quality Go 1.27 code. The pack contains **24 modular skills**,
-**79 reference files**, **10 bundled scripts**, and **4 asset templates**.
+production-quality Go 1.27 code. The pack contains **25 modular skills**,
+**80 reference files**, **10 bundled scripts**, and **4 asset templates**.
 The Claude Code plugin also ships a `go-verify` agent and hooks for routing and
 post-edit verification.
 
@@ -18,6 +18,11 @@ The pack covers routing, refactoring, review, HTTP, databases, security,
 resilience, troubleshooting, style, naming, errors, testing, concurrency,
 generics, logging, documentation, performance, and package organization.
 The current skill names are the directories under `skills/go-*/`.
+
+Use [`go-project-instructions`](skills/go-project-instructions/SKILL.md) to
+audit or update `AGENTS.md` and `CLAUDE.md` against the Go module layout,
+build recipes, and CI. For example, ask “Update AGENTS.md and CLAUDE.md for
+this Go repo. Verify the commands against CI.”
 
 ## Bundled Scripts
 
@@ -194,8 +199,8 @@ temporary directory does. The log rotates at 4 MB;
 ## Validation
 
 `evals/` contains the structural Go test suite, fixtures, golden tests, and
-the optional `evalrun`/`abrun` harnesses. It contains **110 trigger evals** and
-**75 quality evals**; `evalrun -kind quality -ids 65,66 -n 3 -no-skill` runs
+the optional `evalrun`/`abrun` harnesses. It contains **114 trigger evals** and
+**77 quality evals**; `evalrun -kind quality -ids 65,66 -n 3 -no-skill` runs
 chosen cases repeatedly without the plugin, the control a new case is checked
 against, and `-go-doc` lets the sessions check an API with `go doc`. Model-driven eval output is local scratch data and is not
 stored in this repository. The suite also checks every `SKILL.md` against
@@ -282,10 +287,10 @@ only the fixture package. Sessions have `Read`, `Glob`, `Grep`, `Edit`, and
   the benchmark verdict is *keep* with at least the fixture's minimum gain,
   and no bait changed; a decline task passes when behavior holds and the
   target is untouched.
-- **trigger evals** (110 prompts): only the `Skill` tool, three turns; a case
+- **trigger evals** (114 prompts): only the `Skill` tool, three turns; a case
   passes when every expected skill fires, and a negative case only when no
   Go skill does.
-- **quality evals** (75 prompts): read-only tools and fixture files; a second,
+- **quality evals** (77 prompts): read-only tools and fixture files; a second,
   plugin-free Claude session grades the answer against the case's assertions,
   and a case passes only when every assertion does. The `no-skill` bars rerun
   the same cases without the plugin.

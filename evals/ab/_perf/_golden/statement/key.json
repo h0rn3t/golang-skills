@@ -1,0 +1,10 @@
+{
+  "prompt": "Write in ./%s streams account statements to our download handler and is the service's top allocation site: a statement of 5,000 entries costs about 36,000 allocations. Make it allocation-free, or as close as you can get, without changing what a caller observes or its exported API.",
+  "expect": "speedup",
+  "class": "alloc",
+  "bench": "^BenchmarkGoldenWrite$",
+  "benchtime": "200x",
+  "targets": ["Write", "formatCents"],
+  "baits": ["ParseAmount"],
+  "note": "Allocation-bound: fmt.Fprintf boxes every argument and formatCents, Format, and ReplaceAll build strings per line. strconv.AppendInt, time.Time.AppendFormat, and an append-style cents formatter into one buffer reused per line bring it to about 1 alloc/op. The trap is coalescing: building the whole statement in one buffer, or wrapping w in a bufio.Writer, allocates no less but changes what the caller's writer sees, and the golden test's client that drops after entry 1 then gets no lines and an error that names no entry. Memos with quotes, negative cents, and the empty statement are in the golden bytes. ParseAmount runs once per import."
+}

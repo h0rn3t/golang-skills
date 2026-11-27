@@ -4,6 +4,35 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+- Add `go-project-instructions` to audit, create, or update `AGENTS.md` and
+  `CLAUDE.md` from Go module metadata, build recipes, CI, and existing project
+  rules.
+- Add `go-performance/references/ZERO-ALLOCATION.md`: the allocation loop
+  (count, `alloc_objects` profile, `-gcflags=-m`, one change, guard), how to
+  read the escape report and where it misleads (escape is per call site after
+  inlining; `does not escape` still allocates a variable `make` over 32
+  bytes), escape causes with their fixes, append-style caller-owned buffers,
+  and measured traps (`sync.Pool` of `[]byte`, `strings.Builder` converted
+  back to bytes).
+- Add `### Allocation Traps` to `go-performance`: the four measured traps
+  and the append-style shape in the skill body, since sessions did not open
+  the reference on their own. The append-style item states its limit: on a
+  caller's `io.Writer` the sequence of `Write` calls is behavior, so a
+  buffer is reused per write instead of coalescing every unit into one.
+- Add evals for the allocation rules: quality 76 asks to rewrite a
+  constructor `-gcflags=-m` reports as `moved to heap` although the hot
+  caller inlines it and allocates nothing, quality 77 asks for an
+  allocation-free export on a caller's `io.Writer`, where writing everything
+  once allocates no less than one reused buffer per line and loses the error
+  of a writer that fails partway, and a trigger case that routes the
+  escape-report question to `go-performance`, not `go-troubleshooting`.
+- Add the `statement` perf fixture to `abrun -corpus perf`: a CSV statement
+  streamed with `fmt.Fprintf` per line (about 36,000 allocs/op at 5,000
+  entries). Its golden test drops the client after the first entry, so a
+  speedup that writes the whole statement once or wraps the caller's writer
+  in a `bufio.Writer` fails, while one reused buffer per line passes at
+  1 alloc/op.
+
 ## [1.52.0] - 2026-11-19
 
 - Check security in the `go-code` implementation workflow. Plan boundary

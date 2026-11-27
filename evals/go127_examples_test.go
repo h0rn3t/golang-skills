@@ -69,6 +69,24 @@ func TestOwnership(t *testing.T) {
 `)
 }
 
+func TestZeroAllocationAppendExample(t *testing.T) {
+	code := exampleBlock(t, "skills/go-performance/references/ZERO-ALLOCATION.md", "## Caller-Owned Buffers")
+	runExampleTest(t, `package example
+import ("strconv"; "testing"; "unsafe")
+`+code+`
+func TestAppendLine(t *testing.T) {
+ buf := make([]byte, 0, 64)
+ for _, id := range []int{7, 12345} {
+  out := AppendLine(buf[:0], id, "gopher")
+  if want := strconv.Itoa(id) + " gopher\n"; string(out) != want { t.Errorf("AppendLine(%d) = %q, want %q", id, out, want) }
+  // Pointer identity shows the caller's array was reused without AllocsPerRun, which -race skews.
+  if unsafe.SliceData(out) != unsafe.SliceData(buf) { t.Errorf("AppendLine(%d) left the caller's buffer", id) }
+ }
+ if got := AppendLine([]byte("a "), 1, "b"); string(got) != "a 1 b\n" { t.Errorf("AppendLine kept prefix = %q, want %q", got, "a 1 b\n") }
+}
+`)
+}
+
 func TestGo127MapUpdateExample(t *testing.T) {
 	code := exampleBlock(t, "skills/go-data-structures/SKILL.md", "### Update and Filter an Existing Map")
 	runExampleTest(t, `package example

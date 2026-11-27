@@ -16,6 +16,7 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scripts/*)
 - `scripts/bench-verdict.go` - The statistics helper `bench-compare.sh --verdict` builds and calls; `scripts/bench-verdict_test.go` holds its unit tests. Neither is run or read directly.
 - `references/BENCHMARKS.md` - Read when writing benchmarks, using benchstat, or profiling with pprof.
 - `references/STRING-OPTIMIZATION.md` - Read when optimizing concatenation or memory retained by substrings.
+- `references/ZERO-ALLOCATION.md` - Read when the profile shows allocation and GC, or a hot path must reach 0 allocs/op: reading `-gcflags=-m`, escape causes, append-style APIs, pooling traps.
 - `references/RUNTIME.md` - Read when setting `GOMAXPROCS`, `GOGC`, `GOMEMLIMIT`, or a PGO profile, or removing `automaxprocs`.
 
 Apply performance-specific guidance to measured bottlenecks, including retained
@@ -240,7 +241,7 @@ Take the first class that reaches the speedup asked for, and stop:
    quadratic scan replaced by a set, one round trip per batch.
 2. Allocate less with what ships: a struct in place of `map[string]any`, one
    reused `Encoder` or buffer, `strconv.Append*`, a capacity known at the
-   call site.
+   call site; [Allocation Traps](#allocation-traps) before the change.
 3. Contend less: a shorter critical section, atomics for independent counters.
 4. More CPUs per request, only where CPUs sit idle under the real load — a
    batch job, not a server where every CPU already serves a request: there a
@@ -249,6 +250,28 @@ Take the first class that reaches the speedup asked for, and stop:
    escaper, a hash table), shards, cache-line padding, `unsafe`: each takes its
    own verdict against the best change from the classes above, and the report
    names the lines it added.
+
+### Allocation Traps
+
+Each looks like an allocation fix and adds one (`testing.AllocsPerRun`, Go 1.27):
+
+- `sync.Pool` of `[]byte`: every `Put` boxes the slice header, 1 alloc/op
+  (staticcheck SA6002). Pool `*bytes.Buffer` or `*[]byte`.
+- `strings.Builder` for two or three pieces, then `[]byte(b.String())`:
+  2 allocs where `+` costs 1 and two `io.WriteString` calls cost 0.
+- `-gcflags=-m` gives the reason, not the count: `does not escape` still
+  allocates a `make([]byte, n)` over 32 bytes, and `moved to heap` in a callee
+  is free in a caller that inlines it. `allocs/op` decides.
+- The shape that allocates nothing is append-style,
+  `AppendX(dst []byte, ...) []byte`, with the caller reusing `buf[:0]`. It
+  removes allocations, not writes: on an `io.Writer` the caller passed in,
+  the sequence of `Write` calls is behavior (a writer that fails on its third
+  call gets the error at the third unit). Code that wrote the header, each
+  row, and the trailer separately keeps those writes and reuses one buffer
+  per write: `buf = appendRow(buf[:0], r)`, then `w.Write(buf)`.
+
+[ZERO-ALLOCATION.md](references/ZERO-ALLOCATION.md) has the escape causes,
+how to read `-m`, and the allocation loop.
 
 ### Allocation Guard
 

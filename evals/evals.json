@@ -879,6 +879,46 @@
       ],
       "notes": "Inbound signature: raw-body HMAC, hmac.Equal, replay window; 'security' never said",
       "set": "validation"
+    },
+    {
+      "query": "Audit AGENTS.md and CLAUDE.md for this Go monorepo. Do the documented commands still match CI? Show me the issues before editing.",
+      "should_trigger": [
+        "go-project-instructions"
+      ],
+      "should_not_trigger": [
+        "go-code-review"
+      ],
+      "notes": "Read-only audit of project instructions rather than review of a Go diff",
+      "set": "train"
+    },
+    {
+      "query": "Актуалізуй AGENTS.md і CLAUDE.md: ми винесли Go-сервіси в окремі модулі, а старі команди збірки залишилися в обох файлах.",
+      "should_trigger": [
+        "go-project-instructions"
+      ],
+      "should_not_trigger": [
+        "go-code",
+        "go-code-refactor"
+      ],
+      "notes": "Update the instruction files after a module layout change",
+      "set": "validation"
+    },
+    {
+      "query": "Create an AGENTS.md for our React app with pnpm build and test commands.",
+      "should_trigger": [],
+      "notes": "An instruction filename alone does not make the project Go",
+      "set": "validation"
+    },
+    {
+      "query": "This Go hot path must reach 0 allocs/op. go build -gcflags=-m says the make([]byte, len(s)) buffer does not escape, but the benchmark still shows 1 allocs/op. Why, and how do I get it to zero?",
+      "should_trigger": [
+        "go-performance"
+      ],
+      "should_not_trigger": [
+        "go-troubleshooting"
+      ],
+      "notes": "Reading the escape report against allocs/op is go-performance (ZERO-ALLOCATION.md); the allocating line is already named, so the cause is not unknown",
+      "set": "validation"
     }
   ],
   "quality_evals": [
@@ -2135,6 +2175,40 @@
         "Mentions that downstream projects can add their own replace as a temporary workaround, or that a new library tag is needed"
       ],
       "set": "train"
+    },
+    {
+      "id": 76,
+      "prompt": "Our Go 1.27 CSV hot path must be allocation-free. A teammate ran go build -gcflags=-m and grepped for heap moves; the only hit in this file is `./cursor.go:16:2: moved to heap: c`. They want to change newCursor to return a cursor value and update every caller, or to pool cursors with sync.Pool. CountFields runs per input line; Keep runs once at startup. Decide what to change.\n\n```go\ntype cursor struct {\n\tbuf []byte\n\tpos int\n}\n\nfunc newCursor(b []byte) *cursor {\n\tc := cursor{buf: b}\n\treturn &c\n}\n\nfunc (c *cursor) next() (byte, bool) {\n\tif c.pos >= len(c.buf) {\n\t\treturn 0, false\n\t}\n\tb := c.buf[c.pos]\n\tc.pos++\n\treturn b, true\n}\n\nfunc CountFields(line []byte) int {\n\tc := newCursor(line)\n\tn := 1\n\tfor {\n\t\tb, ok := c.next()\n\t\tif !ok {\n\t\t\treturn n\n\t\t}\n\t\tif b == ',' {\n\t\t\tn++\n\t\t}\n\t}\n}\n\nvar last *cursor\n\nfunc Keep(line []byte) { last = newCursor(line) }\n```\n\nDo not run commands.",
+      "trap": "moved to heap in a callee describes its non-inlined body; newCursor is inlined into CountFields, where the cursor stays on the stack (0 allocs/op), so the proposed rewrite or pool fixes nothing on the hot path.",
+      "expected_output": "No change to newCursor. Escape analysis is decided per call site after inlining: newCursor is small enough to inline, so in CountFields the cursor does not escape and the hot path already allocates 0 per call. Only Keep allocates (once), because it stores the pointer in a package variable, which is off the hot path. Confirm with testing.AllocsPerRun or -benchmem on CountFields, or with the -m lines at the caller (inlining call to newCursor), before touching code; a sync.Pool would add work, not remove an allocation.",
+      "target_skills": [
+        "go-performance"
+      ],
+      "assertions": [
+        "States that the escape report is per call site after inlining: newCursor is inlined into CountFields, so the moved-to-heap line describes the callee's own body, not the hot path",
+        "Concludes that CountFields does not allocate the cursor and recommends no rewrite of newCursor for the hot path; any value-returning rewrite shown is marked optional or unnecessary",
+        "Says to confirm with an allocation count (testing.AllocsPerRun or -benchmem on CountFields) or with the -m output at the caller's line before changing code",
+        "Identifies Keep as the call site that really allocates, because it stores the pointer in a package variable, and treats it as not worth changing since it runs once",
+        "Does not introduce sync.Pool for cursors and does not claim to have run commands"
+      ],
+      "set": "validation"
+    },
+    {
+      "id": 77,
+      "prompt": "Make this Go 1.27 export allocation-free, or as close as the API allows, without changing behavior. alloc_objects puts 300 allocs/op at 100 rows, all under fmt.Fprintf. w is whatever the caller passes.\n\n```go\nfunc ExportLedger(w io.Writer, rows []Row) error {\n\tif _, err := fmt.Fprintf(w, \"id,name,amount\\n\"); err != nil {\n\t\treturn err\n\t}\n\tfor _, r := range rows {\n\t\tif _, err := fmt.Fprintf(w, \"%d,%s,%d\\n\", r.ID, r.Name, r.Amount); err != nil {\n\t\t\treturn fmt.Errorf(\"row %d: %w\", r.ID, err)\n\t\t}\n\t}\n\t_, err := fmt.Fprintf(w, \"total,%d\\n\", len(rows))\n\treturn err\n}\n```\n\nRow is struct{ ID int; Name string; Amount int64 }. Do not run commands.",
+      "trap": "Building the whole export in one buffer and calling w.Write once costs the same 1 alloc/op as reusing a buffer per line, but changes behavior: a writer that fails on the third call returns row 1001: disk full today and nil after coalescing.",
+      "expected_output": "Append-style formatting (strconv.AppendInt and append) into one buffer reused with buf[:0], keeping one Write for the header, one per row, and one for the trailer, and the row %d: %w wrapping on a failed row write. That is 1 alloc/op at any row count (the buffer escapes through the io.Writer interface; 0 in steady state only with a caller-owned buffer or a sync.Pool of *[]byte or *bytes.Buffer), down from 300. Collecting everything and writing once allocates no less and changes which Write fails and what error the caller sees, so it is not part of this change. An AllocsPerRun or -benchmem check keeps the count.",
+      "target_skills": [
+        "go-performance"
+      ],
+      "assertions": [
+        "Replaces fmt.Fprintf with append-style formatting (strconv.AppendInt, append) into a buffer reused across writes, so the allocation count no longer grows with the number of rows",
+        "Keeps a separate Write for the header, for each row, and for the trailer instead of building the whole export and calling w.Write once; if coalescing is mentioned, it is presented as a separate behavior change, not part of the fix",
+        "Explains that the number and order of Write calls on the caller's writer is observable behavior, e.g. a writer failing partway or streaming output would see a different result",
+        "Preserves the output bytes and the row %d: %w error for the failing row",
+        "Proposes an allocation-count guard (testing.AllocsPerRun or a -benchmem benchmark) that keeps the count from growing with rows again, without claiming to have run it"
+      ],
+      "set": "validation"
     }
   ]
 }

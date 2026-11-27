@@ -4,6 +4,20 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- `go-project-instructions` keeps the always-loaded guide to rules for every
+  task, gives the agent the commands to verify its own change, names the
+  check behind an enforced rule instead of restating it, adds rules only on
+  evidence, flags rules duplicated across guides, and reports the
+  always-loaded line count before and after an update. It also flags a
+  guide over 200 lines, a link that does not say when to read its target,
+  and a guide never updated since creation while the build changed, and
+  keeps project-independent agent behavior rules out of the project guide.
+  Rules are reworded to a concrete command or path, `@path` imports count
+  toward the size budget, and a `CLAUDE.md` that asks in prose to read
+  `AGENTS.md` gets an `@AGENTS.md` import instead.
+
 ## [1.53.0] - 2026-11-27
 
 - Add `go-project-instructions` to audit, create, or update `AGENTS.md` and
